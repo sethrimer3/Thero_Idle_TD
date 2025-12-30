@@ -88,19 +88,7 @@
               <span class="offline-number" id="offline-bet-total">0</span>
               <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">בּ</span>
               <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Serendipity</span>
-            </div>
-          </div>
-          <div class="offline-overlay__equation-row offline-overlay__equation-row--continuation" id="offline-happiness-row" aria-label="Bet happiness idle gains">
-            <span class="offline-overlay__label offline-overlay__label--placeholder" aria-hidden="true"></span>
-            <div class="offline-overlay__equation offline-overlay__equation--continuation">
-              <span class="offline-symbol">×</span>
-              <span class="offline-number" id="offline-happiness-multiplier">0</span>
-              <span class="offline-symbol">=</span>
-              <span class="offline-number" id="offline-happiness-total">0</span>
-              <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">בּ</span>
-              <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Happiness</span>
+              <span class="offline-resource__label">Scintillae</span>
             </div>
           </div>
           <div class="offline-overlay__equation-row" id="offline-lamed-row" aria-label="Lamed idle gains">
@@ -504,6 +492,15 @@
                   </button>
                   <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
                     Tower Toggle · Left
+                  </button>
+                  <button
+                    class="action-button ghost"
+                    type="button"
+                    id="loadout-slot-button"
+                    aria-live="polite"
+                    aria-label="Cycle loadout slots"
+                  >
+                    Slots · 2
                   </button>
                   <button class="action-button ghost playfield-settings-close" type="button">Close</button>
                 </div>
@@ -4565,21 +4562,6 @@
                 </div>
               </div>
             </article>
-            <article class="card loadout-slots-card">
-              <div class="loadout-slots-copy">
-                <h3>Loadout Slots</h3>
-                <p>Choose how many glyphs to keep ready. Long-press a loadout slot to swap towers mid-defense.</p>
-              </div>
-              <button
-                class="action-button ghost"
-                type="button"
-                id="loadout-slot-button"
-                aria-live="polite"
-                aria-label="Cycle loadout slots"
-              >
-                Slots · 2
-              </button>
-            </article>
             <article class="card">
               <h3>Field Notes</h3>
               <p>Consult the archivist for a briefing on the current storyline.</p>
@@ -4848,7 +4830,7 @@
                   <p class="developer-control-hint">Manually set Kuf glyph earnings from tactics.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-drop-rate">Bet Spire Serendipity rate</label>
+                  <label for="developer-bet-drop-rate">Bet Spire Scintillae rate</label>
                   <input
                     type="number"
                     id="developer-bet-drop-rate"
@@ -4857,10 +4839,10 @@
                     step="0.01"
                     inputmode="decimal"
                   />
-                  <p class="developer-control-hint">Set Serendipity per second for Bet Spire.</p>
+                  <p class="developer-control-hint">Set Scintillae per second for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-bank">Bet Spire Serendipity reserve</label>
+                  <label for="developer-bet-bank">Bet Spire Scintillae reserve</label>
                   <input
                     type="number"
                     id="developer-bet-bank"
@@ -4869,7 +4851,7 @@
                     step="1"
                     inputmode="numeric"
                   />
-                  <p class="developer-control-hint">Override the stored Serendipity reserve for Bet Spire.</p>
+                  <p class="developer-control-hint">Override the stored Scintillae reserve for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
                   <label for="developer-iteron-bank">Shin Spire iteron bank</label>

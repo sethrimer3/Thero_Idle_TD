@@ -55,7 +55,7 @@ export function createPowderStateContext() {
     // Track whether initial page load restoration has been completed (once per session)
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
-    // Persist Bet Spire happiness generation tied to Serendipity purchases.
+    // Persist Bet Spire happiness generation tied to Scintillae purchases.
     betHappiness: {
       bank: 0,
       producers: { slime: 0 },
