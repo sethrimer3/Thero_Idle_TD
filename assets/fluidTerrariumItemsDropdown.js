@@ -84,8 +84,8 @@ export class FluidTerrariumItemsDropdown {
    * @param {HTMLElement} options.dropdownContainer - Container that holds the dropdown list.
    * @param {HTMLElement} options.emptyMessage - Element shown when no items are present.
    * @param {HTMLElement} options.itemsList - UL element for item entries.
-   * @param {Function} options.getSerendipityBalance - Returns current serendipity balance.
-   * @param {Function} options.spendSerendipity - Spends serendipity; returns amount spent.
+   * @param {Function} options.getScintillaeBalance - Returns current serendipity balance.
+   * @param {Function} options.spendScintillae - Spends serendipity; returns amount spent.
    * @param {Function} options.getProducerCount - Gets the count/level for a producer ID.
    * @param {Function} options.setProducerCount - Sets the count/level for a producer ID.
    * @param {Function} options.getTreesState - Gets the current trees allocation state.
@@ -98,11 +98,11 @@ export class FluidTerrariumItemsDropdown {
     this.emptyMessage = options.emptyMessage || null;
     this.itemsList = options.itemsList || null;
 
-    this.getSerendipityBalance = typeof options.getSerendipityBalance === 'function'
-      ? options.getSerendipityBalance
+    this.getScintillaeBalance = typeof options.getScintillaeBalance === 'function'
+      ? options.getScintillaeBalance
       : () => 0;
-    this.spendSerendipity = typeof options.spendSerendipity === 'function'
-      ? options.spendSerendipity
+    this.spendScintillae = typeof options.spendScintillae === 'function'
+      ? options.spendScintillae
       : () => 0;
     this.getProducerCount = typeof options.getProducerCount === 'function'
       ? options.getProducerCount
@@ -355,8 +355,8 @@ export class FluidTerrariumItemsDropdown {
     const upgradeBtn = document.createElement('button');
     upgradeBtn.type = 'button';
     upgradeBtn.className = 'fluid-terrarium-items-list__upgrade-btn';
-    upgradeBtn.textContent = `Upgrade (${item.nextCost} Serendipity)`;
-    upgradeBtn.disabled = this.getSerendipityBalance() < item.nextCost;
+    upgradeBtn.textContent = `Upgrade (${item.nextCost} Scintillae)`;
+    upgradeBtn.disabled = this.getScintillaeBalance() < item.nextCost;
     upgradeBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -387,14 +387,14 @@ export class FluidTerrariumItemsDropdown {
    * @param {object} item
    */
   handleUpgrade(item) {
-    const balance = this.getSerendipityBalance();
+    const balance = this.getScintillaeBalance();
     const cost = Math.max(1, item.nextCost);
 
     if (balance < cost) {
       return;
     }
 
-    const spent = this.spendSerendipity(cost);
+    const spent = this.spendScintillae(cost);
     if (spent < cost) {
       return;
     }

@@ -1,6 +1,6 @@
 /**
  * Resource HUD module encapsulates DOM bindings and display refresh logic for top-level
- * resource counters (Thero multiplier, glyph currencies, mote/Serendipity badges, etc.).
+ * resource counters (Thero multiplier, glyph currencies, mote/Scintillae badges, etc.).
  *
  * The previous implementation lived inside `assets/main.js` and contributed to the file's
  * growth.  Extracting the logic into this factory keeps `main.js` focused on orchestration
@@ -193,7 +193,7 @@ export function createResourceHud({
     if (resourceElements.tabFluidBadge) {
       const tabStoredLabel = formatGameNumber(bankedDrops);
       resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-      resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Serendipity in reserve`);
+      resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Scintillae in reserve`);
       if (powderState.fluidUnlocked) {
         resourceElements.tabFluidBadge.removeAttribute('hidden');
         resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');

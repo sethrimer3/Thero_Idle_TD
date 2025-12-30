@@ -164,7 +164,7 @@ import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 import { FluidTerrariumCelestialBodies } from './fluidTerrariumCelestialBodies.js';
 // Phi and Psi shrooms for the Bet terrarium cave zones.
 import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
-// Bet Spire happiness production tracker fed by Serendipity purchases.
+// Bet Spire happiness production tracker fed by Scintillae purchases.
 import { createBetHappinessSystem } from './betHappiness.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
@@ -1042,7 +1042,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   // Fluid simulation has been disabled to prevent creation errors
   const FLUID_STUDY_ENABLED = false;
 
-  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
+  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Scintillae upon unlock.
 
   const {
     powderConfig,
@@ -1364,7 +1364,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       // islandSmallMaskUrl: './assets/sprites/spires/betSpire/terrarium/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       powderState: powderState,
-      spendSerendipity: spendFluidSerendipity,
+      spendScintillae: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
       onSlimePlace: handleSlimePlacement,
@@ -1797,7 +1797,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       emptyMessage: fluidElements.terrariumItemsEmpty,
       itemsList: fluidElements.terrariumItemsList,
       getSerendipityBalance: () => Math.max(0, Math.floor(powderState.fluidIdleBank || 0)),
-      spendSerendipity: (amount) => {
+      spendScintillae: (amount) => {
         const cost = Math.max(0, Math.round(amount));
         const balance = Math.max(0, powderState.fluidIdleBank || 0);
         if (balance < cost) {
@@ -3940,9 +3940,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   /**
-   * Deduct Serendipity (fluid idle bank) for interactive Bet Spire upgrades.
+   * Deduct Scintillae (fluid idle bank) for interactive Bet Spire upgrades.
    * @param {number} amount
-   * @returns {number} - Actual Serendipity spent
+   * @returns {number} - Actual Scintillae spent
    */
   function spendFluidSerendipity(amount) {
     const normalized = Math.max(0, Math.floor(amount));
@@ -5755,10 +5755,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
 
       if (fluidElements.reservoirValue) {
-        fluidElements.reservoirValue.textContent = '0 Serendipity';
+        fluidElements.reservoirValue.textContent = '0 Scintillae';
       }
       if (fluidElements.dripRateValue) {
-        fluidElements.dripRateValue.textContent = '0 Serendipity/sec';
+        fluidElements.dripRateValue.textContent = '0 Scintillae/sec';
       }
       if (fluidElements.stateLabel) {
         fluidElements.stateLabel.textContent = 'Dormant';
@@ -5865,25 +5865,25 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
     if (fluidElements.reservoirValue) {
-      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Serendipity`;
+      fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Scintillae`;
     }
 
     const drainRate = Number.isFinite(powderState.fluidIdleDrainRate)
       ? Math.max(0, powderState.fluidIdleDrainRate)
       : 0;
     if (fluidElements.dripRateValue) {
-      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Serendipity/sec`;
+      fluidElements.dripRateValue.textContent = `${formatDecimal(drainRate, 2)} Scintillae/sec`;
     }
 
     if (fluidElements.statusNote) {
       let message;
       const crestPercent = formatDecimal(crestNormalized * 100, 1);
       if (crestNormalized >= 1.2) {
-        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Serendipity condenses.`;
+        message = `Crest is ${crestPercent}% of the viewport—overflow is cycling while idle Scintillae condenses.`;
       } else if (crestNormalized >= 0.75) {
-        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Serendipity.`;
+        message = `Surface oscillates near the ridge (${crestPercent}%). This gauge tracks wave height, not stored Scintillae.`;
       } else {
-        message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Serendipity reserve total.`;
+        message = `Terrarium surface is calm (${crestPercent}%). Wave height is separate from the Scintillae reserve total.`;
       }
       fluidElements.statusNote.textContent = message;
     }
@@ -5919,7 +5919,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (resourceElements.tabFluidBadge) {
         const tabStoredLabel = formatGameNumber(normalized);
         resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Serendipity in reserve`);
+        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Scintillae in reserve`);
         if (powderState.fluidUnlocked) {
           resourceElements.tabFluidBadge.removeAttribute('hidden');
           resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');

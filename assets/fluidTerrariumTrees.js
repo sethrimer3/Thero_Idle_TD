@@ -447,7 +447,7 @@ export class FluidTerrariumTrees {
     this.storePanel = null;
     this.storeList = null;
     this.storeStatus = null;
-    // Badge that mirrors current Serendipity balance inside the store panel.
+    // Badge that mirrors current Scintillae balance inside the store panel.
     this.storeBalanceLabel = null;
     this.storeItemButtons = new Map();
     this.availableStoreItems = this.normalizeStoreItems(options.storeItems);
@@ -475,9 +475,9 @@ export class FluidTerrariumTrees {
     this.cameraMode = Boolean(storedState.cameraMode);
     this.isStoreOpen = typeof storedState.buttonMenuOpen === 'boolean' ? storedState.buttonMenuOpen : this.isStoreOpen;
 
-    this.getSerendipityBalance =
-      typeof options.getSerendipityBalance === 'function' ? options.getSerendipityBalance : () => 0;
-    this.spendSerendipity = typeof options.spendSerendipity === 'function' ? options.spendSerendipity : () => 0;
+    this.getScintillaeBalance =
+      typeof options.getScintillaeBalance === 'function' ? options.getScintillaeBalance : () => 0;
+    this.spendScintillae = typeof options.spendScintillae === 'function' ? options.spendScintillae : () => 0;
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
     this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
@@ -646,13 +646,13 @@ export class FluidTerrariumTrees {
     note.textContent = 'Pick a fractal object and tap the basin to place it.';
     panel.appendChild(note);
 
-    // Surface the current Serendipity reserve alongside the store instructions.
+    // Surface the current Scintillae reserve alongside the store instructions.
     const metaRow = document.createElement('div');
     metaRow.className = 'fluid-tree-store-meta';
 
     const balancePill = document.createElement('span');
     balancePill.className = 'fluid-tree-store-balance';
-    balancePill.textContent = '0 Serendipity';
+    balancePill.textContent = '0 Scintillae';
     metaRow.appendChild(balancePill);
     this.storeBalanceLabel = balancePill;
 
@@ -709,7 +709,7 @@ export class FluidTerrariumTrees {
     this.storeItemButtons.clear();
 
     this.availableStoreItems.forEach((item) => {
-      const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+      const balance = Math.max(0, Math.floor(this.getScintillaeBalance()));
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'fluid-tree-store-item';
@@ -745,8 +745,8 @@ export class FluidTerrariumTrees {
       cost.className = 'fluid-tree-store-item__cost';
       const shortfall = Math.max(0, Math.round(item.cost - balance));
       cost.textContent = shortfall > 0
-        ? `${item.cost} Serendipity (need ${shortfall})`
-        : `${item.cost} Serendipity`;
+        ? `${item.cost} Scintillae (need ${shortfall})`
+        : `${item.cost} Scintillae`;
       labelColumn.appendChild(cost);
 
       const tagsRow = document.createElement('div');
@@ -788,22 +788,22 @@ export class FluidTerrariumTrees {
   }
 
   /**
-   * Mirror the latest Serendipity balance into the store badge for quick budgeting.
+   * Mirror the latest Scintillae balance into the store badge for quick budgeting.
    */
   updateStoreBalanceDisplay() {
     if (!this.storeBalanceLabel) {
       return;
     }
-    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
-    this.storeBalanceLabel.textContent = `${balance} Serendipity`;
-    this.storeBalanceLabel.setAttribute('aria-label', `Serendipity balance ${balance}`);
+    const balance = Math.max(0, Math.floor(this.getScintillaeBalance()));
+    this.storeBalanceLabel.textContent = `${balance} Scintillae`;
+    this.storeBalanceLabel.setAttribute('aria-label', `Scintillae balance ${balance}`);
   }
 
   /**
-   * Lock or unlock store entries based on Serendipity balance while surfacing shortfalls.
+   * Lock or unlock store entries based on Scintillae balance while surfacing shortfalls.
    */
   refreshStoreAffordances() {
-    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+    const balance = Math.max(0, Math.floor(this.getScintillaeBalance()));
     this.storeItemButtons.forEach((entry) => {
       const button = entry?.button;
       const item = entry?.item;
@@ -821,8 +821,8 @@ export class FluidTerrariumTrees {
       if (costLabel) {
         const shortfall = Math.max(0, Math.round(item.cost - balance));
         costLabel.textContent = shortfall > 0
-          ? `${item.cost} Serendipity (need ${shortfall})`
-          : `${item.cost} Serendipity`;
+          ? `${item.cost} Scintillae (need ${shortfall})`
+          : `${item.cost} Scintillae`;
       }
     });
     this.updateStoreBalanceDisplay();
@@ -1008,19 +1008,19 @@ export class FluidTerrariumTrees {
   }
 
   /**
-   * Confirm the player holds enough Serendipity to purchase a store item.
+   * Confirm the player holds enough Scintillae to purchase a store item.
    * @param {object|null} storeItem
    */
   canAffordStoreItem(storeItem) {
     if (!storeItem) {
       return false;
     }
-    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+    const balance = Math.max(0, Math.floor(this.getScintillaeBalance()));
     return balance >= Math.max(0, Math.round(storeItem.cost || 0));
   }
 
   /**
-   * Spend Serendipity for a store purchase and return success status.
+   * Spend Scintillae for a store purchase and return success status.
    * @param {object|null} storeItem
    */
   purchaseStoreItem(storeItem) {
@@ -1034,7 +1034,7 @@ export class FluidTerrariumTrees {
     if (!this.canAffordStoreItem(storeItem)) {
       return false;
     }
-    const spent = this.spendSerendipity(cost);
+    const spent = this.spendScintillae(cost);
     const success = spent >= cost;
     if (success) {
       this.refreshStoreAffordances();
@@ -1058,8 +1058,8 @@ export class FluidTerrariumTrees {
       this.toggleStorePanel(true);
     }
     const statusMessage = this.canAffordStoreItem(item)
-      ? `Drag the stub or tap the basin to spend ${item.cost} Serendipity. Placements are temporary.`
-      : `Requires ${item.cost} Serendipity. Earn more to place this object.`;
+      ? `Drag the stub or tap the basin to spend ${item.cost} Scintillae. Placements are temporary.`
+      : `Requires ${item.cost} Scintillae. Earn more to place this object.`;
     this.setStoreStatus(statusMessage);
   }
 
@@ -1133,7 +1133,7 @@ export class FluidTerrariumTrees {
     this.activeStoreItemId = storeItem.id;
     this.updateStoreSelectionVisuals(storeItem.id);
     if (!this.canAffordStoreItem(storeItem)) {
-      this.setStoreStatus(`Requires ${storeItem.cost} Serendipity to place ${storeItem.label}.`);
+      this.setStoreStatus(`Requires ${storeItem.cost} Scintillae to place ${storeItem.label}.`);
       return;
     }
     this.draggedStoreItemId = storeItem.id;
@@ -1740,7 +1740,7 @@ export class FluidTerrariumTrees {
       return false;
     }
     if (!this.purchaseStoreItem(storeItem)) {
-      this.setStoreStatus(`Requires ${storeItem.cost} Serendipity to place ${storeItem.label}.`);
+      this.setStoreStatus(`Requires ${storeItem.cost} Scintillae to place ${storeItem.label}.`);
       return false;
     }
 
@@ -2447,7 +2447,7 @@ export class FluidTerrariumTrees {
     }
     const levelInfo = this.computeLevelInfo(tree.state.allocated || 0);
     const required = Math.max(1, Math.round(levelInfo.nextCost - levelInfo.progress));
-    const available = Math.max(0, Math.round(this.getSerendipityBalance()));
+    const available = Math.max(0, Math.round(this.getScintillaeBalance()));
     if (!available) {
       return;
     }
@@ -2488,7 +2488,7 @@ export class FluidTerrariumTrees {
    */
   allocateToTree(tree, amount, globalPoint, jitter = false) {
     const normalized = Math.max(1, Math.round(amount));
-    const spent = this.spendSerendipity(normalized);
+    const spent = this.spendScintillae(normalized);
     if (!spent) {
       return 0;
     }
@@ -2542,7 +2542,7 @@ export class FluidTerrariumTrees {
       if (!this.levelingMode) {
         return;
       }
-      if (!this.getSerendipityBalance()) {
+      if (!this.getScintillaeBalance()) {
         return;
       }
       event.preventDefault();

@@ -50,7 +50,7 @@ const PERFORMANCE_BUCKET_LABELS = {
   'update:towers': 'Towers',
   'update:enemies': 'Enemies',
   'update:projectiles': 'Projectiles',
-  'update:motes': 'Serendipity',
+  'update:motes': 'Scintillae',
   'update:hud': 'HUD & Progress',
   draw: 'Rendering',
   towers: 'Tower Total',
