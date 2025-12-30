@@ -544,8 +544,45 @@ export class KufBattlefieldSimulation {
     
     // Assign waypoint to selected units or all units
     const unitsToCommand = this.selectionMode === 'specific' ? this.selectedUnits : this.marines;
-    unitsToCommand.forEach((marine) => {
-      marine.waypoint = { x: worldX, y: worldY };
+    // Build a compact formation so each unit gets a unique waypoint with diameter spacing.
+    const formationAssignments = this.getFormationWaypoints(unitsToCommand, worldX, worldY);
+    unitsToCommand.forEach((marine, index) => {
+      // Apply the formation slot to the unit waypoint for group movement.
+      marine.waypoint = formationAssignments[index] || { x: worldX, y: worldY };
+    });
+  }
+
+  /**
+   * Generate formation waypoints centered on the target with diameter gaps between units.
+   * @param {Array<object>} units - Units that should be arranged into the formation.
+   * @param {number} targetX - Formation center X coordinate.
+   * @param {number} targetY - Formation center Y coordinate.
+   * @returns {Array<{x: number, y: number}>} Array of world-space waypoints per unit.
+   */
+  getFormationWaypoints(units, targetX, targetY) {
+    // Return a single waypoint when there are no units to arrange.
+    if (!units.length) {
+      return [{ x: targetX, y: targetY }];
+    }
+    // Use the largest unit radius to guarantee enough spacing for mixed unit sizes.
+    const maxRadius = Math.max(...units.map((unit) => unit.radius || MARINE_RADIUS));
+    // Keep units close while leaving roughly a diameter of space between them.
+    const spacing = Math.max(maxRadius * 4, 18);
+    // Calculate a near-square grid for even distribution around the center.
+    const columns = Math.ceil(Math.sqrt(units.length));
+    const rows = Math.ceil(units.length / columns);
+    // Precompute centered offsets to keep the formation anchored to the command point.
+    const offsetXStart = -((columns - 1) * spacing) / 2;
+    const offsetYStart = -((rows - 1) * spacing) / 2;
+
+    return units.map((_, index) => {
+      // Map the unit index to a row/column slot in the formation grid.
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const offsetX = offsetXStart + column * spacing;
+      const offsetY = offsetYStart + row * spacing;
+      // Center each waypoint on the commanded location.
+      return { x: targetX + offsetX, y: targetY + offsetY };
     });
   }
 
