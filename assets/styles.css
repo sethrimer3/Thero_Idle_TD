@@ -6804,6 +6804,30 @@ body.playfield-fullscreen .playfield canvas {
   margin-right: calc(-1 * var(--playfield-overlap-inline-right));
 }
 
+/* Constrain overlapping playfield to not exceed viewport boundaries */
+#playfield[data-overlap-level]:not([data-overlap-level='0']).playfield--portrait,
+#playfield[data-overlap-level]:not([data-overlap-level='0']):not(.playfield--landscape) {
+  /* Limit width based on both the expanded container width AND vertical viewport constraints */
+  width: min(
+    calc(100% + var(--playfield-overlap-inline-left) + var(--playfield-overlap-inline-right)),
+    100vw,
+    calc((var(--stable-vh) - 160px + var(--playfield-overlap-top)) * 9 / 16)
+  );
+  /* Ensure height respects viewport even with overlap */
+  max-height: calc(var(--stable-vh) - 160px + var(--playfield-overlap-top));
+}
+
+#playfield[data-overlap-level]:not([data-overlap-level='0']).playfield--landscape {
+  /* Limit width based on both the expanded container width AND vertical viewport constraints */
+  width: min(
+    calc(100% + var(--playfield-overlap-inline-left) + var(--playfield-overlap-inline-right)),
+    100vw,
+    calc((var(--stable-vh) - 160px + var(--playfield-overlap-top)) * 16 / 9)
+  );
+  /* Ensure height respects viewport even with overlap */
+  max-height: calc(var(--stable-vh) - 160px + var(--playfield-overlap-top));
+}
+
 @media (max-width: 640px) {
   /* Allow the Spire basin to use the full mobile width so walls no longer overlap. */
   .powder-simulation {
