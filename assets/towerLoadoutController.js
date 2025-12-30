@@ -585,7 +585,8 @@ export function createTowerLoadoutController({
         }`,
       );
 
-      item.addEventListener('click', () => {
+      // Require a deliberate double click before swapping a loadout slot.
+      item.addEventListener('dblclick', () => {
         wheelState.activeIndex = index;
         const slots = safeGetLoadoutSlots();
         if (Array.isArray(slots) && wheelState.slotIndex >= 0 && wheelState.slotIndex < slots.length) {
