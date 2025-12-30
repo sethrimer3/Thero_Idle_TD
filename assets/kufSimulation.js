@@ -86,6 +86,22 @@ const MAX_ZOOM = CAMERA_CONFIG.MAX_ZOOM;
 
 const SPAWN_AREA_MARGIN = GAMEPLAY_CONFIG.SPAWN_AREA_MARGIN;
 const BULLET_CULLING_MARGIN = GAMEPLAY_CONFIG.BULLET_CULLING_MARGIN;
+// Define the bottom HUD layout for the Kuf base and training toolbar.
+const KUF_HUD_LAYOUT = {
+  BASE_RADIUS: 34,
+  BASE_GLOW_RADIUS: 52,
+  BASE_TO_TOOLBAR_GAP: 18,
+  TOOLBAR_SLOT_SIZE: 46,
+  TOOLBAR_SLOT_GAP: 12,
+  TOOLBAR_BOTTOM_PADDING: 12,
+};
+// Define the training catalog for Kuf units, including costs and durations.
+const KUF_TRAINING_SPECS = [
+  { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
+  { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
+  { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
+  { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
+];
 
 /**
  * @typedef {Object} KufSimulationConfig
@@ -132,6 +148,21 @@ export class KufBattlefieldSimulation {
     this.overlaySkipCounter = 0;
     this.userRenderMode = 'auto';
     this.glowOverlaysEnabled = true;
+    // Track the training toolbar slots for the Kuf base interface.
+    this.trainingSlots = KUF_TRAINING_SPECS.map((slot) => ({
+      ...slot,
+      isTraining: false,
+      progress: 0,
+    }));
+    // Track the last tapped toolbar slot for double-tap training input.
+    this.lastToolbarTap = { time: 0, slotIndex: null };
+    // Cache the latest unit statlines for on-demand training spawns.
+    this.unitStats = {
+      worker: { ...DEFAULT_UNIT_STATS.MARINE },
+      marine: { ...DEFAULT_UNIT_STATS.MARINE },
+      sniper: { ...DEFAULT_UNIT_STATS.SNIPER },
+      splayer: { ...DEFAULT_UNIT_STATS.SPLAYER },
+    };
     // Protect the canvas resolution from running wild on high-DPI displays.
     this.maxDevicePixelRatio = this.renderProfile === 'light' ? 1.1 : 1.5;
     const providedMaps = Array.isArray(maps) ? maps : null;
@@ -280,6 +311,12 @@ export class KufBattlefieldSimulation {
       this.selectionBox.active = false;
       this.canvas.style.cursor = 'grab';
     } else if (elapsed < this.dragThreshold) {
+      // Consume taps that land on the training toolbar before issuing commands.
+      if (this.handleToolbarTap(canvasX, canvasY)) {
+        this.cameraDrag.active = false;
+        this.canvas.style.cursor = 'grab';
+        return;
+      }
       // It was a tap/click - issue attack-move command or handle double-tap
       const now = performance.now();
       const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
@@ -364,6 +401,10 @@ export class KufBattlefieldSimulation {
       const rect = this.canvas.getBoundingClientRect();
       const canvasX = touch.clientX - rect.left;
       const canvasY = touch.clientY - rect.top;
+      // Consume taps that land on the training toolbar before issuing commands.
+      if (this.handleToolbarTap(canvasX, canvasY)) {
+        return;
+      }
       
       const now = performance.now();
       const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
@@ -441,6 +482,37 @@ export class KufBattlefieldSimulation {
   }
 
   /**
+   * Spawn a new player-controlled unit with the correct statline and movement profile.
+   * @param {string} type - Unit archetype key.
+   * @param {{ health: number, attack: number, attackSpeed: number }} stats - Base stats for the unit.
+   * @param {number} x - Spawn X coordinate in world space.
+   * @param {number} y - Spawn Y coordinate in world space.
+   */
+  createPlayerUnit(type, stats, x, y) {
+    // Align unit sizing and movement presets to the existing marine/sniper/splayer profiles.
+    const radius = type === 'sniper' ? SNIPER_RADIUS : type === 'splayer' ? SPLAYER_RADIUS : MARINE_RADIUS;
+    const moveSpeed = type === 'sniper' ? MARINE_MOVE_SPEED * 0.8 : type === 'splayer' ? MARINE_MOVE_SPEED * 0.9 : MARINE_MOVE_SPEED;
+    const range = type === 'sniper' ? SNIPER_RANGE : type === 'splayer' ? SPLAYER_RANGE : MARINE_RANGE;
+    this.marines.push({
+      type,
+      x,
+      y,
+      vx: 0,
+      vy: 0,
+      radius,
+      health: stats.health,
+      maxHealth: stats.health,
+      attack: stats.attack,
+      attackSpeed: Math.max(0.1, stats.attackSpeed),
+      cooldown: Math.random() * 0.5,
+      baseMoveSpeed: moveSpeed,
+      moveSpeed,
+      range,
+      statusEffects: [],
+    });
+  }
+
+  /**
    * Begin a new simulation with the provided marine stats and unit counts.
    * @param {KufSimulationConfig} config - Simulation setup payload.
    */
@@ -457,6 +529,13 @@ export class KufBattlefieldSimulation {
     this.setActiveMap(requestedMap);
     // Reset overlay pacing so each run begins with full HUD fidelity before auto-throttling.
     this.overlaySkipCounter = 0;
+    // Cache active unit stats for training spawns during the encounter.
+    this.unitStats = {
+      worker: { ...marineStats },
+      marine: { ...marineStats },
+      sniper: { ...sniperStats },
+      splayer: { ...splayerStats },
+    };
 
     // Player units spawn randomly within the bottom half of the render area.
     const spawnYMin = this.bounds.height / 2;
@@ -468,69 +547,21 @@ export class KufBattlefieldSimulation {
     for (let i = 0; i < units.marines; i++) {
       const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
       const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
-      this.marines.push({
-        type: 'marine',
-        x: randomX,
-        y: randomY,
-        vx: 0,
-        vy: 0,
-        radius: MARINE_RADIUS,
-        health: marineStats.health,
-        maxHealth: marineStats.health,
-        attack: marineStats.attack,
-        attackSpeed: Math.max(0.1, marineStats.attackSpeed),
-        cooldown: Math.random() * 0.5,
-        baseMoveSpeed: MARINE_MOVE_SPEED,
-        moveSpeed: MARINE_MOVE_SPEED,
-        range: MARINE_RANGE,
-        statusEffects: [],
-      });
+      this.createPlayerUnit('marine', marineStats, randomX, randomY);
     }
     
     // Spawn all purchased snipers at random positions in bottom half.
     for (let i = 0; i < units.snipers; i++) {
       const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
       const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
-      this.marines.push({
-        type: 'sniper',
-        x: randomX,
-        y: randomY,
-        vx: 0,
-        vy: 0,
-        radius: SNIPER_RADIUS,
-        health: sniperStats.health,
-        maxHealth: sniperStats.health,
-        attack: sniperStats.attack,
-        attackSpeed: Math.max(0.1, sniperStats.attackSpeed),
-        cooldown: Math.random() * 0.5,
-        baseMoveSpeed: MARINE_MOVE_SPEED * 0.8,
-        moveSpeed: MARINE_MOVE_SPEED * 0.8,
-        range: SNIPER_RANGE,
-        statusEffects: [],
-      });
+      this.createPlayerUnit('sniper', sniperStats, randomX, randomY);
     }
     
     // Spawn all purchased splayers at random positions in bottom half.
     for (let i = 0; i < units.splayers; i++) {
       const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
       const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
-      this.marines.push({
-        type: 'splayer',
-        x: randomX,
-        y: randomY,
-        vx: 0,
-        vy: 0,
-        radius: SPLAYER_RADIUS,
-        health: splayerStats.health,
-        maxHealth: splayerStats.health,
-        attack: splayerStats.attack,
-        attackSpeed: Math.max(0.1, splayerStats.attackSpeed),
-        cooldown: Math.random() * 0.5,
-        baseMoveSpeed: MARINE_MOVE_SPEED * 0.9,
-        moveSpeed: MARINE_MOVE_SPEED * 0.9,
-        range: SPLAYER_RANGE,
-        statusEffects: [],
-      });
+      this.createPlayerUnit('splayer', splayerStats, randomX, randomY);
     }
     
     this.buildTurrets();
@@ -553,6 +584,131 @@ export class KufBattlefieldSimulation {
     if (this.canvas) {
       this.canvas.style.cursor = 'default';
     }
+  }
+
+  /**
+   * Build the HUD layout for the base core and training toolbar.
+   * @returns {{ baseCenter: { x: number, y: number }, baseRadius: number, slots: Array<{ x: number, y: number, size: number }> }}
+   */
+  getHudLayout() {
+    const { TOOLBAR_SLOT_SIZE, TOOLBAR_SLOT_GAP, TOOLBAR_BOTTOM_PADDING, BASE_RADIUS, BASE_TO_TOOLBAR_GAP } = KUF_HUD_LAYOUT;
+    const toolbarWidth = TOOLBAR_SLOT_SIZE * this.trainingSlots.length + TOOLBAR_SLOT_GAP * (this.trainingSlots.length - 1);
+    const toolbarX = (this.bounds.width - toolbarWidth) / 2;
+    const toolbarY = this.bounds.height - TOOLBAR_BOTTOM_PADDING - TOOLBAR_SLOT_SIZE;
+    // Anchor the base core just above the toolbar so it feels docked to the player interface.
+    const baseCenter = {
+      x: this.bounds.width / 2,
+      y: toolbarY - BASE_TO_TOOLBAR_GAP - BASE_RADIUS,
+    };
+    const slots = this.trainingSlots.map((slot, index) => ({
+      x: toolbarX + index * (TOOLBAR_SLOT_SIZE + TOOLBAR_SLOT_GAP),
+      y: toolbarY,
+      size: TOOLBAR_SLOT_SIZE,
+      slot,
+    }));
+    return { baseCenter, baseRadius: BASE_RADIUS, slots };
+  }
+
+  /**
+   * Convert a HUD-space point into a toolbar slot index if tapped.
+   * @param {number} canvasX - X coordinate within the canvas.
+   * @param {number} canvasY - Y coordinate within the canvas.
+   * @returns {number|null} Toolbar slot index when hit, otherwise null.
+   */
+  getToolbarSlotIndex(canvasX, canvasY) {
+    const { slots } = this.getHudLayout();
+    const hitSlot = slots.find((slot) =>
+      canvasX >= slot.x &&
+      canvasX <= slot.x + slot.size &&
+      canvasY >= slot.y &&
+      canvasY <= slot.y + slot.size
+    );
+    return hitSlot ? slots.indexOf(hitSlot) : null;
+  }
+
+  /**
+   * Handle taps that land on the training toolbar.
+   * @param {number} canvasX - X coordinate within the canvas.
+   * @param {number} canvasY - Y coordinate within the canvas.
+   * @returns {boolean} True when the tap was consumed by the toolbar.
+   */
+  handleToolbarTap(canvasX, canvasY) {
+    const slotIndex = this.getToolbarSlotIndex(canvasX, canvasY);
+    if (slotIndex === null) {
+      return false;
+    }
+    const now = performance.now();
+    const isDoubleTap = this.lastToolbarTap.slotIndex === slotIndex &&
+      (now - this.lastToolbarTap.time) < this.doubleTapThreshold;
+    this.lastToolbarTap = { time: now, slotIndex };
+    if (isDoubleTap) {
+      this.tryStartTraining(slotIndex);
+    }
+    return true;
+  }
+
+  /**
+   * Start training a unit from the toolbar if the player can afford it.
+   * @param {number} slotIndex - Index of the toolbar slot to train from.
+   */
+  tryStartTraining(slotIndex) {
+    if (!this.active) {
+      return;
+    }
+    const slot = this.trainingSlots[slotIndex];
+    if (!slot || slot.isTraining) {
+      return;
+    }
+    if (this.goldEarned < slot.cost) {
+      return;
+    }
+    // Deduct gold immediately so remaining gold is always spendable elsewhere.
+    this.goldEarned = Math.max(0, this.goldEarned - slot.cost);
+    slot.isTraining = true;
+    slot.progress = 0;
+  }
+
+  /**
+   * Update training timers and spawn completed units at the base.
+   * @param {number} delta - Delta time in seconds.
+   */
+  updateTraining(delta) {
+    this.trainingSlots.forEach((slot) => {
+      if (!slot.isTraining) {
+        return;
+      }
+      slot.progress = Math.min(slot.duration, slot.progress + delta);
+      if (slot.progress >= slot.duration) {
+        slot.isTraining = false;
+        slot.progress = 0;
+        this.spawnTrainedUnit(slot.id);
+      }
+    });
+  }
+
+  /**
+   * Spawn a trained unit at the base core exit.
+   * @param {string} unitType - Unit archetype identifier.
+   */
+  spawnTrainedUnit(unitType) {
+    const stats = this.unitStats[unitType] || this.unitStats.marine;
+    const { x, y } = this.getBaseWorldPosition();
+    const jitter = 14;
+    const spawnX = x + (Math.random() - 0.5) * jitter;
+    const spawnY = y + (Math.random() - 0.5) * jitter;
+    this.createPlayerUnit(unitType, stats, spawnX, spawnY);
+  }
+
+  /**
+   * Calculate the base core position in world coordinates for spawning units.
+   * @returns {{ x: number, y: number }} World position of the base.
+   */
+  getBaseWorldPosition() {
+    const { baseCenter } = this.getHudLayout();
+    return {
+      x: (baseCenter.x - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x,
+      y: (baseCenter.y - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y,
+    };
   }
 
   /**
@@ -941,6 +1097,8 @@ export class KufBattlefieldSimulation {
   }
 
   update(delta) {
+    // Advance base training queues alongside unit, turret, and projectile updates.
+    this.updateTraining(delta);
     this.updateMarines(delta);
     this.updateTurrets(delta);
     this.updateBullets(delta);
@@ -1695,6 +1853,10 @@ export class KufBattlefieldSimulation {
       } else if (marine.type === 'splayer') {
         mainColor = 'rgba(255, 100, 200, 0.9)';
         shadowColor = 'rgba(255, 66, 180, 0.8)';
+      } else if (marine.type === 'worker') {
+        // Workers use a softer cyan glow to read as support units.
+        mainColor = 'rgba(160, 220, 255, 0.85)';
+        shadowColor = 'rgba(90, 180, 220, 0.75)';
       } else {
         mainColor = 'rgba(140, 255, 255, 0.9)';
         shadowColor = 'rgba(66, 224, 255, 0.8)';
@@ -2044,18 +2206,100 @@ export class KufBattlefieldSimulation {
     ctx.restore();
   }
 
+  /**
+   * Render the base core that anchors the training toolbar.
+   * @param {{ baseCenter: { x: number, y: number }, baseRadius: number }} layout - HUD layout details.
+   */
+  drawBaseCore(layout) {
+    const ctx = this.ctx;
+    const { baseCenter, baseRadius } = layout;
+    ctx.save();
+    const glowRadius = KUF_HUD_LAYOUT.BASE_GLOW_RADIUS;
+    const gradient = ctx.createRadialGradient(
+      baseCenter.x,
+      baseCenter.y,
+      baseRadius * 0.2,
+      baseCenter.x,
+      baseCenter.y,
+      glowRadius
+    );
+    gradient.addColorStop(0, 'rgba(190, 240, 255, 0.75)');
+    gradient.addColorStop(1, 'rgba(40, 80, 140, 0.08)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(110, 220, 255, 0.9)';
+    ctx.strokeStyle = 'rgba(220, 250, 255, 0.7)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(baseCenter.x, baseCenter.y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
+    ctx.beginPath();
+    ctx.arc(baseCenter.x, baseCenter.y, baseRadius * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * Render the training toolbar with unit slots, costs, and progress fills.
+   * @param {{ slots: Array<{ x: number, y: number, size: number, slot: object }> }} layout - HUD layout details.
+   */
+  drawTrainingToolbar(layout) {
+    const ctx = this.ctx;
+    layout.slots.forEach(({ x, y, size, slot }) => {
+      ctx.save();
+      const canAfford = this.goldEarned >= slot.cost;
+      ctx.fillStyle = 'rgba(10, 15, 35, 0.8)';
+      ctx.strokeStyle = 'rgba(160, 210, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.fillRect(x, y, size, size);
+      ctx.strokeRect(x, y, size, size);
+
+      if (slot.isTraining) {
+        // Darken the icon area while the unit is training.
+        ctx.fillStyle = 'rgba(5, 10, 20, 0.6)';
+        ctx.fillRect(x, y, size, size);
+        const progress = slot.duration > 0 ? slot.progress / slot.duration : 0;
+        ctx.fillStyle = 'rgba(110, 220, 255, 0.35)';
+        ctx.fillRect(x, y + size * (1 - progress), size, size * progress);
+      }
+
+      ctx.fillStyle = canAfford ? 'rgba(200, 240, 255, 0.95)' : 'rgba(120, 140, 160, 0.7)';
+      ctx.font = '700 16px "Space Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(slot.icon, x + size / 2, y + size / 2 - 4);
+
+      ctx.font = '600 9px "Space Mono", monospace';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = canAfford ? 'rgba(180, 210, 255, 0.9)' : 'rgba(120, 140, 160, 0.7)';
+      ctx.fillText(`${slot.cost}g`, x + size / 2, y + size - 6);
+      ctx.restore();
+    });
+  }
+
   drawHud() {
     const ctx = this.ctx;
+    const hudLayout = this.getHudLayout();
     ctx.save();
     ctx.fillStyle = 'rgba(170, 220, 255, 0.92)';
     ctx.font = '600 16px "Space Mono", monospace';
-    const hudY = this.bounds.height - 24;
+    // Lift HUD text above the training toolbar for readability.
+    const hudY = Math.min(this.bounds.height - 24, hudLayout.slots[0].y - 18);
     ctx.fillText(`Gold: ${this.goldEarned}`, 20, hudY);
     ctx.fillText(`Enemies: ${this.turrets.length}`, 20, hudY - 24);
     if (this.currentMap?.name) {
       ctx.font = '600 12px "Space Mono", monospace';
       ctx.fillText(`Map: ${this.currentMap.name}`, 20, hudY - 48);
     }
+    // Render the base core and training toolbar above the HUD text.
+    this.drawBaseCore(hudLayout);
+    this.drawTrainingToolbar(hudLayout);
     ctx.restore();
   }
   
