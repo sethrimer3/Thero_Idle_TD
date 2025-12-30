@@ -88,12 +88,21 @@ const SPAWN_AREA_MARGIN = GAMEPLAY_CONFIG.SPAWN_AREA_MARGIN;
 const BULLET_CULLING_MARGIN = GAMEPLAY_CONFIG.BULLET_CULLING_MARGIN;
 // Define the bottom HUD layout for the Kuf base and training toolbar.
 const KUF_HUD_LAYOUT = {
-  BASE_RADIUS: 44,
-  BASE_GLOW_RADIUS: 68,
+  BASE_RADIUS: 22,
+  BASE_GLOW_RADIUS: 34,
   BASE_TO_TOOLBAR_GAP: 20,
   TOOLBAR_SLOT_SIZE: 46,
   TOOLBAR_SLOT_GAP: 12,
   TOOLBAR_BOTTOM_PADDING: 10,
+};
+// Define combat tuning for the core ship cannons anchored to the HUD base.
+const KUF_CORE_SHIP_COMBAT = {
+  CANNON_RANGE: 210,
+  CANNON_DAMAGE: 1.4,
+  CANNON_ATTACK_SPEED: 0.7,
+  CANNON_PROJECTILE_SPEED: 340,
+  CANNON_SPREAD_RADIANS: 0.35,
+  CORE_COLLISION_SCALE: 0.65,
 };
 // Define the training catalog for Kuf units, including costs and durations.
 const KUF_TRAINING_CATALOG = {
@@ -165,6 +174,8 @@ export class KufBattlefieldSimulation {
       isTraining: false,
       progress: 0,
     }));
+    // Track the core ship hull integrity and cannon mounts during active simulations.
+    this.coreShip = null;
     // Track the last tapped toolbar slot for double-tap training input.
     this.lastToolbarTap = { time: 0, slotIndex: null };
     // Track deferred toolbar taps so single taps can equip slots without blocking double taps.
@@ -668,6 +679,8 @@ export class KufBattlefieldSimulation {
     const marineStats = config?.marineStats || DEFAULT_UNIT_STATS.MARINE;
     const sniperStats = config?.sniperStats || DEFAULT_UNIT_STATS.SNIPER;
     const splayerStats = config?.splayerStats || DEFAULT_UNIT_STATS.SPLAYER;
+    // Resolve core ship stats so hull integrity and cannons stay in sync with shard upgrades.
+    const coreShipStats = config?.coreShipStats || { health: 120, cannons: 0 };
     const units = config?.units || DEFAULT_UNIT_COUNTS;
     const requestedMap = config?.mapId || this.defaultMapId;
     this.setActiveMap(requestedMap);
@@ -680,6 +693,8 @@ export class KufBattlefieldSimulation {
       sniper: { ...sniperStats },
       splayer: { ...splayerStats },
     };
+    // Initialize the core ship anchor so turrets can target its hull integrity.
+    this.initializeCoreShip(coreShipStats);
 
     // Player units spawn randomly within the bottom half of the render area.
     const spawnYMin = this.bounds.height / 2;
@@ -902,6 +917,25 @@ export class KufBattlefieldSimulation {
   }
 
   /**
+   * Initialize the core ship hull integrity and cannon mounts for a new simulation.
+   * @param {{ health: number, cannons: number }} coreShipStats - Derived core ship stats.
+   */
+  initializeCoreShip(coreShipStats) {
+    const { baseRadius } = this.getHudLayout();
+    const basePosition = this.getBaseWorldPosition();
+    // Anchor the core ship to the HUD base so it stays docked to the toolbar.
+    this.coreShip = {
+      x: basePosition.x,
+      y: basePosition.y,
+      radius: baseRadius * KUF_CORE_SHIP_COMBAT.CORE_COLLISION_SCALE,
+      health: Math.max(1, coreShipStats.health),
+      maxHealth: Math.max(1, coreShipStats.health),
+      cannons: Math.max(0, Math.floor(coreShipStats.cannons || 0)),
+      cannonCooldown: 0,
+    };
+  }
+
+  /**
    * Resume a paused simulation without resetting game state.
    * Used when returning to the Kuf tab after the simulation was paused.
    */
@@ -932,6 +966,8 @@ export class KufBattlefieldSimulation {
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
     this.selectedEnemy = null;
+    // Clear core ship state so fresh runs rehydrate hull integrity correctly.
+    this.coreShip = null;
     // Reset any in-flight training so new simulations start with a clean toolbar.
     this.trainingSlots.forEach((slot) => {
       slot.isTraining = false;
@@ -1301,6 +1337,8 @@ export class KufBattlefieldSimulation {
     // Advance base training queues alongside unit, turret, and projectile updates.
     this.updateTraining(delta);
     this.updateMarines(delta);
+    // Fire core ship cannons and keep the hull anchored to the HUD base.
+    this.updateCoreShip(delta);
     this.updateTurrets(delta);
     this.updateBullets(delta);
     this.updateExplosions(delta);
@@ -1447,6 +1485,57 @@ export class KufBattlefieldSimulation {
     this.marines = this.marines.filter((marine) => marine.health > 0 && marine.y + marine.radius > -40);
   }
 
+  /**
+   * Update core ship position, hull integrity, and cannon firing cadence.
+   * @param {number} delta - Delta time in seconds.
+   */
+  updateCoreShip(delta) {
+    if (!this.coreShip) {
+      return;
+    }
+    // Keep the core ship anchored to the HUD base even as the camera pans.
+    const basePosition = this.getBaseWorldPosition();
+    this.coreShip.x = basePosition.x;
+    this.coreShip.y = basePosition.y;
+    if (this.coreShip.health <= 0) {
+      return;
+    }
+    if (this.coreShip.cannons <= 0) {
+      return;
+    }
+    this.coreShip.cannonCooldown = Math.max(0, this.coreShip.cannonCooldown - delta);
+    if (this.coreShip.cannonCooldown > 0) {
+      return;
+    }
+    const target = this.findClosestTurret(
+      this.coreShip.x,
+      this.coreShip.y,
+      KUF_CORE_SHIP_COMBAT.CANNON_RANGE
+    );
+    if (!target) {
+      return;
+    }
+    const totalCannons = this.coreShip.cannons;
+    const spread = KUF_CORE_SHIP_COMBAT.CANNON_SPREAD_RADIANS;
+    for (let i = 0; i < totalCannons; i++) {
+      const lerp = totalCannons > 1 ? (i / (totalCannons - 1)) - 0.5 : 0;
+      const angleOffset = spread * lerp;
+      const heading = Math.atan2(target.y - this.coreShip.y, target.x - this.coreShip.x) + angleOffset;
+      // Core ship cannon fire behaves like turret shots, but scales with cannon count.
+      this.spawnBullet({
+        owner: 'coreShip',
+        type: 'coreShip',
+        x: this.coreShip.x,
+        y: this.coreShip.y,
+        target,
+        speed: KUF_CORE_SHIP_COMBAT.CANNON_PROJECTILE_SPEED,
+        damage: KUF_CORE_SHIP_COMBAT.CANNON_DAMAGE,
+        angle: heading,
+      });
+    }
+    this.coreShip.cannonCooldown = 1 / KUF_CORE_SHIP_COMBAT.CANNON_ATTACK_SPEED;
+  }
+
   updateTurrets(delta) {
     this.turrets.forEach((turret) => {
       turret.cooldown = Math.max(0, turret.cooldown - delta);
@@ -1461,10 +1550,14 @@ export class KufBattlefieldSimulation {
       if (turret.isBarracks) {
         turret.spawnTimer -= delta;
         if (turret.spawnTimer <= 0 && turret.currentSpawns < turret.maxSpawns) {
-          // Check if barracks is under attack or if any marines are nearby
+          // Check if barracks is under attack or if any player targets are nearby.
           const isUnderAttack = turret.health < turret.maxHealth;
-          const nearbyMarine = this.findClosestMarine(turret.x, turret.y, isUnderAttack ? Infinity : turret.spawnRange);
-          if (nearbyMarine) {
+          const nearbyPlayerTarget = this.findClosestPlayerTarget(
+            turret.x,
+            turret.y,
+            isUnderAttack ? Infinity : turret.spawnRange
+          );
+          if (nearbyPlayerTarget) {
             // Spawn a unit near the barracks
             const angle = Math.random() * Math.PI * 2;
             const dist = turret.radius + 10;
@@ -1483,13 +1576,13 @@ export class KufBattlefieldSimulation {
         return;
       }
 
-      // Handle mobile units - always pursue closest marine
+      // Handle mobile units - always pursue the closest player-controlled target.
       if (turret.isMobile) {
-        const nearbyMarine = this.findClosestMarine(turret.x, turret.y, Infinity);
-        if (nearbyMarine) {
+        const nearbyPlayerTarget = this.findClosestPlayerTarget(turret.x, turret.y, Infinity);
+        if (nearbyPlayerTarget) {
           // Move toward the marine if out of attack range
-          const dx = nearbyMarine.x - turret.x;
-          const dy = nearbyMarine.y - turret.y;
+          const dx = nearbyPlayerTarget.x - turret.x;
+          const dy = nearbyPlayerTarget.y - turret.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           
           if (dist > turret.range) {
@@ -1501,7 +1594,7 @@ export class KufBattlefieldSimulation {
           } else {
             // In range - attack
             if (turret.cooldown <= 0 && turret.attack > 0) {
-              this.fireTurret(turret, nearbyMarine);
+              this.fireTurret(turret, nearbyPlayerTarget);
             }
           }
         }
@@ -1510,7 +1603,7 @@ export class KufBattlefieldSimulation {
 
       // Handle stationary turrets
       if (turret.attack > 0 && !turret.isWall && !turret.isMine) {
-        const target = this.findClosestMarine(turret.x, turret.y, turret.range);
+        const target = this.findClosestPlayerTarget(turret.x, turret.y, turret.range);
         if (target && turret.cooldown <= 0) {
           this.fireTurret(turret, target);
         }
@@ -1600,7 +1693,7 @@ export class KufBattlefieldSimulation {
       bullet.y += bullet.vy * delta;
       bullet.life -= delta;
       
-      if (bullet.owner === 'marine') {
+      if (bullet.owner === 'marine' || bullet.owner === 'coreShip') {
         const hit = this.findHit(this.turrets, bullet);
         if (hit && hit.health > 0) {
           hit.health -= bullet.damage;
@@ -1620,6 +1713,15 @@ export class KufBattlefieldSimulation {
             this.applyBulletEffects(hit, bullet.effects);
           }
           bullet.life = 0;
+        } else if (this.coreShip && this.coreShip.health > 0) {
+          // Allow enemy projectiles to damage the core ship hull when marines are absent.
+          const dx = this.coreShip.x - bullet.x;
+          const dy = this.coreShip.y - bullet.y;
+          const radius = this.coreShip.radius || MARINE_RADIUS;
+          if (dx * dx + dy * dy <= radius * radius) {
+            this.coreShip.health -= bullet.damage;
+            bullet.life = 0;
+          }
         }
       }
     });
@@ -1898,6 +2000,28 @@ export class KufBattlefieldSimulation {
     return closest;
   }
 
+  /**
+   * Find the closest player-controlled target, including the core ship hull.
+   * @param {number} x - X coordinate in world space.
+   * @param {number} y - Y coordinate in world space.
+   * @param {number} range - Targeting range in pixels.
+   * @returns {object|null} Closest target in range.
+   */
+  findClosestPlayerTarget(x, y, range) {
+    let closest = this.findClosestMarine(x, y, range);
+    let bestDist = closest ? ((closest.x - x) ** 2 + (closest.y - y) ** 2) : range * range;
+    if (this.coreShip && this.coreShip.health > 0) {
+      const dx = this.coreShip.x - x;
+      const dy = this.coreShip.y - y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= bestDist) {
+        closest = this.coreShip;
+        bestDist = distSq;
+      }
+    }
+    return closest;
+  }
+
   findHit(targets, bullet) {
     return targets.find((target) => {
       const dx = target.x - bullet.x;
@@ -1923,7 +2047,7 @@ export class KufBattlefieldSimulation {
   }
 
   checkVictoryConditions() {
-    if (this.marines.length <= 0) {
+    if (this.coreShip && this.coreShip.health <= 0) {
       this.complete(false);
       return;
     }
@@ -2430,6 +2554,10 @@ export class KufBattlefieldSimulation {
   drawBaseCore(layout) {
     const ctx = this.ctx;
     const { baseCenter, baseRadius } = layout;
+    // Derive hull integrity ratio so the base ring can visualize core ship health.
+    const coreShipHealthRatio = this.coreShip
+      ? Math.max(0, Math.min(1, this.coreShip.health / this.coreShip.maxHealth))
+      : 1;
     ctx.save();
     const glowRadius = KUF_HUD_LAYOUT.BASE_GLOW_RADIUS;
     const gradient = ctx.createRadialGradient(
@@ -2454,6 +2582,34 @@ export class KufBattlefieldSimulation {
     ctx.arc(baseCenter.x, baseCenter.y, baseRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Draw the core ship hull integrity arc to reflect remaining health.
+    ctx.strokeStyle = 'rgba(255, 200, 120, 0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(
+      baseCenter.x,
+      baseCenter.y,
+      baseRadius + 3,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * coreShipHealthRatio
+    );
+    ctx.stroke();
+
+    // Render attached cannons around the core ring to visualize cannon upgrades.
+    if (this.coreShip && this.coreShip.cannons > 0) {
+      const cannonCount = this.coreShip.cannons;
+      const orbitRadius = baseRadius + 6;
+      for (let i = 0; i < cannonCount; i++) {
+        const angle = (Math.PI * 2 * i) / cannonCount - Math.PI / 2;
+        const cannonX = baseCenter.x + Math.cos(angle) * orbitRadius;
+        const cannonY = baseCenter.y + Math.sin(angle) * orbitRadius;
+        ctx.fillStyle = 'rgba(255, 210, 150, 0.9)';
+        ctx.beginPath();
+        ctx.arc(cannonX, cannonY, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
     ctx.beginPath();

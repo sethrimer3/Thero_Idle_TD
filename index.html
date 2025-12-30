@@ -3763,6 +3763,37 @@
                   </div>
 
                   <div class="kuf-sim-menu-units">
+                    <!-- Core Ship -->
+                    <div class="kuf-sim-unit kuf-sim-unit--core">
+                      <div class="kuf-sim-unit-header">
+                        <span class="kuf-sim-unit-name">Core Ship</span>
+                        <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
+                          Hull: <span id="kuf-core-ship-health">120 HP</span>
+                        </div>
+                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
+                          Upgrades
+                          <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
+                        </button>
+                      </div>
+                      <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Hull</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="health">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-core-ship-health-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="health">+</button>
+                          </div>
+                        </div>
+                        <div class="kuf-upgrade-option">
+                          <span class="kuf-upgrade-name">Cannons</span>
+                          <div class="kuf-upgrade-controls">
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="cannons">−</button>
+                            <span class="kuf-upgrade-value" id="kuf-core-ship-cannon-upgrade">0</span>
+                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="cannons">+</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                     <!-- Marine -->
                     <div class="kuf-sim-unit">
                       <div class="kuf-sim-unit-header">
@@ -3772,9 +3803,8 @@
                           <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
                           <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
                         </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">5</span> ea.
-                          (<span id="kuf-marines-total-cost">0</span>)
+                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                          Trained from the core ship
                         </div>
                         <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
                           Upgrades
@@ -3818,9 +3848,8 @@
                           <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
                           <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
                         </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">15</span> ea.
-                          (<span id="kuf-snipers-total-cost">0</span>)
+                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                          Trained from the core ship
                         </div>
                         <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
                           Upgrades
@@ -3864,9 +3893,8 @@
                           <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
                           <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
                         </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">30</span> ea.
-                          (<span id="kuf-splayers-total-cost">0</span>)
+                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                          Trained from the core ship
                         </div>
                         <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
                           Upgrades

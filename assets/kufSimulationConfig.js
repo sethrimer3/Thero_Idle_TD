@@ -145,7 +145,7 @@ export const DEFAULT_UNIT_STATS = {
  * Default unit counts used when starting a simulation.
  */
 export const DEFAULT_UNIT_COUNTS = {
-  marines: 1,
+  marines: 0,
   snipers: 0,
   splayers: 0,
 };
