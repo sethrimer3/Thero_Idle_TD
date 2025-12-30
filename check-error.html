@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Test JSON Import</title>
+</head>
+<body>
+<h1>Testing JSON Import</h1>
+<pre id="output"></pre>
+<script type="module">
+const output = document.getElementById('output');
+
+async function test() {
+  try {
+    // Try import with assert
+    const module = await import('./assets/data/gameplayConfig.json', { assert: { type: 'json' } });
+    output.textContent = 'Import with assert succeeded!\n' + JSON.stringify(module.default, null, 2).substring(0, 500);
+  } catch (e) {
+    output.textContent = 'Error with import assert:\n' + e.message + '\n' + e.stack;
+    
+    // Try fetch instead
+    try {
+      const response = await fetch('./assets/data/gameplayConfig.json');
+      const data = await response.json();
+      output.textContent += '\n\nFetch succeeded! Data keys: ' + Object.keys(data).join(', ');
+    } catch (e2) {
+      output.textContent += '\n\nFetch also failed: ' + e2.message;
+    }
+  }
+}
+
+test();
+</script>
+</body>
+</html>
