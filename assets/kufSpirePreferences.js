@@ -110,7 +110,6 @@ function applyRenderSizeLayout() {
 
   const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
   const panel = kufStage.closest('.panel');
-  const appShell = document.querySelector('.app-shell');
 
   const readPadding = (element) => {
     if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
@@ -125,10 +124,10 @@ function applyRenderSizeLayout() {
   };
 
   const panelPadding = readPadding(panel);
-  const shellPadding = readPadding(appShell);
-  const inlineLeft = (sizeLevel >= 2 ? panelPadding.left : 0) + (sizeLevel >= 3 ? shellPadding.left : 0);
-  const inlineRight = (sizeLevel >= 2 ? panelPadding.right : 0) + (sizeLevel >= 3 ? shellPadding.right : 0);
-  const topOffset = (sizeLevel >= 2 ? panelPadding.top : 0) + (sizeLevel >= 3 ? shellPadding.top : 0);
+  // Medium and Large should expand past panel padding to keep the spire centered.
+  const inlineLeft = sizeLevel >= 1 ? panelPadding.left : 0;
+  const inlineRight = sizeLevel >= 1 ? panelPadding.right : 0;
+  const topOffset = sizeLevel >= 1 ? panelPadding.top : 0;
 
   kufStage.dataset.sizeLevel = String(sizeLevel);
   kufStage.style.setProperty('--kuf-size-inline-left', `${inlineLeft}px`);
