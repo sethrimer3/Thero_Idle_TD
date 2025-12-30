@@ -26,30 +26,6 @@ const UNIT_COSTS = Object.freeze({
   splayers: 30,
 });
 
-// Training system constants
-const TRAINING_COSTS = Object.freeze({
-  worker: 10,
-  marines: 15,
-  snipers: 25,
-  splayers: 40,
-});
-
-const TRAINING_TIMES = Object.freeze({
-  worker: 3, // seconds
-  marines: 5,
-  snipers: 8,
-  splayers: 12,
-});
-
-const DEFAULT_TRAINING_SLOTS = Object.freeze([
-  'worker', // Slot 0 is always workers
-  null,     // Slot 1-3 are equippable
-  null,
-  null,
-]);
-
-const DEFAULT_TRAINING_QUEUE = Object.freeze([]);
-
 // Base Marine statistics before shard modifiers are applied.
 const MARINE_BASE_STATS = Object.freeze({
   health: 10,
@@ -101,11 +77,6 @@ const kufState = {
   highScore: 0,
   lastResult: null,
   mapHighScores: { ...DEFAULT_MAP_HIGH_SCORES },
-  // Training system state
-  goldEarned: 0, // Total gold earned from simulations
-  goldSpent: 0, // Gold spent on training units
-  trainingSlots: [...DEFAULT_TRAINING_SLOTS], // Equipped unit types for slots
-  trainingQueue: [], // Active training jobs { slotIndex, unitType, progress, duration }
 };
 
 const listeners = new Set();
@@ -235,20 +206,6 @@ export function initializeKufState(savedState = {}) {
       }
     : null;
 
-  // Initialize training system state
-  kufState.goldEarned = sanitizeInteger(savedState.goldEarned, 0);
-  kufState.goldSpent = sanitizeInteger(savedState.goldSpent, 0);
-  kufState.trainingSlots = Array.isArray(savedState.trainingSlots) && savedState.trainingSlots.length === 4
-    ? [...savedState.trainingSlots]
-    : [...DEFAULT_TRAINING_SLOTS];
-  kufState.trainingQueue = Array.isArray(savedState.trainingQueue)
-    ? savedState.trainingQueue.filter(job => 
-        job && typeof job === 'object' && 
-        typeof job.slotIndex === 'number' &&
-        typeof job.unitType === 'string'
-      )
-    : [];
-
   // Calculate glyphs based on total gold across all maps (1 glyph per 5x magnitude)
   const totalMapGold = getTotalMapGold();
   kufState.glyphs = calculateKufGlyphsFromGold(totalMapGold);
@@ -281,10 +238,6 @@ export function getKufStateSnapshot() {
     highScore: kufState.highScore,
     lastResult: kufState.lastResult ? { ...kufState.lastResult } : null,
     mapHighScores: { ...kufState.mapHighScores },
-    goldEarned: kufState.goldEarned,
-    goldSpent: kufState.goldSpent,
-    trainingSlots: [...kufState.trainingSlots],
-    trainingQueue: kufState.trainingQueue.map(job => ({ ...job })),
   };
 }
 
@@ -412,9 +365,6 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
     mapId: normalizedMapId,
     timestamp: Date.now(),
   };
-
-  // Add gold to earned total for training system
-  addKufGoldEarned(sanitizedGold);
 
   let newHigh = false;
   if (sanitizedGold > kufState.highScore) {
@@ -692,178 +642,3 @@ export const KUF_SPLAYER_BASE_STATS = SPLAYER_BASE_STATS;
 export const KUF_MARINE_STAT_INCREMENTS = MARINE_STAT_INCREMENTS;
 export const KUF_DEFAULT_TOTAL_SHARDS = DEFAULT_TOTAL_SHARDS;
 export const KUF_UNIT_COSTS = UNIT_COSTS;
-export const KUF_TRAINING_COSTS = TRAINING_COSTS;
-export const KUF_TRAINING_TIMES = TRAINING_TIMES;
-
-/**
- * Get available gold (earned minus spent).
- * @returns {number}
- */
-export function getKufAvailableGold() {
-  return Math.max(0, kufState.goldEarned - kufState.goldSpent);
-}
-
-/**
- * Get total gold earned from simulations.
- * @returns {number}
- */
-export function getKufGoldEarned() {
-  return kufState.goldEarned;
-}
-
-/**
- * Get total gold spent on training.
- * @returns {number}
- */
-export function getKufGoldSpent() {
-  return kufState.goldSpent;
-}
-
-/**
- * Get current training slots configuration.
- * @returns {Array<string|null>}
- */
-export function getKufTrainingSlots() {
-  return [...kufState.trainingSlots];
-}
-
-/**
- * Equip a unit type to a training slot (slots 1-3 are equippable).
- * @param {number} slotIndex - Slot index (1-3).
- * @param {string|null} unitType - Unit type to equip, or null to clear.
- * @returns {{ success: boolean, slots: Array<string|null> }}
- */
-export function equipKufTrainingSlot(slotIndex, unitType) {
-  if (slotIndex < 1 || slotIndex > 3) {
-    return { success: false, slots: getKufTrainingSlots() };
-  }
-  
-  const validTypes = ['marines', 'snipers', 'splayers', null];
-  if (!validTypes.includes(unitType)) {
-    return { success: false, slots: getKufTrainingSlots() };
-  }
-  
-  kufState.trainingSlots[slotIndex] = unitType;
-  emitChange('trainingSlots', { slots: getKufTrainingSlots() });
-  
-  return { success: true, slots: getKufTrainingSlots() };
-}
-
-/**
- * Get current training queue.
- * @returns {Array<{slotIndex: number, unitType: string, progress: number, duration: number}>}
- */
-export function getKufTrainingQueue() {
-  return kufState.trainingQueue.map(job => ({ ...job }));
-}
-
-/**
- * Start training a unit from a slot.
- * @param {number} slotIndex - Slot index (0-3).
- * @returns {{ success: boolean, message: string }}
- */
-export function startKufTraining(slotIndex) {
-  if (slotIndex < 0 || slotIndex > 3) {
-    return { success: false, message: 'Invalid slot index' };
-  }
-  
-  const unitType = kufState.trainingSlots[slotIndex];
-  if (!unitType) {
-    return { success: false, message: 'No unit equipped in this slot' };
-  }
-  
-  const cost = TRAINING_COSTS[unitType];
-  const availableGold = getKufAvailableGold();
-  
-  if (availableGold < cost) {
-    return { success: false, message: 'Not enough gold' };
-  }
-  
-  // Check if this slot is already training
-  const existingJob = kufState.trainingQueue.find(job => job.slotIndex === slotIndex);
-  if (existingJob) {
-    return { success: false, message: 'Slot is already training' };
-  }
-  
-  // Deduct gold
-  kufState.goldSpent += cost;
-  
-  // Add to training queue
-  const duration = TRAINING_TIMES[unitType];
-  kufState.trainingQueue.push({
-    slotIndex,
-    unitType,
-    progress: 0,
-    duration,
-  });
-  
-  emitChange('trainingStarted', {
-    slotIndex,
-    unitType,
-    goldSpent: kufState.goldSpent,
-    availableGold: getKufAvailableGold(),
-  });
-  
-  return { success: true, message: 'Training started' };
-}
-
-/**
- * Update training progress (called each frame).
- * @param {number} deltaSeconds - Time elapsed since last update.
- */
-export function updateKufTraining(deltaSeconds) {
-  if (kufState.trainingQueue.length === 0) {
-    return;
-  }
-  
-  const completedJobs = [];
-  
-  kufState.trainingQueue.forEach((job, index) => {
-    job.progress += deltaSeconds;
-    
-    if (job.progress >= job.duration) {
-      completedJobs.push(index);
-    }
-  });
-  
-  // Process completed jobs
-  completedJobs.reverse().forEach(index => {
-    const job = kufState.trainingQueue[index];
-    
-    // Add unit to inventory based on type
-    if (job.unitType === 'worker') {
-      // Workers are a special case - they might affect resource generation
-      // For now, we'll just emit an event
-    } else if (kufState.units[job.unitType] !== undefined) {
-      kufState.units[job.unitType] += 1;
-    }
-    
-    kufState.trainingQueue.splice(index, 1);
-    
-    emitChange('trainingComplete', {
-      slotIndex: job.slotIndex,
-      unitType: job.unitType,
-      units: getKufUnits(),
-    });
-  });
-  
-  if (completedJobs.length > 0 || kufState.trainingQueue.length > 0) {
-    emitChange('trainingProgress', {
-      queue: getKufTrainingQueue(),
-    });
-  }
-}
-
-/**
- * Add gold earned from simulation completion.
- * @param {number} amount - Gold amount to add.
- */
-export function addKufGoldEarned(amount) {
-  const sanitized = sanitizeInteger(amount, 0);
-  kufState.goldEarned += sanitized;
-  
-  emitChange('goldEarned', {
-    goldEarned: kufState.goldEarned,
-    availableGold: getKufAvailableGold(),
-  });
-}

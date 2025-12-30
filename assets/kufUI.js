@@ -31,16 +31,6 @@ import {
   KUF_SNIPER_BASE_STATS,
   KUF_SPLAYER_BASE_STATS,
   KUF_UNIT_COSTS,
-  KUF_TRAINING_COSTS,
-  KUF_TRAINING_TIMES,
-  getKufAvailableGold,
-  getKufGoldEarned,
-  getKufGoldSpent,
-  getKufTrainingSlots,
-  equipKufTrainingSlot,
-  getKufTrainingQueue,
-  startKufTraining,
-  updateKufTraining,
 } from './kufState.js';
 
 import { KufBattlefieldSimulation } from './kufSimulation.js';
@@ -58,9 +48,6 @@ let runCompleteCallback = null;
 let currentOpenDropdown = null;
 let holdTimers = new Map(); // For hold-to-spam functionality
 const KUF_FALLBACK_MAP_ID = 'forward-bastion';
-let lastTrainingUpdate = 0;
-let trainingAnimationFrame = null;
-let lastTapTimes = new Map(); // Track double-tap timing per slot
 
 let kufMapList = getCachedKufMaps();
 let kufMapLookup = new Map(kufMapList.map((map) => [map.id, map]));
@@ -218,35 +205,6 @@ function cacheElements() {
         speed: document.getElementById('kuf-codex-snipers-speed'),
       },
       splayers: {
-        health: document.getElementById('kuf-codex-splayers-health'),
-        attack: document.getElementById('kuf-codex-splayers-attack'),
-        speed: document.getElementById('kuf-codex-splayers-speed'),
-      },
-    },
-    
-    // Training toolbar elements
-    goldAvailable: document.getElementById('kuf-gold-available'),
-    goldTotal: document.getElementById('kuf-gold-total'),
-    trainingSlots: [
-      document.getElementById('kuf-slot-0'),
-      document.getElementById('kuf-slot-1'),
-      document.getElementById('kuf-slot-2'),
-      document.getElementById('kuf-slot-3'),
-    ],
-    trainingProgress: [
-      document.getElementById('kuf-slot-0-progress'),
-      document.getElementById('kuf-slot-1-progress'),
-      document.getElementById('kuf-slot-2-progress'),
-      document.getElementById('kuf-slot-3-progress'),
-    ],
-    trainingProgressBars: [
-      document.getElementById('kuf-slot-0-progress-bar'),
-      document.getElementById('kuf-slot-1-progress-bar'),
-      document.getElementById('kuf-slot-2-progress-bar'),
-      document.getElementById('kuf-slot-3-progress-bar'),
-    ],
-  };
-}
         health: document.getElementById('kuf-codex-splayers-health'),
         attack: document.getElementById('kuf-codex-splayers-attack'),
         speed: document.getElementById('kuf-codex-splayers-speed'),
@@ -604,9 +562,6 @@ function handleStateChange(event) {
     updateUnitDisplay();
     updateUpgradeDisplay();
     updateCodexDisplay();
-    updateGoldDisplay();
-    updateTrainingSlots();
-    updateTrainingProgressDisplay();
   }
   if (event.type === 'units') {
     updateUnitDisplay();
@@ -627,24 +582,6 @@ function handleStateChange(event) {
   if (event.type === 'result') {
     renderLedger();
     renderMapButtons();
-  }
-  if (event.type === 'goldEarned') {
-    updateGoldDisplay();
-  }
-  if (event.type === 'trainingStarted') {
-    updateGoldDisplay();
-    updateTrainingProgressDisplay();
-  }
-  if (event.type === 'trainingComplete') {
-    updateUnitDisplay();
-    updateCodexDisplay();
-    updateTrainingProgressDisplay();
-  }
-  if (event.type === 'trainingProgress') {
-    updateTrainingProgressDisplay();
-  }
-  if (event.type === 'trainingSlots') {
-    updateTrainingSlots();
   }
 }
 
@@ -765,154 +702,6 @@ function primeLastResult() {
   }
 }
 
-// Training Toolbar Functions
-
-function updateGoldDisplay() {
-  if (kufElements.goldAvailable) {
-    kufElements.goldAvailable.textContent = String(getKufAvailableGold());
-  }
-  if (kufElements.goldTotal) {
-    kufElements.goldTotal.textContent = String(getKufGoldEarned());
-  }
-}
-
-function updateTrainingSlots() {
-  const slots = getKufTrainingSlots();
-  const unitTypeNames = {
-    worker: 'Worker',
-    marines: 'Marine',
-    snipers: 'Sniper',
-    splayers: 'Splayer',
-  };
-  
-  slots.forEach((unitType, index) => {
-    const slotElement = kufElements.trainingSlots[index];
-    if (!slotElement) return;
-    
-    const iconElement = slotElement.querySelector('.kuf-training-slot-icon');
-    const labelElement = slotElement.querySelector('.kuf-training-slot-label');
-    const costElement = slotElement.querySelector('.kuf-training-slot-cost');
-    
-    if (unitType) {
-      slotElement.classList.remove('kuf-training-slot--empty');
-      if (iconElement) {
-        iconElement.classList.remove('kuf-training-slot-icon--empty');
-        iconElement.dataset.unitType = unitType;
-      }
-      if (labelElement) {
-        labelElement.textContent = unitTypeNames[unitType] || unitType;
-      }
-      if (costElement) {
-        costElement.textContent = `${KUF_TRAINING_COSTS[unitType]}g`;
-        costElement.hidden = false;
-      }
-    } else {
-      slotElement.classList.add('kuf-training-slot--empty');
-      if (iconElement) {
-        iconElement.classList.add('kuf-training-slot-icon--empty');
-        iconElement.dataset.unitType = '';
-      }
-      if (labelElement) {
-        labelElement.textContent = 'Empty';
-      }
-      if (costElement) {
-        costElement.hidden = true;
-      }
-    }
-  });
-}
-
-function updateTrainingProgressDisplay() {
-  const queue = getKufTrainingQueue();
-  const activeSlots = new Set(queue.map(job => job.slotIndex));
-  
-  // Update each slot
-  kufElements.trainingSlots.forEach((slotElement, index) => {
-    const job = queue.find(j => j.slotIndex === index);
-    const progressElement = kufElements.trainingProgress[index];
-    const barElement = kufElements.trainingProgressBars[index];
-    
-    if (job && progressElement && barElement) {
-      // Show progress
-      progressElement.hidden = false;
-      slotElement.classList.add('kuf-training-slot--training');
-      
-      const progressPercent = Math.min(100, (job.progress / job.duration) * 100);
-      barElement.style.height = `${progressPercent}%`;
-    } else if (progressElement) {
-      // Hide progress
-      progressElement.hidden = true;
-      slotElement.classList.remove('kuf-training-slot--training');
-    }
-  });
-}
-
-function handleTrainingSlotTap(slotIndex) {
-  const now = performance.now();
-  const lastTap = lastTapTimes.get(slotIndex) || 0;
-  const timeSinceLastTap = now - lastTap;
-  
-  lastTapTimes.set(slotIndex, now);
-  
-  // Double-tap detection (within 300ms)
-  if (timeSinceLastTap < 300) {
-    // Double-tap detected - start training
-    const result = startKufTraining(slotIndex);
-    if (result.success) {
-      updateGoldDisplay();
-      updateTrainingProgressDisplay();
-    } else {
-      // Show feedback message
-      console.log(`Training failed: ${result.message}`);
-    }
-  } else {
-    // Single tap - could show slot equipment menu in the future
-    // For now, just handle the tap timing
-  }
-}
-
-function bindTrainingSlotButtons() {
-  kufElements.trainingSlots.forEach((slotElement, index) => {
-    if (!slotElement) return;
-    
-    slotElement.addEventListener('click', (e) => {
-      e.preventDefault();
-      handleTrainingSlotTap(index);
-    });
-  });
-}
-
-function startTrainingLoop() {
-  if (trainingAnimationFrame) {
-    return; // Already running
-  }
-  
-  lastTrainingUpdate = performance.now();
-  
-  function trainingLoop(timestamp) {
-    const deltaMs = timestamp - lastTrainingUpdate;
-    lastTrainingUpdate = timestamp;
-    
-    // Update training progress
-    updateKufTraining(deltaMs / 1000);
-    
-    // Update UI
-    updateTrainingProgressDisplay();
-    
-    // Continue loop
-    trainingAnimationFrame = requestAnimationFrame(trainingLoop);
-  }
-  
-  trainingAnimationFrame = requestAnimationFrame(trainingLoop);
-}
-
-function stopTrainingLoop() {
-  if (trainingAnimationFrame) {
-    cancelAnimationFrame(trainingAnimationFrame);
-    trainingAnimationFrame = null;
-  }
-}
-
 /**
  * Initialize the Kuf Spire UI.
  * @param {object} options - Optional callbacks.
@@ -922,7 +711,6 @@ export function initializeKufUI(options = {}) {
   runCompleteCallback = typeof options.onRunComplete === 'function' ? options.onRunComplete : null;
   cacheElements();
   bindButtons();
-  bindTrainingSlotButtons();
   setupHoldToSpam();
   attachStateListener();
   ensureSimulationInstance();
@@ -938,11 +726,7 @@ export function initializeKufUI(options = {}) {
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
-  updateGoldDisplay();
-  updateTrainingSlots();
-  updateTrainingProgressDisplay();
   primeLastResult();
-  startTrainingLoop();
 }
 
 /**
@@ -982,7 +766,6 @@ export function resumeKufSimulation() {
  * Dispose Kuf UI listeners.
  */
 export function teardownKufUI() {
-  stopTrainingLoop();
   if (stateChangeUnsubscribe) {
     stateChangeUnsubscribe();
     stateChangeUnsubscribe = null;

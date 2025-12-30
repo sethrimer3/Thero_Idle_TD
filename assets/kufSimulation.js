@@ -141,8 +141,6 @@ export class KufBattlefieldSimulation {
     this.defaultMapId = this.availableMaps[0]?.id || sharedDefaultKufMapId;
     this.activeMapId = this.defaultMapId;
     this.currentMap = this.getMapById(this.activeMapId);
-    // Base (giant flying core) at the bottom center
-    this.base = null;
     this.step = this.step.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
@@ -539,15 +537,6 @@ export class KufBattlefieldSimulation {
     this.attachCameraControls();
     this.canvas.style.cursor = 'grab';
     this.camera = { x: 0, y: 0, zoom: 1.0 };
-    
-    // Initialize base (giant flying core) near bottom center
-    this.base = {
-      x: this.bounds.width / 2,
-      y: this.bounds.height - 60,
-      radius: 35,
-      pulsePhase: 0,
-    };
-    
     this.active = true;
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
@@ -597,7 +586,6 @@ export class KufBattlefieldSimulation {
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
     this.selectedEnemy = null;
-    this.base = null;
     this.drawBackground(true);
   }
 
@@ -1646,7 +1634,6 @@ export class KufBattlefieldSimulation {
     ctx.scale(this.camera.zoom, this.camera.zoom);
     ctx.translate(-this.bounds.width / 2 - this.camera.x, -this.bounds.height / 2 - this.camera.y);
 
-    this.drawBase();
     this.drawTurrets();
     this.drawMarines();
     this.drawBullets();
@@ -1681,77 +1668,6 @@ export class KufBattlefieldSimulation {
     return this.overlaySkipCounter !== 0;
   }
 
-  drawBase() {
-    if (!this.base) {
-      return;
-    }
-    const ctx = this.ctx;
-    const glowsEnabled = this.glowOverlaysEnabled;
-    
-    // Update pulse phase for animation
-    this.base.pulsePhase = (this.base.pulsePhase + 0.02) % (Math.PI * 2);
-    const pulse = Math.sin(this.base.pulsePhase) * 0.3 + 0.7;
-    
-    ctx.save();
-    
-    // Outer glow ring
-    if (glowsEnabled) {
-      const glowGradient = ctx.createRadialGradient(
-        this.base.x,
-        this.base.y,
-        this.base.radius * 0.5,
-        this.base.x,
-        this.base.y,
-        this.base.radius * 1.8
-      );
-      glowGradient.addColorStop(0, 'rgba(160, 220, 255, 0.4)');
-      glowGradient.addColorStop(0.5, 'rgba(100, 180, 255, 0.2)');
-      glowGradient.addColorStop(1, 'rgba(60, 140, 220, 0)');
-      ctx.fillStyle = glowGradient;
-      ctx.globalAlpha = pulse;
-      ctx.beginPath();
-      ctx.arc(this.base.x, this.base.y, this.base.radius * 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-    
-    // Core orb gradient
-    const coreGradient = ctx.createRadialGradient(
-      this.base.x,
-      this.base.y - this.base.radius * 0.3,
-      this.base.radius * 0.2,
-      this.base.x,
-      this.base.y,
-      this.base.radius
-    );
-    coreGradient.addColorStop(0, 'rgba(220, 240, 255, 0.95)');
-    coreGradient.addColorStop(0.5, 'rgba(140, 200, 255, 0.9)');
-    coreGradient.addColorStop(1, 'rgba(80, 160, 240, 0.85)');
-    
-    const baseGlow = glowsEnabled ? (this.renderProfile === 'light' ? 20 : 35) : 0;
-    ctx.shadowBlur = baseGlow;
-    ctx.shadowColor = glowsEnabled ? 'rgba(100, 180, 255, 0.8)' : 'transparent';
-    ctx.fillStyle = coreGradient;
-    ctx.beginPath();
-    ctx.arc(this.base.x, this.base.y, this.base.radius * pulse, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Outer ring
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = `rgba(160, 210, 255, ${0.7 + pulse * 0.3})`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(this.base.x, this.base.y, this.base.radius * pulse, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Inner core details
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.beginPath();
-    ctx.arc(this.base.x, this.base.y - this.base.radius * 0.2, this.base.radius * 0.3, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.restore();
-  }
 
 
   drawMarines() {
