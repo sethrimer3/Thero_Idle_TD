@@ -102,6 +102,15 @@ export async function loadGameplayConfigViaFetch(primaryUrl, relativePath) {
 let cachedJsonModuleImporter = undefined;
 
 function getJsonModuleImporter() {
+  // Temporarily disabled to prevent "Unexpected token ':'" console errors.
+  // When browsers attempt to execute the dynamic import with JSON assertions,
+  // and the server doesn't provide the correct MIME type, they try to parse
+  // the JSON file as JavaScript, which causes a syntax error that appears in
+  // the console even though it's caught. This is confusing for users.
+  // We rely on the more reliable fetch-based loading instead.
+  return null;
+  
+  /* Original implementation kept for reference:
   if (cachedJsonModuleImporter !== undefined) {
     return cachedJsonModuleImporter;
   }
@@ -123,14 +132,26 @@ function getJsonModuleImporter() {
   }
 
   return cachedJsonModuleImporter;
+  */
 }
 
 /**
  * Attempts to import a JSON module using dynamic import assertions when
  * available. Returns null in environments that do not understand the syntax so
  * callers can fall back to fetch-based loaders.
+ * 
+ * NOTE: JSON module imports are currently disabled because they can cause
+ * "Unexpected token ':'" errors in browsers when the server doesn't send the
+ * correct MIME type, and these errors appear in the console even though they're
+ * caught. We use fetch-based loading instead, which is more reliable.
  */
 export async function importJsonModule(moduleUrl) {
+  // Temporarily disabled to prevent confusing "Unexpected token ':'" console errors
+  // that occur when browsers try to parse JSON as JavaScript during failed module imports.
+  // The fetch-based fallback is more reliable across different server configurations.
+  return null;
+  
+  /* Original implementation kept for reference:
   if (!moduleUrl) {
     return null;
   }
@@ -150,6 +171,7 @@ export async function importJsonModule(moduleUrl) {
   }
 
   return null;
+  */
 }
 
 export async function loadGameplayConfigViaModule(moduleUrl) {
