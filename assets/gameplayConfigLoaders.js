@@ -60,6 +60,44 @@ export async function fetchJsonWithFallback(urlPrimary, relativePath) {
 }
 
 /**
+ * Loads JSON data using XMLHttpRequest so file:// deployments can still resolve local assets.
+ * This is a fallback when fetch-based loaders fail or are unavailable.
+ */
+export function loadJsonViaXhr(url) {
+  // Guard against environments without XMLHttpRequest (e.g., non-browser contexts).
+  if (typeof XMLHttpRequest === 'undefined') {
+    return Promise.reject(new Error('XMLHttpRequest is unavailable in this environment.'));
+  }
+
+  return new Promise((resolve, reject) => {
+    // Construct a one-off request to retrieve the JSON payload.
+    const request = new XMLHttpRequest();
+    request.open('GET', url, true);
+    request.responseType = 'json';
+    request.onload = () => {
+      if (request.status && request.status >= 400) {
+        reject(new Error(`Failed to load JSON via XHR from ${url}: ${request.status}`));
+        return;
+      }
+      // If responseType JSON is unsupported, fall back to manual parsing.
+      if (request.response && typeof request.response === 'object') {
+        resolve(request.response);
+        return;
+      }
+      try {
+        resolve(JSON.parse(request.responseText));
+      } catch (error) {
+        reject(error);
+      }
+    };
+    request.onerror = () => {
+      reject(new Error(`Network error while loading JSON via XHR from ${url}.`));
+    };
+    request.send();
+  });
+}
+
+/**
  * Retrieves the embedded gameplay configuration if one has been attached to the global scope.
  * Useful for offline or statically bundled builds that inline the configuration at build time.
  */
@@ -91,6 +129,14 @@ export async function loadGameplayConfigViaFetch(primaryUrl, relativePath) {
   }
 
   return fetchJsonWithFallback(primaryUrl, relativePath);
+}
+
+/**
+ * Loads the gameplay configuration via XMLHttpRequest to support environments without fetch
+ * or when file:// fetches fail because of browser security policies.
+ */
+export async function loadGameplayConfigViaXhr(primaryUrl) {
+  return loadJsonViaXhr(primaryUrl);
 }
 
 /**
