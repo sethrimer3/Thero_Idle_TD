@@ -12700,6 +12700,23 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   white-space: nowrap;
 }
 
+/* Soften the cost row when it communicates training-only unit sourcing. */
+.kuf-sim-unit-cost--training {
+  font-style: italic;
+  color: rgba(150, 200, 255, 0.6);
+}
+
+/* Highlight the core ship row so upgrades read as a base system. */
+.kuf-sim-unit--core .kuf-sim-unit-name {
+  color: rgba(255, 220, 190, 0.95);
+}
+
+/* Emphasize the core ship hull value line in the deployment menu. */
+.kuf-sim-unit-core-health {
+  font-weight: 600;
+  color: rgba(255, 210, 170, 0.85);
+}
+
 .kuf-sim-unit-cost-each {
   color: rgba(200, 230, 255, 0.85);
   font-weight: 600;

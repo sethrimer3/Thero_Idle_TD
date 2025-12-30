@@ -16,6 +16,7 @@ import {
   getKufShardsAvailableForUnits,
   calculateKufMarineStats,
   calculateKufUnitStats,
+  calculateKufCoreShipStats,
   updateKufAllocation,
   resetKufAllocations,
   recordKufBattleOutcome,
@@ -139,6 +140,8 @@ function cacheElements() {
     mapDescription: document.getElementById('kuf-map-description'),
     mapDifficulty: document.getElementById('kuf-map-difficulty'),
     mapMechanics: document.getElementById('kuf-map-mechanics'),
+    // Core ship summary display in the deployment menu.
+    coreShipHealth: document.getElementById('kuf-core-ship-health'),
     
     // Unit counts
     unitCounts: {
@@ -159,6 +162,8 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-upgrades'),
       snipers: document.getElementById('kuf-snipers-upgrades'),
       splayers: document.getElementById('kuf-splayers-upgrades'),
+      // Core ship upgrades are rendered in the same dropdown system as units.
+      coreShip: document.getElementById('kuf-core-ship-upgrades'),
     },
     
     // Unit upgrade counts
@@ -166,6 +171,8 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-upgrade-count'),
       snipers: document.getElementById('kuf-snipers-upgrade-count'),
       splayers: document.getElementById('kuf-splayers-upgrade-count'),
+      // Track core ship upgrade counts for badge display.
+      coreShip: document.getElementById('kuf-core-ship-upgrade-count'),
     },
     
     // Upgrade values
@@ -184,6 +191,11 @@ function cacheElements() {
         health: document.getElementById('kuf-splayers-health-upgrade'),
         attack: document.getElementById('kuf-splayers-attack-upgrade'),
         attackSpeed: document.getElementById('kuf-splayers-speed-upgrade'),
+      },
+      // Core ship upgrades for hull integrity and cannon mounts.
+      coreShip: {
+        health: document.getElementById('kuf-core-ship-health-upgrade'),
+        cannons: document.getElementById('kuf-core-ship-cannon-upgrade'),
       },
     },
     
@@ -339,11 +351,14 @@ function startSimulation() {
   const marineStats = calculateKufUnitStats('marines');
   const sniperStats = calculateKufUnitStats('snipers');
   const splayerStats = calculateKufUnitStats('splayers');
+  // Core ship stats define hull integrity and the number of attached cannons.
+  const coreShipStats = calculateKufCoreShipStats();
 
-  const units = getKufUnits();
+  // Force zero starting units so all forces are trained during the encounter.
+  const units = { marines: 0, snipers: 0, splayers: 0 };
   const mapId = ensureSelectedMapId();
 
-  simulation.start({ marineStats, sniperStats, splayerStats, units, mapId });
+  simulation.start({ marineStats, sniperStats, splayerStats, coreShipStats, units, mapId });
 }
 
 function handleSimulationComplete(result) {
@@ -378,6 +393,12 @@ function updateUnitDisplay() {
       const cost = KUF_UNIT_COSTS[unitType] * units[unitType];
       element.textContent = String(cost);
     }
+  });
+
+  // Disable unit allocation buttons now that units are trained from the core ship.
+  document.querySelectorAll('.kuf-unit-btn').forEach((button) => {
+    // Ensure the buttons are visibly disabled to communicate training-only flow.
+    button.disabled = true;
   });
 
   renderLedger();
@@ -471,10 +492,17 @@ function updateUpgradeDisplay() {
     
     // Update upgrade count badge
     if (kufElements.unitUpgradeCounts[unitType]) {
-      const total = stats.health + stats.attack + stats.attackSpeed;
+      // Sum only the defined upgrade slots so core ship cannons contribute correctly.
+      const total = (stats.health || 0) + (stats.attack || 0) + (stats.attackSpeed || 0) + (stats.cannons || 0);
       kufElements.unitUpgradeCounts[unitType].textContent = String(total);
     }
   });
+
+  // Update the core ship hull value in the deployment menu.
+  if (kufElements.coreShipHealth) {
+    const coreShipStats = calculateKufCoreShipStats();
+    kufElements.coreShipHealth.textContent = `${coreShipStats.health.toFixed(0)} HP`;
+  }
   
   renderLedger();
 }

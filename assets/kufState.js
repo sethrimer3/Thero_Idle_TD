@@ -12,6 +12,8 @@ const DEFAULT_UPGRADES = Object.freeze({
   marines: { health: 0, attack: 0, attackSpeed: 0 },
   snipers: { health: 0, attack: 0, attackSpeed: 0 },
   splayers: { health: 0, attack: 0, attackSpeed: 0 },
+  // Track core ship upgrades for hull integrity and attached cannon mounts.
+  coreShip: { health: 0, cannons: 0 },
 });
 const DEFAULT_MAP_HIGH_SCORES = Object.freeze({});
 const DEFAULT_MAP_ID = 'forward-bastion';
@@ -47,6 +49,11 @@ const SPLAYER_BASE_STATS = Object.freeze({
   attackSpeed: 0.7,
 });
 
+// Base core ship hull integrity before shard upgrades are applied.
+const CORE_SHIP_BASE_HEALTH = 120;
+// Additional hull integrity gained per shard invested in the core ship hull.
+const CORE_SHIP_HEALTH_PER_SHARD = 20;
+
 // Incremental bonuses applied per allocated shard.
 const MARINE_STAT_INCREMENTS = Object.freeze({
   health: 2, // +2 HP per shard
@@ -72,6 +79,8 @@ const kufState = {
     marines: { ...DEFAULT_UPGRADES.marines },
     snipers: { ...DEFAULT_UPGRADES.snipers },
     splayers: { ...DEFAULT_UPGRADES.splayers },
+    // Persist core ship upgrade counts alongside unit upgrades.
+    coreShip: { ...DEFAULT_UPGRADES.coreShip },
   },
   glyphs: 0,
   highScore: 0,
@@ -142,10 +151,11 @@ function normalizeAllocations(rawAllocations) {
 
 function normalizeUnits(rawUnits) {
   const normalized = { ...DEFAULT_UNITS };
+  // Ignore saved unit allocations because units are trained during the simulation now.
   if (rawUnits && typeof rawUnits === 'object') {
-    normalized.marines = sanitizeInteger(rawUnits.marines, 0);
-    normalized.snipers = sanitizeInteger(rawUnits.snipers, 0);
-    normalized.splayers = sanitizeInteger(rawUnits.splayers, 0);
+    normalized.marines = 0;
+    normalized.snipers = 0;
+    normalized.splayers = 0;
   }
   return normalized;
 }
@@ -155,6 +165,8 @@ function normalizeUpgrades(rawUpgrades) {
     marines: { ...DEFAULT_UPGRADES.marines },
     snipers: { ...DEFAULT_UPGRADES.snipers },
     splayers: { ...DEFAULT_UPGRADES.splayers },
+    // Always normalize core ship upgrades for hull integrity and cannon mounts.
+    coreShip: { ...DEFAULT_UPGRADES.coreShip },
   };
   if (rawUpgrades && typeof rawUpgrades === 'object') {
     ['marines', 'snipers', 'splayers'].forEach((unitType) => {
@@ -164,6 +176,11 @@ function normalizeUpgrades(rawUpgrades) {
         normalized[unitType].attackSpeed = sanitizeInteger(rawUpgrades[unitType].attackSpeed, 0);
       }
     });
+    // Normalize core ship upgrade values with the same shard-sanitizing rules.
+    if (rawUpgrades.coreShip && typeof rawUpgrades.coreShip === 'object') {
+      normalized.coreShip.health = sanitizeInteger(rawUpgrades.coreShip.health, 0);
+      normalized.coreShip.cannons = sanitizeInteger(rawUpgrades.coreShip.cannons, 0);
+    }
   }
   return normalized;
 }
@@ -233,6 +250,8 @@ export function getKufStateSnapshot() {
       marines: { ...kufState.upgrades.marines },
       snipers: { ...kufState.upgrades.snipers },
       splayers: { ...kufState.upgrades.splayers },
+      // Expose core ship upgrades for persistence and UI hydration.
+      coreShip: { ...kufState.upgrades.coreShip },
     },
     glyphs: kufState.glyphs,
     highScore: kufState.highScore,
@@ -485,25 +504,12 @@ export function getKufShardsAvailableForUnits() {
  * @returns {{ success: boolean, count: number, shardsRemaining: number }}
  */
 export function purchaseKufUnit(unitType) {
+  // Unit purchases are disabled because Kuf units are trained exclusively from the core ship.
   if (!Object.prototype.hasOwnProperty.call(UNIT_COSTS, unitType)) {
     return { success: false, count: kufState.units[unitType] || 0, shardsRemaining: getKufShardsAvailableForUnits() };
   }
-  
-  const cost = UNIT_COSTS[unitType];
-  const available = getKufShardsAvailableForUnits();
-  
-  if (available < cost) {
-    return { success: false, count: kufState.units[unitType], shardsRemaining: available };
-  }
-  
-  kufState.units[unitType] += 1;
-  emitChange('units', { units: getKufUnits() });
-  
-  return {
-    success: true,
-    count: kufState.units[unitType],
-    shardsRemaining: getKufShardsAvailableForUnits(),
-  };
+
+  return { success: false, count: kufState.units[unitType] || 0, shardsRemaining: getKufShardsAvailableForUnits() };
 }
 
 /**
@@ -512,22 +518,12 @@ export function purchaseKufUnit(unitType) {
  * @returns {{ success: boolean, count: number, shardsRemaining: number }}
  */
 export function sellKufUnit(unitType) {
+  // Unit refunds are disabled because unit counts are no longer purchased up-front.
   if (!Object.prototype.hasOwnProperty.call(UNIT_COSTS, unitType)) {
     return { success: false, count: kufState.units[unitType] || 0, shardsRemaining: getKufShardsAvailableForUnits() };
   }
-  
-  if (kufState.units[unitType] <= 0) {
-    return { success: false, count: 0, shardsRemaining: getKufShardsAvailableForUnits() };
-  }
-  
-  kufState.units[unitType] -= 1;
-  emitChange('units', { units: getKufUnits() });
-  
-  return {
-    success: true,
-    count: kufState.units[unitType],
-    shardsRemaining: getKufShardsAvailableForUnits(),
-  };
+
+  return { success: false, count: 0, shardsRemaining: getKufShardsAvailableForUnits() };
 }
 
 /**
@@ -539,6 +535,8 @@ export function getKufUpgrades() {
     marines: { ...kufState.upgrades.marines },
     snipers: { ...kufState.upgrades.snipers },
     splayers: { ...kufState.upgrades.splayers },
+    // Surface core ship upgrades for the Kuf upgrade menu.
+    coreShip: { ...kufState.upgrades.coreShip },
   };
 }
 
@@ -550,15 +548,16 @@ export function getKufShardsSpentOnUpgrades() {
   let total = 0;
   Object.keys(kufState.upgrades).forEach((unitType) => {
     const upgrades = kufState.upgrades[unitType];
-    total += upgrades.health + upgrades.attack + upgrades.attackSpeed;
+    // Count shard totals for both unit stat upgrades and core ship improvements.
+    total += (upgrades.health || 0) + (upgrades.attack || 0) + (upgrades.attackSpeed || 0) + (upgrades.cannons || 0);
   });
   return total;
 }
 
 /**
  * Allocate a shard to a unit upgrade.
- * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit.
- * @param {'health'|'attack'|'attackSpeed'} stat - The stat to upgrade.
+ * @param {'marines'|'snipers'|'splayers'|'coreShip'} unitType - The type of unit or core ship.
+ * @param {'health'|'attack'|'attackSpeed'|'cannons'} stat - The stat to upgrade.
  * @returns {{ success: boolean, value: number, shardsRemaining: number }}
  */
 export function allocateKufUpgrade(unitType, stat) {
@@ -583,8 +582,8 @@ export function allocateKufUpgrade(unitType, stat) {
 
 /**
  * Deallocate a shard from a unit upgrade.
- * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit.
- * @param {'health'|'attack'|'attackSpeed'} stat - The stat to downgrade.
+ * @param {'marines'|'snipers'|'splayers'|'coreShip'} unitType - The type of unit or core ship.
+ * @param {'health'|'attack'|'attackSpeed'|'cannons'} stat - The stat to downgrade.
  * @returns {{ success: boolean, value: number, shardsRemaining: number }}
  */
 export function deallocateKufUpgrade(unitType, stat) {
@@ -636,9 +635,23 @@ export function calculateKufUnitStats(unitType) {
   };
 }
 
+/**
+ * Calculate core ship stats including base hull integrity and shard upgrades.
+ * @returns {{ health: number, cannons: number }}
+ */
+export function calculateKufCoreShipStats() {
+  const upgrades = kufState.upgrades.coreShip || { health: 0, cannons: 0 };
+  // Core ship hull integrity scales linearly: base health + (health shards × per-shard bonus).
+  const health = CORE_SHIP_BASE_HEALTH + upgrades.health * CORE_SHIP_HEALTH_PER_SHARD;
+  // Cannon upgrades attach one cannon per shard invested.
+  const cannons = upgrades.cannons;
+  return { health, cannons };
+}
+
 export const KUF_MARINE_BASE_STATS = MARINE_BASE_STATS;
 export const KUF_SNIPER_BASE_STATS = SNIPER_BASE_STATS;
 export const KUF_SPLAYER_BASE_STATS = SPLAYER_BASE_STATS;
 export const KUF_MARINE_STAT_INCREMENTS = MARINE_STAT_INCREMENTS;
 export const KUF_DEFAULT_TOTAL_SHARDS = DEFAULT_TOTAL_SHARDS;
 export const KUF_UNIT_COSTS = UNIT_COSTS;
+export const KUF_CORE_SHIP_BASE_HEALTH = CORE_SHIP_BASE_HEALTH;
