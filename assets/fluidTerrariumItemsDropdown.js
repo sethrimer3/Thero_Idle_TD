@@ -84,8 +84,8 @@ export class FluidTerrariumItemsDropdown {
    * @param {HTMLElement} options.dropdownContainer - Container that holds the dropdown list.
    * @param {HTMLElement} options.emptyMessage - Element shown when no items are present.
    * @param {HTMLElement} options.itemsList - UL element for item entries.
-   * @param {Function} options.getScintillaeBalance - Returns current serendipity balance.
-   * @param {Function} options.spendScintillae - Spends serendipity; returns amount spent.
+   * @param {Function} options.getScintillaeBalance - Returns current Scintillae balance.
+   * @param {Function} options.spendScintillae - Spends Scintillae; returns amount spent.
    * @param {Function} options.getProducerCount - Gets the count/level for a producer ID.
    * @param {Function} options.setProducerCount - Sets the count/level for a producer ID.
    * @param {Function} options.getTreesState - Gets the current trees allocation state.
