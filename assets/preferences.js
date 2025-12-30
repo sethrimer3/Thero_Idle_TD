@@ -19,7 +19,12 @@ import {
   TOWER_LOADOUT_SLOTS_STORAGE_KEY,
   FRAME_RATE_LIMIT_STORAGE_KEY,
   FPS_COUNTER_TOGGLE_STORAGE_KEY,
+  PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY,
+  PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY,
+  PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY,
 } from './autoSave.js';
+
+const TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY = 'towerLoadoutToggleSide';
 
 const GRAPHICS_MODES = Object.freeze({
   LOW: 'low',
@@ -88,6 +93,13 @@ let desktopCursorMediaQuery = null;
 let desktopCursorActive = false;
 let activeGraphicsMode = GRAPHICS_MODES.HIGH;
 let activeTrackRenderMode = TRACK_RENDER_MODES.GRADIENT;
+const LOADOUT_TOGGLE_SIDES = Object.freeze({
+  LEFT: 'left',
+  RIGHT: 'right',
+});
+let towerLoadoutToggleSide = LOADOUT_TOGGLE_SIDES.LEFT;
+let towerLoadoutShell = null;
+let loadoutToggleSideButton = null;
 
 let powderSimulationGetter = () => null;
 let playfieldGetter = () => null;
@@ -958,4 +970,307 @@ export function initializeTrackRenderMode() {
   const validModes = Object.values(TRACK_RENDER_MODES);
   const normalized = stored && validModes.includes(stored) ? stored : TRACK_RENDER_MODES.GRADIENT;
   applyTrackRenderMode(normalized, { persist: false });
+}
+
+// Enemy Particles Settings
+let enemyParticlesEnabled = true;
+let enemyParticlesToggle = null;
+let enemyParticlesStateLabel = null;
+
+/**
+ * Synchronize the enemy particles toggle control with the in-memory state.
+ */
+function updateEnemyParticlesToggleUi() {
+  if (enemyParticlesToggle) {
+    enemyParticlesToggle.checked = enemyParticlesEnabled;
+    enemyParticlesToggle.setAttribute('aria-checked', enemyParticlesEnabled ? 'true' : 'false');
+    const controlShell = enemyParticlesToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', enemyParticlesEnabled);
+    }
+  }
+  if (enemyParticlesStateLabel) {
+    enemyParticlesStateLabel.textContent = enemyParticlesEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the enemy particles preference.
+ */
+export function applyEnemyParticlesPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  enemyParticlesEnabled = enabled;
+  updateEnemyParticlesToggleUi();
+  if (persist) {
+    writeStorage(PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY, enemyParticlesEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return enemyParticlesEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for enemy particles.
+ */
+export function bindEnemyParticlesToggle() {
+  enemyParticlesToggle = document.getElementById('playfield-enemy-particles-toggle');
+  enemyParticlesStateLabel = document.getElementById('playfield-enemy-particles-state');
+  if (!enemyParticlesToggle) {
+    return;
+  }
+  enemyParticlesToggle.addEventListener('change', (event) => {
+    applyEnemyParticlesPreference(event?.target?.checked);
+  });
+  updateEnemyParticlesToggleUi();
+}
+
+/**
+ * Initialize the enemy particles preference from storage.
+ */
+export function initializeEnemyParticlesPreference() {
+  const stored = readStorage(PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY);
+  const normalized = stored === '0' || stored === 'false' ? false : true;
+  return applyEnemyParticlesPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether enemy particles are enabled.
+ */
+export function areEnemyParticlesEnabled() {
+  return enemyParticlesEnabled;
+}
+
+// Edge Crystals Settings
+let edgeCrystalsEnabled = true;
+let edgeCrystalsToggle = null;
+let edgeCrystalsStateLabel = null;
+
+/**
+ * Synchronize the edge crystals toggle control with the in-memory state.
+ */
+function updateEdgeCrystalsToggleUi() {
+  if (edgeCrystalsToggle) {
+    edgeCrystalsToggle.checked = edgeCrystalsEnabled;
+    edgeCrystalsToggle.setAttribute('aria-checked', edgeCrystalsEnabled ? 'true' : 'false');
+    const controlShell = edgeCrystalsToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', edgeCrystalsEnabled);
+    }
+  }
+  if (edgeCrystalsStateLabel) {
+    edgeCrystalsStateLabel.textContent = edgeCrystalsEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the edge crystals preference.
+ */
+export function applyEdgeCrystalsPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  edgeCrystalsEnabled = enabled;
+  updateEdgeCrystalsToggleUi();
+  if (persist) {
+    writeStorage(PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY, edgeCrystalsEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return edgeCrystalsEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for edge crystals.
+ */
+export function bindEdgeCrystalsToggle() {
+  edgeCrystalsToggle = document.getElementById('playfield-edge-crystals-toggle');
+  edgeCrystalsStateLabel = document.getElementById('playfield-edge-crystals-state');
+  if (!edgeCrystalsToggle) {
+    return;
+  }
+  edgeCrystalsToggle.addEventListener('change', (event) => {
+    applyEdgeCrystalsPreference(event?.target?.checked);
+  });
+  updateEdgeCrystalsToggleUi();
+}
+
+/**
+ * Initialize the edge crystals preference from storage.
+ */
+export function initializeEdgeCrystalsPreference() {
+  const stored = readStorage(PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY);
+  const normalized = stored === '0' || stored === 'false' ? false : true;
+  return applyEdgeCrystalsPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether edge crystals are enabled.
+ */
+export function areEdgeCrystalsEnabled() {
+  return edgeCrystalsEnabled;
+}
+
+// Background Particles Settings
+let backgroundParticlesEnabled = true;
+let backgroundParticlesToggle = null;
+let backgroundParticlesStateLabel = null;
+
+/**
+ * Synchronize the background particles toggle control with the in-memory state.
+ */
+function updateBackgroundParticlesToggleUi() {
+  if (backgroundParticlesToggle) {
+    backgroundParticlesToggle.checked = backgroundParticlesEnabled;
+    backgroundParticlesToggle.setAttribute('aria-checked', backgroundParticlesEnabled ? 'true' : 'false');
+    const controlShell = backgroundParticlesToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', backgroundParticlesEnabled);
+    }
+  }
+  if (backgroundParticlesStateLabel) {
+    backgroundParticlesStateLabel.textContent = backgroundParticlesEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the background particles preference.
+ */
+export function applyBackgroundParticlesPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  backgroundParticlesEnabled = enabled;
+  updateBackgroundParticlesToggleUi();
+  if (persist) {
+    writeStorage(PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY, backgroundParticlesEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return backgroundParticlesEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for background particles.
+ */
+export function bindBackgroundParticlesToggle() {
+  backgroundParticlesToggle = document.getElementById('playfield-background-particles-toggle');
+  backgroundParticlesStateLabel = document.getElementById('playfield-background-particles-state');
+  if (!backgroundParticlesToggle) {
+    return;
+  }
+  backgroundParticlesToggle.addEventListener('change', (event) => {
+    applyBackgroundParticlesPreference(event?.target?.checked);
+  });
+  updateBackgroundParticlesToggleUi();
+}
+
+/**
+ * Initialize the background particles preference from storage.
+ */
+export function initializeBackgroundParticlesPreference() {
+  const stored = readStorage(PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY);
+  const normalized = stored === '0' || stored === 'false' ? false : true;
+  return applyBackgroundParticlesPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether background particles are enabled.
+ */
+export function areBackgroundParticlesEnabled() {
+  return backgroundParticlesEnabled;
+}
+
+// Playfield Track Type Button
+let playfieldTrackTypeButton = null;
+
+/**
+ * Update the playfield track type button to show current mode.
+ */
+function updatePlayfieldTrackTypeButton() {
+  if (!playfieldTrackTypeButton) {
+    return;
+  }
+  const label = resolveTrackRenderModeLabel();
+  playfieldTrackTypeButton.textContent = `Track Type · ${label}`;
+  playfieldTrackTypeButton.setAttribute('aria-label', `Switch track type (current: ${label})`);
+}
+
+/**
+ * Bind the playfield track type button to cycle through modes.
+ */
+export function bindPlayfieldTrackTypeButton() {
+  playfieldTrackTypeButton = document.getElementById('playfield-track-type-button');
+  if (!playfieldTrackTypeButton) {
+    return;
+  }
+  playfieldTrackTypeButton.addEventListener('click', () => {
+    cycleTrackRenderMode();
+    updatePlayfieldTrackTypeButton();
+  });
+  updatePlayfieldTrackTypeButton();
+}
+
+// Tower Loadout Toggle Side
+
+// Apply the preferred toggle side to the shell so the button sits beside the tray.
+function applyTowerLoadoutToggleSideDom() {
+  if (!towerLoadoutShell) {
+    towerLoadoutShell = document.getElementById('tower-loadout-shell');
+  }
+  if (!towerLoadoutShell) {
+    return;
+  }
+  towerLoadoutShell.dataset.toggleSide = towerLoadoutToggleSide;
+}
+
+// Refresh the toggle-side button label to mirror the current position.
+function updateTowerLoadoutToggleSideUi() {
+  if (!loadoutToggleSideButton) {
+    return;
+  }
+  const label = towerLoadoutToggleSide === LOADOUT_TOGGLE_SIDES.RIGHT ? 'Right' : 'Left';
+  loadoutToggleSideButton.textContent = `Tower Toggle · ${label}`;
+  loadoutToggleSideButton.setAttribute('aria-label', `Move tower toggle to the ${label.toLowerCase()} side`);
+}
+
+// Persist and apply the requested side so the loadout toggle slides beside the tower chips.
+export function applyTowerLoadoutToggleSidePreference(preference, { persist = true } = {}) {
+  const normalized = preference === LOADOUT_TOGGLE_SIDES.RIGHT
+    ? LOADOUT_TOGGLE_SIDES.RIGHT
+    : LOADOUT_TOGGLE_SIDES.LEFT;
+  towerLoadoutToggleSide = normalized;
+  updateTowerLoadoutToggleSideUi();
+  applyTowerLoadoutToggleSideDom();
+  if (persist) {
+    writeStorage(TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY, normalized);
+  }
+  return normalized;
+}
+
+// Initialize the loadout toggle side from persisted storage without forcing a write.
+export function initializeTowerLoadoutToggleSidePreference() {
+  const stored = readStorage(TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY);
+  const normalized = stored === LOADOUT_TOGGLE_SIDES.RIGHT
+    ? LOADOUT_TOGGLE_SIDES.RIGHT
+    : LOADOUT_TOGGLE_SIDES.LEFT;
+  return applyTowerLoadoutToggleSidePreference(normalized, { persist: false });
+}
+
+// Wire the playfield settings control so players can flip the loadout toggle side.
+export function bindTowerLoadoutToggleSideButton() {
+  loadoutToggleSideButton = document.getElementById('tower-loadout-toggle-side-button');
+  towerLoadoutShell = document.getElementById('tower-loadout-shell');
+  if (!loadoutToggleSideButton) {
+    return;
+  }
+  loadoutToggleSideButton.addEventListener('click', () => {
+    const nextSide = towerLoadoutToggleSide === LOADOUT_TOGGLE_SIDES.LEFT
+      ? LOADOUT_TOGGLE_SIDES.RIGHT
+      : LOADOUT_TOGGLE_SIDES.LEFT;
+    applyTowerLoadoutToggleSidePreference(nextSide);
+  });
+  updateTowerLoadoutToggleSideUi();
+  applyTowerLoadoutToggleSideDom();
 }

@@ -7,9 +7,40 @@
  * Default manifest describing background music and sound effects used by the game.
  * Individual tracks map to files stored under the audio asset folders.
  */
+const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|iemobile|mobile/i;
+
+/**
+ * Detect whether the game is running in a mobile browser environment so audio defaults can
+ * avoid hijacking the device-wide media session (which would pause Spotify/audiobooks).
+ */
+function isLikelyMobileBrowser() {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const userAgent = (navigator.userAgent || '').toLowerCase();
+  const hasTouch = typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 0;
+  return MOBILE_USER_AGENT_PATTERN.test(userAgent) || hasTouch;
+}
+
+/**
+ * Resolve a platform-aware default music volume so mobile players keep their own audio playing
+ * unless they explicitly raise the in-game music slider.
+ */
+function resolveDefaultMusicVolume() {
+  return 1;
+}
+
+/**
+ * Resolve a platform-aware default SFX volume so mobile sessions avoid
+ * interrupting external media playback unless the player opts in.
+ */
+function resolveDefaultSfxVolume() {
+  return 1;
+}
+
 export const DEFAULT_AUDIO_MANIFEST = {
-  musicVolume: 1,
-  sfxVolume: 1,
+  musicVolume: resolveDefaultMusicVolume(),
+  sfxVolume: resolveDefaultSfxVolume(),
   musicCrossfadeSeconds: 3,
   music: {
     levelSelect: { file: 'level_selection_music.mp3', loop: true, volume: 0.65 },
@@ -18,8 +49,8 @@ export const DEFAULT_AUDIO_MANIFEST = {
     powder: { file: 'mote_screen_music.mp3', loop: true, volume: 0.65 },
     achievements: { file: 'achievements_music.mp3', loop: true, volume: 0.6 },
     codex: { file: 'codex_music.mp3', loop: true, volume: 0.6 },
-    // Ambient loop for the Lamed Spire tab.
-    lamedSpire: { file: 'lamed_spire_loop.ogg', loop: true, volume: 0.6 },
+    // Ambient loop for the Lamed Spire tab - commented out because the audio file doesn't exist.
+    // lamedSpire: { file: 'lamed_spire_loop.ogg', loop: true, volume: 0.6 },
   },
   sfx: {
     // Continuous low-frequency ambience for the Lamed Spire gravity well.
@@ -34,20 +65,20 @@ export const DEFAULT_AUDIO_MANIFEST = {
     pageTurn: { file: 'page_turn.mp3', volume: 0.6, maxConcurrent: 2 },
     error: { file: 'error.mp3', volume: 0.8, maxConcurrent: 2 },
     // Alpha tower firing sounds (kalimba variations)
-    alphaTowerFire1: { file: 'towers/alphaTower/tower_shot_kalimba_C#5.mp3', volume: 0.55, maxConcurrent: 5 },
-    alphaTowerFire2: { file: 'towers/alphaTower/tower_shot_kalimba_D5.mp3', volume: 0.55, maxConcurrent: 5 },
-    alphaTowerFire3: { file: 'towers/alphaTower/tower_shot_kalimba_E5.mp3', volume: 0.55, maxConcurrent: 5 },
-    alphaTowerFire4: { file: 'towers/alphaTower/tower_shot_kalimba_F5.mp3', volume: 0.55, maxConcurrent: 5 },
+    alphaTowerFire1: { file: 'towers/alphaTower/tower_shot_kalimba_C#5.mp3', volume: 0.35, maxConcurrent: 5 },
+    alphaTowerFire2: { file: 'towers/alphaTower/tower_shot_kalimba_D5.mp3', volume: 0.35, maxConcurrent: 5 },
+    alphaTowerFire3: { file: 'towers/alphaTower/tower_shot_kalimba_E5.mp3', volume: 0.35, maxConcurrent: 5 },
+    alphaTowerFire4: { file: 'towers/alphaTower/tower_shot_kalimba_F5.mp3', volume: 0.35, maxConcurrent: 5 },
     // Beta tower firing sounds (kalimba variations)
-    betaTowerFire1: { file: 'towers/betaTower/tower_shot_kalimba_A4.m4a', volume: 0.55, maxConcurrent: 5 },
-    betaTowerFire2: { file: 'towers/betaTower/tower_shot_kalimba_B4.m4a', volume: 0.55, maxConcurrent: 5 },
-    betaTowerFire3: { file: 'towers/betaTower/tower_shot_kalimba_F4.m4a', volume: 0.55, maxConcurrent: 5 },
-    betaTowerFire4: { file: 'towers/betaTower/tower_shot_kalimba_G4.m4a', volume: 0.55, maxConcurrent: 5 },
+    betaTowerFire1: { file: 'towers/betaTower/tower_shot_kalimba_A4.m4a', volume: 0.35, maxConcurrent: 5 },
+    betaTowerFire2: { file: 'towers/betaTower/tower_shot_kalimba_B4.m4a', volume: 0.35, maxConcurrent: 5 },
+    betaTowerFire3: { file: 'towers/betaTower/tower_shot_kalimba_F4.m4a', volume: 0.35, maxConcurrent: 5 },
+    betaTowerFire4: { file: 'towers/betaTower/tower_shot_kalimba_G4.m4a', volume: 0.35, maxConcurrent: 5 },
     // Gamma tower firing sounds (kalimba variations)
-    gammaTowerFire1: { file: 'towers/gammaTower/tower_shot_kalimba_B3.m4a', volume: 0.55, maxConcurrent: 5 },
-    gammaTowerFire2: { file: 'towers/gammaTower/tower_shot_kalimba_C4.m4a', volume: 0.55, maxConcurrent: 5 },
-    gammaTowerFire3: { file: 'towers/gammaTower/tower_shot_kalimba_D4.m4a', volume: 0.55, maxConcurrent: 5 },
-    gammaTowerFire4: { file: 'towers/gammaTower/tower_shot_kalimba_E4.m4a', volume: 0.55, maxConcurrent: 5 },
+    gammaTowerFire1: { file: 'towers/gammaTower/tower_shot_kalimba_B3.m4a', volume: 0.35, maxConcurrent: 5 },
+    gammaTowerFire2: { file: 'towers/gammaTower/tower_shot_kalimba_C4.m4a', volume: 0.35, maxConcurrent: 5 },
+    gammaTowerFire3: { file: 'towers/gammaTower/tower_shot_kalimba_D4.m4a', volume: 0.35, maxConcurrent: 5 },
+    gammaTowerFire4: { file: 'towers/gammaTower/tower_shot_kalimba_E4.m4a', volume: 0.35, maxConcurrent: 5 },
     noteA: { file: 'note_A.mp3', volume: 0.8, maxConcurrent: 3 },
     noteB: { file: 'note_B.mp3', volume: 0.8, maxConcurrent: 3 },
     noteDSharp: { file: 'note_D#.mp3', volume: 0.8, maxConcurrent: 3 },
@@ -188,9 +219,14 @@ export class AudioManager {
       }
 
       const { audio, definition } = entry;
+      // Avoid engaging the media session when the effective volume is silent.
+      const resolvedVolume = this._resolveMusicVolume(definition, options.volume);
+      if (resolvedVolume <= 0) {
+        return;
+      }
       const loop = typeof options.loop === 'boolean' ? options.loop : definition.loop !== false;
       audio.loop = loop;
-      const targetVolume = this._resolveMusicVolume(definition, options.volume);
+      const targetVolume = resolvedVolume;
       const currentKey = this.currentMusicKey;
       const sameTrack = currentKey === key;
       const shouldRestart = Boolean(options.restart) || !sameTrack || audio.paused;
@@ -323,7 +359,12 @@ export class AudioManager {
       }
 
       audio.loop = shouldLoop;
-      audio.volume = this._resolveSfxVolume(definition, options.volume);
+      // Avoid engaging the media session when the effective volume is silent.
+      const resolvedVolume = this._resolveSfxVolume(definition, options.volume);
+      if (resolvedVolume <= 0) {
+        return;
+      }
+      audio.volume = resolvedVolume;
 
       if (restartLoop || !shouldLoop || audio.paused) {
         try {

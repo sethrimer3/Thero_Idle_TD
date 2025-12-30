@@ -4,16 +4,86 @@
       <stop offset="0%" stop-color="#fefaff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#9bd7ff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Iota pulsing splash rings -->
+    <circle id="iotaPulse1" cx="32" cy="32" r="6" fill="none" stroke="#b4f0ff" stroke-width="2" opacity="0">
+      <animate attributeName="r" 
+        values="6;14;14" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="opacity" 
+        values="0;0.8;0" 
+        keyTimes="0;0.3;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="2;1.2;0.8" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="iotaPulse2" cx="32" cy="32" r="8" fill="none" stroke="#d4e8ff" stroke-width="1.5" opacity="0">
+      <animate attributeName="r" 
+        values="8;13;13" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        begin="0.2s"
+        repeatCount="indefinite" />
+      <animate attributeName="opacity" 
+        values="0;0.6;0" 
+        keyTimes="0;0.3;1" 
+        dur="2.5s" 
+        begin="0.2s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;1;0.6" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        begin="0.2s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Central color-inverting particle -->
+    <circle id="iotaCore" r="1.2" fill="#78c8ff" opacity="0.9">
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32"
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="opacity" 
+        values="0.9;0.4;0.9" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="1.2;1.8;1.2" 
+        keyTimes="0;0.5;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#iotaAura)" opacity="0.92" />
+  
+  <!-- Splash pulse rings and core (behind the letter) -->
+  <g id="pulses">
+    <use href="#iotaPulse1" />
+    <use href="#iotaPulse2" />
+    <use href="#iotaCore" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#1c2236"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ι</text>
 </svg>

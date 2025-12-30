@@ -13,6 +13,9 @@ const TOWER_SELECTION_SCROLL_STEP_PX = 28;
 // Grace period to prevent hold release from being treated as an outside click.
 const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
 
+// Maximum number of tower options visible in the selection wheel at once.
+const MAX_VISIBLE_TOWER_ITEMS = 3;
+
 /**
  * Remove the tower selection wheel overlay and detach related listeners.
  */
@@ -87,7 +90,25 @@ export function renderTowerSelectionWheel() {
     item.type = 'button';
     item.className = 'tower-loadout-wheel__item';
     item.dataset.towerId = definition.id;
-    item.dataset.distance = String(Math.abs(index - clampedIndex));
+    
+    // Calculate initial distance and styling for smooth wheel effect
+    const distance = Math.abs(index - clampedIndex);
+    const roundedDistance = Math.round(distance);
+    item.dataset.distance = String(roundedDistance);
+    item.style.setProperty('--item-distance', distance.toFixed(3));
+    
+    // Set initial opacity and scale based on distance
+    let opacity = 1.0;
+    let scale = 1.0;
+    if (distance > 0) {
+      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
+      scale = Math.max(0.75, 1.0 - (distance * 0.08));
+    }
+    item.style.opacity = opacity.toFixed(3);
+    item.style.transform = `scale(${scale.toFixed(3)})`;
+    if (distance > 2.5) {
+      item.style.pointerEvents = 'none';
+    }
 
     if (definition.id === 'sell') {
       item.dataset.role = 'sell';
@@ -117,7 +138,8 @@ export function renderTowerSelectionWheel() {
     const absoluteDelta = Math.max(0, Math.abs(costDelta));
     const formattedDelta = formatCombatNumber(absoluteDelta);
     const prefix = costDelta < 0 ? '+' : '';
-    costLabel.textContent = `${prefix}${formattedDelta} ${this.theroSymbol}`;
+    // Remove space between number and symbol, display just the cost value and symbol
+    costLabel.textContent = `${prefix}${formattedDelta}${this.theroSymbol}`;
     item.append(costLabel);
 
     const netAffordable = costDelta <= 0 || this.energy >= costDelta;
@@ -141,11 +163,24 @@ export function renderTowerSelectionWheel() {
     : 0;
   wheel.itemHeight = Math.max(averageHeight, TOWER_SELECTION_SCROLL_STEP_PX);
 
+  // Set wheel height to show exactly MAX_VISIBLE_TOWER_ITEMS
+  const listStyles = window.getComputedStyle(wheel.list);
+  const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
+  const listGap = Number.parseFloat(gapValue) || 0;
+  const visibleItemsHeight = wheel.itemHeight * MAX_VISIBLE_TOWER_ITEMS + listGap * (MAX_VISIBLE_TOWER_ITEMS - 1);
+  wheel.list.style.setProperty('--tower-loadout-wheel-height', `${visibleItemsHeight}px`);
+
   const handleScroll = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    const newTarget = (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + direction;
-    this.setTowerSelectionWheelTarget(newTarget);
+    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
+    const newTarget = currentIndex + direction;
+    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
+    // Use immediate snapping by setting all indices directly and updating transform immediately
+    wheel.focusIndex = clampedTarget;
+    wheel.targetIndex = clampedTarget;
+    wheel.activeIndex = clampedTarget;
+    this.updateTowerSelectionWheelTransform({ immediate: true });
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
@@ -153,6 +188,11 @@ export function renderTowerSelectionWheel() {
 
   const handleOutsideInteraction = (event) => {
     if (!wheel?.container) {
+      return;
+    }
+    // Ignore events from the pointer that just opened the wheel (within grace period)
+    const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
+    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
       return;
     }
     const target = event.target instanceof Node ? event.target : null;
@@ -319,20 +359,21 @@ export function positionTowerSelectionWheel(tower) {
   }
   const screen = this.worldToScreen({ x: tower.x, y: tower.y });
   const canvasRect = this.canvas.getBoundingClientRect();
-  const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
-  const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || 0;
   const scrollX = window.scrollX || window.pageXOffset || 0;
   const scrollY = window.scrollY || window.pageYOffset || 0;
   if (!screen || !canvasRect) {
     return;
   }
-  // Keep the selector inside the viewport so the scroll column is fully readable on edge towers.
+  // Constrain the selector to the playfield (canvas) boundaries only
   const baseLeft = canvasRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
   const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
-  const maxLeft = Math.max(0, viewportWidth - (wheel.container.offsetWidth || 0) - 8);
-  const maxTop = Math.max(0, viewportHeight - (wheel.container.offsetHeight || 0) - 8);
-  let absoluteLeft = Math.min(maxLeft, Math.max(8, baseLeft)) + scrollX;
-  let absoluteTop = Math.min(maxTop, Math.max(8, baseTop)) + scrollY;
+  // Use canvas bounds instead of viewport to keep wheel within playfield
+  const maxLeft = canvasRect.left + canvasRect.width - (wheel.container.offsetWidth || 0) - 8;
+  const maxTop = canvasRect.top + canvasRect.height - (wheel.container.offsetHeight || 0) - 8;
+  const minLeft = canvasRect.left + 8;
+  const minTop = canvasRect.top + 8;
+  let absoluteLeft = Math.min(maxLeft, Math.max(minLeft, baseLeft)) + scrollX;
+  let absoluteTop = Math.min(maxTop, Math.max(minTop, baseTop)) + scrollY;
 
   wheel.container.style.left = `${absoluteLeft}px`;
   wheel.container.style.top = `${absoluteTop}px`;
@@ -351,17 +392,20 @@ export function positionTowerSelectionWheel(tower) {
     if (itemRect?.height) {
       const itemCenterY = (itemRect.top + itemRect.bottom) / 2;
       const deltaY = targetY - itemCenterY;
-      absoluteTop = Math.max(0, absoluteTop + deltaY);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteTop = Math.min(maxTop, Math.max(minTop, absoluteTop + deltaY));
     }
 
     if (iconRect?.width) {
       const desiredIconRight = targetX - 8;
       const deltaX = desiredIconRight - iconRect.right;
-      absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
     } else if (costRect?.left) {
       const desiredCostLeft = targetX + 6;
       const deltaX = desiredCostLeft - costRect.left;
-      absoluteLeft = Math.max(0, absoluteLeft + deltaX);
+      // Clamp adjustments to keep within canvas bounds
+      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
     }
   }
 
@@ -438,8 +482,14 @@ export function openTowerSelectionWheel(tower) {
   const handleWheelEvent = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    const newTarget = (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + direction;
-    this.setTowerSelectionWheelTarget(newTarget);
+    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
+    const newTarget = currentIndex + direction;
+    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
+    // Use immediate snapping by setting all indices directly and updating transform immediately
+    wheel.focusIndex = clampedTarget;
+    wheel.targetIndex = clampedTarget;
+    wheel.activeIndex = clampedTarget;
+    this.updateTowerSelectionWheelTransform({ immediate: true });
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
@@ -482,9 +532,35 @@ export function updateTowerSelectionWheelDistances() {
   }
   const focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex;
   Array.from(wheel.list.children).forEach((child, index) => {
-    // Calculate distance without clamping to allow CSS to hide items beyond distance 2
-    const distance = Math.round(Math.abs(index - focusIndex));
-    child.dataset.distance = String(distance);
+    // Calculate distance without rounding to allow smooth transitions
+    const distance = Math.abs(index - focusIndex);
+    const roundedDistance = Math.round(distance);
+    
+    // Set both the rounded distance (for CSS selectors) and exact distance (for smooth scaling)
+    child.dataset.distance = String(roundedDistance);
+    child.style.setProperty('--item-distance', distance.toFixed(3));
+    
+    // Calculate opacity and scale based on exact distance for smooth wheel effect
+    let opacity = 1.0;
+    let scale = 1.0;
+    
+    if (distance > 0) {
+      // Linear falloff for opacity: 1.0 at distance 0, 0.70 at distance 1, 0.30 at distance 2, 0 beyond
+      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
+      // Scale falloff: 1.0 at distance 0, 0.92 at distance 1, 0.84 at distance 2, continues to shrink
+      scale = Math.max(0.75, 1.0 - (distance * 0.08));
+    }
+    
+    // Apply the calculated values directly to the element for smooth transitions
+    child.style.opacity = opacity.toFixed(3);
+    child.style.transform = `scale(${scale.toFixed(3)})`;
+    
+    // Hide items beyond distance 2.5 to keep the wheel focused
+    if (distance > 2.5) {
+      child.style.pointerEvents = 'none';
+    } else {
+      child.style.pointerEvents = 'auto';
+    }
   });
 }
 

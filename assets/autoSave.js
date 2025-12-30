@@ -43,10 +43,24 @@ export const KUF_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:kuf-visual-se
 export const TSADI_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:tsadi-visual-settings';
 // Storage key used to persist Shin spire fractal rendering preferences.
 export const SHIN_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:shin-visual-settings';
+// Storage key used to persist Aleph spire mote glow settings.
+export const POWDER_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:powder-visual-settings';
 // Storage key used to persist the frame rate limit preference.
 export const FRAME_RATE_LIMIT_STORAGE_KEY = 'glyph-defense-idle:frame-rate-limit';
 // Storage key used to persist the FPS counter visibility toggle.
 export const FPS_COUNTER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:fps-counter-enabled';
+// Storage key used to persist cognitive realm territories state.
+export const COGNITIVE_REALM_STORAGE_KEY = 'glyph-defense-idle:cognitive-realm';
+// Storage key used to persist cognitive realm visual preferences.
+export const COGNITIVE_REALM_VISUAL_SETTINGS_KEY = 'glyph-defense-idle:cognitive-realm-visual-settings';
+// Storage key used to persist Bet Spire particle visual preferences.
+export const BET_SPIRE_VISUAL_SETTINGS_STORAGE_KEY = 'glyph-defense-idle:bet-spire-visual-settings';
+// Storage key used to persist playfield enemy particle visibility.
+export const PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-enemy-particles';
+// Storage key used to persist playfield edge crystals visibility.
+export const PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY = 'glyph-defense-idle:playfield-edge-crystals';
+// Storage key used to persist playfield background particles visibility.
+export const PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-background-particles';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;
@@ -79,6 +93,8 @@ const dependencies = {
   applySpireResourceStateSnapshot: null,
   getLevelProgressSnapshot: null,
   applyLevelProgressSnapshot: null,
+  getCognitiveRealmStateSnapshot: null,
+  applyCognitiveRealmStateSnapshot: null,
 };
 
 let statKeys = [];
@@ -229,6 +245,13 @@ export function loadPersistentState() {
     const storedProgress = readStorageJson(LEVEL_PROGRESS_STORAGE_KEY);
     if (storedProgress && typeof storedProgress === 'object') {
       dependencies.applyLevelProgressSnapshot(storedProgress);
+    }
+  }
+
+  if (typeof dependencies.applyCognitiveRealmStateSnapshot === 'function') {
+    const storedCognitiveRealm = readStorageJson(COGNITIVE_REALM_STORAGE_KEY);
+    if (storedCognitiveRealm && typeof storedCognitiveRealm === 'object') {
+      dependencies.applyCognitiveRealmStateSnapshot(storedCognitiveRealm);
     }
   }
 
@@ -407,6 +430,17 @@ function persistLevelProgress() {
   writeStorageJson(LEVEL_PROGRESS_STORAGE_KEY, snapshot);
 }
 
+function persistCognitiveRealmState() {
+  if (typeof dependencies.getCognitiveRealmStateSnapshot !== 'function') {
+    return;
+  }
+  const snapshot = dependencies.getCognitiveRealmStateSnapshot();
+  if (!snapshot || typeof snapshot !== 'object') {
+    return;
+  }
+  writeStorageJson(COGNITIVE_REALM_STORAGE_KEY, snapshot);
+}
+
 function performAutoSave() {
   savePowderCurrency();
   if (powderBasinSaveHandle) {
@@ -421,6 +455,7 @@ function performAutoSave() {
   persistKufState();
   persistSpireResourceState();
   persistLevelProgress();
+  persistCognitiveRealmState();
 }
 
 /**

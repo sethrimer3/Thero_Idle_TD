@@ -4,16 +4,161 @@
       <stop offset="0%" stop-color="#e2f3ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#7ec4ff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Epsilon needle projectiles spraying randomly - use static neutral color -->
+    <line id="needle1" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 38,24; 42,20"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; -35,0,0; -35,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
+    
+    <line id="needle2" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        begin="0.3s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 42,35; 46,38"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.3s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; 80,0,0; 80,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.3s"
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
+    
+    <line id="needle3" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        begin="0.6s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 24,26; 20,22"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.6s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; -120,0,0; -120,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.6s"
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
+    
+    <line id="needle4" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        begin="0.9s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 26,40; 22,44"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.9s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; 145,0,0; 145,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="0.9s"
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
+    
+    <line id="needle5" x1="0" y1="0" x2="0" y2="-6" stroke="#a8c8d8" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        begin="1.2s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 40,38; 44,42"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="1.2s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; 50,0,0; 50,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="1.2s"
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
+    
+    <line id="needle6" x1="0" y1="0" x2="0" y2="-6" stroke="#b8d0e0" stroke-width="0.8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.1;0.6;1" 
+        dur="1.8s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="32,32; 32,32; 32,20; 32,18"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="rotate"
+        values="0,0,0; 0,0,0; 0,0,0; 0,0,0"
+        keyTimes="0;0.1;0.6;1"
+        dur="1.8s" 
+        begin="1.5s"
+        repeatCount="indefinite"
+        additive="sum" />
+    </line>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#epsilonAura)" opacity="0.92" />
+  
+  <!-- Needle projectiles (behind the letter) -->
+  <g id="needles">
+    <use href="#needle1" />
+    <use href="#needle2" />
+    <use href="#needle3" />
+    <use href="#needle4" />
+    <use href="#needle5" />
+    <use href="#needle6" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#102038"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ε</text>
 </svg>

@@ -766,6 +766,8 @@ export function createTowerUpgradeOverlayController({
       }
 
       const attachments = attachmentMap.get(variable.key) || [];
+      const inlineAttachments = attachments.filter((attachment) => attachment.renderControlsInline);
+      const standardAttachments = attachments.filter((attachment) => !attachment.renderControlsInline);
       const value = Number.isFinite(values[variable.key]) ? values[variable.key] : 0;
       const level = state.variables?.[variable.key]?.level || 0;
 
@@ -816,7 +818,7 @@ export function createTowerUpgradeOverlayController({
         dynamicContext: towerTabState.dynamicContext,
       });
 
-      const attachmentDetails = attachments.map((attachment) => {
+      const attachmentDetails = standardAttachments.map((attachment) => {
         const attachmentLevel = state.variables?.[attachment.key]?.level || 0;
         const attachmentValue = Number.isFinite(values[attachment.key]) ? values[attachment.key] : 0;
         const attachmentLines = resolveTowerVariableSubEquations(attachment, {
@@ -910,7 +912,24 @@ export function createTowerUpgradeOverlayController({
         item.append(buildVariableGlyphControls(variable, towerId, level));
       }
 
-      attachments.forEach((attachment) => {
+      // Render lightweight attachment rows for variables that only need glyph controls (e.g., Bet₁ on Slw%).
+      inlineAttachments.forEach((attachment) => {
+        const attachmentState = state.variables?.[attachment.key] || { level: 0 };
+        const inlineRow = document.createElement('div');
+        inlineRow.className = 'tower-upgrade-variable-inline-attachment';
+        if (attachment.name) {
+          const inlineLabel = document.createElement('p');
+          inlineLabel.className = 'tower-upgrade-variable-description';
+          inlineLabel.textContent = attachment.name;
+          inlineRow.append(inlineLabel);
+        }
+        inlineRow.append(
+          buildVariableGlyphControls(attachment, towerId, attachmentState.level || 0, { asAttachment: true }),
+        );
+        item.append(inlineRow);
+      });
+
+      standardAttachments.forEach((attachment) => {
         const attachmentState = state.variables?.[attachment.key] || { level: 0 };
         const attachmentValue = Number.isFinite(values[attachment.key]) ? values[attachment.key] : 0;
         const attachmentItem = document.createElement('div');

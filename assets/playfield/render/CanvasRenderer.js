@@ -1,9 +1,9 @@
 import { ALPHA_BASE_RADIUS_FACTOR } from '../../gameUnits.js';
 import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUtils.js';
 import { getTowerDefinition } from '../../towersTab.js';
-import { moteGemState, getGemSpriteImage } from '../../enemies.js';
+import { moteGemState, getGemSpriteImage, getEnemyShellSprites } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
-import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '../../preferences.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled, areEdgeCrystalsEnabled, areBackgroundParticlesEnabled } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -38,6 +38,7 @@ import { drawOmegaParticles as drawOmegaParticlesHelper } from '../../../scripts
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
+import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
@@ -51,6 +52,26 @@ enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
 enemyGateSprite.decoding = 'async';
 enemyGateSprite.loading = 'eager';
 
+const ENEMY_PARTICLE_SPRITE_URL = 'assets/sprites/enemies/particles/star_particle.png';
+const enemyParticleSprite = new Image();
+enemyParticleSprite.src = ENEMY_PARTICLE_SPRITE_URL;
+enemyParticleSprite.decoding = 'async';
+enemyParticleSprite.loading = 'eager';
+
+// Load small sketch sprites for random background decoration
+const sketchSprites = [
+  'assets/sprites/sketches/sketch_small_1.png',
+  'assets/sprites/sketches/sketch_small_2.png',
+  'assets/sprites/sketches/sketch_small_3.png',
+  'assets/sprites/sketches/sketch_small_4.png',
+].map((url) => {
+  const img = new Image();
+  img.src = url;
+  img.decoding = 'async';
+  img.loading = 'eager';
+  return img;
+});
+
 const GEM_MOTE_BASE_RATIO = 0.02;
 const TRACK_GATE_SIZE_SCALE = 0.5;
 // Scale the enemy gate glyph up so the spawn marker remains legible at a glance.
@@ -59,14 +80,14 @@ const ENEMY_SWIRL_MIN_DURATION_MS = 500;
 const ENEMY_SWIRL_MAX_DURATION_MS = 2000;
 const ENEMY_SWIRL_MIN_HOLD_MS = 140;
 const ENEMY_SWIRL_MAX_HOLD_MS = 360;
-const ENEMY_SWIRL_PARTICLE_BASE = 18;
-const ENEMY_SWIRL_PARTICLE_LOW = 10;
+const ENEMY_SWIRL_PARTICLE_BASE = 14; // Trimmed to lighten per-enemy swirl load on dense waves.
+const ENEMY_SWIRL_PARTICLE_LOW = 8; // Low-fidelity fallback uses a smaller ring budget to reduce GPU cost.
 // Anchor for the high-fidelity spawn budget so designers can tune the swirl curve quickly.
 const ENEMY_SWIRL_HIGH_PARTICLE_ANCHOR = 30;
 // Knockback tuning keeps hit reactions energetic without throwing particles off-screen.
 const ENEMY_SWIRL_KNOCKBACK_DISTANCE = 14;
 const ENEMY_SWIRL_KNOCKBACK_DURATION_MS = 360;
-const ENEMY_SWIRL_FALLBACK_THRESHOLD = 60;
+const ENEMY_SWIRL_FALLBACK_THRESHOLD = 48; // Trigger the simplified enemy body sooner to keep frame pacing stable.
 const ENEMY_GATE_DARK_BLUE = 'rgba(15, 27, 63, 0.95)';
 const ENEMY_GATE_DARK_BLUE_CORE = 'rgba(5, 8, 18, 0.92)';
 // Match the bright glyph on the enemy gate symbol so outlines stay consistent with the UI motif.
@@ -98,6 +119,26 @@ const DEBUFF_ICON_COLORS = {
 const DEBUFF_BAR_BACKGROUND = 'rgba(6, 8, 14, 0.82)';
 const DEBUFF_BAR_STROKE = 'rgba(255, 255, 255, 0.16)';
 const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
+// Consciousness wave configuration for the Mind Gate visualization.
+const CONSCIOUSNESS_WAVE_SPEED = 2; // Speed of wave movement
+const CONSCIOUSNESS_WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
+const CONSCIOUSNESS_WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
+const CONSCIOUSNESS_WAVE_PEAKS = 3; // Number of complete sine waves
+const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
+const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
+const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
+const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
+const CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE = 0.3; // Range of peak amplitude variation
+const CONSCIOUSNESS_WAVE_HARMONIC_SCALE = 0.15; // Secondary harmonic amplitude
+const CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED = 3; // Speed of subtle fluctuations
+const CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE = 0.08; // Amplitude of subtle fluctuations
+const CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN = 1.5; // Minimum line width for first layer
+const CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE = 0.08; // Line width scaling relative to radius
+const CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE = 0.3; // Shadow blur scaling for first layer
+const CONSCIOUSNESS_WAVE_LAYER2_ALPHA = 0.5; // Opacity of second layer
+const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for second layer
+const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
+const CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
 const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
 const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
@@ -108,6 +149,74 @@ const TOWER_MENU_DISMISS_DURATION_MS = 220;
 const TOWER_MENU_OPEN_SPIN_RADIANS = Math.PI * 0.75;
 const TOWER_MENU_DISMISS_SPIN_RADIANS = Math.PI * 0.65;
 const TOWER_MENU_DISMISS_SCALE = 1.25;
+
+// Viewport culling margin: buffer zone beyond visible area to prevent pop-in
+const VIEWPORT_CULL_MARGIN = 100;
+// Projectile culling radii for different pattern types
+const PROJECTILE_CULL_RADIUS_DEFAULT = 50;
+const PROJECTILE_CULL_RADIUS_IOTA_PULSE = 150;
+const PROJECTILE_CULL_RADIUS_OMEGA_WAVE = 200;
+const PROJECTILE_CULL_RADIUS_ETA_LASER = 300;
+// Other entity culling radii
+const ENEMY_CULL_RADIUS = 100;
+const DAMAGE_NUMBER_CULL_RADIUS = 50;
+const DEATH_PARTICLE_CULL_RADIUS = 30;
+const MOTE_GEM_CULL_RADIUS = 50;
+
+/**
+ * Calculate the visible viewport bounds in world coordinates.
+ * Returns an object with min/max x/y coordinates for culling.
+ * Uses cached values when available to reduce redundant calculations.
+ */
+function getViewportBounds() {
+  // Use cached value if available from current frame
+  if (this._frameCache?.viewportBounds) {
+    return this._frameCache.viewportBounds;
+  }
+  
+  if (!this.canvas || !this.ctx) {
+    return null;
+  }
+  const width = this.renderWidth || this.canvas.clientWidth || 0;
+  const height = this.renderHeight || this.canvas.clientHeight || 0;
+  const viewCenter = this.getViewCenter();
+  const scale = this.viewScale || 1;
+  
+  // Calculate world-space bounds with margin
+  const halfWidth = (width / scale / 2) + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale / 2) + VIEWPORT_CULL_MARGIN;
+  
+  return {
+    minX: viewCenter.x - halfWidth,
+    maxX: viewCenter.x + halfWidth,
+    minY: viewCenter.y - halfHeight,
+    maxY: viewCenter.y + halfHeight,
+  };
+}
+
+/**
+ * Check if a position is within the visible viewport.
+ * @param {Object} position - Object with x, y coordinates
+ * @param {Object} bounds - Viewport bounds from getViewportBounds
+ * @param {number} radius - Optional radius for circular objects
+ * @returns {boolean} True if visible (or if bounds unavailable), false if position invalid or not visible
+ */
+function isInViewport(position, bounds, radius = 0) {
+  if (!position) {
+    return false; // No position means nothing to render
+  }
+  if (!bounds) {
+    return true; // Can't determine visibility, so render everything to be safe
+  }
+  const x = position.x || 0;
+  const y = position.y || 0;
+  return (
+    x + radius >= bounds.minX &&
+    x - radius <= bounds.maxX &&
+    y + radius >= bounds.minY &&
+    y - radius <= bounds.maxY
+  );
+}
 
 function clamp(value, min, max) {
   if (!Number.isFinite(value)) {
@@ -381,6 +490,18 @@ function draw() {
   ctx.scale(this.viewScale, this.viewScale);
   ctx.translate(-viewCenter.x, -viewCenter.y);
 
+  // Cache commonly used values for this frame to reduce redundant calculations
+  this._frameCache = {
+    width,
+    height,
+    minDimension: Math.min(width, height) || 1,
+    viewportBounds: getViewportBounds.call(this),
+    timestamp: getNowTimestamp(),
+    enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
+  };
+
+  this.drawCrystallineMosaic();
+  this.drawSketches();
   this.drawFloaters();
   this.drawPath();
   this.drawDeltaCommandPreview();
@@ -396,31 +517,58 @@ function draw() {
   this.drawOmicronUnits();
   this.drawEnemies();
   this.drawEnemyDeathParticles();
+  this.drawSwarmClouds();
   this.drawDamageNumbers();
+  this.drawFloatingFeedback();
   this.drawWaveTallies();
   this.drawChiLightTrails();
   this.drawChiThralls();
   this.drawProjectiles();
   this.drawTowerMenu();
   this.updateEnemyTooltipPosition();
+  
+  // Clear frame cache after rendering
+  this._frameCache = null;
 }
 
 function drawFloaters() {
   if (!this.ctx || !this.floaters.length || !this.levelConfig) {
     return;
   }
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  // Skip rendering if background particles are disabled in preferences
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
   if (!width || !height) {
     return;
   }
-  const minDimension = Math.min(width, height) || 1;
+  const minDimension = this._frameCache?.minDimension || (Math.min(width, height) || 1);
   const connectionWidth = Math.max(0.6, minDimension * 0.0014);
 
   const ctx = this.ctx;
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+
+  const swimmers = Array.isArray(this.backgroundSwimmers) ? this.backgroundSwimmers : [];
+  if (swimmers.length) {
+    // Render faint white swimmers beneath the lattice lines so the background feels fluid.
+    const baseSize = Math.max(0.6, minDimension * 0.0038);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    swimmers.forEach((swimmer) => {
+      const flicker = Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
+      const size = baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
+      ctx.arc(swimmer.x, swimmer.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
 
   this.floaterConnections.forEach((connection) => {
     const from = this.floaters[connection.from];
@@ -464,29 +612,179 @@ function drawFloaters() {
   ctx.restore();
 }
 
+/**
+ * Generate random sketch placements for a level.
+ * Each sketch has a 10% chance of appearing, with random position and rotation.
+ * Uses level ID as seed for consistent placement across sessions.
+ */
+function generateLevelSketches(levelId, width, height) {
+  if (!levelId || !width || !height) {
+    return [];
+  }
+  
+  // Simple seeded random number generator for consistent sketch placement per level
+  const seed = Array.from(String(levelId)).reduce((acc, char) => acc + char.charCodeAt(0), 1) || 1;
+  let randomState = seed;
+  const seededRandom = () => {
+    randomState = (randomState * 1103515245 + 12345) & 0x7fffffff;
+    return randomState / 0x7fffffff;
+  };
+  
+  const sketches = [];
+  
+  // Each sketch has a 10% chance of appearing
+  sketchSprites.forEach((sprite, index) => {
+    if (seededRandom() < 0.1) {
+      // Random position within level bounds (with some margin)
+      const margin = Math.min(width, height) * 0.1;
+      const x = margin + seededRandom() * (width - 2 * margin);
+      const y = margin + seededRandom() * (height - 2 * margin);
+      
+      // Random rotation (0 to 360 degrees)
+      const rotation = seededRandom() * Math.PI * 2;
+      
+      // Random scale variation (80% to 120% of original size)
+      const scale = 0.8 + seededRandom() * 0.4;
+      
+      sketches.push({
+        sprite,
+        x,
+        y,
+        rotation,
+        scale,
+      });
+    }
+  });
+  
+  return sketches;
+}
+
+/**
+ * Draw small sketches in the background with 20% opacity.
+ * Sketches are randomly placed per level with a 10% chance each.
+ */
+function drawSketches() {
+  if (!this.ctx || !this.levelConfig) {
+    return;
+  }
+  
+  const ctx = this.ctx;
+  
+  // Generate sketches for this level if not already cached or if dimensions changed
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  
+  if (!this._levelSketches || 
+      this._levelSketchesId !== this.levelConfig.id ||
+      this._levelSketchesWidth !== width ||
+      this._levelSketchesHeight !== height) {
+    this._levelSketches = generateLevelSketches(this.levelConfig.id, width, height);
+    this._levelSketchesId = this.levelConfig.id;
+    this._levelSketchesWidth = width;
+    this._levelSketchesHeight = height;
+  }
+  
+  if (!this._levelSketches || !this._levelSketches.length) {
+    return;
+  }
+  
+  ctx.save();
+  ctx.globalAlpha = 0.2; // 20% opacity
+  
+  this._levelSketches.forEach((sketch) => {
+    if (!sketch.sprite || !sketch.sprite.complete) {
+      return;
+    }
+    
+    ctx.save();
+    ctx.translate(sketch.x, sketch.y);
+    ctx.rotate(sketch.rotation);
+    
+    const width = sketch.sprite.width * sketch.scale;
+    const height = sketch.sprite.height * sketch.scale;
+    
+    ctx.drawImage(
+      sketch.sprite,
+      -width / 2,
+      -height / 2,
+      width,
+      height
+    );
+    
+    ctx.restore();
+  });
+  
+  ctx.restore();
+}
+
+function drawCrystallineMosaic() {
+  if (!this.ctx) {
+    return;
+  }
+  
+  // Skip rendering if edge crystals are disabled in preferences
+  if (!areEdgeCrystalsEnabled()) {
+    return;
+  }
+  
+  const mosaicManager = getCrystallineMosaicManager();
+  if (!mosaicManager) {
+    return;
+  }
+  
+  // Get viewport bounds for culling
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  if (!viewportBounds) {
+    return;
+  }
+  
+  // Get path points for distance checking
+  const pathPoints = this.pathPoints || [];
+  
+  // Use level config as version tracker (regenerate if level changes)
+  const pathVersion = this.levelConfig?.id || null;
+  
+  // Get focused cell ID if any
+  const focusedCellId = this.focusedCellId || null;
+  
+  // Render the crystalline mosaic
+  const ctx = this.ctx;
+  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion, focusedCellId);
+}
+
 function drawMoteGems() {
   if (!this.ctx || !moteGemState.active.length) {
     return;
   }
   const ctx = this.ctx;
   ctx.save();
-  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const dimensionCandidates = [];
-  if (Number.isFinite(width) && width > 0) {
-    dimensionCandidates.push(width);
-  }
-  if (Number.isFinite(height) && height > 0) {
-    dimensionCandidates.push(height);
-  }
-  const minDimension = Math.max(
-    1,
-    dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320,
-  );
+  
+  // Use cached frame values to reduce redundant calculations
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  const minDimension = this._frameCache?.minDimension || (() => {
+    const dimensionCandidates = [];
+    if (Number.isFinite(width) && width > 0) {
+      dimensionCandidates.push(width);
+    }
+    if (Number.isFinite(height) && height > 0) {
+      dimensionCandidates.push(height);
+    }
+    return Math.max(1, dimensionCandidates.length ? Math.min(...dimensionCandidates) : 320);
+  })();
+  
   const moteUnit = Math.max(6, minDimension * GEM_MOTE_BASE_RATIO);
   const pulseMagnitude = moteUnit * 0.35;
 
+  // Calculate viewport bounds once for all mote gems
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   moteGemState.active.forEach((gem) => {
+    // Skip rendering mote gems outside viewport
+    if (viewportBounds && !isInViewport({ x: gem.x, y: gem.y }, viewportBounds, MOTE_GEM_CULL_RADIUS)) {
+      return;
+    }
+    
     const hue = gem.color?.hue ?? 48;
     const saturation = gem.color?.saturation ?? 68;
     const lightness = gem.color?.lightness ?? 56;
@@ -554,48 +852,143 @@ function drawPath() {
     { stop: 0.5, color: samplePaletteGradient(0.5) },
     { stop: 1, color: samplePaletteGradient(1) },
   ];
-  const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+  
+  // If there are tunnels, we need to draw segments with varying opacity
+  const hasTunnels = Array.isArray(this.tunnelSegments) && this.tunnelSegments.length > 0;
+  
+  if (hasTunnels) {
+    drawPathWithTunnels.call(this, ctx, points, paletteStops, trackMode);
+  } else {
+    // Original path drawing for non-tunnel paths
+    const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
+    const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
+    paletteStops.forEach((entry) => {
+      baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
+      highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
+    });
+
+    const tracePath = () => {
+      ctx.moveTo(start.x, start.y);
+      for (let index = 1; index < points.length; index += 1) {
+        const point = points[index];
+        ctx.lineTo(point.x, point.y);
+      }
+    };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+    const shadowColor = colorToRgbaString(
+      paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
+      trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
+    );
+    this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+    tracePath();
+    ctx.strokeStyle = baseGradient;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
+    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+    tracePath();
+    ctx.strokeStyle = highlightGradient;
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
+  if (!points || points.length < 2 || !this.tunnelSegments) {
+    return;
+  }
+
   const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
   const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
-  paletteStops.forEach((entry) => {
-    baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
-    highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
-  });
+  const baseLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+  const highlightLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+  const FADE_ZONE_RATIO = 0.2;
 
-  const tracePath = () => {
-    ctx.moveTo(start.x, start.y);
-    for (let index = 1; index < points.length; index += 1) {
-      const point = points[index];
-      ctx.lineTo(point.x, point.y);
+  // Helper to get opacity for a point index based on tunnel zones
+  const getOpacityForPointIndex = (index) => {
+    for (const tunnel of this.tunnelSegments) {
+      if (index >= tunnel.startIndex && index <= tunnel.endIndex) {
+        const tunnelLength = tunnel.endIndex - tunnel.startIndex;
+        
+        // Guard against zero-length tunnels
+        if (tunnelLength <= 0) {
+          return 0; // Treat as fully transparent
+        }
+        
+        const progressInTunnel = (index - tunnel.startIndex) / tunnelLength;
+        
+        if (progressInTunnel < FADE_ZONE_RATIO) {
+          // Entry fade zone - fade from 1 to 0
+          return 1 - (progressInTunnel / FADE_ZONE_RATIO);
+        } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
+          // Exit fade zone - fade from 0 to 1
+          return (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
+        } else {
+          // Middle of tunnel - fully transparent
+          return 0;
+        }
+      }
     }
+    return 1; // Not in tunnel, fully opaque
   };
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
-  const shadowColor = colorToRgbaString(
-    paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
-    trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
-  );
-  this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
-  tracePath();
-  ctx.strokeStyle = baseGradient;
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
-  tracePath();
-  ctx.strokeStyle = highlightGradient;
-  ctx.stroke();
-  ctx.restore();
+  // Draw path segments with varying opacity
+  for (let layer = 0; layer < 2; layer += 1) {
+    const isBase = layer === 0;
+    const lineWidth = isBase ? baseLineWidth : highlightLineWidth;
+    const alphaMultiplier = isBase ? baseAlpha : highlightAlpha;
+    
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const point = points[i];
+      const nextPoint = points[i + 1];
+      
+      // Calculate opacity for this segment
+      const startOpacity = getOpacityForPointIndex(i);
+      const endOpacity = getOpacityForPointIndex(i + 1);
+      const segmentOpacity = (startOpacity + endOpacity) / 2;
+      
+      // Skip fully transparent segments
+      if (segmentOpacity <= 0.01) {
+        continue;
+      }
+      
+      // Sample color based on position along path
+      const pathProgress = i / (points.length - 1);
+      const color = samplePaletteGradient(pathProgress);
+      const alpha = alphaMultiplier * segmentOpacity;
+      
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = lineWidth;
+      
+      if (isBase) {
+        const shadowColor = colorToRgbaString(color, (trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2) * segmentOpacity);
+        this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+      } else {
+        ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 * segmentOpacity : segmentOpacity;
+      }
+      
+      ctx.moveTo(point.x, point.y);
+      ctx.lineTo(nextPoint.x, nextPoint.y);
+      ctx.strokeStyle = colorToRgbaString(color, alpha);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
 }
 
 function drawTrackParticleRiver() {
@@ -604,6 +997,7 @@ function drawTrackParticleRiver() {
   }
   const ctx = this.ctx;
   const particles = this.trackRiverParticles;
+  const lowGraphicsEnabled = this.isLowGraphicsMode?.();
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
@@ -634,6 +1028,8 @@ function drawTrackParticleRiver() {
 
   // Overlay the luminous tracer sparks whenever the preference is enabled.
   if (
+    // Skip tracer halos in low graphics mode to cut overlapping glow draws on weaker devices.
+    !lowGraphicsEnabled &&
     areTrackTracersEnabled() &&
     Array.isArray(this.trackRiverTracerParticles) &&
     this.trackRiverTracerParticles.length
@@ -686,6 +1082,10 @@ function drawArcLight() {
   const trackMode = getTrackRenderMode();
   if (trackMode === TRACK_RENDER_MODES.RIVER) {
     // The river track effect replaces the solid path lines, so skip the arc tracer.
+    return;
+  }
+  if (this.isLowGraphicsMode?.()) {
+    // Dropping the tracer overlay in low fidelity reduces per-frame fill and shadow work.
     return;
   }
   if (!areTrackTracersEnabled()) {
@@ -840,6 +1240,86 @@ function drawMindGateSymbol(ctx, position) {
   ctx.arc(0, 0, radius * 0.88, 0, Math.PI * 2);
   ctx.stroke();
 
+  // Draw the consciousness wavelength - a sine wave that fluctuates through the gate.
+  const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
+  const maxIntegrity = Math.max(
+    gateIntegrity,
+    Math.floor(this.levelConfig?.lives || gateIntegrity || 1),
+  );
+  // Calculate health percentage to scale wave amplitude.
+  const healthPercentage = maxIntegrity > 0 ? gateIntegrity / maxIntegrity : 1;
+
+  // Use performance timestamp if available to ensure consistent animation timing.
+  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const waveOffset = currentTime * CONSCIOUSNESS_WAVE_SPEED;
+
+  // Draw consciousness wave through the gate.
+  const waveWidth = radius * CONSCIOUSNESS_WAVE_WIDTH_SCALE;
+  const waveHeight = radius * CONSCIOUSNESS_WAVE_HEIGHT_SCALE * healthPercentage;
+
+  ctx.save();
+  ctx.beginPath();
+
+  // Generate sine wave with varying amplitudes for each peak.
+  for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
+    const x = -waveWidth / 2 + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
+    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * Math.PI * 2;
+
+    // Base sine wave.
+    let y = Math.sin(normalizedX + waveOffset) * waveHeight;
+
+    // Add amplitude variation per peak to create dynamic effect.
+    const peakIndex = Math.floor((i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS);
+    const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (Math.PI * 2);
+    const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
+    y *= peakAmplitudeMod;
+
+    // Add secondary harmonic for more organic feel.
+    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * CONSCIOUSNESS_WAVE_HARMONIC_SCALE;
+
+    // Add subtle fluctuation to make it feel alive.
+    const fluctuation = Math.sin(currentTime * CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED + i * 0.1) * waveHeight * CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE;
+    y += fluctuation;
+
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+
+  // Keep the consciousness wave in a deep orange with 50% transparency.
+  const waveAlpha = 0.5 * healthPercentage;
+  const waveColor = { r: 255, g: 120, b: 0 };
+
+  // Create gradient for the wave.
+  const waveGradient = ctx.createLinearGradient(-waveWidth / 2, 0, waveWidth / 2, 0);
+  waveGradient.addColorStop(0, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
+  waveGradient.addColorStop(0.2, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
+  waveGradient.addColorStop(0.5, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`);
+  waveGradient.addColorStop(0.8, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
+  waveGradient.addColorStop(1, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
+
+  ctx.strokeStyle = waveGradient;
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Add glow effect to the wave.
+  ctx.shadowColor = `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`;
+  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE;
+  ctx.stroke();
+
+  // Draw second layer for enhanced visibility with explicit alpha management.
+  ctx.save();
+  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
+  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
   if (spriteReady) {
     const spriteSize = Math.max(baseSize * 2.1, 46) * 2 * TRACK_GATE_SIZE_SCALE;
@@ -869,11 +1349,6 @@ function drawMindGateSymbol(ctx, position) {
     ctx.stroke();
   }
 
-  const gateIntegrity = Math.max(0, Math.floor(this.lives || 0));
-  const maxIntegrity = Math.max(
-    gateIntegrity,
-    Math.floor(this.levelConfig?.lives || gateIntegrity || 1),
-  );
   const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
   const gateExponent = this.calculateHealthExponent(gateExponentSource);
   const palette =
@@ -978,19 +1453,17 @@ function drawDeveloperPathMarkers() {
       ctx.fillText(String(label), marker.x, marker.y);
     }
 
-    // Draw speed multiplier under the marker if it's not the default value (1)
+    // Draw speed multiplier under the marker for all points
     const speedMultiplier = Number.isFinite(marker.speedMultiplier) ? marker.speedMultiplier : 1;
-    if (speedMultiplier !== 1) {
-      this.clearCanvasShadow(ctx);
-      ctx.font = '9px "Cormorant Garamond", serif';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
-      const speedLabel = `×${speedMultiplier.toFixed(2)}`;
-      ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
-      // Restore font for next marker
-      ctx.font = '12px "Cormorant Garamond", serif';
-      ctx.textBaseline = 'middle';
-    }
+    this.clearCanvasShadow(ctx);
+    ctx.font = '9px "Cormorant Garamond", serif';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+    const speedLabel = `×${speedMultiplier.toFixed(2)}`;
+    ctx.fillText(speedLabel, marker.x, marker.y + radius + 3);
+    // Restore font for next marker
+    ctx.font = '12px "Cormorant Garamond", serif';
+    ctx.textBaseline = 'middle';
   });
 
   ctx.restore();
@@ -1632,31 +2105,31 @@ function drawTowers() {
 
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
-      if (alphaShots > 0) {
+      if (alphaShots >= 3) {
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.75)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(`? ? ${alphaShots}`, tower.x, tower.y + bodyRadius + 6);
+        ctx.fillText(`${alphaShots}α`, tower.x, tower.y + bodyRadius + 6);
         ctx.restore();
       }
     } else if (tower.type === 'gamma') {
       const betaShots = Math.max(0, Math.floor(tower.storedBetaShots || 0));
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
-      if (betaShots > 0 || alphaShots > 0) {
+      if (betaShots >= 3 || alphaShots >= 3) {
         ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.7)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         let labelY = tower.y + bodyRadius + 6;
-        if (betaShots > 0) {
-          ctx.fillText(`? ? ${betaShots}`, tower.x, labelY);
+        if (betaShots >= 3) {
+          ctx.fillText(`${betaShots}β`, tower.x, labelY);
           labelY += Math.round(bodyRadius * 0.7) + 4;
         }
-        if (alphaShots > 0) {
-          ctx.fillText(`? ? ${alphaShots}`, tower.x, labelY);
+        if (alphaShots >= 3) {
+          ctx.fillText(`${alphaShots}α`, tower.x, labelY);
         }
         ctx.restore();
       }
@@ -1701,6 +2174,11 @@ function drawOmicronUnits() {
 }
 
 function shouldUseEnemyFallbackRendering() {
+  // If enemy particles are disabled by user preference, always use fallback rendering
+  if (typeof areEnemyParticlesEnabled === 'function' && !areEnemyParticlesEnabled()) {
+    return true;
+  }
+  
   const enemyCount = Array.isArray(this.enemies) ? this.enemies.length : 0;
   if (!enemyCount) {
     return false;
@@ -1867,6 +2345,10 @@ function spawnEnemySwirlParticle(metrics, now) {
   const scale = Math.max(0.65, Math.min(1.45, metrics.scale || 1));
   const size = randomBetween(0.9, 2.3) * scale;
   const jitter = Math.random();
+  // Random rotation speed (in radians per second) - range from 0.5 to 2.5 rad/s
+  const rotationSpeed = randomBetween(0.5, 2.5);
+  // Random rotation direction: 1 for clockwise, -1 for counter-clockwise
+  const rotationDirection = Math.random() < 0.5 ? 1 : -1;
   return {
     color: sampleEnemyParticleColor(),
     startAngle: angle,
@@ -1879,6 +2361,9 @@ function spawnEnemySwirlParticle(metrics, now) {
     startedAt: now - jitter * duration,
     holdUntil: 0,
     size,
+    rotation: Math.random() * Math.PI * 2, // Initial random rotation angle
+    rotationSpeed,
+    rotationDirection,
   };
 }
 
@@ -1894,6 +2379,18 @@ function advanceEnemySwirlParticle(particle, metrics, now) {
   if (!particle.duration || particle.duration <= 0) {
     particle.duration = ENEMY_SWIRL_MIN_DURATION_MS;
   }
+  
+  // Update rotation based on rotation speed and direction
+  if (Number.isFinite(particle.rotation) && Number.isFinite(particle.rotationSpeed) && Number.isFinite(particle.rotationDirection)) {
+    const deltaTime = 16; // Assume ~60fps (16ms per frame)
+    particle.rotation += (particle.rotationSpeed * particle.rotationDirection * deltaTime) / 1000;
+    // Keep rotation normalized between 0 and 2π
+    particle.rotation = particle.rotation % (Math.PI * 2);
+    if (particle.rotation < 0) {
+      particle.rotation += Math.PI * 2;
+    }
+  }
+  
   if (particle.state === 'in') {
     const elapsed = now - particle.startedAt;
     const progress = clamp(elapsed / particle.duration, 0, 1);
@@ -1980,7 +2477,11 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
   if (entry.particles.length > desiredCount) {
     entry.particles.splice(desiredCount);
   }
+  
+  // Check if sprite is loaded
+  const spriteReady = enemyParticleSprite?.complete && enemyParticleSprite.naturalWidth > 0;
   const alphaBase = inversionActive ? 0.55 : 0.85;
+  
   entry.particles.forEach((particle) => {
     advanceEnemySwirlParticle(particle, metrics, now);
     const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
@@ -1989,15 +2490,46 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
     const jitterSeed = Number.isFinite(particle.startAngle) ? particle.startAngle : angle;
     const position = applyEnemySwirlImpactOffset(entry, particle, basePosition, now, jitterSeed) || basePosition;
     const alpha = clamp(alphaBase * (particle.state === 'hold' ? 0.9 : 0.7 + Math.random() * 0.2), 0.25, 0.95);
-    ctx.beginPath();
-    ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
-    const size = Math.max(0.6, particle.size || 1.2);
-    ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
-    ctx.fill();
-    // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
-    ctx.lineWidth = Math.max(0.2, size * 0.25);
-    ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
-    ctx.stroke();
+    
+    // Render sprite if loaded, otherwise fall back to circles
+    if (spriteReady) {
+      ctx.save();
+      ctx.translate(position.x, position.y);
+      
+      // Apply rotation
+      const rotation = Number.isFinite(particle.rotation) ? particle.rotation : 0;
+      ctx.rotate(rotation);
+      
+      // Make particles small and transparent
+      const size = Math.max(0.6, particle.size || 1.2);
+      const spriteSize = size * 4; // Scale sprite to reasonable size
+      const halfSize = spriteSize / 2;
+      
+      // Apply transparency
+      ctx.globalAlpha = alpha * 0.6; // Make it more transparent
+      
+      // Draw the sprite
+      ctx.drawImage(
+        enemyParticleSprite,
+        -halfSize,
+        -halfSize,
+        spriteSize,
+        spriteSize
+      );
+      
+      ctx.restore();
+    } else {
+      // Fallback to original circle rendering if sprite not loaded
+      ctx.beginPath();
+      ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
+      const size = Math.max(0.6, particle.size || 1.2);
+      ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
+      ctx.fill();
+      // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
+      ctx.lineWidth = Math.max(0.2, size * 0.25);
+      ctx.strokeStyle = colorToRgbaString(ENEMY_GATE_SYMBOL_GOLD, Math.min(1, alpha + 0.1));
+      ctx.stroke();
+    }
   });
 }
 
@@ -2054,6 +2586,25 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
   ctx.fillText(exponentLabel, exponentOffsetX, exponentOffsetY);
 }
 
+// Draw enemy shell sprite (either back or front layer)
+function drawEnemyShellSprite(ctx, image, metrics) {
+  if (!ctx || !image || !metrics) {
+    return;
+  }
+  
+  // Scale shell to match enemy size (slightly larger than the ring radius)
+  const shellSize = metrics.ringRadius * 2.2;
+  const halfSize = shellSize / 2;
+  
+  ctx.drawImage(
+    image,
+    -halfSize,
+    -halfSize,
+    shellSize,
+    shellSize
+  );
+}
+
 // Remove stale knockback entries so the queue never references defeated enemies.
 function cleanupEnemySwirlImpactQueue(activeEnemies) {
   if (!Array.isArray(this.enemySwirlImpacts) || !this.enemySwirlImpacts.length) {
@@ -2093,7 +2644,7 @@ function drawEnemies() {
   ctx.save();
 
   const fallbackRendering = shouldUseEnemyFallbackRendering.call(this);
-  const timestamp = fallbackRendering ? 0 : getNowTimestamp();
+  const timestamp = fallbackRendering ? 0 : (this._frameCache?.timestamp || getNowTimestamp());
   const activeEnemies = fallbackRendering ? null : new Set();
   if (fallbackRendering && this.enemySwirlParticles) {
     this.enemySwirlParticles.clear();
@@ -2101,6 +2652,9 @@ function drawEnemies() {
   if (fallbackRendering && Array.isArray(this.enemySwirlImpacts)) {
     this.enemySwirlImpacts.length = 0;
   }
+
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
   this.enemies.forEach((enemy) => {
     if (!enemy) {
@@ -2112,6 +2666,16 @@ function drawEnemies() {
       return;
     }
 
+    // Skip rendering enemies outside viewport
+    if (viewportBounds && !isInViewport(position, viewportBounds, ENEMY_CULL_RADIUS)) {
+      return;
+    }
+
+    // Check if enemy is in a tunnel and get opacity
+    const tunnelState = typeof this.getEnemyTunnelState === 'function'
+      ? this.getEnemyTunnelState(enemy)
+      : { inTunnel: false, opacity: 1, isFadeZone: false };
+
     const metrics = this.getEnemyVisualMetrics(enemy);
     const symbol = typeof enemy.symbol === 'string' ? enemy.symbol : this.resolveEnemySymbol(enemy);
     const exponent = this.calculateHealthExponent(Math.max(1, enemy.hp ?? enemy.maxHp ?? 1));
@@ -2121,9 +2685,22 @@ function drawEnemies() {
         ? this.getEnemyDebuffIndicators(enemy)
         : [];
     const rhoSparklesActive = Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0;
+    
+    // Get shell sprites if enemy has them
+    const shellSprites = getEnemyShellSprites(enemy);
 
     ctx.save();
     ctx.translate(position.x, position.y);
+    
+    // Apply tunnel opacity
+    if (tunnelState.inTunnel || tunnelState.isFadeZone) {
+      ctx.globalAlpha = tunnelState.opacity;
+    }
+
+    // Draw back shell sprite behind enemy
+    if (shellSprites?.back) {
+      drawEnemyShellSprite(ctx, shellSprites.back, metrics);
+    }
 
     if (fallbackRendering) {
       drawEnemyFallbackBody(ctx, metrics, inversionActive);
@@ -2145,6 +2722,11 @@ function drawEnemies() {
     });
 
     drawEnemyDebuffBar(ctx, metrics, debuffIndicators);
+    
+    // Draw front shell sprite in front of enemy
+    if (shellSprites?.front) {
+      drawEnemyShellSprite(ctx, shellSprites.front, metrics);
+    }
 
     if (this.focusedEnemyId === enemy.id) {
       const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
@@ -2184,6 +2766,9 @@ function drawEnemyDeathParticles() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
 
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   this.enemyDeathParticles.forEach((particle) => {
     if (!particle || !particle.position) {
       return;
@@ -2192,6 +2777,12 @@ function drawEnemyDeathParticles() {
     if (alpha <= 0) {
       return;
     }
+    
+    // Skip rendering death particles outside viewport
+    if (viewportBounds && !isInViewport(particle.position, viewportBounds, DEATH_PARTICLE_CULL_RADIUS)) {
+      return;
+    }
+    
     const wobbleFrequency = Number.isFinite(particle.wobbleFrequency) ? particle.wobbleFrequency : 0;
     const wobbleAmplitude = Number.isFinite(particle.wobbleAmplitude) ? particle.wobbleAmplitude : 0;
     const wobblePhase = (Number.isFinite(particle.phase) ? particle.phase : 0)
@@ -2215,6 +2806,79 @@ function drawEnemyDeathParticles() {
   ctx.restore();
 }
 
+function drawSwarmClouds() {
+  if (!this.ctx || !Array.isArray(this.swarmClouds) || !this.swarmClouds.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  this.swarmClouds.forEach((cloud) => {
+    if (!cloud || !cloud.position) {
+      return;
+    }
+    
+    const progress = cloud.duration > 0 ? Math.min(1, cloud.lifetime / cloud.duration) : 1;
+    const alpha = clamp(0.25 * (1 - progress * 0.5), 0, 0.3);
+    
+    if (alpha <= 0) {
+      return;
+    }
+    
+    const radius = cloud.radius || 20;
+    const x = cloud.position.x;
+    const y = cloud.position.y;
+    
+    // Draw pulsing cloud effect
+    const pulsePhase = (cloud.lifetime || 0) * 3;
+    const pulseScale = 1 + Math.sin(pulsePhase) * 0.15;
+    const effectiveRadius = radius * pulseScale;
+    
+    // Determine color based on shot types
+    const hasAlpha = (cloud.alphaCount || 0) > 0;
+    const hasBeta = (cloud.betaCount || 0) > 0;
+    
+    let color1, color2;
+    if (hasAlpha && hasBeta) {
+      // Mix of both - use a blend
+      color1 = samplePaletteGradient(0.18); // Alpha offset
+      color2 = samplePaletteGradient(0.45); // Beta offset
+    } else if (hasAlpha) {
+      color1 = samplePaletteGradient(0.18);
+      color2 = samplePaletteGradient(0.22);
+    } else {
+      color1 = samplePaletteGradient(0.42);
+      color2 = samplePaletteGradient(0.48);
+    }
+    
+    // Draw outer glow
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, effectiveRadius);
+    gradient.addColorStop(0, colorToRgbaString(color1, alpha * 0.4));
+    gradient.addColorStop(0.5, colorToRgbaString(color2, alpha * 0.25));
+    gradient.addColorStop(1, colorToRgbaString(color1, 0));
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, effectiveRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw inner core
+    const coreRadius = effectiveRadius * 0.3;
+    const coreGradient = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
+    coreGradient.addColorStop(0, colorToRgbaString(color2, alpha * 0.6));
+    coreGradient.addColorStop(1, colorToRgbaString(color1, 0));
+    
+    ctx.fillStyle = coreGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
 function drawDamageNumbers() {
   if (!this.ctx || !Array.isArray(this.damageNumbers) || !this.damageNumbers.length) {
     return;
@@ -2226,10 +2890,19 @@ function drawDamageNumbers() {
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
 
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
   this.damageNumbers.forEach((entry) => {
     if (!entry || !entry.position || !entry.text || entry.alpha <= 0) {
       return;
     }
+    
+    // Skip rendering damage numbers outside viewport
+    if (viewportBounds && !isInViewport(entry.position, viewportBounds, DAMAGE_NUMBER_CULL_RADIUS)) {
+      return;
+    }
+    
     const fontSize = Number.isFinite(entry.fontSize) ? entry.fontSize : 16;
     // Fade the highlight outline based on how much of the target's health the hit removed.
     const highlightAlpha = Number.isFinite(entry.outlineAlpha)
@@ -2255,6 +2928,14 @@ function drawDamageNumbers() {
   });
 
   ctx.restore();
+}
+
+function drawFloatingFeedback() {
+  if (!this.floatingFeedback || typeof this.floatingFeedback.update !== 'function') {
+    return;
+  }
+  const now = this._frameCache?.timestamp || getNowTimestamp();
+  this.floatingFeedback.update(now);
 }
 
 function drawWaveTallies() {
@@ -2340,6 +3021,11 @@ function drawProjectiles() {
   }
 
   const ctx = this.ctx;
+  // Use cached viewport bounds to reduce redundant calculations
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  let renderedCount = 0;
+  let culledCount = 0;
+
   if (this.projectiles.length) {
     ctx.save();
   }
@@ -2348,6 +3034,25 @@ function drawProjectiles() {
     if (!projectile) {
       return;
     }
+
+    // Get projectile position for culling check
+    const projectilePosition = projectile.currentPosition || projectile.position || projectile.origin || projectile.source;
+    
+    // Skip rendering projectiles outside viewport (with generous margin for special effects)
+    if (viewportBounds && projectilePosition) {
+      // Use larger radius for special projectile types that may extend beyond their origin
+      const cullRadius = projectile.patternType === 'etaLaser' ? PROJECTILE_CULL_RADIUS_ETA_LASER :
+                        projectile.patternType === 'omegaWave' ? PROJECTILE_CULL_RADIUS_OMEGA_WAVE :
+                        projectile.patternType === 'iotaPulse' ? PROJECTILE_CULL_RADIUS_IOTA_PULSE : 
+                        PROJECTILE_CULL_RADIUS_DEFAULT;
+      
+      if (!isInViewport(projectilePosition, viewportBounds, cullRadius)) {
+        culledCount++;
+        return;
+      }
+    }
+    
+    renderedCount++;
 
     if (projectile.patternType === 'supply') {
       const position = projectile.currentPosition || projectile.target || projectile.source;
@@ -2479,13 +3184,62 @@ function drawProjectiles() {
       return;
     }
 
+    // Render gamma star piercing beam projectile
+    if (projectile.patternType === 'gammaStar') {
+      const position = projectile.position || projectile.origin;
+      const previousPosition = projectile.previousPosition || projectile.origin;
+      if (!position || !previousPosition) {
+        return;
+      }
+      
+      // Draw the piercing beam from previous to current position
+      const beamColor = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
+      const gradient = ctx.createLinearGradient(previousPosition.x, previousPosition.y, position.x, position.y);
+      gradient.addColorStop(0, colorToRgbaString(beamColor, 0.5));
+      gradient.addColorStop(1, colorToRgbaString(beamColor, 0.95));
+      
+      ctx.save();
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = colorToRgbaString(beamColor, 0.6);
+      ctx.beginPath();
+      ctx.moveTo(previousPosition.x, previousPosition.y);
+      ctx.lineTo(position.x, position.y);
+      ctx.stroke();
+      
+      // Draw a glow at the current position
+      ctx.fillStyle = colorToRgbaString(beamColor, 0.8);
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
     const source = projectile.source;
     const targetPosition = projectile.target
       ? projectile.target
       : projectile.targetId
       ? (() => {
-          const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
-          return enemy ? this.getEnemyPosition(enemy) : null;
+          // Cache enemy lookups to avoid repeated find operations
+          if (!this._frameCache?.enemyPositionCache) {
+            if (!this._frameCache) {
+              this._frameCache = {};
+            }
+            this._frameCache.enemyPositionCache = new Map();
+          }
+          let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
+          if (!pos) {
+            const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            pos = enemy ? this.getEnemyPosition(enemy) : null;
+            if (pos) {
+              this._frameCache.enemyPositionCache.set(projectile.targetId, pos);
+            }
+          }
+          return pos;
         })()
       : projectile.targetCrystalId
       ? (() => {
@@ -2523,6 +3277,7 @@ function drawProjectiles() {
   this.drawBetaBursts();
   this.drawAlphaBursts();
   this.drawGammaBursts();
+  this.drawGammaStarBursts();
   this.drawNuBursts();
   this.drawOmegaParticles();
 }
@@ -2537,6 +3292,91 @@ function drawBetaBursts() {
 
 function drawGammaBursts() {
   drawGammaBurstsHelper(this);
+}
+
+/**
+ * Render star burst effects on enemies hit by gamma projectiles.
+ */
+function drawGammaStarBursts() {
+  const ctx = this.ctx;
+  if (!ctx || !Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
+    return;
+  }
+  
+  // Use gamma particle color
+  const color = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
+  const rgbaStr = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.9)`;
+  
+  ctx.save();
+  ctx.strokeStyle = rgbaStr;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  
+  const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
+  
+  this.gammaStarBursts.forEach((burst) => {
+    if (!burst || !burst.center) {
+      return;
+    }
+    
+    const radius = burst.starRadius || 22;
+    const center = burst.center;
+    
+    // Calculate pentagram star points
+    const angles = [];
+    for (let step = 0; step < 5; step += 1) {
+      angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+    }
+    const starPoints = angles.map((angle) => ({
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
+    }));
+    
+    // Draw the current edge being traced
+    const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
+    if (edgeIndex < GAMMA_STAR_SEQUENCE.length - 1) {
+      const fromIndex = GAMMA_STAR_SEQUENCE[edgeIndex];
+      const toIndex = GAMMA_STAR_SEQUENCE[edgeIndex + 1];
+      const fromPoint = starPoints[fromIndex];
+      const toPoint = starPoints[toIndex];
+      
+      if (fromPoint && toPoint && burst.currentPosition) {
+        // Draw completed edges with fading opacity
+        const fadePerEdge = 0.15;
+        for (let i = 0; i < edgeIndex; i++) {
+          const fi = GAMMA_STAR_SEQUENCE[i];
+          const ti = GAMMA_STAR_SEQUENCE[i + 1];
+          const fp = starPoints[fi];
+          const tp = starPoints[ti];
+          if (fp && tp) {
+            const opacity = Math.max(0.2, 0.9 - (edgeIndex - i) * fadePerEdge);
+            ctx.strokeStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${opacity})`;
+            ctx.beginPath();
+            ctx.moveTo(fp.x, fp.y);
+            ctx.lineTo(tp.x, tp.y);
+            ctx.stroke();
+          }
+        }
+        
+        // Draw current edge from start to current position
+        ctx.strokeStyle = rgbaStr;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fromPoint.x, fromPoint.y);
+        ctx.lineTo(burst.currentPosition.x, burst.currentPosition.y);
+        ctx.stroke();
+        
+        // Draw a glow at current position
+        ctx.fillStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.7)`;
+        ctx.beginPath();
+        ctx.arc(burst.currentPosition.x, burst.currentPosition.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+  
+  ctx.restore();
 }
 
 function drawNuBursts() {
@@ -2712,6 +3552,8 @@ export {
   drawTowerConnectionParticles,
   drawConnectionEffects,
   draw,
+  drawCrystallineMosaic,
+  drawSketches,
   drawFloaters,
   drawMoteGems,
   drawPath,
@@ -2732,14 +3574,16 @@ export {
   drawOmicronUnits,
   drawEnemies,
   drawEnemyDeathParticles,
+  drawSwarmClouds,
   drawDamageNumbers,
+  drawFloatingFeedback,
   drawWaveTallies,
   drawProjectiles,
   drawAlphaBursts,
   drawBetaBursts,
   drawGammaBursts,
+  drawGammaStarBursts,
   drawNuBursts,
   drawOmegaParticles,
   drawTowerMenu,
 };
-

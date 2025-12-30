@@ -4,16 +4,114 @@
       <stop offset="0%" stop-color="#e8f0ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#8ea6ff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Psi merging vortex particles -->
+    <circle id="psiMerge1" r="1" fill="#b0c8ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="40,24; 36,28; 34,30; 32,32"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="1;1.2;1.5;0.5" 
+        keyTimes="0;0.33;0.66;1" 
+        dur="2.8s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="psiMerge2" r="1" fill="#a0b8ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="24,40; 28,36; 30,34; 32,32"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="1;1.2;1.5;0.5" 
+        keyTimes="0;0.33;0.66;1" 
+        dur="2.8s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="psiMerge3" r="1" fill="#b0c8ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.8s" 
+        begin="1s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="44,36; 38,34; 34,32; 32,32"
+        keyTimes="0;0.33;0.66;1"
+        dur="2.8s" 
+        begin="1s"
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="1;1.2;1.5;0.5" 
+        keyTimes="0;0.33;0.66;1" 
+        dur="2.8s" 
+        begin="1s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Vortex core -->
+    <circle id="psiCore" cx="32" cy="32" r="2" fill="#9cb0ff" opacity="0.5">
+      <animate attributeName="opacity" 
+        values="0.5;0.8;0.5" 
+        keyTimes="0;0.5;1" 
+        dur="2s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="2;2.5;2" 
+        keyTimes="0;0.5;1" 
+        dur="2s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Spiral lines -->
+    <path id="psiSpiral" d="M 32,32 Q 34,28 38,26" fill="none" stroke="#c0d4ff" stroke-width="0.8" opacity="0.4">
+      <animateTransform attributeName="transform" 
+        type="rotate"
+        values="0 32 32; 360 32 32"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </path>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#psiAura)" opacity="0.92" />
+  
+  <!-- Merging vortex (behind the letter) -->
+  <g id="vortex">
+    <use href="#psiSpiral" />
+    <use href="#psiCore" />
+    <use href="#psiMerge1" />
+    <use href="#psiMerge2" />
+    <use href="#psiMerge3" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#1b2140"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ψ</text>
 </svg>

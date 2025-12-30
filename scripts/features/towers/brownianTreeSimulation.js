@@ -7,27 +7,32 @@
  */
 
 import { toneMapBuffer } from './fractalRenderUtils.js';
-
 import { addPanZoomToFractal } from './fractalPanZoom.js';
+import {
+  ORIGIN_DEFAULTS,
+  GROWTH_DEFAULTS,
+  CONNECTION_DEFAULTS,
+  WALKABLE_MASK_DEFAULTS,
+} from './brownianTreeSimulationConfig.js';
 
 export class BrownianTreeSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
-    this.originX = typeof options.originX === 'number' ? options.originX : 0.5;
-    this.originY = typeof options.originY === 'number' ? options.originY : 0.5;
+    this.originX = typeof options.originX === 'number' ? options.originX : ORIGIN_DEFAULTS.originX;
+    this.originY = typeof options.originY === 'number' ? options.originY : ORIGIN_DEFAULTS.originY;
     // Enable shared drag-to-pan and zoom interactions on the Brownian canvas.
     if (typeof this.initPanZoom === 'function') {
       this.initPanZoom(this.canvas);
     }
 
-    this.glowRadius = options.glowRadius || 5;
-    this.particleLimit = options.particleLimit || 1800;
+    this.glowRadius = options.glowRadius || GROWTH_DEFAULTS.glowRadius;
+    this.particleLimit = options.particleLimit || GROWTH_DEFAULTS.particleLimit;
 
     this.cluster = [];
     this.targetParticles = 0;
 
-    this.cellSize = 6;
+    this.cellSize = GROWTH_DEFAULTS.cellSize;
     this.spawnRadius = 0;
     this.killRadius = 0;
     // Track particles by grid cell so spatial lookups stay efficient even as the
@@ -37,15 +42,15 @@ export class BrownianTreeSimulation {
     // Animated connection data so new filaments draw outward smoothly from the trunk.
     this.connections = [];
     this.connectionSet = new Set();
-    this.connectionGrowthSpeed = options.connectionGrowthSpeed || 0.12;
-    this.connectionSearchRadius = options.connectionSearchRadius || 32;
-    this.maxConnectionNeighbors = options.maxConnectionNeighbors || 3;
-    this.pointFlashDuration = options.pointFlashDuration || 18;
+    this.connectionGrowthSpeed = options.connectionGrowthSpeed || CONNECTION_DEFAULTS.connectionGrowthSpeed;
+    this.connectionSearchRadius = options.connectionSearchRadius || CONNECTION_DEFAULTS.connectionSearchRadius;
+    this.maxConnectionNeighbors = options.maxConnectionNeighbors || CONNECTION_DEFAULTS.maxConnectionNeighbors;
+    this.pointFlashDuration = options.pointFlashDuration || CONNECTION_DEFAULTS.pointFlashDuration;
 
     // Optional walkable mask prevents growth from tunneling through solid terrain.
     this.walkableMask = null;
-    this.walkableScaleX = 1;
-    this.walkableScaleY = 1;
+    this.walkableScaleX = WALKABLE_MASK_DEFAULTS.walkableScaleX;
+    this.walkableScaleY = WALKABLE_MASK_DEFAULTS.walkableScaleY;
     if (options.walkableMask) {
       this.setWalkableMask(options.walkableMask, { reset: false });
     }

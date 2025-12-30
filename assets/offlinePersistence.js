@@ -515,7 +515,7 @@ export function recordPowderEvent(type, context = {}) {
         const safeBetTotal = Number.isFinite(betTotal) ? Math.max(0, betTotal) : 0;
         const betRateLabel = dependencies.formatGameNumber(safeBetMultiplier);
         const betGainLabel = dependencies.formatGameNumber(safeBetTotal);
-        betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Serendipity`);
+        betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Sand`);
       }
 
       const happinessPieces = [];

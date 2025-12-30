@@ -15,6 +15,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   renderForceLinks: true,
   renderFusionEffects: true,
   renderSpawnEffects: true,
+  smoothRendering: true,
+  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -24,9 +26,13 @@ let graphicsLevelButton = null;
 let forceLinkToggle = null;
 let fusionEffectsToggle = null;
 let spawnEffectsToggle = null;
+let smoothRenderingToggle = null;
 let forceLinkStateLabel = null;
 let fusionEffectsStateLabel = null;
 let spawnEffectsStateLabel = null;
+let smoothRenderingStateLabel = null;
+let renderSizeSelect = null;
+let renderSizeRow = null;
 
 /**
  * Persist the latest Tsadi visual settings to localStorage.
@@ -42,6 +48,7 @@ function loadSettings() {
   const stored = readStorageJson(TSADI_VISUAL_SETTINGS_STORAGE_KEY);
   if (stored && typeof stored === 'object') {
     settings = { ...DEFAULT_SETTINGS, ...stored };
+    settings.renderSizeLevel = normalizeRenderSizeLevel(stored.renderSizeLevel);
   }
 }
 
@@ -58,6 +65,7 @@ function applySettingsToSimulation() {
     renderForceLinks: settings.renderForceLinks,
     renderFusionEffects: settings.renderFusionEffects,
     renderSpawnEffects: settings.renderSpawnEffects,
+    smoothRendering: settings.smoothRendering,
   });
 }
 
@@ -116,6 +124,58 @@ function syncAllToggles() {
   syncToggleState(forceLinkToggle, forceLinkStateLabel, settings.renderForceLinks);
   syncToggleState(fusionEffectsToggle, fusionEffectsStateLabel, settings.renderFusionEffects);
   syncToggleState(spawnEffectsToggle, spawnEffectsStateLabel, settings.renderSpawnEffects);
+  syncToggleState(smoothRenderingToggle, smoothRenderingStateLabel, settings.smoothRendering);
+  
+  if (renderSizeSelect) {
+    renderSizeSelect.value = String(normalizeRenderSizeLevel(settings.renderSizeLevel));
+  }
+}
+
+/**
+ * Normalize the render size level to a safe 0-2 range.
+ */
+function normalizeRenderSizeLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(2, Math.max(0, parsed));
+}
+
+/**
+ * Apply the Tsadi render size settings by offsetting the spire container.
+ */
+function applyRenderSizeLayout() {
+  const tsadiStage = document.getElementById('tsadi-canvas');
+  if (!tsadiStage) {
+    return;
+  }
+
+  const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
+  const panel = tsadiStage.closest('.panel');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  // Medium and Large should expand past panel padding to keep the spire centered.
+  const inlineLeft = sizeLevel >= 1 ? panelPadding.left : 0;
+  const inlineRight = sizeLevel >= 1 ? panelPadding.right : 0;
+  const topOffset = sizeLevel >= 1 ? panelPadding.top : 0;
+
+  tsadiStage.dataset.sizeLevel = String(sizeLevel);
+  tsadiStage.style.setProperty('--tsadi-size-inline-left', `${inlineLeft}px`);
+  tsadiStage.style.setProperty('--tsadi-size-inline-right', `${inlineRight}px`);
+  tsadiStage.style.setProperty('--tsadi-size-top', `${topOffset}px`);
 }
 
 /**
@@ -126,9 +186,13 @@ export function bindTsadiSpireOptions() {
   forceLinkToggle = document.getElementById('tsadi-force-links-toggle');
   fusionEffectsToggle = document.getElementById('tsadi-fusion-effects-toggle');
   spawnEffectsToggle = document.getElementById('tsadi-spawn-effects-toggle');
+  smoothRenderingToggle = document.getElementById('tsadi-smooth-rendering-toggle');
   forceLinkStateLabel = document.getElementById('tsadi-force-links-state');
   fusionEffectsStateLabel = document.getElementById('tsadi-fusion-effects-state');
   spawnEffectsStateLabel = document.getElementById('tsadi-spawn-effects-state');
+  smoothRenderingStateLabel = document.getElementById('tsadi-smooth-rendering-state');
+  renderSizeSelect = document.getElementById('tsadi-render-size-select');
+  renderSizeRow = document.getElementById('tsadi-render-size-row');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
@@ -152,6 +216,21 @@ export function bindTsadiSpireOptions() {
     });
   }
 
+  if (smoothRenderingToggle) {
+    smoothRenderingToggle.addEventListener('change', (event) => {
+      handleToggleChange('smoothRendering', event.target, smoothRenderingStateLabel);
+    });
+  }
+
+  if (renderSizeSelect) {
+    renderSizeSelect.addEventListener('change', (event) => {
+      settings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderSizeLayout();
+    });
+  }
+
   syncGraphicsButton();
   syncAllToggles();
 }
@@ -162,6 +241,7 @@ export function bindTsadiSpireOptions() {
 export function initializeTsadiSpirePreferences() {
   loadSettings();
   applySettingsToSimulation();
+  applyRenderSizeLayout();
   syncGraphicsButton();
   syncAllToggles();
 }
@@ -179,4 +259,11 @@ export function setTsadiSimulationGetter(getter) {
  */
 export function getTsadiVisualSettings() {
   return { ...settings };
+}
+
+// Recalculate size offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderSizeLayout();
+  });
 }

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ladderGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff2c2" stop-opacity="0.96" />
+      <stop offset="100%" stop-color="#d1a73a" stop-opacity="0.82" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  
+  <!-- Solid circle background (golden color, 25% smaller than original) -->
+  <!-- Original would be r="22", 25% smaller = r="16.5" -->
+  <circle cx="32" cy="32" r="16.5" fill="#f9e7b5" opacity="0.95" />
+  
+  <!-- Thin circle outline around the solid circle -->
+  <circle cx="32" cy="32" r="16.5" fill="none" stroke="#f9e7b5" stroke-width="1.5" opacity="0.8" />
+  
+  <!-- Inner filled circle for the infinity symbol -->
+  <circle cx="32" cy="32" r="12" fill="url(#ladderGradient)" opacity="0.92" />
+  
+  <!-- Infinity symbol -->
+  <text
+    x="32"
+    y="39"
+    font-family="'Cormorant Garamond', serif"
+    font-size="26"
+    text-anchor="middle"
+    fill="#2a2109"
+  >∞</text>
+</svg>

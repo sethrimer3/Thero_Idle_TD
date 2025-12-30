@@ -4,16 +4,54 @@
       <stop offset="0%" stop-color="#f4e2ff" stop-opacity="0.88" />
       <stop offset="100%" stop-color="#8bd8ff" stop-opacity="0.62" />
     </radialGradient>
+    
+    <!-- Aleph-four quad-dimensional particles (square rotation) -->
+    <circle id="alephFour1" r="1" fill="#b8d8ff" opacity="0.7">
+      <animateTransform attributeName="transform" type="translate"
+        values="26,26; 38,26; 38,38; 26,38; 26,26"
+        keyTimes="0;0.25;0.5;0.75;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="alephFour2" r="1" fill="#d0e8ff" opacity="0.7">
+      <animateTransform attributeName="transform" type="translate"
+        values="38,26; 38,38; 26,38; 26,26; 38,26"
+        keyTimes="0;0.25;0.5;0.75;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Rotating square frame -->
+    <rect id="alephFourRect" x="26" y="26" width="12" height="12" fill="none" stroke="#e0f0ff" stroke-width="0.5" opacity="0.3">
+      <animateTransform attributeName="transform" 
+        type="rotate"
+        values="0 32 32; 90 32 32; 180 32 32; 270 32 32; 360 32 32"
+        dur="8s" 
+        repeatCount="indefinite" />
+    </rect>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#181b2f" stroke="#f3f0ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#alephFourAura)" opacity="0.92" />
+  
+  <!-- Quad-dimensional square (behind the letter) -->
+  <g id="square">
+    <use href="#alephFourRect" />
+    <use href="#alephFour1" />
+    <use href="#alephFour2" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="22"
     text-anchor="middle"
-    fill="#102236"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ℵ₄</text>
 </svg>

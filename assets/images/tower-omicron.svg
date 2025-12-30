@@ -4,16 +4,77 @@
       <stop offset="0%" stop-color="#d5fff4" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#5de3c5" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Omicron circular energy particles -->
+    <circle id="omicronRing1" cx="32" cy="32" r="6" fill="none" stroke="#90f5dd" stroke-width="1" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="6;10;13;13" 
+        keyTimes="0;0.5;0.8;1" 
+        dur="2.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="omicronRing2" cx="32" cy="32" r="6" fill="none" stroke="#a8fae8" stroke-width="1" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.3;0.7;1" 
+        dur="2.5s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+      <animate attributeName="r" 
+        values="6;10;13;13" 
+        keyTimes="0;0.5;0.8;1" 
+        dur="2.5s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Orbiting dots -->
+    <circle id="omicronDot1" r="1" fill="#78f0d8" opacity="0.7">
+      <animateTransform attributeName="transform" 
+        type="translate"
+        values="40,32; 32,24; 24,32; 32,40; 40,32"
+        keyTimes="0;0.25;0.5;0.75;1"
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <circle id="omicronDot2" r="1" fill="#90f8e0" opacity="0.7">
+      <animateTransform attributeName="transform" 
+        type="translate"
+        values="24,32; 32,40; 40,32; 32,24; 24,32"
+        keyTimes="0;0.25;0.5;0.75;1"
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#omicronAura)" opacity="0.92" />
+  
+  <!-- Circular rings and orbits (behind the letter) -->
+  <g id="circles">
+    <use href="#omicronRing1" />
+    <use href="#omicronRing2" />
+    <use href="#omicronDot1" />
+    <use href="#omicronDot2" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#11231f"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ο</text>
 </svg>

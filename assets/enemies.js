@@ -110,6 +110,162 @@ export const GEM_DEFINITIONS = [
 
 const GEM_LOOKUP = new Map(GEM_DEFINITIONS.map((gem) => [gem.id, gem]));
 
+// Enemy shell sprite definitions. Each shell has a front sprite (rendered in front of enemy)
+// and a back sprite (rendered behind enemy). Shells are randomly assigned to enemies.
+export const ENEMY_SHELL_DEFINITIONS = [
+  {
+    id: 'armadillo_blue',
+    name: 'Blue Armadillo Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/armadillo_shell_blue_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/armadillo_shell_blue_back.png',
+  },
+  {
+    id: 'armadillo_white',
+    name: 'White Armadillo Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/armadillo_shell_white_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/armadillo_shell_white_back.png',
+  },
+  {
+    id: 'hecatontagon_pink',
+    name: 'Pink Hecatontagon Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/hecatontagon_pink_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/hecatontagon_pink_back.png',
+  },
+  {
+    id: 'octahedron_purple',
+    name: 'Purple Octahedron Shell',
+    frontSprite: './assets/sprites/enemies/shells/front/octahedron_purple_front.png',
+    backSprite: './assets/sprites/enemies/shells/back/octahedron_purple_back.png',
+  },
+  {
+    id: 'icosahedron_purple',
+    name: 'Purple Icosahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/icosahedron_purple.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'dodecahedron_red',
+    name: 'Red Dodecahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/dodecahedron_red.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'dodecahedron_yellow',
+    name: 'Yellow Dodecahedron',
+    frontSprite: './assets/sprites/enemies/shells/front/dodecahedron_yellow.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'metatron_purple',
+    name: 'Purple Metatron Cube',
+    frontSprite: './assets/sprites/enemies/shells/front/metatron_cube_purple.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'metatron_white',
+    name: 'White Metatron Cube',
+    frontSprite: './assets/sprites/enemies/shells/front/metatron_cube_white.png',
+    backSprite: null, // No back sprite for this one
+  },
+  {
+    id: 'pyramid_red',
+    name: 'Red Pyramid',
+    frontSprite: './assets/sprites/enemies/shells/front/pyramid_red.png',
+    backSprite: null, // No back sprite for this one
+  },
+];
+
+// Cache shell sprite images for efficient rendering
+const SHELL_SPRITE_CACHE = new Map();
+
+// Load and cache a shell sprite image
+function loadShellSprite(spritePath) {
+  if (!spritePath || typeof Image === 'undefined') {
+    return null;
+  }
+  
+  const cached = SHELL_SPRITE_CACHE.get(spritePath);
+  if (cached && cached.loaded && !cached.error) {
+    return cached.image;
+  }
+  if (cached && cached.error) {
+    return null;
+  }
+  
+  // If already loading, return the cached image (even if not yet loaded)
+  if (cached) {
+    return cached.image;
+  }
+  
+  const image = new Image();
+  const record = { image, loaded: false, error: false };
+  image.addEventListener('load', () => {
+    record.loaded = true;
+  });
+  image.addEventListener('error', () => {
+    record.error = true;
+  });
+  image.src = spritePath;
+  SHELL_SPRITE_CACHE.set(spritePath, record);
+  return image;
+}
+
+// Assign a random shell to an enemy. The shell persists on the enemy object.
+export function assignRandomShell(enemy) {
+  if (!enemy || enemy.shellId) {
+    return; // Enemy already has a shell assigned
+  }
+  
+  if (ENEMY_SHELL_DEFINITIONS.length === 0) {
+    return; // No shells available
+  }
+  
+  // Select a random shell
+  const randomIndex = Math.floor(Math.random() * ENEMY_SHELL_DEFINITIONS.length);
+  const shell = ENEMY_SHELL_DEFINITIONS[randomIndex];
+  
+  // Store shell info on enemy
+  enemy.shellId = shell.id;
+  enemy.shellFrontSprite = shell.frontSprite;
+  enemy.shellBackSprite = shell.backSprite;
+  
+  // Pre-load the sprite images
+  loadShellSprite(shell.frontSprite);
+  loadShellSprite(shell.backSprite);
+}
+
+// Get the loaded shell sprite images for an enemy
+export function getEnemyShellSprites(enemy) {
+  if (!enemy || !enemy.shellFrontSprite) {
+    return null;
+  }
+  
+  const frontImage = SHELL_SPRITE_CACHE.get(enemy.shellFrontSprite);
+  
+  // If there's a back sprite, check if both are loaded
+  if (enemy.shellBackSprite) {
+    const backImage = SHELL_SPRITE_CACHE.get(enemy.shellBackSprite);
+    
+    // Only return if both are loaded successfully
+    if (frontImage?.loaded && !frontImage?.error && backImage?.loaded && !backImage?.error) {
+      return {
+        front: frontImage.image,
+        back: backImage.image,
+      };
+    }
+  } else {
+    // No back sprite, only return front if loaded
+    if (frontImage?.loaded && !frontImage?.error) {
+      return {
+        front: frontImage.image,
+        back: null,
+      };
+    }
+  }
+  
+  return null;
+}
+
 // Maintain a direct lookup so modules can access gem sprite paths without duplicating strings.
 const GEM_SPRITE_LOOKUP = new Map(
   GEM_DEFINITIONS.filter((gem) => gem.sprite).map((gem) => [gem.id, gem.sprite])
@@ -141,6 +297,10 @@ const ENEMY_GEM_MULTIPLIERS = new Map([
 
 // Radius used when sweeping the battlefield for mote gem pickups.
 export const MOTE_GEM_COLLECTION_RADIUS = 48;
+
+// Gem suction animation configuration
+const GEM_SUCTION_SPEED = 8; // Speed multiplier for gem attraction
+const GEM_SUCTION_THRESHOLD = 3; // Distance threshold to consider gem collected (pixels)
 
 let queueMoteDropHandler = null;
 let recordPowderEventHandler = null;
@@ -286,17 +446,8 @@ export function spawnMoteGemDrop(enemy, position) {
   return gem;
 }
 
-// Transfer a mote gem into the player's reserves and remove it from the field.
-export function collectMoteGemDrop(gem, context = {}) {
-  if (!gem) {
-    return false;
-  }
-  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
-  if (index === -1) {
-    return false;
-  }
-  moteGemState.active.splice(index, 1);
-
+// Helper function to add a gem to the player's inventory and invoke handlers.
+function addGemToInventory(gem, reason = 'manual') {
   const record =
     moteGemState.inventory.get(gem.typeKey) ||
     { label: gem.typeLabel, total: 0, count: 0 };
@@ -315,26 +466,102 @@ export function collectMoteGemDrop(gem, context = {}) {
     recordPowderEventHandler('mote-gem-collected', {
       type: gem.typeLabel,
       value: gem.value,
-      reason: context.reason || 'manual',
+      reason,
     });
   }
+}
+
+// Transfer a mote gem into the player's reserves and remove it from the field.
+export function collectMoteGemDrop(gem, context = {}) {
+  if (!gem) {
+    return false;
+  }
+  const index = moteGemState.active.findIndex((candidate) => candidate && candidate.id === gem.id);
+  if (index === -1) {
+    return false;
+  }
+  moteGemState.active.splice(index, 1);
+  addGemToInventory(gem, context.reason || 'manual');
   return true;
 }
 
 // Collect any mote gems within a radius of the provided battlefield point.
+// Returns an object with the count and details of collected gems.
 export function collectMoteGemsWithinRadius(center, radius, context = {}) {
   if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    return 0;
+    return { count: 0, gems: [] };
   }
   const effectiveRadius = Number.isFinite(radius) ? Math.max(1, radius) : MOTE_GEM_COLLECTION_RADIUS;
   const radiusSquared = effectiveRadius * effectiveRadius;
-  const harvested = moteGemState.active.filter((gem) => {
+  const gemsInRange = moteGemState.active.filter((gem) => {
     const dx = gem.x - center.x;
     const dy = gem.y - center.y;
     return dx * dx + dy * dy <= radiusSquared;
   });
-  harvested.forEach((gem) => collectMoteGemDrop(gem, context));
-  return harvested.length;
+
+  // Start suction animation for all gems in range
+  gemsInRange.forEach((gem) => {
+    if (!gem.suction) {
+      gem.suction = {
+        targetX: center.x,
+        targetY: center.y,
+        startTime: Date.now(),
+        active: true,
+      };
+    }
+  });
+
+  return { count: gemsInRange.length, gems: gemsInRange };
+}
+
+// Update gem suction animations and collect gems that reach their target.
+// Returns an array of collected gems grouped by type.
+export function updateGemSuctionAnimations(deltaTime = 16) {
+  const collectedByType = new Map();
+
+  moteGemState.active = moteGemState.active.filter((gem) => {
+    if (!gem.suction || !gem.suction.active) {
+      return true; // Keep gems without active suction
+    }
+
+    const dx = gem.suction.targetX - gem.x;
+    const dy = gem.suction.targetY - gem.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Check if gem has reached its target
+    if (distance <= GEM_SUCTION_THRESHOLD) {
+      // Add to inventory using shared helper
+      addGemToInventory(gem, 'suction');
+
+      // Track collected gems by type for feedback display
+      if (!collectedByType.has(gem.typeKey)) {
+        collectedByType.set(gem.typeKey, {
+          count: 0,
+          typeKey: gem.typeKey,
+          typeName: gem.typeLabel,
+          color: gem.color,
+          targetX: gem.suction.targetX,
+          targetY: gem.suction.targetY,
+        });
+      }
+      const typeGroup = collectedByType.get(gem.typeKey);
+      typeGroup.count += gem.value;
+
+      return false; // Remove collected gem
+    }
+
+    // Move gem toward target
+    const speed = (GEM_SUCTION_SPEED * deltaTime) / 16; // Normalize for 60fps
+    const moveDistance = Math.min(distance, speed);
+    const angle = Math.atan2(dy, dx);
+    gem.x += Math.cos(angle) * moveDistance;
+    gem.y += Math.sin(angle) * moveDistance;
+
+    return true; // Keep gem
+  });
+
+  // Convert collected gems map to array
+  return Array.from(collectedByType.values());
 }
 
 // Automatically collect every mote gem currently active on the field.

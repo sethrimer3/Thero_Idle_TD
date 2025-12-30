@@ -237,7 +237,9 @@ function autoAnchorTowers() {
       insufficientEnergy = true;
       break;
     }
-    const success = this.addTowerAt(anchor, { silent: true });
+    // Use the tower type specified in the anchor, if provided
+    const towerType = anchor.type || undefined;
+    const success = this.addTowerAt(anchor, { silent: true, towerType });
     if (success) {
       placed += 1;
     }

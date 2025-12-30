@@ -209,6 +209,16 @@
                 aria-label="Interactive glyph defense lane"
               >
                 <!-- Playfield menu surfaces layout toggles when a level is active. -->
+                <!-- Fullscreen toggle sits beside the playfield menu for quick access. -->
+                <button
+                  class="playfield-menu-button playfield-fullscreen-button"
+                  type="button"
+                  id="playfield-fullscreen-button"
+                  aria-label="Enter full screen"
+                  title="Enter full screen"
+                >
+                  ⤢
+                </button>
                 <button
                   class="playfield-menu-button"
                   type="button"
@@ -328,7 +338,7 @@
                     <dd id="playfield-energy">—</dd>
                   </div>
                 </dl>
-                <div class="tower-loadout-shell" id="tower-loadout-shell">
+                <div class="tower-loadout-shell" id="tower-loadout-shell" data-toggle-side="left">
                   <button
                     class="tower-loadout-toggle"
                     id="tower-loadout-toggle"
@@ -346,6 +356,156 @@
                     </p>
                     <div class="tower-loadout-grid" id="tower-loadout-grid" role="list"></div>
                   </div>
+                </div>
+              </div>
+              <!-- Playfield Visual Settings - Only visible when in a level -->
+              <div class="playfield-settings-wrapper" id="playfield-settings-wrapper" hidden aria-hidden="true">
+                <button
+                  class="action-button playfield-settings-trigger"
+                  type="button"
+                  id="playfield-settings-toggle"
+                  aria-expanded="false"
+                  aria-controls="playfield-settings-menu"
+                >
+                  <span class="playfield-settings-trigger__icon" aria-hidden="true">℘</span>
+                  <span class="playfield-settings-trigger__label">Settings</span>
+                </button>
+                <div
+                  class="playfield-settings-menu"
+                  id="playfield-settings-menu"
+                  data-open="false"
+                  aria-hidden="true"
+                  hidden
+                >
+                  <div class="settings-toggle" id="playfield-enemy-particles-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-enemy-particles-title">Enemy Particles</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-enemy-particles-description"
+                        >Particle effects around enemies for enhanced visual feedback.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-enemy-particles-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-enemy-particles-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-enemy-particles-title"
+                        aria-describedby="playfield-enemy-particles-description"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-enemy-particles-state">On</span>
+                    </label>
+                  </div>
+                  <!-- Edge Crystals toggle for playfield edge polygons. -->
+                  <div class="settings-toggle" id="playfield-edge-crystals-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-edge-crystals-title">Edge Crystals</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-edge-crystals-description"
+                        >Decorative polygons around the edge of the playfield.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-edge-crystals-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-edge-crystals-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-edge-crystals-title"
+                        aria-describedby="playfield-edge-crystals-description"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-edge-crystals-state">On</span>
+                    </label>
+                  </div>
+                  <!-- Background Particles toggle for floaters and swimmers. -->
+                  <div class="settings-toggle" id="playfield-background-particles-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-background-particles-title">Background Particles</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-background-particles-description"
+                        >Floating circles and connecting lines in the playfield background.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-background-particles-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-background-particles-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-background-particles-title"
+                        aria-describedby="playfield-background-particles-description"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-background-particles-state">On</span>
+                    </label>
+                  </div>
+                  <!-- Render size option for Playfield. -->
+                  <div class="settings-toggle" id="playfield-render-size-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-render-size-title">Render Size</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-render-size-description"
+                        >Adjust the Playfield render size.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-render-size-select">
+                      <span class="screen-reader-only">Render size</span>
+                      <select
+                        id="playfield-render-size-select"
+                        class="settings-select"
+                        aria-labelledby="playfield-render-size-title"
+                        aria-describedby="playfield-render-size-description"
+                      >
+                        <option value="0">Small</option>
+                        <option value="1" selected>Medium</option>
+                        <option value="2">Large</option>
+                      </select>
+                    </label>
+                  </div>
+                  <!-- High-resolution toggle for the Playfield canvas. -->
+                  <div class="settings-toggle" id="playfield-high-res-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="playfield-high-res-title">Playfield Resolution</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="playfield-high-res-description"
+                        >Increase render resolution for sharper playfield visuals.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="playfield-high-res-toggle">
+                      <input
+                        type="checkbox"
+                        id="playfield-high-res-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-labelledby="playfield-high-res-title"
+                        aria-describedby="playfield-high-res-description"
+                        aria-checked="false"
+                      />
+                      <span class="settings-toggle-slider" aria-hidden="true"></span>
+                      <span class="settings-toggle-state" id="playfield-high-res-state">Standard</span>
+                    </label>
+                  </div>
+                  <button class="action-button ghost" type="button" id="playfield-track-type-button">
+                    Track Type · Gradient
+                  </button>
+                  <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
+                    Tower Toggle · Left
+                  </button>
+                  <button class="action-button ghost playfield-settings-close" type="button">Close</button>
                 </div>
               </div>
               <!-- Combat stats panel sits below the battlefield so gameplay remains interactive. -->
@@ -718,23 +878,195 @@
             </div>
           </section>
           <section class="level-section" id="level-selection">
-            <!-- Surface the live thero multiplier and starting equation at the top of the level list. -->
+            <!-- Leaderboard shortcut anchored in the upper corner of the Defense tab. -->
+            <button
+              class="defense-leaderboard-button"
+              type="button"
+              id="defense-leaderboard-button"
+              aria-label="View defense leaderboards"
+            >
+              <span aria-hidden="true">⚔</span>
+            </button>
+            <header class="subsection-title subsection-title--level">Project: Thero</header>
+            <div class="level-grid" id="level-grid" aria-live="polite"></div>
+            <!-- Surface the live thero multiplier and starting equation beneath the level list. -->
             <div class="level-thero-banner" id="level-thero-banner" aria-live="polite">
               <div class="level-thero-row">
                 <span class="level-thero-label">Thero Multiplier</span>
                 <span class="level-thero-value" id="level-thero-multiplier">×0.00</span>
               </div>
             </div>
-            <header class="subsection-title">Conjecture Set</header>
-            <p class="level-intro">
-              The opening proofs trace immortal-defense style figure-eights,
-              cardioids, and logarithmic spirals. Each path is derived from a
-              math-graph expression and rewards towers that can flex their
-              formulas mid-curve.
-            </p>
-            <div class="level-grid" id="level-grid" aria-live="polite"></div>
+            <!-- Cognitive Realm: Collective Unconscious - unlocked at level set 3 -->
+            <section class="cognitive-realm-section" id="cognitive-realm-section" hidden aria-hidden="true">
+              <header class="subsection-title subsection-title--cognitive-realm">
+                Collective Unconscious
+              </header>
+              <p class="cognitive-realm-hint">Tap nodes to learn about archetypes • Pan to explore • Zoom with scroll or pinch</p>
+              <div class="cognitive-realm-container" id="cognitive-realm-container">
+                <canvas class="cognitive-realm-canvas" id="cognitive-realm-canvas" aria-label="Interactive collective unconscious archetype map"></canvas>
+              </div>
+              <!-- Territory statistics displayed below the map -->
+              <div class="cognitive-realm-stats">
+                <div class="cognitive-realm-stat">
+                  <span class="cognitive-realm-stat-label cognitive-realm-stat-label--player">Player:</span>
+                  <span class="cognitive-realm-stat-value" id="cognitive-realm-stat-player">0</span>
+                </div>
+                <div class="cognitive-realm-stat">
+                  <span class="cognitive-realm-stat-label cognitive-realm-stat-label--enemy">Enemy:</span>
+                  <span class="cognitive-realm-stat-value" id="cognitive-realm-stat-enemy">0</span>
+                </div>
+                <div class="cognitive-realm-stat">
+                  <span class="cognitive-realm-stat-label cognitive-realm-stat-label--neutral">Neutral:</span>
+                  <span class="cognitive-realm-stat-value" id="cognitive-realm-stat-neutral">0</span>
+                </div>
+              </div>
+              <!-- Graphical options button at bottom (like spire options) -->
+              <div class="cognitive-realm-options-wrapper">
+                <button
+                  class="action-button cognitive-realm-options-trigger"
+                  type="button"
+                  id="cognitive-realm-options-toggle"
+                  aria-expanded="false"
+                  aria-controls="cognitive-realm-options-menu"
+                >
+                  <span>Visual Options</span>
+                </button>
+                <div
+                  class="spire-options-menu"
+                  id="cognitive-realm-options-menu"
+                  data-open="false"
+                  aria-hidden="true"
+                  hidden
+                >
+                  <div class="settings-toggle" id="cognitive-realm-neuron-connections-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-neuron-connections-title">Neuron Connections</span>
+                      <span class="settings-toggle-description" id="cognitive-realm-neuron-connections-description"
+                        >Soft-body rope connections between nodes with gradient opacity fade.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="cognitive-realm-neuron-connections-toggle">
+                      <input
+                        type="checkbox"
+                        id="cognitive-realm-neuron-connections-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-thumb"></span>
+                      <span class="settings-toggle-state" id="cognitive-realm-neuron-connections-state">On</span>
+                    </label>
+                  </div>
+                  <div class="settings-toggle" id="cognitive-realm-neuron-pulses-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-neuron-pulses-title">Neuron Pulses</span>
+                      <span class="settings-toggle-description" id="cognitive-realm-neuron-pulses-description"
+                        >Orbital light sparks that animate around nodes.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="cognitive-realm-neuron-pulses-toggle">
+                      <input
+                        type="checkbox"
+                        id="cognitive-realm-neuron-pulses-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-thumb"></span>
+                      <span class="settings-toggle-state" id="cognitive-realm-neuron-pulses-state">On</span>
+                    </label>
+                  </div>
+                  <div class="settings-toggle" id="cognitive-realm-ambient-particles-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-ambient-particles-title">Ambient Particles</span>
+                      <span class="settings-toggle-description" id="cognitive-realm-ambient-particles-description"
+                        >Floating light motes that drift across the background.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="cognitive-realm-ambient-particles-toggle">
+                      <input
+                        type="checkbox"
+                        id="cognitive-realm-ambient-particles-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-thumb"></span>
+                      <span class="settings-toggle-state" id="cognitive-realm-ambient-particles-state">On</span>
+                    </label>
+                  </div>
+                  <div class="settings-toggle" id="cognitive-realm-node-drift-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-node-drift-title">Node Drift</span>
+                      <span class="settings-toggle-description" id="cognitive-realm-node-drift-description"
+                        >Gently move archetype nodes toward periodically shifting offsets.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="cognitive-realm-node-drift-toggle">
+                      <input
+                        type="checkbox"
+                        id="cognitive-realm-node-drift-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-checked="false"
+                      />
+                      <span class="settings-toggle-thumb"></span>
+                      <span class="settings-toggle-state" id="cognitive-realm-node-drift-state">Off</span>
+                    </label>
+                  </div>
+                  <div class="settings-toggle" id="cognitive-realm-randomized-layout-toggle-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-randomized-layout-title">Randomized Layout</span>
+                      <span class="settings-toggle-description" id="cognitive-realm-randomized-layout-description"
+                        >Scatter nodes to unique starting positions each time the map is opened.</span
+                      >
+                    </div>
+                  <label class="settings-toggle-control" for="cognitive-realm-randomized-layout-toggle">
+                    <input
+                      type="checkbox"
+                        id="cognitive-realm-randomized-layout-toggle"
+                        class="settings-toggle-input"
+                        role="switch"
+                        aria-checked="true"
+                        checked
+                      />
+                      <span class="settings-toggle-thumb"></span>
+                      <span class="settings-toggle-state" id="cognitive-realm-randomized-layout-state">On</span>
+                    </label>
+                  </div>
+                  <!-- Render size option for Collective Unconscious. -->
+                  <div class="settings-toggle" id="cognitive-realm-render-size-row">
+                    <div class="settings-toggle-text">
+                      <span class="settings-toggle-title" id="cognitive-realm-render-size-title">Render Size</span>
+                      <span
+                        class="settings-toggle-description"
+                        id="cognitive-realm-render-size-description"
+                        >Adjust the Collective Unconscious render size.</span
+                      >
+                    </div>
+                    <label class="settings-toggle-control" for="cognitive-realm-render-size-select">
+                      <span class="screen-reader-only">Render size</span>
+                      <select
+                        id="cognitive-realm-render-size-select"
+                        class="settings-select"
+                        aria-labelledby="cognitive-realm-render-size-title"
+                        aria-describedby="cognitive-realm-render-size-description"
+                      >
+                        <option value="0">Small</option>
+                        <option value="1" selected>Medium</option>
+                        <option value="2">Large</option>
+                      </select>
+                    </label>
+                  </div>
+                  <button class="action-button ghost spire-options-close" type="button">Close</button>
+                </div>
+              </div>
+            </section>
           </section>
-          <!-- Developer mode toggle positioned at the very bottom of the Stage tab -->
+          <!-- Developer mode toggle positioned at the very bottom of the Defense tab -->
           <div class="stage-developer-toggle-wrapper" id="stage-developer-toggle-wrapper">
             <label class="developer-mode-toggle stage-developer-mode-toggle" for="stage-developer-mode">
               <input type="checkbox" id="stage-developer-mode" />
@@ -1175,13 +1507,6 @@
                 <span class="tower-tier">Tier XIII</span>
                 <h3>ν nu tower</h3>
               </header>
-              <div class="formula-block">
-                <p class="formula-line">\( \nu = X \)</p>
-                <ul class="formula-definition">
-                  <li>Not defined yet.</li>
-                </ul>
-                <p class="formula-line result">Not defined yet.</p>
-              </div>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
               </ul>
@@ -1195,13 +1520,6 @@
                 <span class="tower-tier">Tier XIV</span>
                 <h3>ξ xi tower</h3>
               </header>
-              <div class="formula-block">
-                <p class="formula-line">\( \xi = X \)</p>
-                <ul class="formula-definition">
-                  <li>Not defined yet.</li>
-                </ul>
-                <p class="formula-line result">Not defined yet.</p>
-              </div>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
               </ul>
@@ -1450,6 +1768,97 @@
             </article>
 
           </div>
+          
+          <!-- Developer mode toggle for tower card visibility -->
+          <div class="tower-visibility-controls" id="tower-visibility-controls">
+            <label class="tower-visibility-toggle" for="tower-visibility-developer-mode">
+              <input type="checkbox" id="tower-visibility-developer-mode" />
+              <span class="tower-visibility-label">Show all tower cards (developer mode)</span>
+            </label>
+            <p class="tower-visibility-note">
+              Enable to view all tower cards including locked ones. Useful for development and testing.
+            </p>
+            
+            <!-- Individual tower card visibility toggles for debugging -->
+            <details class="tower-individual-toggles" id="tower-individual-toggles">
+              <summary class="tower-individual-toggles__summary">Individual Tower Card Toggles (Debug)</summary>
+              <p class="tower-individual-toggles__note">
+                Toggle individual tower cards to identify which one is causing scrolling issues.
+              </p>
+              <div class="tower-individual-toggles__grid" id="tower-individual-toggles-grid">
+                <!-- Individual checkboxes will be populated by JavaScript -->
+              </div>
+            </details>
+            
+            <!-- Nu and Xi tower card element debugging controls -->
+            <details class="tower-element-debug" id="tower-element-debug">
+              <summary class="tower-element-debug__summary">Nu/Xi Card Element Debug (Scroll Issue)</summary>
+              <p class="tower-element-debug__note">
+                Toggle specific elements of Nu and Xi tower cards to identify which element is blocking scroll gestures.
+              </p>
+              <div class="tower-element-debug__grid">
+                <fieldset class="tower-element-debug__section">
+                  <legend>Nu Tower (ν) Elements</legend>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-preview" checked />
+                    <span>Show Preview Icon</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-header" checked />
+                    <span>Show Header</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-formula" checked />
+                    <span>Show Formula Block</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-footer" checked />
+                    <span>Show Footer</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-nu-button" checked />
+                    <span>Show Equip Button</span>
+                  </label>
+                  <label class="tower-element-debug__toggle tower-element-debug__toggle--master">
+                    <input type="checkbox" id="debug-nu-card" checked />
+                    <span><strong>Show Entire Card</strong></span>
+                  </label>
+                </fieldset>
+                
+                <fieldset class="tower-element-debug__section">
+                  <legend>Xi Tower (ξ) Elements</legend>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-preview" checked />
+                    <span>Show Preview Icon</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-header" checked />
+                    <span>Show Header</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-formula" checked />
+                    <span>Show Formula Block</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-footer" checked />
+                    <span>Show Footer</span>
+                  </label>
+                  <label class="tower-element-debug__toggle">
+                    <input type="checkbox" id="debug-xi-button" checked />
+                    <span>Show Equip Button</span>
+                  </label>
+                  <label class="tower-element-debug__toggle tower-element-debug__toggle--master">
+                    <input type="checkbox" id="debug-xi-card" checked />
+                    <span><strong>Show Entire Card</strong></span>
+                  </label>
+                </fieldset>
+              </div>
+              <p class="tower-element-debug__instructions">
+                💡 <strong>Instructions:</strong> Uncheck elements one at a time to identify which one is preventing scrolling. 
+                If scrolling works after hiding an element, that element likely has <code>pointer-events</code> or <code>touch-action</code> CSS that's blocking the gesture.
+              </p>
+            </details>
+          </div>
         </section>
 
         <section
@@ -1638,9 +2047,103 @@
                 aria-hidden="true"
                 hidden
               >
-                <p class="settings-toggle-description">
-                  Gentle render toggles for the Aleph powder basin will live here soon.
-                </p>
+                <div class="settings-toggle" id="powder-mote-glow-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-mote-glow-title">Luminous motes</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-mote-glow-description"
+                      >Soft glow on resting motes and a trailing shimmer while they fall.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-mote-glow-toggle">
+                    <input
+                      type="checkbox"
+                      id="powder-mote-glow-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="powder-mote-glow-title"
+                      aria-describedby="powder-mote-glow-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="powder-mote-glow-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="powder-background-stars-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-background-stars-title">Background stars</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-background-stars-description"
+                      >Twinkling white and gold stars that swim in the background.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-background-stars-toggle">
+                    <input
+                      type="checkbox"
+                      id="powder-background-stars-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="powder-background-stars-title"
+                      aria-describedby="powder-background-stars-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="powder-background-stars-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="powder-mote-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-mote-trails-title">Mote falling trails</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-mote-trails-description"
+                      >Glowing trails behind falling motes for enhanced visual effect.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-mote-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="powder-mote-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="powder-mote-trails-title"
+                      aria-describedby="powder-mote-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="powder-mote-trails-state">On</span>
+                  </label>
+                </div>
+                <!-- Render size option for Aleph spire. -->
+                <div class="settings-toggle" id="powder-render-overlap-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="powder-render-overlap-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="powder-render-overlap-description"
+                      >Adjust the Aleph spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="powder-render-overlap-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="powder-render-overlap-select"
+                      class="settings-select"
+                      aria-labelledby="powder-render-overlap-title"
+                      aria-describedby="powder-render-overlap-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>
@@ -1654,6 +2157,377 @@
           aria-labelledby="tab-fluid"
           hidden
         >
+          <header class="panel-header" aria-label="Bet Spire"></header>
+          
+          <!-- Particle physics render -->
+          <section class="fluid-grid" aria-label="Bet Spire Render">
+            <article class="card powder-simulation" id="bet-spire-simulation-card">
+              <div class="powder-basin" id="bet-spire-basin">
+                <canvas
+                  id="bet-spire-canvas"
+                  width="240"
+                  height="320"
+                  role="img"
+                  aria-label="Bet Spire particle simulation"
+                ></canvas>
+              </div>
+            </article>
+          </section>
+          
+          <!-- Particle Factor Equation -->
+          <section class="fluid-grid" aria-label="Particle Factor Equation">
+            <article class="card">
+              <div class="bet-equation-display">
+                <div class="bet-equation-text" id="bet-particle-equation">No particles yet</div>
+              </div>
+            </article>
+          </section>
+          
+          <!-- Particle Inventory Table -->
+          <section class="fluid-grid" aria-label="Scintilla Inventory">
+            <article class="card">
+              <header class="card-header">Scintilla Inventory</header>
+              <div class="card-content">
+                <table class="particle-inventory-table" id="bet-particle-inventory">
+                  <thead>
+                    <tr>
+                      <th>Scintilla Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bet-particle-inventory-body">
+                    <!-- Rows will be populated by JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+          
+          <!-- BET Spire Upgrade Menu -->
+          <section class="fluid-grid" aria-label="Bet Spire Upgrades">
+            <article class="card bet-upgrade-card" id="bet-upgrade-menu">
+              <header class="card-header">
+                <h3>Particle Generators</h3>
+              </header>
+              
+              <!-- Particle Factor Display -->
+              <div class="bet-factor-display">
+                <div class="bet-factor-stat" id="bet-particle-factor">Particle Factor: 1</div>
+                <div class="bet-factor-stat" id="bet-milestone-progress">Next BET glyph at 10 (0%)</div>
+                <div class="bet-factor-stat" id="bet-glyphs-earned">BET Glyphs Earned: 0</div>
+                <div class="bet-factor-stat" id="bet-total-production">Total: 0.000 particles/s</div>
+              </div>
+              
+              <!-- Generator List -->
+              <div class="bet-generator-list">
+                <!-- Generator items will be populated by JavaScript -->
+              </div>
+            </article>
+          </section>
+          
+          <!-- Bet Spire Options -->
+          <section class="panel-grid spire-options-grid" aria-label="Bet Spire options">
+            <article class="card spire-options-card">
+              <button
+                class="action-button spire-options-trigger"
+                type="button"
+                id="bet-spire-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="bet-spire-options-menu"
+              >
+                <span class="spire-options-glyph" aria-hidden="true">בּ</span>
+                <span>Spire Options</span>
+              </button>
+              <div
+                class="spire-options-menu"
+                id="bet-spire-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <div class="settings-toggle" id="bet-particle-trails-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-trails-title">Particle Trails</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-trails-description"
+                      >Glowing trails behind moving particles for enhanced visual effect.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-trails-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-trails-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-trails-title"
+                      aria-describedby="bet-particle-trails-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-trails-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="bet-forge-glow-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-forge-glow-title">Forge & Generator Glow</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-forge-glow-description"
+                      >Soft glow effect on the central forge and particle generators.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-forge-glow-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-forge-glow-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-forge-glow-title"
+                      aria-describedby="bet-forge-glow-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="bet-smooth-rendering-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-smooth-rendering-title">Smooth Rendering</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-smooth-rendering-description"
+                      >Toggle between smooth (anti-aliased) and pixelated (crisp) rendering.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-smooth-rendering-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-smooth-rendering-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-smooth-rendering-title"
+                      aria-describedby="bet-smooth-rendering-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-smooth-rendering-state">On</span>
+                  </label>
+                </div>
+                
+                <!-- Developer-only debug controls (hidden unless developer mode is active) -->
+                <div class="settings-toggle" id="bet-particle-spawning-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-spawning-title">🔧 Particle Spawning</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-spawning-description"
+                      >Developer: Enable or disable particle spawning.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-spawning-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-spawning-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-spawning-title"
+                      aria-describedby="bet-particle-spawning-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-spawning-state">On</span>
+                  </label>
+                </div>
+                
+                <div class="settings-toggle" id="bet-particle-merging-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-merging-title">🔧 Particle Merging</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-merging-description"
+                      >Developer: Enable or disable particle size merging (100 small → 1 medium).</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-merging-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-merging-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-merging-title"
+                      aria-describedby="bet-particle-merging-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-merging-state">On</span>
+                  </label>
+                </div>
+                
+                <!-- Developer-only toggle for merge shockwave bursts. -->
+                <div class="settings-toggle" id="bet-merge-shockwaves-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-merge-shockwaves-title">🔧 Merge Shockwaves</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-merge-shockwaves-description"
+                      >Developer: Enable or disable the burst shockwave when particles merge.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-merge-shockwaves-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-merge-shockwaves-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-merge-shockwaves-title"
+                      aria-describedby="bet-merge-shockwaves-description"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-merge-shockwaves-state">Off</span>
+                  </label>
+                </div>
+
+                <!-- Developer-only toggle for subtle particle veer motion. -->
+                <div class="settings-toggle" id="bet-particle-veer-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-veer-title">🔧 Particle Veer</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-veer-description"
+                      >Developer: Apply subtle randomized veering to particle motion.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-veer-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-veer-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-veer-title"
+                      aria-describedby="bet-particle-veer-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-veer-state">On</span>
+                  </label>
+                </div>
+
+                <!-- Developer-only toggle for gentle small-tier generator gravity. -->
+                <div class="settings-toggle" id="bet-small-tier-generator-gravity-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-small-tier-generator-gravity-title"
+                      >🔧 Small Tier Generator Gravity</span
+                    >
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-small-tier-generator-gravity-description"
+                      >Developer: Apply an extra gentle pull that nudges small particles toward their generators.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-small-tier-generator-gravity-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-small-tier-generator-gravity-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-small-tier-generator-gravity-title"
+                      aria-describedby="bet-small-tier-generator-gravity-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-small-tier-generator-gravity-state">On</span>
+                  </label>
+                </div>
+
+                <!-- Developer-only toggle for weak medium-tier forge gravity. -->
+                <div class="settings-toggle" id="bet-medium-tier-forge-gravity-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-medium-tier-forge-gravity-title"
+                      >🔧 Medium Tier Forge Gravity</span
+                    >
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-medium-tier-forge-gravity-description"
+                      >Developer: Apply an extra weak pull that guides medium particles toward the forge.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-medium-tier-forge-gravity-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-medium-tier-forge-gravity-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-medium-tier-forge-gravity-title"
+                      aria-describedby="bet-medium-tier-forge-gravity-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-medium-tier-forge-gravity-state">On</span>
+                  </label>
+                </div>
+
+                <div class="settings-toggle" id="bet-particle-promotion-toggle-row" hidden aria-hidden="true">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-particle-promotion-title">🔧 Particle Promotion</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-particle-promotion-description"
+                      >Developer: Enable or disable particle tier promotion at the forge (medium → next tier small).</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-particle-promotion-toggle">
+                    <input
+                      type="checkbox"
+                      id="bet-particle-promotion-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="bet-particle-promotion-title"
+                      aria-describedby="bet-particle-promotion-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="bet-particle-promotion-state">On</span>
+                  </label>
+                </div>
+                
+                <div class="settings-toggle" id="bet-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="bet-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="bet-render-size-description"
+                      >Adjust the Bet spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="bet-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="bet-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="bet-render-size-title"
+                      aria-describedby="bet-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
+              </div>
+            </article>
+          </section>
+          
           <!-- Floating toggle button for spire menu (mobile) -->
           <button
             class="spire-menu-toggle"
@@ -1733,315 +2607,6 @@
               <span class="spire-menu-count" id="spire-menu-kuf-count-fluid">0</span>
             </button>
           </nav>
-          <header class="panel-header" aria-label="Bet Spire"></header>
-          <section class="fluid-grid" aria-label="Bet Spire Overview">
-            <div class="fluid-simulation-slot" id="fluid-simulation-host">
-              <article class="card powder-simulation fluid-simulation-card" id="fluid-simulation-card">
-                <div class="powder-basin fluid-basin" id="fluid-basin">
-                  <canvas
-                    id="fluid-canvas"
-                    class="fluid-canvas"
-                    width="240"
-                    height="320"
-                    role="presentation"
-                    aria-hidden="true"
-                  ></canvas>
-                  <div class="fluid-terrarium-layer" id="fluid-terrarium-layer">
-                    <div
-                      class="fluid-terrarium-stage"
-                      id="fluid-terrarium-stage"
-                      role="img"
-                      aria-label="Bet terrarium shimmering beneath a starlit sky"
-                    >
-                      <div class="fluid-terrarium-stage__media" id="fluid-terrarium-stage-media">
-                        <div class="fluid-terrarium__sky" id="fluid-terrarium-sky" aria-hidden="true">
-                          <div class="fluid-terrarium__sun" id="fluid-terrarium-sun" aria-hidden="true"></div>
-                          <div class="fluid-terrarium__moon" id="fluid-terrarium-moon" aria-hidden="true"></div>
-                          <div
-                            class="fluid-terrarium__stars fluid-terrarium__stars--near"
-                            id="fluid-terrarium-stars-near"
-                          ></div>
-                          <div
-                            class="fluid-terrarium__stars fluid-terrarium__stars--far"
-                            id="fluid-terrarium-stars-far"
-                          ></div>
-                        </div>
-                        <img
-                          class="fluid-terrarium__background"
-                          src="./assets/sprites/spires/betSpire/Cave-Background.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <img
-                          class="fluid-terrarium__magma"
-                          src="./assets/sprites/spires/betSpire/Magma.png"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <div class="fluid-terrarium__magma-glow" aria-hidden="true"></div>
-                        <img
-                          class="fluid-terrarium__floating-island"
-                          id="fluid-terrarium-floating-island"
-                          src="./assets/sprites/spires/betSpire/Floating-Island.png"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <img
-                          class="fluid-terrarium__foreground fluid-terrarium__terrain"
-                          id="fluid-terrarium-foreground"
-                          src="./assets/sprites/spires/betSpire/Terrain.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                        <!-- Hidden collision silhouette sampled by the Bet terrarium overlays (shares the full-res terrain art). -->
-                        <img
-                          class="fluid-terrarium__collision-map"
-                          id="fluid-terrarium-foreground-collision"
-                          src="./assets/sprites/spires/betSpire/Terrain.svg"
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          aria-hidden="true"
-                        />
-                      </div>
-                    </div>
-                  <div class="powder-viewport fluid-viewport" id="fluid-viewport"></div>
-                </div>
-              </div>
-              <div class="fluid-camera-toggle" id="fluid-camera-toggle">
-                <button
-                  class="fluid-camera-toggle__button"
-                  id="fluid-camera-mode-toggle"
-                  type="button"
-                  aria-pressed="false"
-                  aria-label="Toggle Bet terrarium camera mode"
-                >
-                  <span class="fluid-camera-toggle__label">Camera mode</span>
-                  <span class="fluid-camera-toggle__pill" aria-hidden="true">
-                    <span class="fluid-camera-toggle__thumb"></span>
-                  </span>
-                  <span class="fluid-camera-toggle__state" id="fluid-camera-mode-state">Off</span>
-                </button>
-                <p class="fluid-camera-toggle__hint" id="fluid-camera-mode-hint" hidden></p>
-              </div>
-              </article>
-            </div>
-        <!-- Progress bar that reveals how close the Bet Spire is to its next happiness glyph. -->
-        <div class="fluid-happiness-progress" id="fluid-happiness-progress" aria-live="polite">
-          <div class="fluid-happiness-progress__label" id="fluid-happiness-progress-label">
-            Happiness Level 1
-          </div>
-          <div class="fluid-happiness-progress__bar-row">
-            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-previous">0 hp</span>
-            <div class="fluid-happiness-progress__track">
-              <div class="fluid-happiness-progress__fill" id="fluid-happiness-progress-fill"></div>
-              <div class="fluid-happiness-progress__current" id="fluid-happiness-progress-current">
-                0.0 hp
-              </div>
-            </div>
-            <span class="fluid-happiness-progress__threshold" id="fluid-happiness-progress-next">5 hp</span>
-          </div>
-        </div>
-        <!-- Terrarium Items dropdown for managing and upgrading items in the spire -->
-        <article class="card fluid-terrarium-items-card">
-          <button
-            class="fluid-terrarium-items-toggle"
-            type="button"
-            id="fluid-terrarium-items-toggle"
-            aria-expanded="false"
-            aria-controls="fluid-terrarium-items-dropdown"
-          >
-            <span class="fluid-terrarium-items-toggle__title">Terrarium Items</span>
-            <span class="fluid-terrarium-items-toggle__chevron" aria-hidden="true">▼</span>
-          </button>
-          <div
-            class="fluid-terrarium-items-dropdown"
-            id="fluid-terrarium-items-dropdown"
-            data-open="false"
-            aria-hidden="true"
-            hidden
-          >
-            <p class="fluid-terrarium-items-empty" id="fluid-terrarium-items-empty">No items placed in the terrarium yet.</p>
-            <ul class="fluid-terrarium-items-list" id="fluid-terrarium-items-list" aria-label="Terrarium items list"></ul>
-          </div>
-        </article>
-        <article class="card fluid-metrics-card">
-          <h3>Terrarium</h3>
-          <dl class="fluid-metrics">
-            <div>
-              <dt>Serendipity Reserve</dt>
-              <dd id="fluid-reservoir">0 Serendipity</dd>
-            </div>
-            <div>
-              <dt>Inspiration Rate</dt>
-              <dd id="fluid-drip-rate">0.00 Serendipity/sec</dd>
-            </div>
-          </dl>
-          <p class="fluid-status-note" id="fluid-status-note">
-            The Bet terrarium is a visual reflection; stored Serendipity is tracked in the reserve readout.
-          </p>
-        </article>
-            <article class="card fluid-happiness-card">
-              <h3>Happiness Ledger</h3>
-              <dl class="fluid-happiness-summary">
-                <div>
-                  <dt>Total Happiness</dt>
-                  <dd id="fluid-happiness-total">0 hp</dd>
-                </div>
-                <div>
-                  <dt>Happiness per Hour</dt>
-                  <dd id="fluid-happiness-rate">0 hp/hr</dd>
-                </div>
-              </dl>
-              <div class="fluid-happiness-breakdown">
-                <p class="fluid-happiness-empty" id="fluid-happiness-empty">No habitats are generating happiness yet.</p>
-                <ul class="fluid-happiness-list" id="fluid-happiness-list"></ul>
-              </div>
-            </article>
-          </section>
-          <section class="panel-grid spire-options-grid" aria-label="Bet Spire options">
-            <article class="card spire-options-card">
-              <button
-                class="action-button spire-options-trigger"
-                type="button"
-                id="fluid-options-toggle-button"
-                aria-expanded="false"
-                aria-controls="fluid-options-menu"
-              >
-                <span class="spire-options-glyph" aria-hidden="true">בּ</span>
-                <span>Spire Options</span>
-              </button>
-              <div
-                class="spire-options-menu"
-                id="fluid-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="fluid-graphics-level-button">
-                  Graphics · High
-                </button>
-                <div class="settings-toggle" id="fluid-creatures-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-creatures-title">Ambient Creatures</span>
-                    <span class="settings-toggle-description" id="fluid-creatures-description"
-                      >Animated Deltas that lounge, hop, and glow across the terrarium floor.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-creatures-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-creatures-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-creatures-title"
-                      aria-describedby="fluid-creatures-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-creatures-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-grass-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-grass-title">Terrarium Grass</span>
-                    <span class="settings-toggle-description" id="fluid-grass-description"
-                      >Swaying blades of grass masked to the Bet terrain silhouette.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-grass-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-grass-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-grass-title"
-                      aria-describedby="fluid-grass-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-grass-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-sky-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-sky-title">Sky Cycle</span>
-                    <span class="settings-toggle-description" id="fluid-sky-description"
-                      >Gradient day/night cycle with drifting sun, moon, and star layers.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-sky-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-sky-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-sky-title"
-                      aria-describedby="fluid-sky-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-sky-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-crystal-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-crystal-title">Crystal Bloom</span>
-                    <span class="settings-toggle-description" id="fluid-crystal-description"
-                      >Brownian crystal growth rendered in the alcove behind the basin.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-crystal-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-crystal-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-crystal-title"
-                      aria-describedby="fluid-crystal-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-crystal-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="fluid-shrooms-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="fluid-shrooms-title">Shroom Spores</span>
-                    <span class="settings-toggle-description" id="fluid-shrooms-description"
-                      >Phi and Psi shrooms with drifting spores around the terrarium stage.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="fluid-shrooms-toggle">
-                    <input
-                      type="checkbox"
-                      id="fluid-shrooms-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="fluid-shrooms-title"
-                      aria-describedby="fluid-shrooms-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="fluid-shrooms-state">On</span>
-                  </label>
-                </div>
-              </div>
-            </article>
-          </section>
         </section>
 
         <section
@@ -2391,6 +2956,30 @@
                     <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
                   </label>
                 </div>
+                <div class="settings-toggle" id="lamed-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="lamed-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="lamed-render-size-description"
+                      >Adjust the Lamed spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="lamed-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="lamed-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="lamed-render-size-title"
+                      aria-describedby="lamed-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>
@@ -2542,17 +3131,17 @@
                   <dd id="tsadi-binding-agent-count">0 Waals</dd>
                 </div>
                 <div>
-                  <dt>Particle Generation Rate</dt>
-                  <dd id="tsadi-generation-rate">2.00 particles/sec</dd>
+                  <dt>Atom Generation Rate</dt>
+                  <dd id="tsadi-generation-rate">2.00 atoms/sec</dd>
                 </div>
                 <div>
-                  <dt>Active Particles</dt>
-                  <dd id="tsadi-particle-count">0 particles</dd>
+                  <dt>Active Atoms</dt>
+                  <dd id="tsadi-particle-count">0 atoms</dd>
                 </div>
               </dl>
               <p class="tsadi-status-note" id="tsadi-status-note">
-                Particles bounce and collide. When two particles of the same tier collide, they fuse into a higher tier.
-                Each new tier reached earns a Tsadi glyph. Calm particles (with zero or negative repelling force) can be tied
+                Atoms bounce and collide. When two atoms of the same tier collide, they fuse into a higher tier.
+                Each new tier reached earns a Tsadi glyph. Calm atoms (with zero or negative repelling force) can be tied
                 together with binding agents to form molecules for bonus effects.
               </p>
             </article>
@@ -2730,6 +3319,52 @@
                     <span class="settings-toggle-state" id="tsadi-spawn-effects-state">On</span>
                   </label>
                 </div>
+                <div class="settings-toggle" id="tsadi-smooth-rendering-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="tsadi-smooth-rendering-title">Smooth Rendering</span>
+                    <span class="settings-toggle-description" id="tsadi-smooth-rendering-description"
+                      >Enable subpixel rendering for ultra-smooth particle motion without grid snapping.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="tsadi-smooth-rendering-toggle">
+                    <input
+                      type="checkbox"
+                      id="tsadi-smooth-rendering-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="tsadi-smooth-rendering-title"
+                      aria-describedby="tsadi-smooth-rendering-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="tsadi-smooth-rendering-state">On</span>
+                  </label>
+                </div>
+                <div class="settings-toggle" id="tsadi-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="tsadi-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="tsadi-render-size-description"
+                      >Adjust the Tsadi spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="tsadi-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="tsadi-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="tsadi-render-size-title"
+                      aria-describedby="tsadi-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>
@@ -2872,12 +3507,17 @@
           <!-- Wave Starting Options -->
           <article class="card shin-wave-start-card">
             <h3>Wave Start Options</h3>
-            <p class="shin-wave-start-description">Start at any multiple of 10 waves you've reached.</p>
+            <p class="shin-wave-start-description">Drag the wheel to select a starting wave.</p>
             <div class="shin-wave-start-controls">
-              <label for="shin-wave-start-select">Starting Wave:</label>
-              <select id="shin-wave-start-select" class="shin-wave-select">
-                <option value="0">Wave 1 (Default)</option>
-              </select>
+              <label for="shin-wave-carousel">Starting Wave:</label>
+              <div class="shin-wave-carousel" id="shin-wave-carousel">
+                <div class="shin-wave-carousel-container">
+                  <div class="shin-wave-carousel-track" id="shin-wave-carousel-track">
+                    <!-- Wave numbers populated dynamically -->
+                  </div>
+                  <div class="shin-wave-carousel-selector"></div>
+                </div>
+              </div>
               <button id="shin-wave-start-apply-btn" class="shin-weapon-action">Apply & Restart</button>
             </div>
           </article>
@@ -2978,6 +3618,30 @@
                 </div>
                 <button class="action-button ghost" type="button" id="shin-enemy-trail-quality-button">Enemy Trail Quality · High</button>
                 <button class="action-button ghost" type="button" id="shin-bullet-trail-length-button">Bullet Trails · Long</button>
+                <div class="settings-toggle" id="shin-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="shin-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="shin-render-size-description"
+                      >Adjust the Shin spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="shin-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="shin-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="shin-render-size-title"
+                      aria-describedby="shin-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>
@@ -3087,155 +3751,199 @@
                 <!-- Pre-simulation menu with unit deployment and upgrades -->
                 <div class="kuf-sim-menu" id="kuf-sim-menu">
                   <button class="action-button kuf-sim-menu-start" type="button" id="kuf-start-button">Start Simulation</button>
-
-                  <div class="kuf-sim-map" aria-live="polite">
-                    <p class="kuf-sim-map-label">Battlefield</p>
-                    <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
-                    <p class="kuf-sim-map-meta" id="kuf-map-difficulty"></p>
-                    <p class="kuf-sim-map-description" id="kuf-map-description">Select a battlefield to see its briefing.</p>
-                    <ul class="kuf-map-mechanics" id="kuf-map-mechanics">
-                      <li>No unique mechanics documented yet.</li>
-                    </ul>
-                  </div>
-
-                  <div class="kuf-sim-menu-units">
-                    <!-- Marine -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Marine</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="marines" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
-                        </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">5</span> ea.
-                          (<span id="kuf-marines-total-cost">0</span>)
-                        </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
-                        </button>
+                  <!-- Kuf main menu grid to organize pre-simulation choices in four tiles. -->
+                  <div class="kuf-sim-menu-grid">
+                    <!-- Levels tile houses the battlefield selection list. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--levels">
+                      <h4 class="kuf-sim-menu-title">Levels</h4>
+                      <div class="kuf-sim-map" aria-live="polite">
+                        <p class="kuf-sim-map-label">Battlefield</p>
+                        <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
+                        <p class="kuf-sim-map-meta" id="kuf-map-difficulty"></p>
+                        <p class="kuf-sim-map-description" id="kuf-map-description">Select a battlefield to see its briefing.</p>
+                        <ul class="kuf-map-mechanics" id="kuf-map-mechanics">
+                          <li>No unique mechanics documented yet.</li>
+                        </ul>
                       </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-marines-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="health">+</button>
+                    </section>
+                    <!-- Ship tile presents core ship upgrades and hull status. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--ship">
+                      <h4 class="kuf-sim-menu-title">Ship</h4>
+                      <div class="kuf-sim-menu-units">
+                        <div class="kuf-sim-unit kuf-sim-unit--core">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Core Ship</span>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
+                              Hull: <span id="kuf-core-ship-health">120 HP</span>
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
+                            </button>
                           </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attackSpeed">+</button>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Hull</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Cannons</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="cannons">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-cannon-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="cannons">+</button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <!-- Sniper -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Sniper</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="snipers" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
+                    </section>
+                    <!-- Units tile groups all recruitable unit upgrades. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--units">
+                      <h4 class="kuf-sim-menu-title">Units</h4>
+                      <div class="kuf-sim-menu-units">
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Marine</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="marines" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-marines-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">15</span> ea.
-                          (<span id="kuf-snipers-total-cost">0</span>)
+                        
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Sniper</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="snipers" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-snipers-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
-                        </button>
+                        
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Splayer</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="splayers" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-splayers-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-snipers-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="health">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attackSpeed">+</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- Splayer -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Splayer</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="splayers" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
-                        </div>
-                        <div class="kuf-sim-unit-cost">
-                          <span class="kuf-sim-unit-cost-each">30</span> ea.
-                          (<span id="kuf-splayers-total-cost">0</span>)
-                        </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
-                        </button>
-                      </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-splayers-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="health">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    </section>
+                    <!-- TBD tile reserves space for future Kuf menu content. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--tbd">
+                      <h4 class="kuf-sim-menu-title">TBD</h4>
+                      <p class="kuf-sim-menu-tbd">Awaiting future systems.</p>
+                    </section>
                   </div>
                 </div>
                 
@@ -3399,6 +4107,30 @@
                     <span class="settings-toggle-state" id="kuf-glow-toggle-state">On</span>
                   </label>
                 </div>
+                <div class="settings-toggle" id="kuf-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="kuf-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="kuf-render-size-description"
+                      >Adjust the Kuf spire render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="kuf-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="kuf-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="kuf-render-size-title"
+                      aria-describedby="kuf-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>
@@ -3414,11 +4146,176 @@
           aria-labelledby="tab-achievements"
           hidden
         >
-          <header class="panel-header">Achievements</header>
+          <header class="panel-header">Achievements Terrarium</header>
           <p class="achievement-note">
-              Each sealed proof adds <strong>+1 mote per minute</strong> to the idle bank. Tap an icon to
-            review its victory details.
+            Each sealed proof adds <strong>+1 mote per minute</strong> to the idle bank and grants terrarium creatures and items.
           </p>
+          
+          <!-- Terrarium rendering section moved from Bet Spire -->
+          <section class="fluid-grid" aria-label="Achievements Terrarium">
+            <div class="fluid-simulation-slot" id="achievements-terrarium-host">
+              <article class="card powder-simulation fluid-simulation-card" id="achievements-terrarium-card">
+                <div class="powder-basin fluid-basin" id="achievements-terrarium-basin">
+                  <canvas
+                    id="achievements-terrarium-canvas"
+                    class="fluid-canvas"
+                    width="240"
+                    height="320"
+                    role="presentation"
+                    aria-hidden="true"
+                  ></canvas>
+                  <div class="fluid-terrarium-layer" id="achievements-terrarium-layer">
+                    <div
+                      class="fluid-terrarium-stage"
+                      id="achievements-terrarium-stage"
+                      role="img"
+                      aria-label="Achievement terrarium with creatures and items"
+                    >
+                      <div class="fluid-terrarium-stage__media" id="achievements-terrarium-stage-media">
+                        <div class="fluid-terrarium__sky" id="achievements-terrarium-sky" aria-hidden="true">
+                          <div class="fluid-terrarium__sun" id="achievements-terrarium-sun" aria-hidden="true"></div>
+                          <div class="fluid-terrarium__moon" id="achievements-terrarium-moon" aria-hidden="true"></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--near"
+                            id="achievements-terrarium-stars-near"
+                          ></div>
+                          <div
+                            class="fluid-terrarium__stars fluid-terrarium__stars--far"
+                            id="achievements-terrarium-stars-far"
+                          ></div>
+                        </div>
+                        <img
+                          class="fluid-terrarium__background"
+                          src="./assets/sprites/spires/betSpire/terrarium/Cave-Background.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__magma"
+                          src="./assets/sprites/spires/betSpire/terrarium/Magma.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <div class="fluid-terrarium__magma-glow" aria-hidden="true"></div>
+                        <img
+                          class="fluid-terrarium__floating-island"
+                          id="achievements-terrarium-floating-island"
+                          src="./assets/sprites/spires/betSpire/terrarium/Floating-Island.png"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__collision-map"
+                          id="achievements-terrarium-floating-island-collision"
+                          src="./assets/sprites/spires/betSpire/terrarium/Floating-Island.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__foreground fluid-terrarium__terrain"
+                          id="achievements-terrarium-foreground"
+                          src="./assets/sprites/spires/betSpire/Terrain.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                        <img
+                          class="fluid-terrarium__collision-map"
+                          id="achievements-terrarium-foreground-collision"
+                          src="./assets/sprites/spires/betSpire/Terrain.svg"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          aria-hidden="true"
+                        />
+                      </div>
+                    </div>
+                  <div class="powder-viewport fluid-viewport" id="achievements-terrarium-viewport"></div>
+                </div>
+              </div>
+              </article>
+            </div>
+            
+            <!-- Terrarium Options -->
+            <article class="card spire-options-card">
+              <button
+                class="action-button spire-options-trigger"
+                type="button"
+                id="achievements-terrarium-options-toggle-button"
+                aria-expanded="false"
+                aria-controls="achievements-terrarium-options-menu"
+              >
+                <span>Terrarium Options</span>
+              </button>
+              <div
+                class="spire-options-menu"
+                id="achievements-terrarium-options-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <!-- Render size option for Achievement Terrarium. -->
+                <div class="settings-toggle" id="achievements-terrarium-render-size-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="achievements-terrarium-render-size-title">Render Size</span>
+                    <span
+                      class="settings-toggle-description"
+                      id="achievements-terrarium-render-size-description"
+                      >Adjust the Achievement Terrarium render size.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="achievements-terrarium-render-size-select">
+                    <span class="screen-reader-only">Render size</span>
+                    <select
+                      id="achievements-terrarium-render-size-select"
+                      class="settings-select"
+                      aria-labelledby="achievements-terrarium-render-size-title"
+                      aria-describedby="achievements-terrarium-render-size-description"
+                    >
+                      <option value="0">Small</option>
+                      <option value="1" selected>Medium</option>
+                      <option value="2">Large</option>
+                    </select>
+                  </label>
+                </div>
+                <button class="action-button ghost spire-options-close" type="button">Close</button>
+              </div>
+            </article>
+            
+            <!-- Terrarium Items dropdown -->
+            <article class="card fluid-terrarium-items-card">
+              <button
+                class="fluid-terrarium-items-toggle"
+                type="button"
+                id="achievements-terrarium-items-toggle"
+                aria-expanded="false"
+                aria-controls="achievements-terrarium-items-dropdown"
+              >
+                <span class="fluid-terrarium-items-toggle__title">Terrarium Items</span>
+                <span class="fluid-terrarium-items-toggle__chevron" aria-hidden="true">▼</span>
+              </button>
+              <div
+                class="fluid-terrarium-items-dropdown"
+                id="achievements-terrarium-items-dropdown"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <p class="fluid-terrarium-items-empty" id="achievements-terrarium-items-empty">Celestial bodies (sun & moon) appear here. Other items (creatures, trees, shrooms) are added to the Bet Spire terrarium.</p>
+                <ul class="fluid-terrarium-items-list" id="achievements-terrarium-items-list" aria-label="Terrarium items list"></ul>
+              </div>
+            </article>
+          </section>
+          
           <div class="achievement-grid" id="achievement-grid" role="list"></div>
         </section>
 
@@ -4011,13 +4908,13 @@
           id="tab-tower"
           type="button"
           role="tab"
-          aria-label="Tower Stage"
+          aria-label="Defense"
           aria-controls="panel-tower"
           aria-selected="true"
           aria-pressed="true"
         >
           <span class="tab-icon">℘</span>
-          <span class="tab-label">Stage</span>
+          <span class="tab-label">Defense</span>
         </button>
         <button
           class="tab-button"
@@ -4257,6 +5154,15 @@
     >
       <div class="overlay-panel field-notes-panel" role="document" aria-labelledby="field-notes-title">
         <button class="overlay-close" type="button" id="field-notes-close" aria-label="Close field notes">×</button>
+        <button
+          class="field-notes-back"
+          type="button"
+          id="field-notes-back"
+          aria-label="Back to field notes list"
+          hidden
+        >
+          ←
+        </button>
         <figure class="field-notes-figure">
           <img
             src="./assets/sprites/glyph_book_glowing.png"
@@ -4265,9 +5171,15 @@
           <figcaption>Glowing Glyph Codex</figcaption>
         </figure>
         <p class="overlay-label">Field Notes Dispatch</p>
-        <h2 class="overlay-title" id="field-notes-title">The Tower of Inspiration Briefing</h2>
-        <div class="field-notes-copy" id="field-notes-copy">
-          <p class="field-notes-loading" aria-live="polite">Loading field notes…</p>
+        <h2 class="overlay-title" id="field-notes-title">Field Notes Archive</h2>
+        <div class="field-notes-views">
+          <div class="field-notes-copy field-notes-view field-notes-list-view" id="field-notes-list-view" aria-live="polite">
+            <p class="field-notes-empty" id="field-notes-empty">No story dispatches logged yet.</p>
+            <ul class="field-notes-entries" id="field-notes-list" role="list"></ul>
+          </div>
+          <div class="field-notes-copy field-notes-view" id="field-notes-copy" aria-live="polite">
+            <p class="field-notes-loading" aria-live="polite">Loading field notes…</p>
+          </div>
         </div>
         <div class="field-notes-pagination" id="field-notes-pagination">
           <button class="field-notes-page-button" type="button" id="field-notes-prev" aria-label="Previous field notes page" disabled>

@@ -16,6 +16,13 @@
  */
 
 import { addPanZoomToFractal } from './fractalPanZoom.js';
+import {
+  VISUAL_STYLE_DEFAULTS,
+  GROWTH_PARAMETERS,
+  RENDERING_DEFAULTS,
+  INITIAL_TREE_DEFAULTS,
+  ANIMATION_DEFAULTS,
+} from './fractalTreeSimulationConfig.js';
 
 /**
  * Simple seeded random number generator for consistent organic variation.
@@ -76,33 +83,65 @@ export class FractalTreeSimulation {
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
     // Visual style
-    this.bgColor = options.bgColor || '#0f1116';
-    this.trunkColor = options.trunkColor || '#e6e6ea';
-    this.twigColor = options.twigColor || '#a2e3f5';
-    this.leafColor = options.leafColor || '#a2e3f5';
-    this.leafAlpha = options.leafAlpha || 0.3;
-    this.showLeaves = options.showLeaves !== undefined ? options.showLeaves : false;
-    this.depthColors = Array.isArray(options.depthColors) ? options.depthColors : null;
+    this.bgColor = options.bgColor || VISUAL_STYLE_DEFAULTS.bgColor;
+    this.trunkColor = options.trunkColor || VISUAL_STYLE_DEFAULTS.trunkColor;
+    this.twigColor = options.twigColor || VISUAL_STYLE_DEFAULTS.twigColor;
+    this.leafColor = options.leafColor || VISUAL_STYLE_DEFAULTS.leafColor;
+    this.leafAlpha = options.leafAlpha || VISUAL_STYLE_DEFAULTS.leafAlpha;
+    this.showLeaves = options.showLeaves !== undefined ? options.showLeaves : VISUAL_STYLE_DEFAULTS.showLeaves;
+    this.depthColors = Array.isArray(options.depthColors) ? options.depthColors : VISUAL_STYLE_DEFAULTS.depthColors;
 
     // Growth parameters
-    this.branchFactor = this.clamp(options.branchFactor || 2, 2, 3);
-    this.baseSpreadDeg = this.clamp(options.baseSpreadDeg || 25, 5, 45);
-    this.lengthDecay = this.clamp(options.lengthDecay || 0.7, 0.55, 0.85);
-    this.maxDepth = this.clamp(options.maxDepth || 9, 6, 13);
-    this.angleJitterDeg = this.clamp(options.angleJitterDeg || 3, 0, 6);
-    this.gravityBend = this.clamp(options.gravityBend || 0.08, 0, 0.25);
-    this.growthRate = this.clamp(options.growthRate || 3, 1, 20);
-    this.growthAnimationSpeed = this.clamp(options.growthAnimationSpeed || 0.08, 0.01, 0.6);
+    this.branchFactor = this.clamp(
+      options.branchFactor || GROWTH_PARAMETERS.branchFactor.default,
+      GROWTH_PARAMETERS.branchFactor.min,
+      GROWTH_PARAMETERS.branchFactor.max
+    );
+    this.baseSpreadDeg = this.clamp(
+      options.baseSpreadDeg || GROWTH_PARAMETERS.baseSpreadDeg.default,
+      GROWTH_PARAMETERS.baseSpreadDeg.min,
+      GROWTH_PARAMETERS.baseSpreadDeg.max
+    );
+    this.lengthDecay = this.clamp(
+      options.lengthDecay || GROWTH_PARAMETERS.lengthDecay.default,
+      GROWTH_PARAMETERS.lengthDecay.min,
+      GROWTH_PARAMETERS.lengthDecay.max
+    );
+    this.maxDepth = this.clamp(
+      options.maxDepth || GROWTH_PARAMETERS.maxDepth.default,
+      GROWTH_PARAMETERS.maxDepth.min,
+      GROWTH_PARAMETERS.maxDepth.max
+    );
+    this.angleJitterDeg = this.clamp(
+      options.angleJitterDeg || GROWTH_PARAMETERS.angleJitterDeg.default,
+      GROWTH_PARAMETERS.angleJitterDeg.min,
+      GROWTH_PARAMETERS.angleJitterDeg.max
+    );
+    this.gravityBend = this.clamp(
+      options.gravityBend || GROWTH_PARAMETERS.gravityBend.default,
+      GROWTH_PARAMETERS.gravityBend.min,
+      GROWTH_PARAMETERS.gravityBend.max
+    );
+    this.growthRate = this.clamp(
+      options.growthRate || GROWTH_PARAMETERS.growthRate.default,
+      GROWTH_PARAMETERS.growthRate.min,
+      GROWTH_PARAMETERS.growthRate.max
+    );
+    this.growthAnimationSpeed = this.clamp(
+      options.growthAnimationSpeed || GROWTH_PARAMETERS.growthAnimationSpeed.default,
+      GROWTH_PARAMETERS.growthAnimationSpeed.min,
+      GROWTH_PARAMETERS.growthAnimationSpeed.max
+    );
 
     // Rendering style
-    this.renderStyle = options.renderStyle || 'bezier'; // 'straight' or 'bezier'
-    this.baseWidth = options.baseWidth || 8;
-    this.minWidth = options.minWidth || 0.5;
+    this.renderStyle = options.renderStyle || RENDERING_DEFAULTS.renderStyle;
+    this.baseWidth = options.baseWidth || RENDERING_DEFAULTS.baseWidth;
+    this.minWidth = options.minWidth || RENDERING_DEFAULTS.minWidth;
 
     // Initial tree parameters
-    this.rootLength = options.rootLength || 80;
-    this.rootX = options.rootX || 0.5; // Proportion of canvas width
-    this.rootY = options.rootY || 0.9; // Proportion of canvas height
+    this.rootLength = options.rootLength || INITIAL_TREE_DEFAULTS.rootLength;
+    this.rootX = options.rootX || INITIAL_TREE_DEFAULTS.rootX;
+    this.rootY = options.rootY || INITIAL_TREE_DEFAULTS.rootY;
 
     // State
     this.segments = [];
@@ -112,8 +151,8 @@ export class FractalTreeSimulation {
     this.rng = new SeededRandom(options.seed || Date.now());
     
     // Animation
-    this.haloFrames = 15; // How long to show the halo effect
-    this.enableHalos = options.enableHalos !== undefined ? Boolean(options.enableHalos) : true;
+    this.haloFrames = ANIMATION_DEFAULTS.haloFrames;
+    this.enableHalos = options.enableHalos !== undefined ? Boolean(options.enableHalos) : ANIMATION_DEFAULTS.enableHalos;
 
     // Growth control based on allocated resources
     this.targetSegments = 1; // Start with just the root (simple stem)

@@ -621,6 +621,11 @@ function updateDeveloperControlsVisibility() {
   if (typeof context.updateDeveloperMapElementsVisibility === 'function') {
     context.updateDeveloperMapElementsVisibility();
   }
+  
+  // Update Bet Spire debug controls visibility
+  if (typeof context.updateBetSpireDebugControlsVisibility === 'function') {
+    context.updateBetSpireDebugControlsVisibility(active);
+  }
 }
 
 function handleDeveloperFieldCommit(event) {

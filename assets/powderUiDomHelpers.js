@@ -15,6 +15,7 @@ export function createPowderUiDomHelpers(options = {}) {
   const {
     getPowderElements,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns = [],
     fluidGlyphColumns = [],
     moteGemState,
@@ -70,6 +71,9 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.cameraModeStateLabel = document.getElementById('fluid-camera-mode-state');
     fluidElements.cameraModeHint = document.getElementById('fluid-camera-mode-hint');
     fluidElements.floatingIslandSprite = document.getElementById('fluid-terrarium-floating-island');
+    fluidElements.floatingIslandCollisionSprite =
+      document.getElementById('fluid-terrarium-floating-island-collision') ||
+      fluidElements.floatingIslandSprite;
     fluidElements.terrainSprite = document.getElementById('fluid-terrarium-foreground');
     // Reuse the high-fidelity terrain SVG for collision sampling so silhouettes match visuals.
     fluidElements.terrainCollisionSprite =
@@ -93,6 +97,38 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidElements.wallGlyphColumns = Array.from(
       document.querySelectorAll('[data-fluid-glyph-column]') || [],
     );
+  }
+
+  // Collect references to the achievements terrarium UI elements.
+  function bindAchievementsTerrariumControls() {
+    if (!achievementsTerrariumElements || typeof document === 'undefined') {
+      return;
+    }
+    achievementsTerrariumElements.host = document.getElementById('achievements-terrarium-host');
+    achievementsTerrariumElements.card = document.getElementById('achievements-terrarium-card');
+    achievementsTerrariumElements.canvas = document.getElementById('achievements-terrarium-canvas');
+    achievementsTerrariumElements.basin = document.getElementById('achievements-terrarium-basin');
+    achievementsTerrariumElements.terrariumLayer = document.getElementById('achievements-terrarium-layer');
+    achievementsTerrariumElements.terrariumStage = document.getElementById('achievements-terrarium-stage');
+    achievementsTerrariumElements.terrariumMedia = document.getElementById('achievements-terrarium-stage-media');
+    achievementsTerrariumElements.terrariumSky = document.getElementById('achievements-terrarium-sky');
+    achievementsTerrariumElements.terrariumStarsNear = document.getElementById('achievements-terrarium-stars-near');
+    achievementsTerrariumElements.terrariumStarsFar = document.getElementById('achievements-terrarium-stars-far');
+    achievementsTerrariumElements.terrariumSun = document.getElementById('achievements-terrarium-sun');
+    achievementsTerrariumElements.terrariumMoon = document.getElementById('achievements-terrarium-moon');
+    achievementsTerrariumElements.floatingIslandSprite = document.getElementById('achievements-terrarium-floating-island');
+    achievementsTerrariumElements.floatingIslandCollisionSprite =
+      document.getElementById('achievements-terrarium-floating-island-collision') ||
+      achievementsTerrariumElements.floatingIslandSprite;
+    achievementsTerrariumElements.terrainSprite = document.getElementById('achievements-terrarium-foreground');
+    achievementsTerrariumElements.terrainCollisionSprite =
+      document.getElementById('achievements-terrarium-foreground-collision') ||
+      achievementsTerrariumElements.terrainSprite;
+    achievementsTerrariumElements.viewport = document.getElementById('achievements-terrarium-viewport');
+    achievementsTerrariumElements.terrariumItemsToggle = document.getElementById('achievements-terrarium-items-toggle');
+    achievementsTerrariumElements.terrariumItemsDropdown = document.getElementById('achievements-terrarium-items-dropdown');
+    achievementsTerrariumElements.terrariumItemsEmpty = document.getElementById('achievements-terrarium-items-empty');
+    achievementsTerrariumElements.terrariumItemsList = document.getElementById('achievements-terrarium-items-list');
   }
 
   // Align the Towers tab Mind Gate emblem with the active mote palette so the UI mirrors the canvas exponent glow.
@@ -493,6 +529,7 @@ export function createPowderUiDomHelpers(options = {}) {
 
   return {
     bindFluidControls,
+    bindAchievementsTerrariumControls,
     applyMindGatePaletteToDom,
     updateMoteGemInventoryDisplay,
     updatePowderGlyphColumns,

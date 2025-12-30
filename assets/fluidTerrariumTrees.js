@@ -1,3 +1,5 @@
+import { resolveTerrariumDevicePixelRatio } from './fluidTerrariumResolution.js';
+
 'use strict';
 
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
@@ -38,6 +40,15 @@ const BET_TREE_DEPTH_COLORS = [
   '#2b6d36',
   '#33803f',
 ];
+
+// Estimated dimensions for the placement confirmation dialog to prevent off-screen positioning
+const CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH = 100; // Dialog is centered with translate(-50%, ...)
+const CONFIRMATION_DIALOG_ESTIMATED_HEIGHT = 80; // Includes transform offset
+const CONFIRMATION_DIALOG_PADDING = 10; // Minimum distance from viewport edges
+
+// Terrain validation constants for placement checking
+const TERRAIN_SEARCH_MIN_RADIUS = 5; // Minimum pixels to search below placement point
+const TERRAIN_SEARCH_PERCENTAGE = 0.05; // Search up to 5% of terrain height below point
 
 // Storefront configuration so the Bet terrarium can surface player-placed decorations.
 const DEFAULT_TERRARIUM_STORE_ITEMS = [
@@ -88,6 +99,67 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     size: 'small',
     minY: 0.5,
     maxY: 0.95,
+    minSpacing: 0.05,
+  },
+  // Gamma Birds - flying creatures that avoid surfaces
+  {
+    id: 'bet-store-gamma-bird-1',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-2',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-3',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-4',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
+    minSpacing: 0.05,
+  },
+  {
+    id: 'bet-store-gamma-bird-5',
+    label: 'Gamma Bird',
+    description: 'A flying γ bird that soars through the open air and occasionally lands on trees.',
+    icon: 'γ',
+    itemType: 'bird',
+    cost: 15,
+    size: 'small',
+    minY: 0.1,
+    maxY: 0.7,
     minSpacing: 0.05,
   },
   {
@@ -331,7 +403,7 @@ const PLACEMENT_DIMENSIONS = {
   small: { widthRatio: 0.05, heightRatio: 0.18 },
 };
 
-const STORE_STATUS_DEFAULT = '';
+const STORE_STATUS_DEFAULT = 'Select an item, then tap the basin to preview placement.';
 
 /**
  * Render animated fractal trees on the Bet terrarium using color-block masks to anchor
@@ -357,6 +429,7 @@ export class FluidTerrariumTrees {
 
     // Terrain collision element for building walkable masks.
     this.terrainCollisionElement = options.terrainCollisionElement || null;
+    this.floatingIslandCollisionElement = options.floatingIslandCollisionElement || null;
     this.walkableMask = null;
 
     this.overlay = null;
@@ -374,6 +447,8 @@ export class FluidTerrariumTrees {
     this.storePanel = null;
     this.storeList = null;
     this.storeStatus = null;
+    // Badge that mirrors current Serendipity balance inside the store panel.
+    this.storeBalanceLabel = null;
     this.storeItemButtons = new Map();
     this.availableStoreItems = this.normalizeStoreItems(options.storeItems);
     this.playerPlacements = [];
@@ -406,6 +481,7 @@ export class FluidTerrariumTrees {
     this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : () => {};
     this.onShroomPlace = typeof options.onShroomPlace === 'function' ? options.onShroomPlace : null;
     this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
+    this.onBirdPlace = typeof options.onBirdPlace === 'function' ? options.onBirdPlace : null;
     this.onCelestialPlace = typeof options.onCelestialPlace === 'function' ? options.onCelestialPlace : null;
     this.powderState = options.powderState || null;
 
@@ -486,6 +562,67 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Translate item types into short, legible tags so the store reads like a curated shelf.
+   * @param {object} storeItem
+   * @returns {string}
+   */
+  describeStoreItemType(storeItem) {
+    if (!storeItem) {
+      return '';
+    }
+    switch (storeItem.itemType) {
+      case 'slime':
+      case 'bird':
+        return 'Creature';
+      case 'shroom':
+        return 'Cave Bloom';
+      case 'celestial':
+        return 'Sky Sigil';
+      case 'fractal':
+        return 'Fractal';
+      default:
+        return 'Fractal';
+    }
+  }
+
+  /**
+   * Summarize the habitat or placement restriction as a concise badge.
+   * @param {object} storeItem
+   * @returns {string}
+   */
+  describeStoreItemHabitat(storeItem) {
+    if (!storeItem) {
+      return '';
+    }
+    if (storeItem.itemType === 'celestial') {
+      return 'Atmosphere';
+    }
+    if (storeItem.caveOnly) {
+      return 'Cave Only';
+    }
+    if (storeItem.origin === 'island') {
+      return 'Island';
+    }
+    return 'Basin';
+  }
+
+  /**
+   * Factory for the small pill-shaped tags shown on each store entry.
+   * @param {string} label
+   * @param {string} variant
+   * @returns {HTMLSpanElement}
+   */
+  createStoreTag(label, variant) {
+    const tag = document.createElement('span');
+    tag.className = 'fluid-tree-store-tag';
+    if (variant) {
+      tag.dataset.variant = variant;
+    }
+    tag.textContent = label;
+    return tag;
+  }
+
+  /**
    * Build the interactive store menu that lets players pick decorative items.
    */
   buildStorePanel() {
@@ -509,6 +646,23 @@ export class FluidTerrariumTrees {
     note.textContent = 'Pick a fractal object and tap the basin to place it.';
     panel.appendChild(note);
 
+    // Surface the current Serendipity reserve alongside the store instructions.
+    const metaRow = document.createElement('div');
+    metaRow.className = 'fluid-tree-store-meta';
+
+    const balancePill = document.createElement('span');
+    balancePill.className = 'fluid-tree-store-balance';
+    balancePill.textContent = '0 Serendipity';
+    metaRow.appendChild(balancePill);
+    this.storeBalanceLabel = balancePill;
+
+    const hint = document.createElement('p');
+    hint.className = 'fluid-tree-store-hint';
+    hint.textContent = 'Drag an icon or tap to arm placement, then pick a landing spot.';
+    metaRow.appendChild(hint);
+
+    panel.appendChild(metaRow);
+
     const list = document.createElement('div');
     list.className = 'fluid-tree-store-list';
     list.addEventListener('pointerdown', this.handleStoreListPointerDown);
@@ -526,6 +680,9 @@ export class FluidTerrariumTrees {
     status.textContent = STORE_STATUS_DEFAULT;
     panel.appendChild(status);
     this.storeStatus = status;
+
+    // Hydrate the balance pill once so it never shows a stale default.
+    this.updateStoreBalanceDisplay();
 
     const closeButton = document.createElement('button');
     closeButton.type = 'button';
@@ -552,10 +709,13 @@ export class FluidTerrariumTrees {
     this.storeItemButtons.clear();
 
     this.availableStoreItems.forEach((item) => {
+      const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'fluid-tree-store-item';
       button.dataset.itemId = item.id;
+      button.dataset.itemType = item.itemType || 'tree';
+      button.dataset.habitat = this.describeStoreItemHabitat(item);
       const header = document.createElement('div');
       header.className = 'fluid-tree-store-item__header';
 
@@ -583,8 +743,27 @@ export class FluidTerrariumTrees {
 
       const cost = document.createElement('span');
       cost.className = 'fluid-tree-store-item__cost';
-      cost.textContent = `${item.cost} Serendipity`;
+      const shortfall = Math.max(0, Math.round(item.cost - balance));
+      cost.textContent = shortfall > 0
+        ? `${item.cost} Serendipity (need ${shortfall})`
+        : `${item.cost} Serendipity`;
       labelColumn.appendChild(cost);
+
+      const tagsRow = document.createElement('div');
+      tagsRow.className = 'fluid-tree-store-item__tags';
+      const typeTag = this.describeStoreItemType(item);
+      const habitatTag = this.describeStoreItemHabitat(item);
+      const spacingPercent = Math.round(Math.max(0.02, item.minSpacing || 0.08) * 100);
+
+      if (typeTag) {
+        tagsRow.appendChild(this.createStoreTag(typeTag, 'type'));
+      }
+      if (habitatTag) {
+        tagsRow.appendChild(this.createStoreTag(habitatTag, 'habitat'));
+      }
+      tagsRow.appendChild(this.createStoreTag(item.size === 'large' ? 'Tall' : 'Compact', 'size'));
+      tagsRow.appendChild(this.createStoreTag(`Clear ${spacingPercent}%`, 'spacing'));
+      labelColumn.appendChild(tagsRow);
 
       header.appendChild(labelColumn);
       button.appendChild(header);
@@ -601,8 +780,52 @@ export class FluidTerrariumTrees {
         this.selectStoreItem(item.id);
       });
       this.storeList.appendChild(button);
-      this.storeItemButtons.set(item.id, button);
+      this.storeItemButtons.set(item.id, { button, item });
     });
+
+    this.refreshStoreAffordances();
+    this.updateStoreBalanceDisplay();
+  }
+
+  /**
+   * Mirror the latest Serendipity balance into the store badge for quick budgeting.
+   */
+  updateStoreBalanceDisplay() {
+    if (!this.storeBalanceLabel) {
+      return;
+    }
+    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+    this.storeBalanceLabel.textContent = `${balance} Serendipity`;
+    this.storeBalanceLabel.setAttribute('aria-label', `Serendipity balance ${balance}`);
+  }
+
+  /**
+   * Lock or unlock store entries based on Serendipity balance while surfacing shortfalls.
+   */
+  refreshStoreAffordances() {
+    const balance = Math.max(0, Math.floor(this.getSerendipityBalance()));
+    this.storeItemButtons.forEach((entry) => {
+      const button = entry?.button;
+      const item = entry?.item;
+      if (!button || !item) {
+        return;
+      }
+      const affordable = this.canAffordStoreItem(item);
+      button.dataset.affordable = affordable ? 'true' : 'false';
+      if (affordable) {
+        button.removeAttribute('aria-disabled');
+      } else {
+        button.setAttribute('aria-disabled', 'true');
+      }
+      const costLabel = button.querySelector('.fluid-tree-store-item__cost');
+      if (costLabel) {
+        const shortfall = Math.max(0, Math.round(item.cost - balance));
+        costLabel.textContent = shortfall > 0
+          ? `${item.cost} Serendipity (need ${shortfall})`
+          : `${item.cost} Serendipity`;
+      }
+    });
+    this.updateStoreBalanceDisplay();
   }
 
   /**
@@ -672,12 +895,17 @@ export class FluidTerrariumTrees {
     const preserveSelection = Boolean(options?.preserveSelection);
     const suppressEmit = Boolean(options?.suppressEmit);
     this.isStoreOpen = nextState;
-    
+
     // Update buttonMenuOpen state in powderState
     if (this.powderState?.betTerrarium) {
       this.powderState.betTerrarium.buttonMenuOpen = nextState;
     }
-    
+
+    if (nextState) {
+      this.setStoreStatus(STORE_STATUS_DEFAULT);
+      this.refreshStoreAffordances();
+    }
+
     if (this.storePanel) {
       this.storePanel.classList.toggle('is-open', nextState);
       this.storePanel.classList.toggle('is-closed', !nextState);
@@ -742,8 +970,11 @@ export class FluidTerrariumTrees {
    * @param {string|null} itemId
    */
   updateStoreSelectionVisuals(itemId) {
-    this.storeItemButtons.forEach((button, id) => {
-      button.classList.toggle('is-selected', id === itemId);
+    this.storeItemButtons.forEach((entry, id) => {
+      const button = entry?.button;
+      if (button) {
+        button.classList.toggle('is-selected', id === itemId);
+      }
     });
   }
 
@@ -804,7 +1035,11 @@ export class FluidTerrariumTrees {
       return false;
     }
     const spent = this.spendSerendipity(cost);
-    return spent >= cost;
+    const success = spent >= cost;
+    if (success) {
+      this.refreshStoreAffordances();
+    }
+    return success;
   }
 
   /**
@@ -921,14 +1156,18 @@ export class FluidTerrariumTrees {
     this.updateDragGhostPosition(event.clientX, event.clientY);
     const storeItem = this.getStoreItemById(this.draggedStoreItemId);
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
-    const isValid = Boolean(point && this.isPlacementLocationValid(point, storeItem));
     if (point) {
+      const validity = this.getPlacementValidity(point, storeItem);
       this.pendingPlacementPoint = point;
-      this.updatePlacementPreview(point, isValid, storeItem);
+      this.updatePlacementPreview(point, validity.valid, storeItem, validity.reason);
+      if (!validity.valid && validity.reason) {
+        this.setStoreStatus(validity.reason);
+      }
+      this.updateDragGhostValidity(validity.valid);
     } else {
       this.hidePlacementPreview();
+      this.updateDragGhostValidity(false);
     }
-    this.updateDragGhostValidity(isValid);
   }
 
   /**
@@ -941,11 +1180,14 @@ export class FluidTerrariumTrees {
     }
     const storeItem = this.getStoreItemById(this.draggedStoreItemId);
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
-    const isValid = point && this.isPlacementLocationValid(point, storeItem);
-    if (storeItem && isValid) {
+    const validity = point ? this.getPlacementValidity(point, storeItem) : { valid: false, reason: '' };
+    if (storeItem && validity.valid) {
       this.queuePlacementForConfirmation(point, storeItem, { fadeStore: true });
       this.endStoreDrag({ preserveSelection: true, preservePreview: true });
       return;
+    }
+    if (!validity.valid && validity.reason) {
+      this.setStoreStatus(validity.reason);
     }
     this.endStoreDrag();
     this.restoreStorePanelOpacity();
@@ -1100,6 +1342,9 @@ export class FluidTerrariumTrees {
       this.placementPreview.hidden = true;
       this.placementPreview.removeAttribute('data-visible');
       this.placementPreview.removeAttribute('data-valid');
+      this.placementPreview.removeAttribute('data-reason');
+      this.placementPreview.removeAttribute('title');
+      this.placementPreview.removeAttribute('aria-label');
       this.placementPreview.textContent = '';
     }
     this.pendingPlacementPoint = null;
@@ -1111,8 +1356,9 @@ export class FluidTerrariumTrees {
    * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
    * @param {boolean} isValid
    * @param {object|null} [storeItem] - The store item being placed, used to display its icon
+   * @param {string} [reason] - Optional placement guidance shown in the aria label
    */
-  updatePlacementPreview(point, isValid, storeItem = null) {
+  updatePlacementPreview(point, isValid, storeItem = null, reason = '') {
     if (!this.placementPreview || !point?.isInside) {
       this.hidePlacementPreview();
       return;
@@ -1124,8 +1370,17 @@ export class FluidTerrariumTrees {
     this.placementPreview.hidden = false;
     this.placementPreview.dataset.visible = 'true';
     this.placementPreview.dataset.valid = isValid ? 'true' : 'false';
+    this.placementPreview.dataset.reason = reason || '';
     // Display the item's icon if available; otherwise show a fallback emoji
     this.placementPreview.textContent = storeItem?.icon || '🌿';
+    if (reason) {
+      this.placementPreview.setAttribute('title', reason);
+      this.placementPreview.setAttribute('aria-label', reason);
+    } else {
+      const label = storeItem?.label ? `Preview ${storeItem.label}` : 'Placement preview';
+      this.placementPreview.setAttribute('aria-label', label);
+      this.placementPreview.removeAttribute('title');
+    }
   }
 
   /**
@@ -1137,10 +1392,30 @@ export class FluidTerrariumTrees {
     if (!this.confirmationPrompt || !point?.isInside) {
       return;
     }
-    const left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
-    const top = this.renderBounds.top + point.yRatio * this.renderBounds.height - 32;
+    // Calculate base position
+    let left = this.renderBounds.left + point.xRatio * this.renderBounds.width;
+    let top = this.renderBounds.top + point.yRatio * this.renderBounds.height - 32;
+    
+    // Get viewport bounds (use window dimensions as the limiting container)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Clamp horizontal position to keep dialog on screen
+    // Account for the -50% transform by ensuring left position allows for half-width on each side
+    left = Math.max(
+      CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH + CONFIRMATION_DIALOG_PADDING,
+      Math.min(viewportWidth - CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH - CONFIRMATION_DIALOG_PADDING, left)
+    );
+    
+    // Clamp vertical position to keep dialog on screen
+    // The dialog appears above the point, so ensure there's room above
+    top = Math.max(
+      CONFIRMATION_DIALOG_ESTIMATED_HEIGHT + CONFIRMATION_DIALOG_PADDING,
+      Math.min(viewportHeight - CONFIRMATION_DIALOG_PADDING, top)
+    );
+    
     this.confirmationPrompt.style.left = `${left}px`;
-    this.confirmationPrompt.style.top = `${Math.max(0, top)}px`;
+    this.confirmationPrompt.style.top = `${top}px`;
     this.confirmationPrompt.hidden = false;
     this.confirmationPrompt.dataset.visible = 'true';
     this.confirmationPrompt.setAttribute('aria-hidden', 'false');
@@ -1172,11 +1447,11 @@ export class FluidTerrariumTrees {
     if (!point?.isInside || !storeItem) {
       return;
     }
-    const isValid = this.isPlacementLocationValid(point, storeItem);
-    this.updatePlacementPreview(point, isValid, storeItem);
-    if (!isValid) {
+    const validity = this.getPlacementValidity(point, storeItem);
+    this.updatePlacementPreview(point, validity.valid, storeItem, validity.reason);
+    if (!validity.valid) {
       this.pendingPlacement = null;
-      this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
+      this.setStoreStatus(validity.reason || 'Pick an open patch of terrain. Placements are not saved to your profile.');
       this.hidePlacementConfirmation();
       return;
     }
@@ -1215,8 +1490,9 @@ export class FluidTerrariumTrees {
     }
     const storeItem = this.getStoreItemById(this.pendingPlacement.storeItemId) || this.getActiveStoreItem();
     const point = this.pendingPlacement.point;
-    if (!storeItem || !this.isPlacementLocationValid(point, storeItem)) {
-      this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
+    const validity = this.getPlacementValidity(point, storeItem);
+    if (!storeItem || !validity.valid) {
+      this.setStoreStatus(validity.reason || 'Pick an open patch of terrain. Placements are not saved to your profile.');
       this.clearPendingPlacement(true);
       return;
     }
@@ -1262,8 +1538,11 @@ export class FluidTerrariumTrees {
       return;
     }
     this.pendingPlacementPoint = point;
-    const isValid = this.isPlacementLocationValid(point, storeItem);
-    this.updatePlacementPreview(point, isValid, storeItem);
+    const validity = this.getPlacementValidity(point, storeItem);
+    this.updatePlacementPreview(point, validity.valid, storeItem, validity.reason);
+    if (!validity.valid && validity.reason) {
+      this.setStoreStatus(validity.reason);
+    }
   }
 
   handleContainerPointerLeave() {
@@ -1286,11 +1565,12 @@ export class FluidTerrariumTrees {
     if (!this.isStoreOpen || !this.activeStoreItemId) {
       return;
     }
-    
+
     const storeItem = this.getActiveStoreItem();
     const point = this.getNormalizedPointFromClient(event.clientX, event.clientY);
-    if (!point || !this.isPlacementLocationValid(point, storeItem)) {
-      this.setStoreStatus('Pick an open patch of terrain. Placements are not saved to your profile.');
+    const validity = point ? this.getPlacementValidity(point, storeItem) : { valid: false, reason: '' };
+    if (!validity.valid) {
+      this.setStoreStatus(validity.reason || 'Pick an open patch of terrain. Placements are not saved to your profile.');
       return;
     }
     event.preventDefault();
@@ -1326,36 +1606,67 @@ export class FluidTerrariumTrees {
   }
 
   /**
-   * Validate whether a normalized point is acceptable for the selected store item.
+   * Evaluate placement validity and surface a human-readable reason when invalid.
    * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
    * @param {object|null} [storeItem]
+   * @returns {{ valid: boolean, reason: string }}
    */
-  isPlacementLocationValid(point, storeItem = this.getActiveStoreItem()) {
+  getPlacementValidity(point, storeItem = this.getActiveStoreItem()) {
     if (!storeItem) {
-      return false;
+      return { valid: false, reason: 'Select an item from the store first.' };
     }
     // Celestial bodies don't require a specific placement location - any click is valid
     if (storeItem.itemType === 'celestial') {
-      return true;
+      return { valid: true, reason: '' };
     }
     if (!point?.isInside) {
-      return false;
+      return { valid: false, reason: 'Tap inside the basin to place this item.' };
     }
-    if (point.yRatio < storeItem.minY || point.yRatio > storeItem.maxY) {
-      return false;
+    if (point.yRatio < storeItem.minY) {
+      return { valid: false, reason: 'Too high. Aim closer to the terrarium floor.' };
+    }
+    if (point.yRatio > storeItem.maxY) {
+      return { valid: false, reason: 'Too low. Aim closer to the ridgeline or canopy.' };
     }
     // Cave-only items (like Brownian Forest) must be placed inside cave spawn zones.
     if (storeItem.caveOnly && !this.isPointInCaveZone(point)) {
-      return false;
+      return { valid: false, reason: 'This bloom prefers the cave shadow.' };
     }
+    
+    // Items that need to be placed ON terrain surfaces (not inside ground or floating in water)
+    // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
+    if (this.requiresTerrainSurface(storeItem.itemType) && !this.isPointOnWalkableTerrain(point)) {
+      if (storeItem.itemType === 'slime') {
+        return { valid: false, reason: 'Delta slimes need a terrain surface to hop on. Try clicking on the ground or ledges.' };
+      }
+      if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+        return { valid: false, reason: 'Trees must be rooted on solid terrain, not buried underground or floating in water.' };
+      }
+      return { valid: false, reason: 'This item needs to be placed on a terrain surface.' };
+    }
+    
     const spacing = Math.max(0.02, storeItem.minSpacing || 0.08);
     const anchors = this.getCombinedAnchors();
-    return !anchors.some((anchor) => {
+    const colliding = anchors.some((anchor) => {
       const anchorX = Number.isFinite(anchor?.centerX) ? anchor.centerX : 0;
       const anchorY = Number.isFinite(anchor?.baseY) ? anchor.baseY : 0;
       const distance = Math.hypot(anchorX - point.xRatio, anchorY - point.yRatio);
       return distance < spacing;
     });
+    if (colliding) {
+      const clearance = Math.round(spacing * 100);
+      return { valid: false, reason: `Keep about ${clearance}% clearance from other objects.` };
+    }
+    return { valid: true, reason: '' };
+  }
+
+  /**
+   * Validate whether a normalized point is acceptable for the selected store item.
+   * @param {{xRatio:number,yRatio:number,isInside:boolean}} point
+   * @param {object|null} [storeItem]
+   */
+  isPlacementLocationValid(point, storeItem = this.getActiveStoreItem()) {
+    return this.getPlacementValidity(point, storeItem).valid;
   }
 
   /**
@@ -1469,6 +1780,23 @@ export class FluidTerrariumTrees {
       return false;
     }
 
+    // Check if this is a bird item - delegate to the bird placement callback
+    if (storeItem.itemType === 'bird' && this.onBirdPlace) {
+      const birdPlaced = this.onBirdPlace({
+        point,
+        storeItem,
+      });
+      if (birdPlaced) {
+        this.setStoreStatus(`${storeItem.label} released into the sky.`);
+        this.updatePlacementPreview(point, true, storeItem);
+        this.consumeStoreItem(storeItem.id);
+        this.clearStoreSelection();
+        return true;
+      }
+      this.setStoreStatus('Could not release bird. Try again.');
+      return false;
+    }
+
     // Check if this is the celestial bodies item - delegate to the celestial placement callback
     if (storeItem.itemType === 'celestial' && this.onCelestialPlace) {
       const celestialPlaced = this.onCelestialPlace({
@@ -1491,6 +1819,26 @@ export class FluidTerrariumTrees {
 
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
+    
+    // Register tree/fractal in tree state so it appears in the dropdown for upgrading
+    if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
+      const placementId = this.getPlacementId(anchor);
+      const initialAllocation = Number.isFinite(storeItem.initialAllocation) 
+        ? storeItem.initialAllocation 
+        : (storeItem.size === 'small' ? 5 : 8);
+      
+      // Add to tree state with the placement ID as key
+      this.treeState[placementId] = {
+        allocated: initialAllocation,
+        size: storeItem.size,
+        fractalType: storeItem.fractalType,
+        itemType: storeItem.itemType,
+      };
+      
+      // Emit state change to persist the tree
+      this.emitState();
+    }
+    
     this.refreshLayout();
     this.setStoreStatus(`${storeItem.label} planted. Placements reset when you leave this session.`);
     this.updatePlacementPreview(point, true, storeItem);
@@ -1620,6 +1968,68 @@ export class FluidTerrariumTrees {
   }
 
   /**
+   * Check if an item type requires terrain surface validation.
+   * @param {string} itemType
+   * @returns {boolean}
+   */
+  requiresTerrainSurface(itemType) {
+    return itemType === 'slime' || itemType === 'tree' || itemType === 'fractal';
+  }
+
+  /**
+   * Check if a normalized point is on walkable terrain (not inside solid ground).
+   * For slimes and trees, we want them in walkable space (not inside terrain) 
+   * but near a terrain surface (not floating in deep water/air).
+   * @param {{xRatio:number,yRatio:number}} point
+   * @returns {boolean} True if the point is suitable for placement
+   */
+  isPointOnWalkableTerrain(point) {
+    if (!point || !this.walkableMask) {
+      // If no walkable mask, allow placement (fallback to legacy behavior)
+      return true;
+    }
+
+    const { width, height, data } = this.walkableMask;
+    if (!width || !height || !data) {
+      return true;
+    }
+
+    // Convert normalized coordinates to pixel coordinates in the mask
+    const x = Math.floor(point.xRatio * width);
+    const y = Math.floor(point.yRatio * height);
+
+    // Clamp to mask bounds
+    const clampedX = Math.max(0, Math.min(width - 1, x));
+    const clampedY = Math.max(0, Math.min(height - 1, y));
+
+    const pixelIndex = clampedY * width + clampedX;
+
+    // walkable[pixel] = 1 means empty space (air/water), 0 means solid terrain
+    // The point itself should be in walkable space (not inside solid terrain)
+    if (data[pixelIndex] === 0) {
+      // Point is inside solid terrain - not allowed
+      return false;
+    }
+
+    // Point is in walkable space. Now check if there's terrain nearby below
+    // to ensure we're placing on a surface, not floating in deep water/air
+    const searchRadius = Math.max(TERRAIN_SEARCH_MIN_RADIUS, Math.floor(height * TERRAIN_SEARCH_PERCENTAGE));
+    for (let dy = 0; dy <= searchRadius; dy++) {
+      const checkY = clampedY + dy;
+      if (checkY >= height) break;
+      
+      const checkIndex = checkY * width + clampedX;
+      if (data[checkIndex] === 0) {
+        // Found terrain below - this is a valid surface placement
+        return true;
+      }
+    }
+
+    // No terrain found nearby below - point is floating in deep water/air
+    return false;
+  }
+
+  /**
    * Build a walkable mask from the terrain collision sprite so Brownian growth avoids solid terrain.
    */
   buildWalkableMask() {
@@ -1627,14 +2037,21 @@ export class FluidTerrariumTrees {
       return;
     }
 
-    const source = this.terrainCollisionElement;
-    if (!source) {
+    const sources = [this.terrainCollisionElement, this.floatingIslandCollisionElement].filter(
+      (element) => element,
+    );
+
+    if (!sources.length) {
       return;
     }
 
     const sample = () => {
-      const width = source.naturalWidth;
-      const height = source.naturalHeight;
+      const primary = sources.find((element) => element?.naturalWidth && element?.naturalHeight);
+      if (!primary) {
+        return;
+      }
+      const width = primary.naturalWidth;
+      const height = primary.naturalHeight;
       if (!width || !height) {
         return;
       }
@@ -1645,7 +2062,14 @@ export class FluidTerrariumTrees {
       if (!ctx) {
         return;
       }
-      ctx.drawImage(source, 0, 0, width, height);
+
+      ctx.clearRect(0, 0, width, height);
+      sources.forEach((element) => {
+        if (element) {
+          ctx.drawImage(element, 0, 0, width, height);
+        }
+      });
+
       const { data } = ctx.getImageData(0, 0, width, height);
       const pixelCount = width * height;
       const walkable = new Uint8Array(pixelCount);
@@ -1657,10 +2081,17 @@ export class FluidTerrariumTrees {
       this.walkableMask = { width, height, data: walkable };
     };
 
-    if (source.complete && source.naturalWidth) {
+    const readySources = sources.filter(
+      (element) => element && element.complete && element.naturalWidth > 0 && element.naturalHeight > 0,
+    );
+    if (readySources.length === sources.length) {
       sample();
     } else {
-      source.addEventListener('load', sample, { once: true });
+      sources.forEach((element) => {
+        if (element) {
+          element.addEventListener('load', sample, { once: true });
+        }
+      });
     }
   }
 
@@ -2238,9 +2669,7 @@ export class FluidTerrariumTrees {
 
     // Use device pixel ratio with 3x multiplier for crisp rendering at mobile zoom levels.
     // Cap at 6x to avoid excessive memory usage on high-DPI devices.
-    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const dpr = resolveTerrariumDevicePixelRatio();
     const scaleFactor = Math.min(dpr * 3, 6);
 
     // Set high-resolution buffer size for crisp rendering.

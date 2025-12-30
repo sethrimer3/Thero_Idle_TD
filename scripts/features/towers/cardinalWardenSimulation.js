@@ -53,155 +53,39 @@
  *   - On enemy contact: explodes with circular wave
  *   - Explosion diameter: canvas.width / 10
  *   - Explosion damage: 100x base weapon damage
+ * - Grapheme 13 (N): Swarm ships - spawns tiny friendly triangles that fire green lasers
+ *   - Number of ships: (total graphemes player has) / 10, max 100
+ *   - Ships swarm randomly around player's aim target
+ *   - Fire green lasers at closest enemy to aim target
+ *   - Laser fire rate: weapon attack speed / 10
+ *   - Laser damage: weapon damage / 10
  */
 
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import {
+  GRAPHEME_INDEX,
+  WAVE_CONFIG,
+  SPREAD_CONFIG,
+  ELEMENTAL_CONFIG,
+  MASSIVE_BULLET_CONFIG,
+  BEAM_CONFIG,
+  MINE_CONFIG,
+  SWARM_CONFIG,
+  GAME_CONFIG,
+  BOSS_TYPES,
+  WEAPON_SLOT_IDS,
+  WEAPON_SLOT_DEFINITIONS,
+  LEGACY_WEAPON_DEFINITIONS,
+  ENEMY_TYPES,
+  VISUAL_CONFIG,
+  RING_SQUARE_CONFIGS,
+  INNER_RING_CONFIGS,
+  ORBITAL_SQUARE_CONFIG,
+  LIFE_LINES_CONFIG,
+  UI_CONFIG,
+} from './cardinalWardenConfig.js';
 
-/**
- * Grapheme index constants for clear identification.
- * Graphemes are now named using English letters (A-Z).
- */
-const GRAPHEME_INDEX = {
-  A: 0,            // ThoughtSpeak shapes (formerly Alpha)
-  B: 1,            // Fire rate multiplier (formerly Beta)
-  C: 2,            // Friendly ships, deactivates RIGHT (formerly Gamma)
-  D: 3,            // Shield regeneration (formerly Delta)
-  E: 4,            // Lightning movement (formerly Epsilon)
-  F: 5,            // Piercing and trail passthrough (formerly Zeta)
-  G: 6,            // Expanding waves, deactivates LEFT (formerly Eta)
-  H: 7,            // Weapon targeting (formerly Theta)
-  I: 8,            // Spread bullets (formerly Iota)
-  J: 9,            // Elemental effects (burning/freezing)
-  K: 10,           // Massive bullet (slots 0-6) or attack speed boost (slot 7)
-  L: 11,           // Continuous beam, deactivates LEFT and RIGHT neighbors
-  M: 12,           // Drifting mines that explode on contact
-};
-
-/**
- * Wave mechanics constants for grapheme G (index 6).
- */
-const WAVE_CONFIG = {
-  // Time for wave to expand to full radius (seconds)
-  EXPANSION_DURATION_SECONDS: 3,
-  // Base ring thickness for collision detection (pixels)
-  RING_BASE_THICKNESS: 10,
-  // Default enemy size for collision calculations (pixels)
-  DEFAULT_ENEMY_SIZE: 8,
-  // Default boss size for collision calculations (pixels)
-  DEFAULT_BOSS_SIZE: 12,
-  // Damage multiplier (wave damage = shot damage × multiplier)
-  DAMAGE_MULTIPLIER: 0.1,
-};
-
-/**
- * Spread bullet mechanics constants for grapheme I (index 8).
- */
-const SPREAD_CONFIG = {
-  // Total spread angle in radians (30 degrees)
-  SPREAD_ANGLE: Math.PI / 6,
-  // Slot position to extra bullet count mapping (0-indexed)
-  // Pattern mirrors around center: slots 3 and 4 have max bullets
-  SLOT_TO_EXTRA_BULLETS: [2, 4, 6, 8, 8, 6, 4, 2],
-};
-
-/**
- * Elemental effects constants for grapheme J (index 9).
- */
-const ELEMENTAL_CONFIG = {
-  // Burning effect (slots 0-3)
-  BURN_DAMAGE_PERCENT: 0.05,        // 5% of max health per second
-  BURN_PARTICLE_SPAWN_RATE: 0.1,   // Spawn particle every 0.1 seconds
-  BURN_PARTICLE_LIFETIME: 1.0,     // Particles last 1 second
-  BURN_PARTICLE_SPEED: 20,         // Pixels per second upward
-  BURN_PARTICLE_COLOR: '#ff4444',  // Red color for burning particles
-  BURN_PARTICLE_MIN_COUNT: 2,      // Minimum particles per spawn
-  BURN_PARTICLE_MAX_COUNT: 3,      // Maximum particles per spawn (exclusive)
-  BURN_PARTICLE_HORIZONTAL_SPREAD: 10, // Horizontal velocity spread (pixels/sec)
-  
-  // Freeze effect (slots 4-7)
-  FREEZE_DURATION: 0.5,             // Freeze lasts 0.5 seconds
-  FREEZE_COLOR: '#88ccff',          // Ice blue color
-};
-
-/**
- * Massive bullet mechanics constants for grapheme K (index 10).
- */
-const MASSIVE_BULLET_CONFIG = {
-  // Slots 0-6: Massive bullet mode
-  ATTACK_SPEED_DIVISOR: 20,        // Attack speed reduced by factor of 20
-  DAMAGE_MULTIPLIER: 20,           // Damage increased by 20x
-  SIZE_MULTIPLIER: 20,             // Bullet diameter increased by 20x
-  SPEED_DIVISOR: 10,               // Bullet speed reduced by factor of 10
-  // Note: Unlimited pierce and inflicts all effects automatically
-  
-  // Slot 7 (index 7): Speed boost mode
-  SPEED_BOOST_MULTIPLIER: 10,      // Attack speed increased by 10x
-};
-
-/**
- * Beam mechanics constants for grapheme L (index 11).
- * Converts bullets into continuous beams.
- */
-const BEAM_CONFIG = {
-  // Beam damage is tower damage × shots per second
-  // Damage is applied 4 times per second when enemy is in contact
-  DAMAGE_TICKS_PER_SECOND: 4,
-  // Visual beam width (pixels)
-  BEAM_WIDTH: 3,
-  // Beam color alpha (transparency)
-  BEAM_ALPHA: 0.8,
-  // Maximum beam length (pixels) - extends to edge of canvas
-  MAX_BEAM_LENGTH: 10000,
-};
-
-/**
- * Mine mechanics constants for grapheme M (index 12).
- * Spawns drifting mines that explode on enemy contact.
- */
-const MINE_CONFIG = {
-  // Mine spawn rate divisor: (shots per second) / this value
-  SPAWN_RATE_DIVISOR: 20,
-  // Mine drift speed (pixels per second)
-  DRIFT_SPEED: 30,
-  // Mine size (radius in pixels)
-  MINE_SIZE: 5,
-  // Explosion damage multiplier (damage = base weapon damage × this)
-  EXPLOSION_DAMAGE_MULTIPLIER: 100,
-  // Explosion wave diameter divisor (diameter = canvas.width / this)
-  EXPLOSION_DIAMETER_DIVISOR: 10,
-  // Explosion wave expansion duration (seconds)
-  EXPLOSION_DURATION: 1.5,
-  // Mine lifetime before auto-despawn (seconds)
-  MINE_LIFETIME: 10,
-};
-
-/**
- * Game configuration constants.
- */
-const GAME_CONFIG = {
-  // Maximum enemies that can pass through before game over
-  MAX_ENEMIES_PASSED: 10,
-  // Cardinal Warden maximum health
-  WARDEN_MAX_HEALTH: 100,
-  // Time per wave in milliseconds
-  WAVE_DURATION_MS: 15000,
-  // Base time between enemy spawns in milliseconds
-  BASE_ENEMY_SPAWN_INTERVAL_MS: 2000,
-  // Base time between bullet volleys in milliseconds
-  BASE_BULLET_INTERVAL_MS: 500,
-  // Maximum delta time cap to prevent physics issues (ms)
-  MAX_DELTA_TIME_MS: 33,
-  // Minimum difficulty level required for boss spawning
-  BOSS_MIN_DIFFICULTY: 3,
-  // Difficulty scaling factor for boss stats
-  BOSS_DIFFICULTY_SCALE: 0.2,
-  // Maximum reduction in boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_MAX_REDUCTION: 20000,
-  // Reduction per difficulty level for boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_REDUCTION_PER_LEVEL: 2000,
-  // Minimum boss spawn interval (ms)
-  BOSS_SPAWN_INTERVAL_MIN: 10000,
-};
+// Configuration constants now imported from cardinalWardenConfig.js
 
 /**
  * Lighten a hex color by blending it toward white.
@@ -326,7 +210,7 @@ class RingSquare {
     // Rotation direction: 1 for clockwise, -1 for counter-clockwise
     this.rotationDirection = config.rotationDirection || 1;
     // Stroke color (golden to match theme)
-    this.strokeColor = config.strokeColor || '#d4af37';
+    this.strokeColor = config.strokeColor || VISUAL_CONFIG.DEFAULT_GOLDEN;
     // Stroke width
     this.strokeWidth = config.strokeWidth || 2;
     // Alpha transparency for the ring
@@ -370,7 +254,7 @@ class ExpandingWave {
     this.maxRadius = maxRadius;
     this.currentRadius = 0;
     this.expansionSpeed = maxRadius / WAVE_CONFIG.EXPANSION_DURATION_SECONDS;
-    this.color = color || '#d4af37';
+    this.color = color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.hitEnemies = new Set(); // Track which enemies have been hit
     this.hitBosses = new Set(); // Track which bosses have been hit
     this.alpha = 1.0; // Start fully opaque
@@ -416,7 +300,7 @@ class Beam {
     this.angle = angle;
     this.damage = config.damage || 1; // Damage per tick
     this.damagePerSecond = config.damagePerSecond || 1; // Total damage per second
-    this.color = config.color || '#d4af37';
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.width = config.width || BEAM_CONFIG.BEAM_WIDTH;
     this.maxLength = config.maxLength || BEAM_CONFIG.MAX_BEAM_LENGTH;
     this.weaponId = config.weaponId || 0; // Track which weapon this beam belongs to
@@ -510,7 +394,7 @@ class Mine {
     this.x = x;
     this.y = y;
     this.size = config.size || MINE_CONFIG.MINE_SIZE;
-    this.color = config.color || '#d4af37';
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.baseDamage = config.baseDamage || 1; // Base weapon damage for explosion calculation
     this.explosionRadius = config.explosionRadius || 50; // Radius of explosion wave
     this.weaponId = config.weaponId || 0;
@@ -595,6 +479,187 @@ class Mine {
 }
 
 /**
+ * Represents a swarm ship spawned by grapheme N (index 13).
+ * These tiny triangle ships swarm around the player's aim target and fire green lasers.
+ */
+class SwarmShip {
+  constructor(x, y, targetX, targetY, damage, fireRate, rng) {
+    this.x = x;
+    this.y = y;
+    this.targetX = targetX;
+    this.targetY = targetY;
+    this.damage = damage;
+    this.fireRate = fireRate; // Time between shots in milliseconds
+    this.rng = rng;
+    
+    // Visual properties
+    this.size = SWARM_CONFIG.SHIP_SIZE;
+    this.color = VISUAL_CONFIG.DEFAULT_SWARM_SHIP_COLOR;
+    this.headingAngle = 0;
+    
+    // Movement behavior - swarm randomly around target
+    this.swarmOffsetAngle = rng.range(0, Math.PI * 2);
+    this.swarmOffsetDistance = rng.range(0, SWARM_CONFIG.SWARM_RADIUS);
+    this.swarmRotationSpeed = rng.range(0.5, 1.5); // Radians per second
+    this.swarmRotationDirection = rng.next() > 0.5 ? 1 : -1;
+    
+    // Trail for visual effect
+    this.trail = [];
+    this.maxTrailLength = SWARM_CONFIG.TRAIL_LENGTH;
+    
+    // Firing timer
+    this.fireTimer = 0;
+  }
+  
+  update(deltaTime, targetX, targetY) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    
+    // Update target position
+    this.targetX = targetX;
+    this.targetY = targetY;
+    
+    // Update swarm rotation
+    this.swarmOffsetAngle += this.swarmRotationSpeed * this.swarmRotationDirection * dt;
+    
+    // Calculate desired position around target
+    const desiredX = this.targetX + Math.cos(this.swarmOffsetAngle) * this.swarmOffsetDistance;
+    const desiredY = this.targetY + Math.sin(this.swarmOffsetAngle) * this.swarmOffsetDistance;
+    
+    // Move toward desired position
+    const dx = desiredX - this.x;
+    const dy = desiredY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 1) {
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      this.x += dirX * SWARM_CONFIG.MOVEMENT_SPEED * dt;
+      this.y += dirY * SWARM_CONFIG.MOVEMENT_SPEED * dt;
+      
+      // Update heading based on movement
+      this.headingAngle = Math.atan2(dy, dx);
+    }
+    
+    // Update trail
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > this.maxTrailLength) {
+      this.trail.shift();
+    }
+    
+    // Update fire timer
+    this.fireTimer += deltaTime;
+  }
+  
+  /**
+   * Check if the ship is ready to fire.
+   */
+  canFire() {
+    return this.fireTimer >= this.fireRate;
+  }
+  
+  /**
+   * Reset the fire timer after firing.
+   */
+  resetFireTimer() {
+    this.fireTimer = 0;
+  }
+  
+  /**
+   * Render the swarm ship as a triangle with a thin trail.
+   */
+  render(ctx) {
+    // Draw trail
+    if (this.trail.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0].x, this.trail[0].y);
+      for (let i = 1; i < this.trail.length; i++) {
+        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    
+    // Draw triangle ship
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.headingAngle);
+    
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(this.size / 2, 0); // Tip of triangle (pointing right when angle is 0)
+    ctx.lineTo(-this.size / 2, -this.size / 3);
+    ctx.lineTo(-this.size / 2, this.size / 3);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
+  }
+}
+
+/**
+ * Represents a laser projectile fired by swarm ships.
+ */
+class SwarmLaser {
+  constructor(x, y, targetX, targetY, damage, color) {
+    this.x = x;
+    this.y = y;
+    this.damage = damage;
+    this.color = color || SWARM_CONFIG.LASER_COLOR;
+    
+    // Calculate direction toward target
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 0) {
+      this.vx = (dx / dist) * SWARM_CONFIG.LASER_SPEED;
+      this.vy = (dy / dist) * SWARM_CONFIG.LASER_SPEED;
+    } else {
+      this.vx = 0;
+      this.vy = -SWARM_CONFIG.LASER_SPEED; // Default upward
+    }
+    
+    this.angle = Math.atan2(this.vy, this.vx);
+    this.length = SWARM_CONFIG.LASER_LENGTH;
+    this.width = SWARM_CONFIG.LASER_WIDTH;
+  }
+  
+  update(deltaTime) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+  }
+  
+  isOffscreen(width, height) {
+    return this.x < -this.length || this.x > width + this.length ||
+           this.y < -this.length || this.y > height + this.length;
+  }
+  
+  render(ctx) {
+    ctx.save();
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.width;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.9;
+    
+    // Draw laser as a line
+    const endX = this.x + Math.cos(this.angle) * this.length;
+    const endY = this.y + Math.sin(this.angle) * this.length;
+    
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    
+    ctx.restore();
+  }
+}
+
+/**
  * Represents the Cardinal Warden - the player's boss entity.
  */
 class CardinalWarden {
@@ -603,7 +668,7 @@ class CardinalWarden {
     this.y = y;
     this.health = 100;
     this.maxHealth = 100;
-    this.coreRadius = 16;
+    this.coreRadius = ORBITAL_SQUARE_CONFIG.CORE_RADIUS;
     this.orbitalSquares = [];
     this.ringSquares = [];
     this.rng = rng;
@@ -613,8 +678,8 @@ class CardinalWarden {
 
   initOrbitalSquares() {
     this.orbitalSquares = [];
-    const squareCount = 8;
-    const orbitRadius = 35;
+    const squareCount = ORBITAL_SQUARE_CONFIG.COUNT;
+    const orbitRadius = ORBITAL_SQUARE_CONFIG.ORBIT_RADIUS;
     for (let i = 0; i < squareCount; i++) {
       this.orbitalSquares.push(new OrbitalSquare(i, squareCount, orbitRadius, this.rng));
     }
@@ -627,20 +692,14 @@ class CardinalWarden {
   initRingSquares() {
     this.ringSquares = [];
     
-    // Ring configurations: size, speed, direction, strokeWidth, alpha
-    const ringConfigs = [
-      { size: 70, rotationSpeed: 0.4, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.5 },
-      { size: 95, rotationSpeed: 0.25, rotationDirection: -1, strokeWidth: 2, alpha: 0.4 },
-      { size: 120, rotationSpeed: 0.6, rotationDirection: 1, strokeWidth: 1, alpha: 0.35 },
-      { size: 150, rotationSpeed: 0.15, rotationDirection: -1, strokeWidth: 2.5, alpha: 0.3 },
-      { size: 180, rotationSpeed: 0.35, rotationDirection: 1, strokeWidth: 1.5, alpha: 0.25 },
-    ];
+    // Ring configurations from cardinalWardenConfig.js
+    const ringConfigs = RING_SQUARE_CONFIGS;
     
     for (let i = 0; i < ringConfigs.length; i++) {
-      const config = ringConfigs[i];
+      const config = { ...ringConfigs[i] };
       // Stagger initial rotations so they don't all start aligned
       config.initialRotation = (i / ringConfigs.length) * Math.PI * 0.5;
-      config.strokeColor = '#d4af37';
+      config.strokeColor = VISUAL_CONFIG.DEFAULT_GOLDEN;
       this.ringSquares.push(new RingSquare(config));
     }
   }
@@ -690,7 +749,7 @@ class EnemyShip {
     this.size = config.size || 8;
     this.type = config.type || 'basic';
     this.scoreValue = config.scoreValue || 10;
-    this.baseColor = config.color || '#333';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_COLOR;
     this.color = this.baseColor;
 
     // Trail and exhaust controls for enemy-specific silhouettes.
@@ -1113,60 +1172,7 @@ class RicochetSkimmer extends EnemyShip {
  * Boss ship types available in the game.
  * These are larger, more dangerous enemies that appear periodically.
  */
-const BOSS_TYPES = {
-  circleCarrier: {
-    speed: 15,
-    health: 30,
-    damage: 25,
-    size: 35,
-    scoreValue: 200,
-    color: '#000000',
-    rotationSpeed: 0.5, // Radians per second
-    spawnInterval: 3000, // ms between spawning ships
-    spawnCount: 3, // Ships spawned per interval
-  },
-  pyramidBoss: {
-    speed: 20,
-    health: 20,
-    damage: 20,
-    size: 28,
-    scoreValue: 150,
-    color: '#000000',
-    rotationSpeed: 0.8,
-    burstInterval: 2500, // Time between movement bursts
-    burstSpeed: 80, // Speed during burst
-  },
-  hexagonFortress: {
-    speed: 10,
-    health: 50,
-    damage: 30,
-    size: 45,
-    scoreValue: 300,
-    color: '#000000',
-    rotationSpeed: 0.3,
-    shieldRegenRate: 0.5, // Health regen per second
-  },
-  megaBoss: {
-    speed: 12,
-    health: 100,
-    damage: 50,
-    size: 55,
-    scoreValue: 500,
-    color: '#000000',
-    rotationSpeed: 0.4,
-    shieldRegenRate: 1.0,
-  },
-  ultraBoss: {
-    speed: 15,
-    health: 200,
-    damage: 75,
-    size: 65,
-    scoreValue: 1000,
-    color: '#000000',
-    rotationSpeed: 0.5,
-    shieldRegenRate: 2.0,
-  },
-};
+// BOSS_TYPES now imported from cardinalWardenConfig.js
 
 /**
  * Circle Carrier Boss - A large circular ship that slowly rotates and periodically
@@ -1187,7 +1193,7 @@ class CircleCarrierBoss {
     this.type = 'circleCarrier';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 200;
-    this.baseColor = config.color || '#1a1a1a';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARK;
     this.color = this.baseColor;
 
     // Rotation properties
@@ -1211,10 +1217,7 @@ class CircleCarrierBoss {
     this.time = 0;
 
     // Inner ring decorations
-    this.innerRings = [
-      { radius: 0.6, rotationOffset: 0 },
-      { radius: 0.4, rotationOffset: Math.PI / 3 },
-    ];
+    this.innerRings = INNER_RING_CONFIGS;
     
     // Status effects for grapheme J
     this.burning = false;
@@ -1419,7 +1422,7 @@ class PyramidBoss {
     this.type = 'pyramidBoss';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 150;
-    this.baseColor = config.color || '#2d2d2d';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARKER;
     this.color = this.baseColor;
 
     // Rotation
@@ -1620,7 +1623,7 @@ class HexagonFortressBoss {
     this.type = 'hexagonFortress';
     this.isBoss = true;
     this.scoreValue = config.scoreValue || 300;
-    this.baseColor = config.color || '#0a0a0a';
+    this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_DARKEST;
     this.color = this.baseColor;
 
     // Rotation
@@ -1837,7 +1840,7 @@ class Bullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
-    this.baseColor = config.baseColor || config.color || '#d4af37';
+    this.baseColor = config.baseColor || config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     this.color = config.color || this.baseColor;
     this.piercing = config.piercing || false;
     this.piercingLimit = config.piercingLimit || 0; // Max number of targets (enemies + bosses) to hit (0 = unlimited)
@@ -2058,8 +2061,8 @@ class MathBullet {
     this.speed = config.speed || 200;
     this.damage = config.damage || 1;
     this.size = config.size || 4;
-    this.baseColor = config.baseColor || config.color || '#d4af37';
-    this.color = config.color || '#d4af37';
+    this.baseColor = config.baseColor || config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
+    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
     
     // Mathematical pattern configuration
     this.pattern = config.pattern || 'sine';
@@ -2330,63 +2333,8 @@ class MathBullet {
   }
 }
 
-/**
- * Weapon slot IDs in order.
- */
-const WEAPON_SLOT_IDS = ['slot1', 'slot2', 'slot3'];
-
-/**
- * Simplified weapon definitions for the Cardinal Warden.
- * Three weapons that fire simple bullets toward the click target.
- * Each weapon has 8 grapheme slots where lexemes can be placed to modify behavior.
- */
-const WEAPON_SLOT_DEFINITIONS = {
-  slot1: {
-    id: 'slot1',
-    name: 'Weapon 1',
-    symbol: 'Ⅰ',
-    symbolGraphemeIndex: 26, // ThoughtSpeak number 1
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 2000, // 2 seconds
-    pattern: 'straight', // Simple straight bullet
-    color: '#d4af37', // Will be overridden by gradient
-    slotIndex: 0,
-  },
-  slot2: {
-    id: 'slot2',
-    name: 'Weapon 2',
-    symbol: 'Ⅱ',
-    symbolGraphemeIndex: 27, // ThoughtSpeak number 2
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 3000, // 3 seconds
-    pattern: 'straight',
-    color: '#ff9c66', // Will be overridden by gradient
-    slotIndex: 1,
-  },
-  slot3: {
-    id: 'slot3',
-    name: 'Weapon 3',
-    symbol: 'Ⅲ',
-    symbolGraphemeIndex: 28, // ThoughtSpeak number 3
-    description: '',
-    baseDamage: 1,
-    baseSpeed: 200,
-    baseFireRate: 5000, // 5 seconds
-    pattern: 'straight',
-    color: '#9a6bff', // Will be overridden by gradient
-    slotIndex: 2,
-  },
-};
-
-// Legacy weapon definitions kept for reference but deactivated
-const LEGACY_WEAPON_DEFINITIONS = {
-  // All 9 previous weapons are now deactivated
-  // These definitions are kept for potential future lexeme system
-};
+// WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, and ENEMY_TYPES
+// now imported from cardinalWardenConfig.js
 
 /**
  * Get all available weapon slot IDs.
@@ -2403,58 +2351,6 @@ export function getWeaponDefinition(weaponId) {
 }
 
 /**
- * Enemy type configurations for different difficulty tiers.
- */
-const ENEMY_TYPES = {
-  basic: {
-    speed: 80,
-    health: 1,
-    damage: 5,
-    size: 8,
-    scoreValue: 10,
-    color: '#000000',
-  },
-  fast: {
-    speed: 80,
-    health: 1,
-    damage: 3,
-    size: 6,
-    scoreValue: 15,
-    color: '#000000',
-  },
-  tank: {
-    speed: 25,
-    health: 3,
-    damage: 10,
-    size: 12,
-    scoreValue: 25,
-    color: '#000000',
-  },
-  elite: {
-    speed: 50,
-    health: 5,
-    damage: 15,
-    size: 10,
-    scoreValue: 50,
-    color: '#000000',
-  },
-  ricochet: {
-    speed: 70,
-    health: 2,
-    damage: 8,
-    size: 9,
-    scoreValue: 35,
-    color: '#000000',
-    trailLimit: 30,
-    trailRadiusScale: 0.2,
-    trailAlphaScale: 0.65,
-    maxSmokePuffs: 45,
-    initialStraightTime: 0.55,
-    turnIntervalRange: { min: 0.65, max: 1.2 },
-  },
-};
-
-/**
  * Main Cardinal Warden reverse danmaku simulation.
  */
 export class CardinalWardenSimulation {
@@ -2462,28 +2358,31 @@ export class CardinalWardenSimulation {
     this.canvas = options.canvas || null;
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
 
-    // Visual style - pure white background, minimalist
-    this.nightMode = options.nightMode || false;
+    // Visual style - accept nightMode from options or default to false (light mode)
+    this.nightMode = !!options.nightMode;
     this.enemyTrailQuality = options.enemyTrailQuality || 'high';
     this.bulletTrailLength = options.bulletTrailLength || 'long';
-    this.bgColor = '#ffffff';
-    this.wardenCoreColor = '#d4af37'; // Golden
-    this.wardenSquareColor = '#c9a227'; // Slightly darker gold
-    this.bulletColor = '#d4af37';
-    this.ringStrokeColor = '#d4af37';
-    this.uiTextColor = '#333';
-    this.enemyTrailColor = '#000000';
-    this.enemySmokeColor = '#000000';
-    this.scriptColorDay = options.scriptColorDay || '#d4af37'; // Tint for daytime script glyphs
-    this.scriptColorNight = options.scriptColorNight || '#ffe9a3'; // Tint for night mode script glyphs
-    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay; // Current script tint
+    
+    // Load colors from config based on mode
+    const colorMode = this.nightMode ? VISUAL_CONFIG.NIGHT : VISUAL_CONFIG.DAY;
+    this.bgColor = colorMode.BG_COLOR;
+    this.wardenCoreColor = colorMode.WARDEN_CORE_COLOR;
+    this.wardenSquareColor = colorMode.WARDEN_SQUARE_COLOR;
+    this.bulletColor = colorMode.BULLET_COLOR;
+    this.ringStrokeColor = colorMode.RING_STROKE_COLOR;
+    this.uiTextColor = colorMode.UI_TEXT_COLOR;
+    this.enemyTrailColor = colorMode.ENEMY_TRAIL_COLOR;
+    this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
+    this.scriptColorDay = options.scriptColorDay || VISUAL_CONFIG.DAY.SCRIPT_COLOR;
+    this.scriptColorNight = options.scriptColorNight || VISUAL_CONFIG.NIGHT.SCRIPT_COLOR;
+    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
     // Script font sprite sheet for Cardinal Warden name display
-    // The sprite sheet is a 7x5 grid of characters
+    // The sprite sheet is a 7x5 grid of characters stored as a PNG paired with JSON metadata
     this.scriptSpriteSheet = null;
     this.scriptSpriteLoaded = false;
-    this.scriptCols = 7;
-    this.scriptRows = 5;
+    this.scriptCols = VISUAL_CONFIG.SCRIPT_SPRITE_COLS;
+    this.scriptRows = VISUAL_CONFIG.SCRIPT_SPRITE_ROWS;
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.loadScriptSpriteSheet();
 
@@ -2514,6 +2413,8 @@ export class CardinalWardenSimulation {
     this.expandingWaves = []; // Expanding damage waves spawned by grapheme G (index 6)
     this.beams = []; // Continuous beams from grapheme L (index 11)
     this.mines = []; // Drifting mines from grapheme M (index 12)
+    this.swarmShips = []; // Swarm ships from grapheme N (index 13)
+    this.swarmLasers = []; // Lasers fired by swarm ships
 
     // Base health upgrade system (can be upgraded with iterons)
     this.baseHealthLevel = options.baseHealthLevel || 0;
@@ -2574,6 +2475,13 @@ export class CardinalWardenSimulation {
       purchased: { slot1: true, slot2: true, slot3: true },
       levels: { slot1: 1, slot2: 1, slot3: 1 }, // Level tracking for future lexeme upgrades
       equipped: ['slot1', 'slot2', 'slot3'], // All 3 weapons always active
+    };
+    
+    // Weapon-specific upgrades (attack and speed levels per weapon)
+    this.weaponUpgrades = {
+      slot1: { attackLevel: 0, speedLevel: 0 },
+      slot2: { attackLevel: 0, speedLevel: 0 },
+      slot3: { attackLevel: 0, speedLevel: 0 },
     };
     
     // Maximum number of weapons that can be equipped simultaneously (always 3)
@@ -2643,6 +2551,9 @@ export class CardinalWardenSimulation {
     this.handlePointerDown = this.handlePointerDown.bind(this);
     this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handlePointerUp = this.handlePointerUp.bind(this);
+    
+    // Bind visibility change handler
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
 
     // Animation frame handle
     this.animationFrameId = null;
@@ -2668,27 +2579,16 @@ export class CardinalWardenSimulation {
    * Update palette values based on day/night render mode.
    */
   applyColorMode() {
-    if (this.nightMode) {
-      this.bgColor = '#000000';
-      this.wardenCoreColor = '#ffe9a3';
-      this.wardenSquareColor = '#ffd76f';
-      this.bulletColor = '#ffe585';
-      this.ringStrokeColor = '#ffe9a3';
-      this.uiTextColor = '#f5f5f5';
-      this.enemyTrailColor = '#ffffff';
-      this.enemySmokeColor = '#ffffff';
-      this.activeScriptColor = this.scriptColorNight;
-    } else {
-      this.bgColor = '#ffffff';
-      this.wardenCoreColor = '#d4af37';
-      this.wardenSquareColor = '#c9a227';
-      this.bulletColor = '#d4af37';
-      this.ringStrokeColor = '#d4af37';
-      this.uiTextColor = '#333';
-      this.enemyTrailColor = '#000000';
-      this.enemySmokeColor = '#000000';
-      this.activeScriptColor = this.scriptColorDay;
-    }
+    const colorMode = this.nightMode ? VISUAL_CONFIG.NIGHT : VISUAL_CONFIG.DAY;
+    this.bgColor = colorMode.BG_COLOR;
+    this.wardenCoreColor = colorMode.WARDEN_CORE_COLOR;
+    this.wardenSquareColor = colorMode.WARDEN_SQUARE_COLOR;
+    this.bulletColor = colorMode.BULLET_COLOR;
+    this.ringStrokeColor = colorMode.RING_STROKE_COLOR;
+    this.uiTextColor = colorMode.UI_TEXT_COLOR;
+    this.enemyTrailColor = colorMode.ENEMY_TRAIL_COLOR;
+    this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
+    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
     // Rebuild the tinted script sheet so glyphs match the active palette immediately.
     this.rebuildTintedScriptSheet();
@@ -2939,6 +2839,7 @@ export class CardinalWardenSimulation {
     this.initWarden();
     this.applyRingColors();
     this.attachInputHandlers();
+    this.attachVisibilityHandler();
   }
 
   /**
@@ -2963,6 +2864,33 @@ export class CardinalWardenSimulation {
     this.canvas.removeEventListener('pointerup', this.handlePointerUp);
     this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
     this.canvas.removeEventListener('pointerleave', this.handlePointerUp);
+  }
+
+  /**
+   * Attach visibility change handler to re-enable input when tab becomes visible.
+   */
+  attachVisibilityHandler() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /**
+   * Detach visibility change handler.
+   */
+  detachVisibilityHandler() {
+    if (typeof document === 'undefined') return;
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  /**
+   * Handle visibility change events - re-attach input handlers when tab becomes visible.
+   */
+  handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      // Re-attach input handlers when tab becomes visible
+      this.detachInputHandlers();
+      this.attachInputHandlers();
+    }
   }
 
   /**
@@ -3234,6 +3162,7 @@ export class CardinalWardenSimulation {
       this.animationFrameId = null;
     }
     this.detachInputHandlers();
+    this.detachVisibilityHandler();
   }
 
   /**
@@ -3269,6 +3198,8 @@ export class CardinalWardenSimulation {
     this.friendlyShips = [];
     this.expandingWaves = [];
     this.beams = [];
+    this.swarmShips = [];
+    this.swarmLasers = [];
     this.enemySpawnTimer = 0;
     this.bulletSpawnTimer = 0;
     this.waveTimer = 0;
@@ -3400,6 +3331,9 @@ export class CardinalWardenSimulation {
 
     // Update friendly ships
     this.updateFriendlyShips(deltaTime);
+    
+    // Update swarm ships
+    this.updateSwarmShips(deltaTime);
 
     // Update enemies
     this.updateEnemies(deltaTime);
@@ -3686,8 +3620,11 @@ export class CardinalWardenSimulation {
       const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
       const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
       
+      // Apply weapon-specific speed upgrade multiplier
+      const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
+      
       // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
-      const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
+      const fireInterval = weaponDef.baseFireRate / (fireRateMultiplier * weaponSpeedMult);
       
       this.weaponTimers[weaponId] += deltaTime;
       
@@ -3940,10 +3877,14 @@ export class CardinalWardenSimulation {
     }
 
     const resolvedColor = this.resolveBulletColor(weaponDef.color);
+    
+    // Apply weapon-specific upgrades
+    const weaponAttackMult = this.getWeaponAttackMultiplier(weaponId);
+    const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
 
     const bulletConfig = {
-      speed: weaponDef.baseSpeed * speedMultiplier * this.upgrades.bulletSpeed,
-      damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * this.upgrades.bulletDamage,
+      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * this.upgrades.bulletSpeed,
+      damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * weaponAttackMult * this.upgrades.bulletDamage,
       size: 4,
       baseColor: weaponDef.color,
       color: resolvedColor,
@@ -4244,6 +4185,245 @@ export class CardinalWardenSimulation {
   }
   
   /**
+   * Update swarm ships from grapheme N (index 13).
+   * Number of ships = (total graphemes) / 10, max 100.
+   */
+  updateSwarmShips(deltaTime) {
+    if (!this.warden || !this.canvas) return;
+    
+    // Check if any weapon has grapheme N (index 13)
+    let hasSwarmGrapheme = false;
+    let weaponDamage = 1;
+    let weaponFireRate = 500; // Default fire rate in milliseconds
+    
+    for (const weaponId of this.weapons.equipped) {
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
+      
+      for (const assignment of effectiveAssignments) {
+        if (assignment && assignment.index === GRAPHEME_INDEX.N) {
+          hasSwarmGrapheme = true;
+          
+          // Calculate weapon stats
+          const level = this.weapons.levels[weaponId] || 1;
+          let damageMultiplier = 1 + (level - 1) * 0.25;
+          
+          // Check for first grapheme damage multiplier
+          for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+            const a = effectiveAssignments[slotIndex];
+            if (a && a.index === 0) {
+              const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
+              const bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+              damageMultiplier *= bulletShape;
+              break;
+            }
+          }
+          
+          weaponDamage = Math.max(weaponDamage, weaponDef.baseDamage * damageMultiplier * this.upgrades.bulletDamage);
+          
+          // Calculate fire rate
+          const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
+          const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
+          weaponFireRate = Math.min(weaponFireRate, 1000 / attackSpeed); // Convert to milliseconds
+          
+          break; // Only use the first weapon with grapheme N
+        }
+      }
+      
+      if (hasSwarmGrapheme) break;
+    }
+    
+    if (!hasSwarmGrapheme) {
+      // No swarm grapheme - clear all swarm ships and lasers
+      this.swarmShips = [];
+      this.swarmLasers = [];
+      return;
+    }
+    
+    // Calculate number of swarm ships based on total grapheme count
+    let totalGraphemes = 0;
+    for (const count of Object.values(this.graphemeInventoryCounts)) {
+      totalGraphemes += count;
+    }
+    
+    const maxShips = Math.min(
+      Math.floor(totalGraphemes / SWARM_CONFIG.GRAPHEME_COUNT_DIVISOR),
+      SWARM_CONFIG.MAX_SWARM_SHIPS
+    );
+    
+    // Default target position (aim target or screen center)
+    const targetX = this.aimTarget ? this.aimTarget.x : this.canvas.width / 2;
+    const targetY = this.aimTarget ? this.aimTarget.y : this.canvas.height / 4;
+    
+    // Spawn ships if we have less than max
+    while (this.swarmShips.length < maxShips) {
+      const angle = this.rng.range(0, Math.PI * 2);
+      const radius = this.rng.range(0, SWARM_CONFIG.SWARM_RADIUS);
+      const x = targetX + Math.cos(angle) * radius;
+      const y = targetY + Math.sin(angle) * radius;
+      
+      // Swarm ships fire at 1/10th weapon attack speed with 1/10th damage
+      const swarmDamage = weaponDamage / SWARM_CONFIG.DAMAGE_DIVISOR;
+      const swarmFireRate = weaponFireRate * SWARM_CONFIG.FIRE_RATE_DIVISOR;
+      
+      this.swarmShips.push(new SwarmShip(x, y, targetX, targetY, swarmDamage, swarmFireRate, this.rng));
+    }
+    
+    // Remove excess ships if max decreased
+    while (this.swarmShips.length > maxShips) {
+      this.swarmShips.pop();
+    }
+    
+    // Update all swarm ships
+    for (const ship of this.swarmShips) {
+      ship.update(deltaTime, targetX, targetY);
+      
+      // Check if ship can fire
+      if (ship.canFire() && (this.enemies.length > 0 || this.bosses.length > 0)) {
+        // Find closest enemy to the aim target
+        let closestEnemy = null;
+        let closestDist = Infinity;
+        
+        for (const enemy of this.enemies) {
+          const dx = enemy.x - targetX;
+          const dy = enemy.y - targetY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = enemy;
+          }
+        }
+        
+        for (const boss of this.bosses) {
+          const dx = boss.x - targetX;
+          const dy = boss.y - targetY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < closestDist) {
+            closestDist = dist;
+            closestEnemy = boss;
+          }
+        }
+        
+        // Fire laser at closest enemy
+        if (closestEnemy) {
+          const laser = new SwarmLaser(ship.x, ship.y, closestEnemy.x, closestEnemy.y, ship.damage, SWARM_CONFIG.LASER_COLOR);
+          this.swarmLasers.push(laser);
+          ship.resetFireTimer();
+        }
+      }
+    }
+    
+    // Update swarm lasers
+    for (let i = this.swarmLasers.length - 1; i >= 0; i--) {
+      const laser = this.swarmLasers[i];
+      laser.update(deltaTime);
+      
+      // Remove if offscreen
+      if (laser.isOffscreen(this.canvas.width, this.canvas.height)) {
+        this.swarmLasers.splice(i, 1);
+      }
+    }
+    
+    // Check laser collisions with enemies
+    this.checkSwarmLaserCollisions();
+  }
+  
+  /**
+   * Check collisions between swarm lasers and enemies.
+   */
+  checkSwarmLaserCollisions() {
+    const lasersToRemove = new Set();
+    const enemiesToRemove = new Set();
+    const bossesToRemove = new Set();
+    const killedEnemyPositions = [];
+    
+    for (let li = 0; li < this.swarmLasers.length; li++) {
+      const laser = this.swarmLasers[li];
+      if (lasersToRemove.has(li)) continue;
+      
+      // Check collision with regular enemies
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        const enemy = this.enemies[ei];
+        if (enemiesToRemove.has(ei)) continue;
+        
+        const dx = laser.x - enemy.x;
+        const dy = laser.y - enemy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < enemy.size + laser.width) {
+          // Hit!
+          this.spawnDamageNumber(enemy.x, enemy.y, laser.damage);
+          const killed = enemy.takeDamage(laser.damage);
+          
+          if (killed) {
+            enemiesToRemove.add(ei);
+            this.addScore(enemy.scoreValue);
+            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
+            killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
+          }
+          
+          lasersToRemove.add(li);
+          break;
+        }
+      }
+      
+      // Check collision with bosses
+      if (!lasersToRemove.has(li)) {
+        for (let bi = 0; bi < this.bosses.length; bi++) {
+          const boss = this.bosses[bi];
+          if (bossesToRemove.has(bi)) continue;
+          
+          const dx = laser.x - boss.x;
+          const dy = laser.y - boss.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < boss.size + laser.width) {
+            // Hit!
+            this.spawnDamageNumber(boss.x, boss.y, laser.damage);
+            const killed = boss.takeDamage(laser.damage);
+            
+            if (killed) {
+              bossesToRemove.add(bi);
+              this.addScore(boss.scoreValue);
+              this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
+              killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
+            }
+            
+            lasersToRemove.add(li);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Remove dead enemies
+    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
+    for (const i of enemyIndices) {
+      this.enemies.splice(i, 1);
+    }
+    
+    // Remove dead bosses
+    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
+    for (const i of bossIndices) {
+      this.bosses.splice(i, 1);
+    }
+    
+    // Remove hit lasers
+    const laserIndices = Array.from(lasersToRemove).sort((a, b) => b - a);
+    for (const i of laserIndices) {
+      this.swarmLasers.splice(i, 1);
+    }
+    
+    // Notify about enemy kills for grapheme drops
+    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
+      for (const killPos of killedEnemyPositions) {
+        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
+      }
+    }
+  }
+  
+  /**
    * Update death animation (Cardinal Warden shaking and exploding).
    */
   updateDeathAnimation(deltaTime) {
@@ -4398,8 +4578,8 @@ export class CardinalWardenSimulation {
     // Scale stats by difficulty
     const difficultyMultiplier = 1 + this.difficultyLevel * 0.15;
     
-    // Multiply base health by wave number (wave is 0-indexed, so wave+1)
-    const waveMultiplier = this.wave + 1;
+    // Additive HP scaling: each wave adds 10% more HP (1.1x, 1.2x, 1.3x... 2x at wave 10, etc.)
+    const waveMultiplier = 1 + (this.wave * 0.1);
     
     // Determine if this ship should weave (30% chance for fast/elite types)
     const canWeave = typeKey === 'fast' || typeKey === 'elite';
@@ -5509,6 +5689,9 @@ export class CardinalWardenSimulation {
         this.renderWeaponTargets();
         // Draw friendly ships
         this.renderFriendlyShips();
+        // Draw swarm ships and lasers
+        this.renderSwarmShips();
+        this.renderSwarmLasers();
         // Draw enemies
         this.renderEnemies();
         // Draw bosses
@@ -6516,19 +6699,38 @@ export class CardinalWardenSimulation {
       mine.render(this.ctx);
     }
   }
+  
+  /**
+   * Render all swarm ships from grapheme N (index 13).
+   */
+  renderSwarmShips() {
+    if (!this.ctx || !this.swarmShips || this.swarmShips.length === 0) return;
+    
+    for (const ship of this.swarmShips) {
+      ship.render(this.ctx);
+    }
+  }
+  
+  /**
+   * Render all swarm lasers from grapheme N (index 13).
+   */
+  renderSwarmLasers() {
+    if (!this.ctx || !this.swarmLasers || this.swarmLasers.length === 0) return;
+    
+    for (const laser of this.swarmLasers) {
+      laser.render(this.ctx);
+    }
+  }
 
   /**
    * Initialize or reset life lines to their default state.
    * @private
    */
   initializeLifeLines() {
-    this.lifeLines = [
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-      { state: 'solid' },
-    ];
+    this.lifeLines = [];
+    for (let i = 0; i < LIFE_LINES_CONFIG.COUNT; i++) {
+      this.lifeLines.push({ state: LIFE_LINES_CONFIG.INITIAL_STATE });
+    }
   }
 
   /**
@@ -6558,15 +6760,15 @@ export class CardinalWardenSimulation {
     if (!this.ctx || !this.canvas) return;
 
     const ctx = this.ctx;
-    const padding = 10;
+    const padding = UI_CONFIG.PADDING;
 
     // Set font for UI - using Cormorant Garamond (universal game font)
-    ctx.font = '16px "Cormorant Garamond", serif';
+    ctx.font = `${UI_CONFIG.FONT_SIZE}px ${UI_CONFIG.FONT_FAMILY}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
     // Golden color for text
-    const goldColor = '#d4af37';
+    const goldColor = VISUAL_CONFIG.DEFAULT_GOLDEN;
 
     // Wave number display (top left)
     ctx.fillStyle = goldColor;
@@ -6576,7 +6778,7 @@ export class CardinalWardenSimulation {
     ctx.fillText(`Score: ${this.score}`, padding, padding + 20);
 
     // Speed button (top right)
-    const speedButtonSize = 50;
+    const speedButtonSize = UI_CONFIG.SPEED_BUTTON_SIZE;
     const speedButtonX = this.canvas.width - padding - speedButtonSize;
     const speedButtonY = padding;
     
@@ -6591,15 +6793,15 @@ export class CardinalWardenSimulation {
     
     // Draw speed text
     ctx.fillStyle = goldColor;
-    ctx.font = '20px "Cormorant Garamond", serif';
+    ctx.font = `${UI_CONFIG.LARGE_FONT_SIZE}px ${UI_CONFIG.FONT_FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${this.gameSpeed}x`, speedButtonX + speedButtonSize / 2, speedButtonY + speedButtonSize / 2);
 
     // Health bar (bottom center)
     if (this.warden) {
-      const barWidth = 120;
-      const barHeight = 8;
+      const barWidth = UI_CONFIG.HEALTH_BAR_WIDTH;
+      const barHeight = UI_CONFIG.HEALTH_BAR_HEIGHT;
       const barX = (this.canvas.width - barWidth) / 2;
       const barY = this.canvas.height - padding - barHeight;
       const healthPercent = this.warden.health / this.warden.maxHealth;
@@ -6619,11 +6821,11 @@ export class CardinalWardenSimulation {
     }
 
     // Life lines indicator (bottom left)
-    // 5 full-width lines stacked on top of each other, each representing 2 lives
+    // Lines stacked on top of each other, each representing 2 lives
     const horizontalPadding = padding;
     const lineWidth = this.canvas.width - (horizontalPadding * 2);
-    const lineHeight = 3;
-    const lineGap = 4;
+    const lineHeight = UI_CONFIG.LIFE_LINE_HEIGHT;
+    const lineGap = UI_CONFIG.LIFE_LINE_GAP;
     const startX = horizontalPadding;
     const startY = this.canvas.height - padding - (lineHeight + lineGap) * this.lifeLines.length;
     
@@ -6844,6 +7046,42 @@ export class CardinalWardenSimulation {
   upgradeWeaponWithoutCost(weaponId) {
     // Weapon upgrades will be handled by lexemes in the future
     return false;
+  }
+
+  /**
+   * Apply weapon-specific upgrades (attack and speed levels).
+   * @param {string} weaponId - The weapon ID (slot1, slot2, slot3)
+   * @param {number} attackLevel - Attack upgrade level
+   * @param {number} speedLevel - Speed upgrade level
+   */
+  applyWeaponUpgrades(weaponId, attackLevel, speedLevel) {
+    if (!this.weaponUpgrades[weaponId]) {
+      this.weaponUpgrades[weaponId] = { attackLevel: 0, speedLevel: 0 };
+    }
+    this.weaponUpgrades[weaponId].attackLevel = attackLevel;
+    this.weaponUpgrades[weaponId].speedLevel = speedLevel;
+  }
+
+  /**
+   * Get weapon-specific attack multiplier based on upgrade level.
+   * @param {string} weaponId - The weapon ID
+   * @returns {number} Attack multiplier (1.0 = no upgrades, increases with level)
+   */
+  getWeaponAttackMultiplier(weaponId) {
+    const attackLevel = this.weaponUpgrades[weaponId]?.attackLevel || 0;
+    // Each level adds 10% damage
+    return 1 + (attackLevel * 0.1);
+  }
+
+  /**
+   * Get weapon-specific speed multiplier based on upgrade level.
+   * @param {string} weaponId - The weapon ID
+   * @returns {number} Speed multiplier (1.0 = no upgrades, increases with level)
+   */
+  getWeaponSpeedMultiplier(weaponId) {
+    const speedLevel = this.weaponUpgrades[weaponId]?.speedLevel || 0;
+    // Each level adds 10% fire rate
+    return 1 + (speedLevel * 0.1);
   }
 
   /**

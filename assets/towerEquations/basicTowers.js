@@ -15,6 +15,9 @@ import { blueprintContext } from './blueprintContext.js';
 // Helper function accessors for cleaner code
 const ctx = () => blueprintContext;
 
+// Render Bet₁ with a dagesh and an enforced left-to-right order so the subscript stays on the right.
+const BET1_GLYPH = '\u2066\u05D1\u05BC\u2081\u2069';
+
 export const alpha = {
   mathSymbol: String.raw`\alpha`,
   baseEquation: 'α = Atk × Spd',
@@ -79,7 +82,7 @@ export const alpha = {
 
 export const beta = {
   mathSymbol: String.raw`\beta`,
-  baseEquation: 'β = Atk × Spd × Rng',
+  baseEquation: 'β = Atk × Spd × Rng × Slw',
   variables: [
     {
       key: 'attack',
@@ -157,24 +160,104 @@ export const beta = {
         ];
       },
     },
+    // Bet glyph sink that fuels β's slowing field potency for the Bet Spire.
+    {
+      key: 'betSlow',
+      symbol: BET1_GLYPH,
+      equationSymbol: 'Bet₁',
+      glyphLabel: BET1_GLYPH,
+      name: 'Bet₁ Slow Weave',
+      description: 'Invest Bet glyphs to deepen β’s slowing field.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      glyphCurrency: 'bet',
+      attachedToVariable: 'slw',
+      format: (value) => formatWholeNumber(Math.max(0, value)),
+      cost: (level) => Math.max(1, 1 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+      renderControlsInline: true,
+    },
+    // Derived slow percentage surfaced as its own sub-equation box for clarity.
+    {
+      key: 'slw',
+      symbol: 'Slw%',
+      equationSymbol: 'Slw%',
+      masterEquationSymbol: 'Slw',
+      name: 'Slow Field',
+      description: 'Percentage of enemy speed β shears away within its conduit.',
+      upgradable: false,
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)}% slow`,
+      computeValue({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'betSlow', effectiveBlueprint));
+        const slowPercent = 20 + 2 * bet1;
+        return Math.min(60, Math.max(0, slowPercent));
+      },
+      getSubEquations({ blueprint, towerId }) {
+        const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
+        const bet1 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'betSlow', effectiveBlueprint));
+        const slowPercent = Math.min(60, Math.max(0, 20 + 2 * bet1));
+        return [
+          {
+            expression: String.raw`\( \text{Slw\%} = 20 + 2\,\text{Bet}_{1} \)`,
+            values: String.raw`\( ${formatDecimal(slowPercent, 2)}\% = 20 + 2 \times ${formatWholeNumber(bet1)} \)`,
+          },
+          {
+            expression: String.raw`\( \text{Slw\%} \leq 60 \)`,
+            glyphEquation: true,
+          },
+        ];
+      },
+    },
+    {
+      key: 'slwTime',
+      symbol: 'SlwTime',
+      equationSymbol: 'SlwTime',
+      masterEquationSymbol: 'SlwTime',
+      name: 'Slow Duration',
+      description: 'Length of β’s slowing tether after it sticks to a target.',
+      attachedToVariable: 'slw',
+      includeInMasterEquation: false,
+      baseValue: 0.5,
+      step: 0.1,
+      upgradable: true,
+      cost: (level) => Math.max(1, Math.pow(2, Math.max(0, level))),
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)} s`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 0);
+        const durationSeconds = Number.isFinite(value) ? Math.max(0, value) : 0.5 + 0.1 * glyphRank;
+        return [
+          {
+            expression: String.raw`\( \text{SlwTime} = 0.5 + 0.1\,\aleph \)`,
+            values: String.raw`\( ${formatDecimal(durationSeconds, 2)} = 0.5 + 0.1 \times ${formatWholeNumber(
+              glyphRank,
+            )} \)`,
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
-    return attack * speed * range;
+    const slowPercent = Number.isFinite(values.slw) ? Math.max(0, values.slw) : 0;
+    const slowFactor = slowPercent / 100;
+    return attack * speed * range * slowFactor;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
-    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)}`;
+    const slowPercent = Number.isFinite(values.slw) ? Math.max(0, values.slw) : 0;
+    const slowText = `${formatComponent(slowPercent)}%`;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${slowText}`;
   },
 };
 
 export const gamma = {
   mathSymbol: String.raw`\gamma`,
-  baseEquation: 'γ = Atk × Spd × Rng × Prc',
+  baseEquation: 'γ = Atk × Spd × Rng × Prc × Brst',
   variables: [
     {
       key: 'attack',
@@ -275,19 +358,46 @@ export const gamma = {
         ];
       },
     },
+    {
+      key: 'brst',
+      symbol: 'Brst',
+      equationSymbol: 'Brst',
+      masterEquationSymbol: 'Brst',
+      glyphLabel: 'ℵ',
+      name: 'Brst',
+      description: 'Time γ keeps orbiting a target with star-tracing hits.',
+      baseValue: 5,
+      step: 5,
+      upgradable: true,
+      cost: (level) => Math.max(1, 5 * Math.pow(5, Math.max(0, level))),
+      format: (value) => `${formatDecimal(Math.max(0, value), 2)} s`,
+      getSubEquations({ level, value }) {
+        const glyphRank = ctx().deriveGlyphRankFromLevel(level, 0);
+        const burstSeconds = Number.isFinite(value) ? Math.max(0, value) : 5 * (1 + glyphRank);
+        return [
+          {
+            expression: String.raw`\( \text{Brst} = 5 \times (1 + \aleph) \)`,
+            values: String.raw`\( ${formatDecimal(burstSeconds, 2)} = 5 \times (1 + ${formatWholeNumber(glyphRank)}) \)`,
+          },
+        ];
+      },
+    },
   ],
   computeResult(values) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
     const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-    return attack * speed * range * pierce;
+    const burst = Number.isFinite(values.brst) ? values.brst : 0;
+    return attack * speed * range * pierce * burst;
   },
   formatBaseEquationValues({ values, result, formatComponent }) {
     const attack = Number.isFinite(values.attack) ? values.attack : 0;
     const speed = Number.isFinite(values.speed) ? values.speed : 0;
     const range = Number.isFinite(values.range) ? values.range : 0;
     const pierce = Number.isFinite(values.pierce) ? values.pierce : 0;
-    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)}`;
+    const burst = Number.isFinite(values.brst) ? values.brst : 0;
+    const burstText = `${formatComponent(burst)}s`;
+    return `${formatComponent(result)} = ${formatComponent(attack)} × ${formatComponent(speed)} × ${formatComponent(range)} × ${formatComponent(pierce)} × ${burstText}`;
   },
 };

@@ -34,14 +34,18 @@ const GAMMA_PARTICLE_CONFIG = {
   idPrefix: 'gamma',
   colors: GAMMA_PARTICLE_COLORS,
   colorResolver: resolveGammaParticleColors,
-  behavior: 'pierceLaser',
+  // Send γ motes straight to the target before tracing a tight star on impact.
+  behavior: 'impactStar',
   particleCountRange: { min: 5, max: 10 },
   dashDelayRange: 0.02,
   timings: {
     swirl: { base: 0.26, variance: 0.12 },
     charge: { base: 0.08, variance: 0.06 },
-    dash: { base: 0.2, variance: 0.1 },
+    // Slow the dash so γ's post-impact tracing is legible during multi-hit passes.
+    dash: { base: 0.4, variance: 0.2 },
   },
+  impactStarRadius: 22,
+  impactStarEdgeDuration: 0.12,
   laser: {
     minExtension: 160,
     maxExtension: 320,

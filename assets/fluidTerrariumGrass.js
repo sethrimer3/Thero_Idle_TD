@@ -1,3 +1,5 @@
+import { resolveTerrariumDevicePixelRatio } from './fluidTerrariumResolution.js';
+
 'use strict';
 
 /**
@@ -8,9 +10,14 @@ export class FluidTerrariumGrass {
     /** @type {HTMLElement|null} */
     this.container = options.container || null;
     /** @type {HTMLImageElement|null} */
-    this.terrainElement = options.terrainElement || null;
+    this.terrainCollisionElement = options.terrainCollisionElement || null;
     /** @type {HTMLImageElement|null} */
-    this.floatingIslandElement = options.floatingIslandElement || null;
+    this.terrainElement = options.terrainCollisionElement || options.terrainElement || null;
+    /** @type {HTMLImageElement|null} */
+    this.floatingIslandCollisionElement = options.floatingIslandCollisionElement || null;
+    /** @type {HTMLImageElement|null} */
+    this.floatingIslandElement =
+      options.floatingIslandCollisionElement || options.floatingIslandElement || null;
     /** @type {string[]} */
     this.maskUrls = Array.isArray(options.maskUrls)
       ? options.maskUrls.filter((url) => typeof url === 'string')
@@ -108,9 +115,7 @@ export class FluidTerrariumGrass {
     const rect = this.container.getBoundingClientRect();
     this.bounds.width = this.container.clientWidth || rect.width;
     this.bounds.height = this.container.clientHeight || rect.height;
-    const dpr = typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const dpr = resolveTerrariumDevicePixelRatio();
     this.canvas.width = Math.max(1, Math.round(this.bounds.width * dpr));
     this.canvas.height = Math.max(1, Math.round(this.bounds.height * dpr));
     this.canvas.style.width = `${this.bounds.width}px`;

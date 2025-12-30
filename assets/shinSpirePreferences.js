@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   nightMode: true,
   enemyTrailQuality: TRAIL_QUALITY_OPTIONS.HIGH,
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
+  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -45,6 +46,8 @@ let nightModeToggle = null;
 let nightModeToggleState = null;
 let enemyTrailQualityButton = null;
 let bulletTrailLengthButton = null;
+let renderSizeSelect = null;
+let renderSizeRow = null;
 
 /**
  * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
@@ -99,6 +102,8 @@ function loadSettings() {
       // Map old length values to quality values (always use high quality by default)
       settings.enemyTrailQuality = TRAIL_QUALITY_OPTIONS.HIGH;
     }
+    
+    settings.renderSizeLevel = normalizeRenderSizeLevel(stored.renderSizeLevel);
   }
 }
 
@@ -299,6 +304,10 @@ function syncToggleState(input, stateLabel, enabled) {
  */
 function syncAllToggles() {
   syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
+  
+  if (renderSizeSelect) {
+    renderSizeSelect.value = String(normalizeRenderSizeLevel(settings.renderSizeLevel));
+  }
 }
 
 /**
@@ -311,12 +320,61 @@ function applySetting(key, value) {
 }
 
 /**
+ * Normalize the render size level to a safe 0-2 range.
+ */
+function normalizeRenderSizeLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(2, Math.max(0, parsed));
+}
+
+/**
+ * Apply the Shin render size settings by offsetting the spire container.
+ */
+function applyRenderSizeLayout() {
+  const shinStage = document.getElementById('shin-cardinal-canvas');
+  if (!shinStage) {
+    return;
+  }
+
+  const sizeLevel = normalizeRenderSizeLevel(settings.renderSizeLevel);
+  const panel = shinStage.closest('.panel');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  // Medium and Large should expand past panel padding to keep the spire centered.
+  const inlineLeft = sizeLevel >= 1 ? panelPadding.left : 0;
+  const inlineRight = sizeLevel >= 1 ? panelPadding.right : 0;
+  const topOffset = sizeLevel >= 1 ? panelPadding.top : 0;
+
+  shinStage.dataset.sizeLevel = String(sizeLevel);
+  shinStage.style.setProperty('--shin-size-inline-left', `${inlineLeft}px`);
+  shinStage.style.setProperty('--shin-size-inline-right', `${inlineRight}px`);
+  shinStage.style.setProperty('--shin-size-top', `${topOffset}px`);
+}
+
+/**
  * Bind all DOM elements and event listeners for the Shin spire options panel.
  */
 export function bindShinSpireOptions() {
   graphicsLevelButton = document.getElementById('shin-graphics-level-button');
   nightModeToggle = document.getElementById('shin-night-mode-toggle');
   nightModeToggleState = document.getElementById('shin-night-mode-toggle-state');
+  renderSizeSelect = document.getElementById('shin-render-size-select');
+  renderSizeRow = document.getElementById('shin-render-size-row');
 
   if (graphicsLevelButton) {
     graphicsLevelButton.addEventListener('click', cycleGraphicsLevel);
@@ -343,6 +401,15 @@ export function bindShinSpireOptions() {
     syncBulletTrailLengthButton();
   }
 
+  if (renderSizeSelect) {
+    renderSizeSelect.addEventListener('change', (event) => {
+      settings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderSizeLayout();
+    });
+  }
+
   // Sync UI with persisted settings.
   syncGraphicsLevelButton();
   syncEnemyTrailQualityButton();
@@ -364,6 +431,7 @@ export function setShinSimulationGetter(getter) {
 export function initializeShinSpirePreferences() {
   loadSettings();
   applySettingsToSimulation();
+  applyRenderSizeLayout();
 }
 
 /**
@@ -389,3 +457,10 @@ export function applyShinVisualSettings(newSettings, { persist = true } = {}) {
 }
 
 export { SHIN_GRAPHICS_LEVELS, TRAIL_LENGTH_OPTIONS, TRAIL_QUALITY_OPTIONS };
+
+// Recalculate size offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderSizeLayout();
+  });
+}

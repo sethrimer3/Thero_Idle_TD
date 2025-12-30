@@ -1,0 +1,1429 @@
+// Cognitive Realm Territories Map - Visual representation of abstract territory control.
+// This module renders an interactive, zoomable map showing player vs enemy territories.
+
+import {
+  getTerritories,
+  getGridDimensions,
+  getTerritoryStats,
+  TERRITORY_NEUTRAL,
+  TERRITORY_PLAYER,
+  TERRITORY_ENEMY,
+  setOnTerritoriesChanged,
+  setTerritoryOwner,
+} from './state/cognitiveRealmState.js';
+
+import { getCognitiveRealmVisualSettings } from './cognitiveRealmPreferences.js';
+
+// Developer mode accessor - injected during initialization
+let getDeveloperModeActive = null;
+
+// Map rendering configuration
+const MAP_PADDING = 40;
+const BASE_TERRITORY_SIZE = 50;
+const TERRITORY_GAP = 8;
+
+// Zoom configuration
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3.0;
+
+// Visual configuration
+const FONT_FAMILY = 'Cormorant Garamond';
+const COLOR_NEURON_WEB = 'rgba(139, 247, 255, 0.12)';
+const COLOR_PLAYER_FILL = 'rgba(108, 193, 255, 0.32)';
+const COLOR_PLAYER_STROKE = 'rgba(160, 242, 255, 0.95)';
+const COLOR_PLAYER_TERRITORY = 'rgba(54, 129, 255, 0.35)';
+const COLOR_PLAYER_CONNECTION = 'rgba(160, 242, 255, 0.35)';
+const COLOR_ENEMY_FILL = 'rgba(255, 96, 128, 0.32)';
+const COLOR_ENEMY_STROKE = 'rgba(255, 70, 110, 0.9)';
+const COLOR_ENEMY_TERRITORY = 'rgba(120, 24, 36, 0.45)';
+const COLOR_ENEMY_CONNECTION = 'rgba(255, 84, 130, 0.32)';
+const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
+const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.25)';
+const COLOR_BG = '#000a14'; // Very very dark blue background
+const COLOR_UI_BG = 'rgba(0, 10, 20, 0.85)';
+const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
+const COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
+const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
+const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
+const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
+const COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
+const FLOATING_LIGHT_COUNT = 56;
+const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
+const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
+const COLOR_NEUTRAL_GLOW = 'rgba(255, 221, 120, 0.32)';
+// Limit the canvas pixel ratio so the collective unconscious map stays performant on high-DPI devices.
+const MAX_MAP_DEVICE_PIXEL_RATIO = 2;
+
+function getEffectiveMapDevicePixelRatio() {
+  // Use a capped DPR to avoid allocating enormous backing stores while keeping text legible.
+  return Math.min(window.devicePixelRatio || 1, MAX_MAP_DEVICE_PIXEL_RATIO);
+}
+
+// Zoom and pan state
+let currentZoom = 1.0;
+let currentPanX = 0;
+let currentPanY = 0;
+let isDragging = false;
+let lastPointerX = 0;
+let lastPointerY = 0;
+let pointerStartX = 0;
+let pointerStartY = 0;
+let pointerMoved = false;
+
+// Node dragging state
+let isDraggingNode = false;
+let draggedNode = null;
+
+// Canvas and container references
+let mapCanvas = null;
+let mapContext = null;
+let mapContainer = null;
+let backgroundWidth = 0;
+let backgroundHeight = 0;
+
+// Animation frame reference
+let animationFrameId = null;
+let lastRenderTimestamp = performance.now ? performance.now() : Date.now();
+let lastStatsUpdate = 0;
+
+// Selected node for showing description
+let selectedNode = null;
+let descriptionModal = null;
+let floatingLights = [];
+
+// Physics state for drifting nodes
+let nodePhysicsState = new Map(); // Map<territoryId, { offsetX, offsetY, vx, vy, targetOffsetX, targetOffsetY }>
+let lastNodeDriftEnabled = null; // Track drift toggle changes so we can zero offsets when disabled
+let nodeInitialOffsets = new Map(); // Map<territoryId, { offsetX, offsetY }> for randomized start positions
+let lastRandomizedLayoutEnabled = null; // Track randomized layout toggle transitions
+
+// Node drift configuration
+const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
+const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
+const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
+const INITIAL_LAYOUT_SPREAD = 0.44; // Fraction of map width/height used for randomized start scatter
+const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
+
+// Connection limits for different node types
+const MAX_CONNECTIONS_MAJOR = 5; // Maximum connections for archetype (major) nodes
+const MAX_CONNECTIONS_MINOR = 3; // Maximum connections for emotion (minor) nodes
+
+// Cached connections between nodes to avoid recalculating every frame
+let nodeConnections = new Map(); // Map<territoryId, Set<territoryId>>
+let connectionsDirty = true; // Flag to recalculate connections when needed
+
+// Lightweight deterministic jitter so organic lines stay stable per node pair
+function organicNoise(seed) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+// Normalize radius sizing between archetype anchors and emotion satellites
+function getNodeRadius(territory) {
+  return BASE_TERRITORY_SIZE * (territory.nodeType === 'archetype' ? 0.46 : 0.32);
+}
+
+// Build node label from archetype or emotion identity
+function getNodeLabel(territory) {
+  if (territory.archetype) {
+    return territory.archetype.id.split('-')[0].toUpperCase().substring(0, 3);
+  }
+
+  if (territory.emotion) {
+    return territory.emotion.name.toUpperCase().substring(0, 3);
+  }
+
+  return '---';
+}
+
+// Initialize physics state for a territory node
+function initializeNodePhysics(territory) {
+  if (!nodePhysicsState.has(territory.id)) {
+    // Calculate map dimensions to allow full map movement
+    const gridDims = getGridDimensions();
+    const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+    const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+    const maxDriftX = totalWidth / 2;
+    const maxDriftY = totalHeight / 2;
+    
+    nodePhysicsState.set(territory.id, {
+      offsetX: 0,
+      offsetY: 0,
+      vx: 0,
+      vy: 0,
+      targetOffsetX: (Math.random() - 0.5) * maxDriftX * 0.3, // Start with 30% of max range
+      targetOffsetY: (Math.random() - 0.5) * maxDriftY * 0.3,
+      lastTargetChange: performance.now ? performance.now() : Date.now(),
+    });
+  }
+}
+
+// Update node physics to create gentle drifting motion
+function updateNodePhysics(territory, deltaMs) {
+  initializeNodePhysics(territory);
+  const physics = nodePhysicsState.get(territory.id);
+  const now = performance.now ? performance.now() : Date.now();
+  
+  // Calculate map dimensions for full map movement
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const maxDriftX = totalWidth / 2;
+  const maxDriftY = totalHeight / 2;
+  
+  // Change drift target periodically
+  if (now - physics.lastTargetChange > NODE_DRIFT_CHANGE_INTERVAL) {
+    physics.targetOffsetX = (Math.random() - 0.5) * maxDriftX * 2;
+    physics.targetOffsetY = (Math.random() - 0.5) * maxDriftY * 2;
+    physics.lastTargetChange = now;
+  }
+  
+  // Apply spring force toward target
+  const dx = physics.targetOffsetX - physics.offsetX;
+  const dy = physics.targetOffsetY - physics.offsetY;
+  
+  physics.vx += dx * NODE_DRIFT_SPEED * deltaMs;
+  physics.vy += dy * NODE_DRIFT_SPEED * deltaMs;
+  
+  // Apply damping
+  physics.vx *= NODE_DRIFT_DAMPING;
+  physics.vy *= NODE_DRIFT_DAMPING;
+  
+  // Update position
+  physics.offsetX += physics.vx * deltaMs * 0.01;
+  physics.offsetY += physics.vy * deltaMs * 0.01;
+  
+  // Clamp to map boundaries
+  physics.offsetX = Math.max(-maxDriftX, Math.min(maxDriftX, physics.offsetX));
+  physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
+}
+
+// Reset drift offsets when the feature is disabled so nodes return to their base grid positions
+function resetNodeDrift(territory) {
+  initializeNodePhysics(territory);
+  const physics = nodePhysicsState.get(territory.id);
+  physics.offsetX = 0;
+  physics.offsetY = 0;
+  physics.vx = 0;
+  physics.vy = 0;
+  physics.targetOffsetX = 0;
+  physics.targetOffsetY = 0;
+  const now = performance.now ? performance.now() : Date.now();
+  physics.lastTargetChange = now - NODE_DRIFT_CHANGE_INTERVAL; // Force an immediate target refresh when re-enabled
+}
+
+// Get node position with physics offset applied
+function getNodePosition(node) {
+  const physics = nodePhysicsState.get(node.territory.id);
+  if (physics) {
+    return {
+      x: node.x + physics.offsetX,
+      y: node.y + physics.offsetY,
+    };
+  }
+  return { x: node.x, y: node.y };
+}
+
+// Translate a client pointer into canvas space while respecting CSS scaling and DPR caps
+function getCanvasPointer(clientX, clientY) {
+  if (!mapCanvas) {
+    return { x: 0, y: 0 };
+  }
+
+  const rect = mapCanvas.getBoundingClientRect();
+  const cssWidth = rect.width || mapCanvas.clientWidth || 1;
+  const cssHeight = rect.height || mapCanvas.clientHeight || 1;
+  const dpr = getEffectiveMapDevicePixelRatio();
+
+  const canvasWidth = mapCanvas.width / dpr;
+  const canvasHeight = mapCanvas.height / dpr;
+  const scaleX = canvasWidth / cssWidth;
+  const scaleY = canvasHeight / cssHeight;
+
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
+  };
+}
+
+// Create a randomized starting offset for a node so the map can start from a unique layout when enabled
+function seedInitialNodeOffset(territory) {
+  if (nodeInitialOffsets.has(territory.id)) {
+    return;
+  }
+
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const spreadX = totalWidth * INITIAL_LAYOUT_SPREAD;
+  const spreadY = totalHeight * INITIAL_LAYOUT_SPREAD;
+
+  nodeInitialOffsets.set(territory.id, {
+    offsetX: (Math.random() - 0.5) * spreadX,
+    offsetY: (Math.random() - 0.5) * spreadY,
+  });
+}
+
+// Retrieve the randomized offset when enabled or return a neutral offset when the layout toggle is off
+function getInitialNodeOffset(territory, randomizedLayoutEnabled) {
+  if (!randomizedLayoutEnabled) {
+    return { offsetX: 0, offsetY: 0 };
+  }
+
+  seedInitialNodeOffset(territory);
+  return nodeInitialOffsets.get(territory.id);
+}
+
+/**
+ * Calculate connections between captured nodes based on new rules:
+ * - Only captured (non-neutral) nodes can have connections
+ * - Connect to nearest nodes
+ * - Major nodes cannot connect directly to other major nodes (must go through minor nodes)
+ * - Major nodes max 5 connections, minor nodes max 3 connections
+ */
+function calculateNodeConnections(nodePositions) {
+  nodeConnections.clear();
+  
+  // Filter to only captured nodes
+  const capturedNodes = nodePositions.filter(node => node.territory.owner !== TERRITORY_NEUTRAL);
+  
+  // Initialize connection sets for each captured node
+  capturedNodes.forEach(node => {
+    nodeConnections.set(node.territory.id, new Set());
+  });
+  
+  // For each captured node, find nearest neighbors and create connections
+  capturedNodes.forEach(node1 => {
+    const maxConnections = node1.territory.nodeType === 'archetype' 
+      ? MAX_CONNECTIONS_MAJOR 
+      : MAX_CONNECTIONS_MINOR;
+    
+    const currentConnections = nodeConnections.get(node1.territory.id);
+    if (currentConnections.size >= maxConnections) {
+      return; // Already at max connections
+    }
+    
+    // Calculate distances to all other captured nodes
+    const distances = capturedNodes
+      .filter(node2 => node2.territory.id !== node1.territory.id)
+      .map(node2 => {
+        const dx = node1.territory.x - node2.territory.x;
+        const dy = node1.territory.y - node2.territory.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return { node: node2, distance };
+      })
+      .sort((a, b) => a.distance - b.distance);
+    
+    // Add connections to nearest nodes, respecting constraints
+    for (const { node: node2, distance } of distances) {
+      // Check if we've reached max connections for this node
+      if (currentConnections.size >= maxConnections) {
+        break;
+      }
+      
+      // Check if the other node has reached max connections
+      const node2Connections = nodeConnections.get(node2.territory.id);
+      const node2MaxConnections = node2.territory.nodeType === 'archetype' 
+        ? MAX_CONNECTIONS_MAJOR 
+        : MAX_CONNECTIONS_MINOR;
+      
+      if (node2Connections.size >= node2MaxConnections) {
+        continue; // Skip this node, it's at capacity
+      }
+      
+      // Check if already connected (bidirectional)
+      if (currentConnections.has(node2.territory.id)) {
+        continue;
+      }
+      
+      // Rule: Major nodes cannot connect directly to other major nodes
+      const bothMajor = node1.territory.nodeType === 'archetype' && node2.territory.nodeType === 'archetype';
+      if (bothMajor) {
+        continue; // Skip direct major-to-major connections
+      }
+      
+      // Add bidirectional connection
+      currentConnections.add(node2.territory.id);
+      node2Connections.add(node1.territory.id);
+    }
+  });
+  
+  connectionsDirty = false;
+}
+
+// Build a list of connected node pairs from the cached connection map so we can render edges efficiently
+function buildConnectedNodePairs(nodePositions) {
+  const nodeLookup = new Map();
+  nodePositions.forEach((node) => nodeLookup.set(node.territory.id, node));
+
+  const pairs = [];
+  nodeConnections.forEach((connections, sourceId) => {
+    connections.forEach((targetId) => {
+      // Ensure each pair is only rendered once
+      if (sourceId >= targetId) {
+        return;
+      }
+
+      const sourceNode = nodeLookup.get(sourceId);
+      const targetNode = nodeLookup.get(targetId);
+
+      if (sourceNode && targetNode) {
+        pairs.push({ source: sourceNode, target: targetNode });
+      }
+    });
+  });
+
+  return pairs;
+}
+
+/**
+ * Check if two nodes should be connected
+ */
+function areNodesConnected(node1, node2) {
+  const connections = nodeConnections.get(node1.territory.id);
+  return connections && connections.has(node2.territory.id);
+}
+
+// Mark connections as dirty when territories change ownership
+export function markConnectionsDirty() {
+  connectionsDirty = true;
+}
+
+// Seed background neuron wisps and floating lights for ambient depth.
+function seedBackgroundElements(width, height) {
+  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, (_, index) => {
+    const ownershipRoll = Math.random();
+    const hue = ownershipRoll < 0.4 ? 'player' : ownershipRoll < 0.8 ? 'enemy' : 'neutral';
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.12,
+      vy: (Math.random() - 0.5) * 0.12,
+      size: 0.9 + Math.random() * 3.6,
+      hue,
+    };
+  });
+}
+
+// Clamp pan offsets so the map cannot drift too far off-screen
+function clampPanToBounds() {
+  if (!mapCanvas) {
+    return;
+  }
+
+  const dpr = getEffectiveMapDevicePixelRatio();
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
+
+  const gridDims = getGridDimensions();
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+
+  const mapWidth = totalWidth * currentZoom;
+  const mapHeight = totalHeight * currentZoom;
+  const panMargin = MAP_PADDING + 40;
+
+  const maxPanX = Math.max(0, (mapWidth - width) / 2 + panMargin);
+  const maxPanY = Math.max(0, (mapHeight - height) / 2 + panMargin);
+
+  currentPanX = Math.min(maxPanX, Math.max(-maxPanX, currentPanX));
+  currentPanY = Math.min(maxPanY, Math.max(-maxPanY, currentPanY));
+}
+
+/**
+ * Initialize the cognitive realm map with container and canvas elements.
+ * @param {HTMLElement} container - The container element for the map
+ * @param {HTMLCanvasElement} canvas - The canvas element for rendering
+ * @param {Object} options - Optional configuration
+ * @param {Function} options.getDeveloperModeActive - Function to check if developer mode is active
+ */
+export function initializeCognitiveRealmMap(container, canvas, options = {}) {
+  mapContainer = container;
+  mapCanvas = canvas;
+  
+  // Store developer mode accessor
+  if (options.getDeveloperModeActive) {
+    getDeveloperModeActive = options.getDeveloperModeActive;
+  }
+  
+  if (!mapCanvas) {
+    console.warn('Cognitive realm map canvas not found');
+    return;
+  }
+  
+  mapContext = mapCanvas.getContext('2d');
+  
+  // Set up canvas size
+  resizeCanvas();
+  
+  // Create description modal
+  createDescriptionModal();
+  
+  // Bind interaction handlers
+  bindMapInteractions();
+  
+  // Register callback for territory changes
+  setOnTerritoriesChanged(() => {
+    markConnectionsDirty();
+  });
+  
+  // Mark connections as dirty initially
+  markConnectionsDirty();
+
+  // Start render loop only if the map is already visible to avoid background work when hidden.
+  if (!mapContainer.hidden) {
+    startRenderLoop();
+  }
+}
+
+/**
+ * Resize canvas to match container dimensions
+ */
+function resizeCanvas() {
+  if (!mapCanvas || !mapContainer) {
+    return;
+  }
+
+  // Use the container's size to set the canvas CSS size, which makes it fill the container
+  const containerRect = mapContainer.getBoundingClientRect();
+  const containerWidth = containerRect.width || mapContainer.clientWidth || 1;
+  const containerHeight = containerRect.height || mapContainer.clientHeight || 1;
+
+  // Set the canvas CSS size to match the container
+  mapCanvas.style.width = `${containerWidth}px`;
+  mapCanvas.style.height = `${containerHeight}px`;
+
+  // Now get the canvas's actual rendered size, which should match what we just set
+  // but could be affected by CSS rules, borders, etc.
+  const canvasRect = mapCanvas.getBoundingClientRect();
+  const width = canvasRect.width || mapCanvas.clientWidth || containerWidth;
+  const height = canvasRect.height || mapCanvas.clientHeight || containerHeight;
+
+  const dpr = getEffectiveMapDevicePixelRatio();
+
+  // Set the internal canvas buffer size with DPR scaling
+  mapCanvas.width = width * dpr;
+  mapCanvas.height = height * dpr;
+  backgroundWidth = width;
+  backgroundHeight = height;
+
+  if (mapContext) {
+    mapContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  seedBackgroundElements(width, height);
+  clampPanToBounds();
+}
+
+/**
+ * Bind mouse and touch interactions for zoom and pan
+ */
+function bindMapInteractions() {
+  if (!mapCanvas) {
+    return;
+  }
+  
+  // Pointer down - check if clicking on a node, otherwise start panning
+  mapCanvas.addEventListener('pointerdown', (e) => {
+    const node = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
+
+    // Only allow dragging captured nodes (player or enemy)
+    if (node && node.territory.owner !== TERRITORY_NEUTRAL) {
+      isDraggingNode = true;
+      draggedNode = node;
+      mapCanvas.style.cursor = 'var(--cursor-grabbing)';
+    } else {
+      isDragging = true;
+      mapCanvas.style.cursor = 'var(--cursor-grabbing)';
+    }
+    
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+    pointerStartX = e.clientX;
+    pointerStartY = e.clientY;
+    pointerMoved = false;
+  });
+
+  // Pointer move - drag node or pan the map
+  mapCanvas.addEventListener('pointermove', (e) => {
+    if (isDraggingNode && draggedNode) {
+      // Dragging a node - apply force to node physics
+      const deltaX = e.clientX - lastPointerX;
+      const deltaY = e.clientY - lastPointerY;
+      
+      pointerMoved =
+        pointerMoved ||
+        Math.abs(e.clientX - pointerStartX) > 4 ||
+        Math.abs(e.clientY - pointerStartY) > 4;
+
+      // Apply drag force to node physics
+      const physics = nodePhysicsState.get(draggedNode.territory.id);
+      if (physics) {
+        // Convert screen delta to map space
+        const mapDeltaX = deltaX / currentZoom;
+        const mapDeltaY = deltaY / currentZoom;
+        
+        // Apply as direct offset
+        physics.offsetX += mapDeltaX;
+        physics.offsetY += mapDeltaY;
+        
+        // Calculate map dimensions for boundary clamping
+        const gridDims = getGridDimensions();
+        const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+        const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+        const maxDriftX = totalWidth / 2;
+        const maxDriftY = totalHeight / 2;
+        
+        // Clamp to map boundaries
+        physics.offsetX = Math.max(-maxDriftX, Math.min(maxDriftX, physics.offsetX));
+        physics.offsetY = Math.max(-maxDriftY, Math.min(maxDriftY, physics.offsetY));
+        
+        // Update target to current position for smooth return
+        physics.targetOffsetX = physics.offsetX;
+        physics.targetOffsetY = physics.offsetY;
+      }
+    } else if (isDragging) {
+      // Panning the map
+      const deltaX = e.clientX - lastPointerX;
+      const deltaY = e.clientY - lastPointerY;
+
+      pointerMoved =
+        pointerMoved ||
+        Math.abs(e.clientX - pointerStartX) > 4 ||
+        Math.abs(e.clientY - pointerStartY) > 4;
+
+      currentPanX += deltaX;
+      currentPanY += deltaY;
+
+      clampPanToBounds();
+    } else {
+      // Update hover cursor to communicate interactivity
+      const hoverNode = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
+      mapCanvas.style.cursor = hoverNode ? 'var(--cursor-pointer)' : 'var(--cursor-grab)';
+    }
+
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+  });
+  
+  // Pointer up - stop dragging or handle click
+  mapCanvas.addEventListener('pointerup', (e) => {
+    // Only treat as click if pointer didn't move much
+    const deltaX = Math.abs(e.clientX - pointerStartX);
+    const deltaY = Math.abs(e.clientY - pointerStartY);
+    const isClick = deltaX < 5 && deltaY < 5 && !pointerMoved;
+    
+    if (isDraggingNode) {
+      isDraggingNode = false;
+      draggedNode = null;
+      mapCanvas.style.cursor = 'var(--cursor-grab)';
+      
+      // Allow click even when on a draggable node if there was minimal movement
+      if (isClick) {
+        handleNodeClick(e);
+      }
+    } else {
+      isDragging = false;
+      mapCanvas.style.cursor = 'var(--cursor-grab)';
+
+      if (isClick) {
+        handleNodeClick(e);
+      }
+    }
+  });
+  
+  // Pointer cancel - stop dragging
+  mapCanvas.addEventListener('pointercancel', () => {
+    isDragging = false;
+    isDraggingNode = false;
+    draggedNode = null;
+    mapCanvas.style.cursor = 'var(--cursor-grab)';
+  });
+  
+  // Wheel - zoom
+  mapCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = currentZoom * zoomDelta;
+
+    // Clamp zoom between configured limits
+    currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+    clampPanToBounds();
+  }, { passive: false });
+  
+  // Touch gestures for pinch zoom
+  let touchStartDistance = 0;
+  let touchStartZoom = 1.0;
+  
+  mapCanvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+      touchStartZoom = currentZoom;
+    }
+  });
+  
+  mapCanvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      const scale = distance / touchStartDistance;
+      const newZoom = touchStartZoom * scale;
+
+      // Clamp zoom between configured limits
+      currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+      clampPanToBounds();
+    }
+  }, { passive: false });
+  
+  // Reset zoom and pan with double-click
+  mapCanvas.addEventListener('dblclick', () => {
+    currentZoom = 1.0;
+    currentPanX = 0;
+    currentPanY = 0;
+    clampPanToBounds();
+  });
+  
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+  });
+}
+
+/**
+ * Start the render loop
+ */
+function startRenderLoop() {
+  if (animationFrameId) {
+    return;
+  }
+
+  if (!mapCanvas || !mapContext) {
+    return;
+  }
+
+  // Reset the render timer whenever the loop restarts so delta calculations stay stable.
+  lastRenderTimestamp = performance.now ? performance.now() : Date.now();
+
+  function render(timestamp) {
+    const deltaMs = Math.min(64, Math.max(0, timestamp - lastRenderTimestamp));
+    lastRenderTimestamp = timestamp;
+
+    renderMap(deltaMs);
+    
+    // Update DOM stats display every 500ms to avoid unnecessary DOM operations
+    if (timestamp - lastStatsUpdate > 500) {
+      updateTerritoryStatsDisplay();
+      lastStatsUpdate = timestamp;
+    }
+    
+    animationFrameId = requestAnimationFrame(render);
+  }
+
+  animationFrameId = requestAnimationFrame((timestamp) => {
+    lastRenderTimestamp = timestamp;
+    render(timestamp);
+  });
+}
+
+/**
+ * Stop the render loop
+ */
+export function stopCognitiveRealmMap() {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+}
+
+/**
+ * Create a modal element for displaying archetype descriptions
+ */
+function createDescriptionModal() {
+  if (descriptionModal) {
+    return; // Already created
+  }
+  
+  descriptionModal = document.createElement('div');
+  descriptionModal.className = 'cognitive-realm-modal';
+  descriptionModal.hidden = true;
+  descriptionModal.innerHTML = `
+    <div class="cognitive-realm-modal__backdrop"></div>
+    <div class="cognitive-realm-modal__content">
+      <button class="cognitive-realm-modal__close" aria-label="Close description">&times;</button>
+      <h3 class="cognitive-realm-modal__title"></h3>
+      <p class="cognitive-realm-modal__description"></p>
+    </div>
+  `;
+  
+  document.body.appendChild(descriptionModal);
+  
+  // Close modal when clicking backdrop or close button
+  const backdrop = descriptionModal.querySelector('.cognitive-realm-modal__backdrop');
+  const closeBtn = descriptionModal.querySelector('.cognitive-realm-modal__close');
+  
+  backdrop.addEventListener('click', closeDescriptionModal);
+  closeBtn.addEventListener('click', closeDescriptionModal);
+}
+
+/**
+ * Close the description modal
+ */
+function closeDescriptionModal() {
+  if (descriptionModal) {
+    descriptionModal.hidden = true;
+    selectedNode = null;
+  }
+}
+
+/**
+ * Show node description in modal
+ */
+function showNodeDescription(territory) {
+  if (!descriptionModal || !territory) {
+    return;
+  }
+
+  const isPlayerOwned = territory.owner === TERRITORY_PLAYER;
+  const isEnemyOwned = territory.owner === TERRITORY_ENEMY;
+
+  // Determine which version to show for archetypes and emotional nodes
+  let displayName = 'Unlabeled Node';
+  let displayDescription = 'Neutral drift with no active imprint yet.';
+
+  if (territory.archetype) {
+    const archetype = territory.archetype;
+    if (isPlayerOwned) {
+      displayName = archetype.positive.name;
+      displayDescription = archetype.positive.description;
+    } else if (isEnemyOwned) {
+      displayName = archetype.negative.name;
+      displayDescription = archetype.negative.description;
+    } else {
+      displayName = `${archetype.positive.name} ↔ ${archetype.negative.name}`;
+      displayDescription = `Positive: ${archetype.positive.description}\n\nNegative: ${archetype.negative.description}`;
+    }
+  } else if (territory.emotion) {
+    const emotion = territory.emotion;
+    const polarityLabel = emotion.polarity === 'positive' ? 'Positive affect' : 'Shadow affect';
+
+    if (isPlayerOwned && emotion.polarity === 'negative') {
+      displayName = `${emotion.counterpart} (stabilized from ${emotion.name})`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nCounterpart reclaimed: ${emotion.counterpart}`;
+    } else if (isEnemyOwned && emotion.polarity === 'positive') {
+      displayName = `${emotion.counterpart} (inverted from ${emotion.name})`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nShadow counterpart: ${emotion.counterpart}`;
+    } else {
+      displayName = `${emotion.name} ↔ ${emotion.counterpart}`;
+      displayDescription = `${polarityLabel}: ${emotion.description}\nCounterpart: ${emotion.counterpart}`;
+    }
+  }
+
+  const titleEl = descriptionModal.querySelector('.cognitive-realm-modal__title');
+  const descEl = descriptionModal.querySelector('.cognitive-realm-modal__description');
+
+  titleEl.textContent = displayName;
+  descEl.textContent = displayDescription;
+
+  // Apply styling based on ownership
+  const contentEl = descriptionModal.querySelector('.cognitive-realm-modal__content');
+  contentEl.classList.remove('modal-player', 'modal-enemy', 'modal-neutral');
+  if (isPlayerOwned) {
+    contentEl.classList.add('modal-player');
+  } else if (isEnemyOwned) {
+    contentEl.classList.add('modal-enemy');
+  } else {
+    contentEl.classList.add('modal-neutral');
+  }
+
+  descriptionModal.hidden = false;
+  selectedNode = territory;
+}
+
+/**
+ * Get node at pointer position (only captured player nodes can be dragged)
+ */
+function getNodeAtPointer(clientX, clientY, { includeNeutral = false } = {}) {
+  if (!mapCanvas || !mapContext) {
+    return null;
+  }
+
+  const { x: pointerX, y: pointerY } = getCanvasPointer(clientX, clientY);
+
+  const dpr = getEffectiveMapDevicePixelRatio();
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
+  
+  // Transform pointer coordinates to map space
+  const centerX = width / 2;
+  const centerY = height / 2;
+  
+  const mapX = (pointerX - centerX - currentPanX) / currentZoom;
+  const mapY = (pointerY - centerY - currentPanY) / currentZoom;
+  
+  // Get territories and calculate positions
+  const territories = getTerritories();
+  const gridDims = getGridDimensions();
+  
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const offsetX = -totalWidth / 2;
+  const offsetY = -totalHeight / 2;
+  
+  const nodePositions = buildNodePositions(territories, offsetX, offsetY);
+
+  // Check if pointer is on any captured node
+  for (const node of nodePositions) {
+    // Only captured nodes can be interacted with
+    if (!includeNeutral && node.territory.owner === TERRITORY_NEUTRAL) {
+      continue;
+    }
+    
+    const pos = getNodePosition(node);
+    const distance = Math.sqrt((mapX - pos.x) ** 2 + (mapY - pos.y) ** 2);
+
+    if (distance <= node.radius) {
+      return node;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Handle click on canvas to detect node selection
+ */
+function handleNodeClick(e) {
+  const node = getNodeAtPointer(e.clientX, e.clientY, { includeNeutral: true });
+  if (node) {
+    // Check if developer mode is active
+    const isDeveloperMode = getDeveloperModeActive && getDeveloperModeActive();
+    
+    if (isDeveloperMode) {
+      // Cycle through states: neutral → player → enemy → neutral
+      let newOwner;
+      if (node.territory.owner === TERRITORY_NEUTRAL) {
+        newOwner = TERRITORY_PLAYER;
+      } else if (node.territory.owner === TERRITORY_PLAYER) {
+        newOwner = TERRITORY_ENEMY;
+      } else {
+        newOwner = TERRITORY_NEUTRAL;
+      }
+      
+      // Update the territory owner
+      setTerritoryOwner(node.territory.id, newOwner);
+      
+      // Mark connections as dirty so they recalculate
+      markConnectionsDirty();
+    } else {
+      // Normal behavior: show description modal
+      showNodeDescription(node.territory);
+    }
+  }
+}
+
+/**
+ * Render the cognitive realm map with territories
+ */
+function renderMap(deltaMs = 16) {
+  if (!mapContext || !mapCanvas) {
+    return;
+  }
+
+  const dpr = getEffectiveMapDevicePixelRatio();
+  const width = mapCanvas.width / dpr;
+  const height = mapCanvas.height / dpr;
+
+  // Get visual settings to conditionally render effects
+  const settings = getCognitiveRealmVisualSettings();
+
+  // Clear canvas with dark background
+  mapContext.fillStyle = COLOR_BG;
+  mapContext.fillRect(0, 0, width, height);
+
+  // Render ambient particles if enabled
+  if (settings.ambientParticles) {
+    updateFloatingLights(deltaMs, width, height);
+    renderFloatingLightsOverlay(mapContext, width, height);
+  }
+
+  // Save context state for transformations
+  mapContext.save();
+
+  // Apply pan and zoom transformations
+  mapContext.translate(currentPanX, currentPanY);
+  mapContext.translate(width / 2, height / 2);
+  mapContext.scale(currentZoom, currentZoom);
+
+  // Get territories and grid dimensions
+  const territories = getTerritories();
+  const gridDims = getGridDimensions();
+
+  // Calculate map centering offset
+  const totalWidth = gridDims.width * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const totalHeight = gridDims.height * (BASE_TERRITORY_SIZE + TERRITORY_GAP);
+  const offsetX = -totalWidth / 2;
+  const offsetY = -totalHeight / 2;
+
+  if (lastRandomizedLayoutEnabled !== settings.randomizedLayout) {
+    nodeInitialOffsets.clear();
+    lastRandomizedLayoutEnabled = settings.randomizedLayout;
+    markConnectionsDirty(); // Rebuild connections once layout changes
+  }
+
+  if (settings.randomizedLayout && nodeInitialOffsets.size === 0) {
+    territories.forEach((territory) => seedInitialNodeOffset(territory));
+    markConnectionsDirty(); // Seeded offsets change node spacing, so refresh links
+  }
+
+  const nodePositions = buildNodePositions(territories, offsetX, offsetY, settings.randomizedLayout);
+
+  // Recalculate connections if territories have changed
+  if (connectionsDirty) {
+    calculateNodeConnections(nodePositions);
+  }
+
+  // Sync drift state with the active preference toggle
+  if (lastNodeDriftEnabled !== settings.nodeDrift) {
+    if (!settings.nodeDrift) {
+      nodePositions.forEach((node) => {
+        resetNodeDrift(node.territory);
+      });
+    }
+    lastNodeDriftEnabled = settings.nodeDrift;
+  }
+
+  // Update physics for all nodes when drift is enabled
+  if (settings.nodeDrift) {
+    nodePositions.forEach((node) => {
+      updateNodePhysics(node.territory, deltaMs);
+    });
+  }
+
+  renderTerritoryFields(mapContext, nodePositions, settings.glow);
+
+  // Render neuron connections if enabled
+  if (settings.neuronConnections) {
+    renderSoftBodyConnections(mapContext, nodePositions);
+  }
+
+  // Render neuron pulses if enabled
+  if (settings.neuronPulses) {
+    renderSignalSparks(mapContext, nodePositions, deltaMs);
+  }
+
+  nodePositions.forEach((node) => {
+    renderRealmNode(mapContext, node, settings.glow);
+  });
+
+  // Restore context state
+  mapContext.restore();
+
+  // Render UI overlay (zoom level, stats)
+  renderUIOverlay(mapContext, width, height);
+}
+
+// Build node positions so multiple render passes can share a single layout calculation
+function buildNodePositions(territories, offsetX, offsetY, randomizeStarts = false) {
+  return territories.map((territory) => {
+    const initialOffset = getInitialNodeOffset(territory, randomizeStarts);
+    return {
+      x:
+        offsetX +
+        territory.x * (BASE_TERRITORY_SIZE + TERRITORY_GAP) +
+        BASE_TERRITORY_SIZE / 2 +
+        initialOffset.offsetX,
+      y:
+        offsetY +
+        territory.y * (BASE_TERRITORY_SIZE + TERRITORY_GAP) +
+        BASE_TERRITORY_SIZE / 2 +
+        initialOffset.offsetY,
+      radius: getNodeRadius(territory),
+      territory,
+    };
+  });
+}
+
+// Drift floating motes in screen space for mystical ambiance
+function updateFloatingLights(deltaMs, width, height) {
+  const delta = deltaMs * 0.06;
+  floatingLights.forEach((light, index) => {
+    light.x += light.vx * delta;
+    light.y += light.vy * delta;
+
+    if (light.x < -10) light.x = width + 10;
+    if (light.x > width + 10) light.x = -10;
+    if (light.y < -10) light.y = height + 10;
+    if (light.y > height + 10) light.y = -10;
+
+    if (organicNoise(index + lastRenderTimestamp) > 0.995) {
+      light.vx = (Math.random() - 0.5) * 0.12;
+      light.vy = (Math.random() - 0.5) * 0.12;
+    }
+  });
+}
+
+// Paint softly glowing floating lights above the map layer
+function renderFloatingLightsOverlay(ctx, width, height) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.32;
+
+  floatingLights.forEach((light) => {
+    const px = light.x;
+    const py = light.y;
+    const color = light.hue === 'player'
+      ? COLOR_PLAYER_GLOW
+      : light.hue === 'enemy'
+        ? COLOR_ENEMY_GLOW
+        : COLOR_NEUTRAL_GLOW;
+    const radius = light.size * 6.4;
+    const gradient = ctx.createRadialGradient(px, py, 0, px, py, radius);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// Render faction territories as blended heat fields and connective tissue
+function renderTerritoryFields(ctx, nodePositions, glowEnabled = true) {
+  // Skip territory glow fields if glow is disabled
+  if (!glowEnabled) {
+    return;
+  }
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  nodePositions.forEach((node) => {
+    if (node.territory.owner === TERRITORY_NEUTRAL) {
+      return;
+    }
+
+    // Get actual position with physics offset
+    const pos = getNodePosition(node);
+    
+    const isPlayer = node.territory.owner === TERRITORY_PLAYER;
+    const baseRadius = node.radius * 3.2;
+    const gradient = ctx.createRadialGradient(pos.x, pos.y, baseRadius * 0.25, pos.x, pos.y, baseRadius);
+
+    if (isPlayer) {
+      gradient.addColorStop(0, 'rgba(120, 200, 255, 0.55)');
+      gradient.addColorStop(0.45, COLOR_PLAYER_TERRITORY);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    } else {
+      gradient.addColorStop(0, 'rgba(255, 70, 110, 0.55)');
+      gradient.addColorStop(0.45, COLOR_ENEMY_TERRITORY);
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    }
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, baseRadius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Blend connective tissue between adjacent same-faction nodes
+  for (let i = 0; i < nodePositions.length; i++) {
+    for (let j = i + 1; j < nodePositions.length; j++) {
+      const nodeA = nodePositions[i];
+      const nodeB = nodePositions[j];
+
+      if (nodeA.territory.owner === TERRITORY_NEUTRAL || nodeA.territory.owner !== nodeB.territory.owner) {
+        continue;
+      }
+
+      const dx = nodeA.territory.x - nodeB.territory.x;
+      const dy = nodeA.territory.y - nodeB.territory.y;
+      const gridDistance = Math.sqrt(dx * dx + dy * dy);
+      if (gridDistance > 2.4) {
+        continue;
+      }
+
+      // Get actual positions with physics offsets
+      const posA = getNodePosition(nodeA);
+      const posB = getNodePosition(nodeB);
+      
+      const isPlayer = nodeA.territory.owner === TERRITORY_PLAYER;
+      const color = isPlayer ? 'rgba(120, 200, 255, 0.35)' : 'rgba(255, 70, 110, 0.35)';
+      const controlSeed = (i + 1) * (j + 3);
+      const controlJitter = (organicNoise(controlSeed) - 0.5) * 18;
+      const ctrlX = (posA.x + posB.x) / 2 + controlJitter;
+      const ctrlY = (posA.y + posB.y) / 2 - controlJitter;
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = (nodeA.radius + nodeB.radius) * 0.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(posA.x, posA.y);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, posB.x, posB.y);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+// Soft-body rope connections that flex and sway as nodes drift
+// Enhanced with gradient opacity fading from 100% at nodes to 25% in the middle
+// Now only connects captured nodes based on calculated connection rules
+function renderSoftBodyConnections(ctx, nodePositions) {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const connectedPairs = buildConnectedNodePairs(nodePositions);
+
+  connectedPairs.forEach(({ source, target }, index) => {
+    // Both nodes must be captured (non-neutral)
+    if (source.territory.owner === TERRITORY_NEUTRAL || target.territory.owner === TERRITORY_NEUTRAL) {
+      return;
+    }
+
+    // Get actual positions with physics offsets
+    const pos1 = getNodePosition(source);
+    const pos2 = getNodePosition(target);
+
+    // Check if nodes share the same owner
+    const sharedOwner = source.territory.owner === target.territory.owner;
+
+    // Calculate rope physics - simulate a hanging rope with gravity-like sag
+    const actualDx = pos2.x - pos1.x;
+    const actualDy = pos2.y - pos1.y;
+    const actualDistance = Math.max(1, Math.sqrt(actualDx * actualDx + actualDy * actualDy));
+
+    // Rope sag amount based on distance and a bit of physics seed for variation
+    const sagSeed = (index + 7) * 11;
+    const sagAmount = actualDistance * 0.15 + organicNoise(sagSeed) * 8;
+
+    // Perpendicular direction for sag
+    const perpX = -actualDy / actualDistance;
+    const perpY = actualDx / actualDistance;
+
+    const midpointX = (pos1.x + pos2.x) * 0.5 + perpX * sagAmount;
+    const midpointY = (pos1.y + pos2.y) * 0.5 + perpY * sagAmount;
+
+    // Parse base color to extract RGB for gradient
+    const colorStr = sharedOwner
+      ? (source.territory.owner === TERRITORY_PLAYER ? COLOR_PLAYER_CONNECTION : COLOR_ENEMY_CONNECTION)
+      : COLOR_NEURON_WEB;
+
+    const baseIntensity = sharedOwner ? 0.9 : 0.5;
+    const baseLineWidth = 2.4 + (sharedOwner ? 1.2 : 0); // Thicker connections
+
+    // Smooth rope with a single quadratic curve and gradient fade to reduce draw calls
+    const gradient = ctx.createLinearGradient(pos1.x, pos1.y, pos2.x, pos2.y);
+    gradient.addColorStop(0, colorStr.replace(/[\d.]+\)$/, `${baseIntensity})`));
+    gradient.addColorStop(0.5, colorStr.replace(/[\d.]+\)$/, `${baseIntensity * 0.25})`));
+    gradient.addColorStop(1, colorStr.replace(/[\d.]+\)$/, `${baseIntensity})`));
+
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = baseLineWidth;
+    ctx.beginPath();
+    ctx.moveTo(pos1.x, pos1.y);
+    ctx.quadraticCurveTo(midpointX, midpointY, pos2.x, pos2.y);
+    ctx.stroke();
+
+    // Synapse sparks that hint at signal traffic along the rope
+    const synapseCount = sharedOwner ? 3 : 1;
+    for (let s = 1; s <= synapseCount; s++) {
+      const t = s / (synapseCount + 1);
+      const oneMinusT = 1 - t;
+      const sagFactor = Math.sin(t * Math.PI);
+      const midpointFade = 1.0 - (0.75 * Math.sin(t * Math.PI));
+
+      // Quadratic Bezier interpolation for smooth spark placement
+      const sx = oneMinusT * oneMinusT * pos1.x + 2 * oneMinusT * t * midpointX + t * t * pos2.x;
+      const sy = oneMinusT * oneMinusT * pos1.y + 2 * oneMinusT * t * midpointY + t * t * pos2.y;
+
+      const sparkOffsetX = perpX * sagAmount * 0.1 * sagFactor;
+      const sparkOffsetY = perpY * sagAmount * 0.1 * sagFactor;
+
+      ctx.fillStyle = colorStr.replace(/[\d.]+\)$/, `${midpointFade * baseIntensity})`);
+      ctx.beginPath();
+      ctx.arc(sx + sparkOffsetX, sy + sparkOffsetY, sharedOwner ? 2.2 : 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  ctx.restore();
+}
+
+// Light pulses orbiting owned nodes to keep the map feeling alive
+function renderSignalSparks(ctx, nodePositions, deltaMs) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+
+  nodePositions.forEach((node, index) => {
+    const isPlayer = node.territory.owner === TERRITORY_PLAYER;
+    const isEnemy = node.territory.owner === TERRITORY_ENEMY;
+    const color = isPlayer ? COLOR_PLAYER_STROKE : (isEnemy ? COLOR_ENEMY_STROKE : COLOR_NEURON_WEB);
+
+    // Get actual position with physics offset
+    const pos = getNodePosition(node);
+    
+    const baseOrbit = node.radius * (node.territory.nodeType === 'archetype' ? 1.6 : 1.2);
+    const t = ((lastRenderTimestamp + deltaMs) * 0.001 + index * 0.21) % 1;
+    const angle = t * Math.PI * 2;
+    const sparkX = pos.x + Math.cos(angle) * baseOrbit;
+    const sparkY = pos.y + Math.sin(angle) * baseOrbit;
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = isEnemy ? 0.85 : 0.9;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = isEnemy ? 18 : 12;
+    ctx.beginPath();
+    ctx.arc(sparkX, sparkY, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// Render a single node as a circular neuron-like structure with faction theming
+function renderRealmNode(ctx, node, glowEnabled = true) {
+  const { territory, radius } = node;
+  
+  // Get actual position with physics offset
+  const pos = getNodePosition(node);
+  const x = pos.x;
+  const y = pos.y;
+
+  // Determine color based on ownership
+  let fillColor, strokeColor, glowColor;
+  if (territory.owner === TERRITORY_PLAYER) {
+    fillColor = COLOR_PLAYER_FILL;
+    strokeColor = COLOR_PLAYER_STROKE;
+    glowColor = COLOR_PLAYER_GLOW;
+  } else if (territory.owner === TERRITORY_ENEMY) {
+    fillColor = COLOR_ENEMY_FILL;
+    strokeColor = COLOR_ENEMY_STROKE;
+    glowColor = COLOR_ENEMY_GLOW;
+  } else {
+    fillColor = COLOR_NEUTRAL_FILL;
+    strokeColor = COLOR_NEUTRAL_STROKE;
+    glowColor = COLOR_NEUTRAL_GLOW;
+  }
+
+  // Draw outer glow for captured nodes if glow is enabled
+  if (glowColor && glowEnabled) {
+    const glowSeed = (territory.x + 1) * 17 + (territory.y + 1) * 23;
+    const glowVariance = 0.75 + organicNoise(glowSeed) * 0.85;
+    const baseBlur = territory.nodeType === 'archetype' ? 18 : 12;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = baseBlur * glowVariance;
+  }
+
+  // Draw main node circle
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = territory.nodeType === 'archetype' ? 2.8 : 1.8;
+  ctx.stroke();
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+
+  // Draw inner detail circles (neuron nucleus effect)
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.65, 0, Math.PI * 2);
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.5;
+  ctx.stroke();
+  ctx.globalAlpha = 1.0;
+
+  // Only show text for captured nodes
+  if (territory.owner !== TERRITORY_NEUTRAL) {
+    const label = getNodeLabel(territory);
+    ctx.fillStyle = strokeColor;
+    ctx.font = `bold ${territory.nodeType === 'archetype' ? 14 : 11}px "${FONT_FAMILY}", serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+}
+
+/**
+ * Render UI overlay (currently empty - stats moved to DOM)
+ */
+function renderUIOverlay(ctx, width, height) {
+  // UI overlay removed - stats are now in the DOM below the map
+}
+
+/**
+ * Update territory statistics in the DOM
+ */
+function updateTerritoryStatsDisplay() {
+  const stats = getTerritoryStats();
+  
+  const playerEl = document.getElementById('cognitive-realm-stat-player');
+  const enemyEl = document.getElementById('cognitive-realm-stat-enemy');
+  const neutralEl = document.getElementById('cognitive-realm-stat-neutral');
+  
+  if (playerEl) {
+    playerEl.textContent = stats.player;
+  }
+  if (enemyEl) {
+    enemyEl.textContent = stats.enemy;
+  }
+  if (neutralEl) {
+    neutralEl.textContent = stats.neutral;
+  }
+}
+
+/**
+ * Reset zoom and pan to default
+ */
+export function resetCognitiveRealmView() {
+  currentZoom = 1.0;
+  currentPanX = 0;
+  currentPanY = 0;
+  clampPanToBounds();
+}
+
+/**
+ * Show the cognitive realm map container
+ */
+export function showCognitiveRealmMap() {
+  if (mapContainer) {
+    mapContainer.hidden = false;
+    mapContainer.setAttribute('aria-hidden', 'false');
+    resizeCanvas();
+  }
+
+  // Resume rendering only when the map is visible on the Defense tab.
+  startRenderLoop();
+}
+
+/**
+ * Hide the cognitive realm map container
+ */
+export function hideCognitiveRealmMap() {
+  if (mapContainer) {
+    mapContainer.hidden = true;
+    mapContainer.setAttribute('aria-hidden', 'true');
+  }
+
+  // Pause rendering while the map is hidden so it doesn't consume resources on other tabs.
+  stopCognitiveRealmMap();
+}

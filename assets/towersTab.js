@@ -36,6 +36,7 @@ import { createTowerBlueprintPresenter } from './towerBlueprintPresenter.js';
 import { createTowerVariableDiscoveryManager } from './towerVariableDiscovery.js';
 import { createTowerLoadoutController } from './towerLoadoutController.js';
 import { createTowerEquipmentBindings } from './towerEquipmentBindings.js';
+import { getTowerVisualConfig } from './colorSchemeUtils.js';
 
 // Callback to update status displays when glyphs change. Set via configureTowersTabCallbacks.
 let updateStatusDisplaysCallback = null;
@@ -222,6 +223,252 @@ const towerTabState = {
   discoveredVariableListeners: new Set(),
   dynamicContext: null,
 };
+
+// Default palette values ensure tower icons remain legible before the active scheme resolves.
+const DEFAULT_TOWER_ICON_COLORS = Object.freeze({
+  primary: 'rgba(255, 228, 120, 0.85)',
+  secondary: 'rgba(8, 9, 14, 0.9)',
+  symbol: 'rgba(255, 228, 120, 0.85)',
+});
+
+// Cache for loaded SVG content to avoid redundant fetches.
+const svgContentCache = new Map();
+
+// Resolve palette-aware colors for a tower icon so Codex palette swaps recolor every glyph chip consistently.
+function resolveTowerIconPalette(tower) {
+  const visuals = getTowerVisualConfig(tower) || {};
+  const primary = visuals.outerStroke || DEFAULT_TOWER_ICON_COLORS.primary;
+  const secondary = visuals.innerFill || DEFAULT_TOWER_ICON_COLORS.secondary;
+  const symbol = visuals.symbolFill || primary;
+  return { primary, secondary, symbol };
+}
+
+// Parse color string to extract RGB values for gradient application.
+function parseColorToRgb(colorString) {
+  if (!colorString) {
+    return null;
+  }
+  
+  // Handle rgba format
+  const rgbaMatch = colorString.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
+  if (rgbaMatch) {
+    return {
+      r: parseInt(rgbaMatch[1], 10),
+      g: parseInt(rgbaMatch[2], 10),
+      b: parseInt(rgbaMatch[3], 10),
+      a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
+    };
+  }
+  
+  // Handle hsl format
+  const hslMatch = colorString.match(/hsla?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)/);
+  if (hslMatch) {
+    const h = parseFloat(hslMatch[1]) / 360;
+    const s = parseFloat(hslMatch[2]) / 100;
+    const l = parseFloat(hslMatch[3]) / 100;
+    const a = hslMatch[4] ? parseFloat(hslMatch[4]) : 1;
+    
+    // Convert HSL to RGB
+    let r, g, b;
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1/3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1/3);
+    }
+    
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255),
+      a,
+    };
+  }
+  
+  return null;
+}
+
+// Convert RGB object to hex color for SVG attributes.
+function rgbToHex(rgb) {
+  if (!rgb) {
+    return '#ffffff';
+  }
+  const toHex = (n) => {
+    const hex = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+  return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
+}
+
+// Apply palette colors to an inline SVG element by modifying its internal elements.
+function applySvgPaletteColors(svgElement, palette) {
+  if (!(svgElement instanceof SVGElement) || !palette) {
+    return;
+  }
+
+  const primaryRgb = parseColorToRgb(palette.primary);
+  const secondaryRgb = parseColorToRgb(palette.secondary);
+  const symbolRgb = parseColorToRgb(palette.symbol);
+
+  const primaryHex = rgbToHex(primaryRgb);
+  const secondaryHex = rgbToHex(secondaryRgb);
+  const symbolHex = rgbToHex(symbolRgb);
+
+  // Update gradient stops if they exist
+  const gradientStops = svgElement.querySelectorAll('linearGradient stop, radialGradient stop');
+  gradientStops.forEach((stop) => {
+    const offset = parseFloat(stop.getAttribute('offset') || 0);
+    // Apply gradient from secondary (dark) to primary (light)
+    if (offset < 0.5) {
+      stop.setAttribute('stop-color', secondaryHex);
+      if (secondaryRgb?.a !== undefined && secondaryRgb.a < 1) {
+        stop.setAttribute('stop-opacity', String(secondaryRgb.a));
+      }
+    } else {
+      stop.setAttribute('stop-color', primaryHex);
+      if (primaryRgb?.a !== undefined && primaryRgb.a < 1) {
+        stop.setAttribute('stop-opacity', String(primaryRgb.a));
+      }
+    }
+  });
+
+  // Update circles (background and rings)
+  const circles = svgElement.querySelectorAll('circle');
+  circles.forEach((circle, index) => {
+    if (circle.hasAttribute('fill') && !circle.getAttribute('fill').startsWith('url(')) {
+      // Outer circles get secondary color
+      if (index === 0) {
+        circle.setAttribute('fill', secondaryHex);
+      } else {
+        // Inner circles get primary color
+        circle.setAttribute('fill', primaryHex);
+      }
+    }
+    if (circle.hasAttribute('stroke')) {
+      circle.setAttribute('stroke', primaryHex);
+    }
+  });
+
+  // Update text (tower symbol) with symbol color
+  const textElements = svgElement.querySelectorAll('text');
+  textElements.forEach((text) => {
+    text.setAttribute('fill', symbolHex);
+  });
+
+  // Update rectangles (background)
+  const rects = svgElement.querySelectorAll('rect');
+  rects.forEach((rect) => {
+    if (rect.hasAttribute('fill')) {
+      rect.setAttribute('fill', secondaryHex);
+    }
+  });
+}
+
+// Load SVG content and apply palette colors.
+async function loadAndColorSvg(iconUrl, palette) {
+  if (!iconUrl) {
+    return null;
+  }
+
+  try {
+    // Check cache first
+    let svgText = svgContentCache.get(iconUrl);
+    
+    if (!svgText) {
+      const response = await fetch(iconUrl);
+      if (!response.ok) {
+        console.warn(`Failed to load tower icon: ${iconUrl}`);
+        return null;
+      }
+      svgText = await response.text();
+      svgContentCache.set(iconUrl, svgText);
+    }
+
+    // Parse SVG
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svgElement = svgDoc.querySelector('svg');
+    
+    if (!svgElement) {
+      console.warn(`Invalid SVG content: ${iconUrl}`);
+      return null;
+    }
+
+    // Apply palette colors
+    applySvgPaletteColors(svgElement, palette);
+    
+    return svgElement;
+  } catch (error) {
+    console.warn(`Error loading tower icon SVG: ${iconUrl}`, error);
+    return null;
+  }
+}
+
+// Apply the active palette colors to a tower icon element.
+async function applyPaletteToTowerIconElement(element, tower) {
+  if (!(element instanceof HTMLElement) || !tower) {
+    return;
+  }
+  
+  const palette = resolveTowerIconPalette(tower);
+  element.dataset.towerId = tower.id || element.dataset.towerId || '';
+
+  if (tower.icon) {
+    // Load and inject colored SVG
+    const svgElement = await loadAndColorSvg(tower.icon, palette);
+    if (svgElement) {
+      // Clear existing content
+      element.innerHTML = '';
+      // Make SVG fill the container
+      svgElement.setAttribute('width', '100%');
+      svgElement.setAttribute('height', '100%');
+      element.appendChild(svgElement);
+    }
+  }
+}
+
+// Build a palette-aware tower icon with accessible labeling.
+function createTowerIconElement(tower, { className = '', alt = '' } = {}) {
+  if (!tower?.icon) {
+    return null;
+  }
+  const icon = document.createElement('span');
+  icon.className = ['tower-icon', className].filter(Boolean).join(' ');
+  icon.dataset.towerId = tower.id || '';
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', alt || tower.name || tower.id || 'Tower icon');
+
+  // Apply palette asynchronously (will populate the icon)
+  applyPaletteToTowerIconElement(icon, tower);
+  
+  return icon;
+}
+
+// Reapply palette colors to all rendered tower icons so Codex palette swaps cascade through the Towers tab.
+export function refreshTowerIconPalettes() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  const icons = document.querySelectorAll('.tower-icon[data-tower-id]');
+  icons.forEach((icon) => {
+    const towerId = icon.dataset.towerId;
+    const definition = getTowerDefinition(towerId);
+    if (definition) {
+      applyPaletteToTowerIconElement(icon, definition);
+    }
+  });
+}
 
 // Instantiate a blueprint presenter so glyph math and caching live outside the UI wiring.
 const {
@@ -810,6 +1057,7 @@ const {
   renderTowerLoadout,
   startTowerDrag,
   cancelTowerDrag,
+  closeLoadoutWheel,
 } = createTowerLoadoutController({
   getLoadoutState: () => towerTabState.loadoutState,
   getLoadoutElements: () => towerTabState.loadoutElements,
@@ -824,10 +1072,11 @@ const {
   getPlayfield: () => towerTabState.playfield,
   getAudioManager: () => towerTabState.audioManager,
   formatCombatNumber,
+  createTowerIconElement,
   syncLoadoutToPlayfield,
 });
 
-export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag };
+export { setLoadoutElements, pruneLockedTowersFromLoadout, refreshTowerLoadoutDisplay, startTowerDrag, cancelTowerDrag, closeLoadoutWheel };
 
 const { initializeTowerEquipmentInterface, getEquipmentSlotRecord } = createTowerEquipmentBindings({
   equipmentUiState: towerTabState.equipmentUi,
@@ -1000,12 +1249,13 @@ function showLoadoutReplacementPrompt(targetTowerId, anchorButton) {
     option.setAttribute('aria-label', `Replace ${definition?.name || currentTowerId}`);
 
     if (definition?.icon) {
-      const icon = document.createElement('img');
-      icon.src = definition.icon;
-      icon.alt = `${definition.name || currentTowerId} icon`;
-      icon.loading = 'lazy';
-      icon.decoding = 'async';
-      option.append(icon);
+      const icon = createTowerIconElement(definition, {
+        className: 'tower-replace-popup__icon',
+        alt: `${definition.name || currentTowerId} icon`,
+      });
+      if (icon) {
+        option.append(icon);
+      }
     }
 
     const label = document.createElement('span');
@@ -1377,6 +1627,9 @@ export function bindTowerCardUpgradeInteractions() {
 }
 export function updateTowerCardVisibility() {
   const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
+  const developerVisibilityToggle = document.getElementById('tower-visibility-developer-mode');
+  const showAllCards = developerVisibilityToggle?.checked || false;
+  
   cards.forEach((card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -1387,14 +1640,24 @@ export function updateTowerCardVisibility() {
     }
     const unlocked = isTowerUnlocked(towerId);
     card.dataset.locked = unlocked ? 'false' : 'true';
-    card.setAttribute('tabindex', unlocked ? '0' : '-1');
-    card.hidden = !unlocked;
-    if (unlocked) {
+    
+    // If developer visibility is enabled, show all cards regardless of unlock status
+    if (showAllCards) {
+      card.setAttribute('tabindex', '0');
+      card.hidden = false;
       card.style.removeProperty('display');
+      card.setAttribute('aria-hidden', 'false');
     } else {
-      card.style.display = 'none';
+      // Otherwise, only show unlocked cards
+      card.setAttribute('tabindex', unlocked ? '0' : '-1');
+      card.hidden = !unlocked;
+      if (unlocked) {
+        card.style.removeProperty('display');
+      } else {
+        card.style.display = 'none';
+      }
+      card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
     }
-    card.setAttribute('aria-hidden', unlocked ? 'false' : 'true');
 
     const slot = getEquipmentSlotRecord(towerId);
     if (slot) {
@@ -1424,13 +1687,15 @@ export function injectTowerCardPreviews() {
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
-    const image = document.createElement('img');
-    image.src = iconPath;
     const labelBase = composeTowerDisplayLabel(definition, towerId);
-    image.alt = `${labelBase} placement preview`;
-    image.loading = 'lazy';
-    image.decoding = 'async';
-    preview.append(image);
+    const icon = createTowerIconElement(definition, {
+      className: 'tower-preview__icon',
+      alt: `${labelBase} placement preview`,
+    });
+    if (!icon) {
+      return;
+    }
+    preview.append(icon);
     const header = card.querySelector('.tower-header');
     if (header && header.parentNode) {
       header.parentNode.insertBefore(preview, header.nextSibling);
@@ -1575,6 +1840,190 @@ export function initializeTowerSelection() {
     button.addEventListener('click', () => toggleTowerSelection(towerId, { anchorButton: button }));
   });
   updateTowerSelectionButtons();
+}
+
+export function initializeTowerVisibilityToggle() {
+  const toggle = document.getElementById('tower-visibility-developer-mode');
+  if (!toggle) {
+    return;
+  }
+  
+  // Add event listener for toggle changes
+  toggle.addEventListener('change', () => {
+    updateTowerCardVisibility();
+  });
+  
+  // Initialize visibility state based on current checkbox state
+  updateTowerCardVisibility();
+  
+  // Initialize individual tower card toggles
+  initializeIndividualTowerToggles();
+}
+
+/**
+ * Initialize individual tower card visibility toggles for debugging scrolling issues
+ */
+function initializeIndividualTowerToggles() {
+  const grid = document.getElementById('tower-individual-toggles-grid');
+  if (!grid) {
+    return;
+  }
+  
+  // Get all tower cards
+  const cards = document.querySelectorAll(TOWER_CARD_SELECTOR);
+  
+  // Clear existing toggles
+  grid.innerHTML = '';
+  
+  // Create a toggle for each tower card
+  cards.forEach((card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    
+    const towerId = card.dataset.towerId;
+    if (!towerId) {
+      return;
+    }
+    
+    // Get tower name from the card
+    const towerHeader = card.querySelector('.tower-header h3');
+    const towerName = towerHeader ? towerHeader.textContent : towerId;
+    
+    // Create toggle container
+    const toggleContainer = document.createElement('label');
+    toggleContainer.className = 'tower-individual-toggle';
+    
+    // Create checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `tower-toggle-${towerId}`;
+    checkbox.checked = true; // Start with all cards visible
+    checkbox.dataset.towerId = towerId;
+    
+    // Add event listener to checkbox
+    checkbox.addEventListener('change', () => {
+      updateIndividualTowerCardVisibility(towerId, checkbox.checked);
+    });
+    
+    // Create label text
+    const labelText = document.createElement('span');
+    labelText.textContent = towerName;
+    
+    // Assemble the toggle
+    toggleContainer.appendChild(checkbox);
+    toggleContainer.appendChild(labelText);
+    
+    // Add to grid
+    grid.appendChild(toggleContainer);
+  });
+}
+
+/**
+ * Update visibility of an individual tower card
+ */
+function updateIndividualTowerCardVisibility(towerId, visible) {
+  const card = document.querySelector(`[data-tower-id="${towerId}"]`);
+  if (!card || !(card instanceof HTMLElement)) {
+    return;
+  }
+  
+  if (visible) {
+    card.style.removeProperty('display');
+    card.removeAttribute('hidden');
+    card.setAttribute('aria-hidden', 'false');
+  } else {
+    card.style.display = 'none';
+    card.setAttribute('hidden', '');
+    card.setAttribute('aria-hidden', 'true');
+  }
+}
+
+/**
+ * Initialize Nu and Xi tower card element debugging controls
+ * to help identify which specific elements are blocking scroll gestures.
+ */
+export function initializeTowerElementDebugControls() {
+  const debugSection = document.getElementById('tower-element-debug');
+  if (!debugSection) {
+    return;
+  }
+  
+  // Define the element debug controls for Nu and Xi towers
+  const elementControls = [
+    { id: 'debug-nu-card', towerId: 'nu', selector: '[data-tower-id="nu"]' },
+    { id: 'debug-nu-preview', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-preview' },
+    { id: 'debug-nu-header', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-header' },
+    { id: 'debug-nu-formula', towerId: 'nu', selector: '[data-tower-id="nu"] .formula-block' },
+    { id: 'debug-nu-footer', towerId: 'nu', selector: '[data-tower-id="nu"] .card-footer' },
+    { id: 'debug-nu-button', towerId: 'nu', selector: '[data-tower-id="nu"] .tower-equip-button' },
+    { id: 'debug-xi-card', towerId: 'xi', selector: '[data-tower-id="xi"]' },
+    { id: 'debug-xi-preview', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-preview' },
+    { id: 'debug-xi-header', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-header' },
+    { id: 'debug-xi-formula', towerId: 'xi', selector: '[data-tower-id="xi"] .formula-block' },
+    { id: 'debug-xi-footer', towerId: 'xi', selector: '[data-tower-id="xi"] .card-footer' },
+    { id: 'debug-xi-button', towerId: 'xi', selector: '[data-tower-id="xi"] .tower-equip-button' },
+  ];
+  
+  // Set up event listeners for each toggle
+  elementControls.forEach(({ id, selector }) => {
+    const checkbox = document.getElementById(id);
+    if (!checkbox) {
+      return;
+    }
+    
+    // Add change event listener
+    checkbox.addEventListener('change', () => {
+      const element = document.querySelector(selector);
+      if (!element || !(element instanceof HTMLElement)) {
+        return;
+      }
+      
+      if (checkbox.checked) {
+        // Show the element
+        element.style.removeProperty('display');
+        element.style.removeProperty('visibility');
+        element.removeAttribute('hidden');
+        element.setAttribute('aria-hidden', 'false');
+      } else {
+        // Hide the element
+        element.style.display = 'none';
+        element.setAttribute('aria-hidden', 'true');
+      }
+    });
+  });
+  
+  // Add special handling for master card toggles
+  const nuCardToggle = document.getElementById('debug-nu-card');
+  const xiCardToggle = document.getElementById('debug-xi-card');
+  
+  if (nuCardToggle) {
+    nuCardToggle.addEventListener('change', () => {
+      // When master toggle changes, update all child element toggles
+      const isChecked = nuCardToggle.checked;
+      ['debug-nu-preview', 'debug-nu-header', 'debug-nu-formula', 'debug-nu-footer', 'debug-nu-button'].forEach((id) => {
+        const childToggle = document.getElementById(id);
+        if (childToggle && childToggle.checked !== isChecked) {
+          childToggle.checked = isChecked;
+          childToggle.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
+  
+  if (xiCardToggle) {
+    xiCardToggle.addEventListener('change', () => {
+      // When master toggle changes, update all child element toggles
+      const isChecked = xiCardToggle.checked;
+      ['debug-xi-preview', 'debug-xi-header', 'debug-xi-formula', 'debug-xi-footer', 'debug-xi-button'].forEach((id) => {
+        const childToggle = document.getElementById(id);
+        if (childToggle && childToggle.checked !== isChecked) {
+          childToggle.checked = isChecked;
+          childToggle.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+  }
 }
 
 export function syncLoadoutToPlayfield() {

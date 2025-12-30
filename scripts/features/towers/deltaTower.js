@@ -120,6 +120,7 @@ export function ensureDeltaState(playfield, tower) {
       orbitPhase: 0,
       orbitAngularSpeed: DELTA_ORBIT_DEFAULT_SPEED,
       mode: tower.behaviorMode || 'pursuit',
+      spawnWaves: [], // Array of wave animations when soldiers are spawned
     };
   } else {
     const previousMaxHealth = tower.deltaState.maxHealth;
@@ -402,6 +403,20 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
   };
 
   state.soldiers.push(soldier);
+  
+  // Create spawn wave animation
+  if (!Array.isArray(state.spawnWaves)) {
+    state.spawnWaves = [];
+  }
+  state.spawnWaves.push({
+    x: tower.x,
+    y: tower.y,
+    radius: 0,
+    maxRadius: Math.max(28, minDimension * 0.07),
+    age: 0,
+    duration: 0.6,
+    color,
+  });
 }
 
 // March each soldier forward, regenerate health, and process collisions with active enemies.
@@ -691,6 +706,19 @@ export function updateDeltaTower(playfield, tower, delta) {
   }
   state.soldiers = survivors;
 
+  // Update spawn wave animations
+  if (Array.isArray(state.spawnWaves)) {
+    for (let index = state.spawnWaves.length - 1; index >= 0; index -= 1) {
+      const wave = state.spawnWaves[index];
+      wave.age += delta;
+      const progress = wave.age / wave.duration;
+      wave.radius = wave.maxRadius * progress;
+      if (wave.age >= wave.duration) {
+        state.spawnWaves.splice(index, 1);
+      }
+    }
+  }
+
   const spawnCap = Math.max(1, state.maxSoldiers || 1);
   if (state.soldiers.length > spawnCap) {
     state.soldiers.length = spawnCap;
@@ -728,7 +756,26 @@ export function drawDeltaSoldiers(playfield) {
 
   ctx.save();
   playfield.towers.forEach((tower) => {
-    if (tower.type !== 'delta' || !tower.deltaState?.soldiers?.length) {
+    if (tower.type !== 'delta' || !tower.deltaState) {
+      return;
+    }
+    
+    // Draw spawn wave animations
+    if (Array.isArray(tower.deltaState.spawnWaves)) {
+      tower.deltaState.spawnWaves.forEach((wave) => {
+        const progress = wave.age / wave.duration;
+        const alpha = Math.max(0, 1 - progress);
+        ctx.save();
+        ctx.strokeStyle = toRgba(wave.color, alpha * 0.5);
+        ctx.lineWidth = Math.max(2, minDimension * 0.005);
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+    
+    if (!tower.deltaState.soldiers?.length) {
       return;
     }
     tower.deltaState.soldiers.forEach((soldier) => {

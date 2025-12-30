@@ -16,12 +16,14 @@ export function createTowerLoadoutController({
   getPlayfield,
   getAudioManager,
   formatCombatNumber,
+  createTowerIconElement,
   syncLoadoutToPlayfield,
 } = {}) {
   const LOADOUT_WHEEL_HOLD_MS = 500; // Require an intentional hold before opening the wheel overlay.
   const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
   const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Mouse/pen threshold that cancels the hold timer so drags can begin immediately.
   const LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH = 14; // Slightly looser touch threshold to tolerate finger jitter during holds.
+  const MAX_VISIBLE_LOADOUT_ITEMS = 3; // Maximum number of tower options visible in the loadout wheel at once.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
   let renderedLoadoutSignature = null;
   // Track the active drag interaction so pointer events can be cancelled cleanly.
@@ -69,6 +71,26 @@ export function createTowerLoadoutController({
       return formatCombatNumber(value);
     }
     return String(value);
+  };
+
+  // Build a palette-aware icon element using the injected factory with a safe image fallback.
+  const safeCreateTowerIconElement = (definition, options = {}) => {
+    if (typeof createTowerIconElement === 'function') {
+      const icon = createTowerIconElement(definition, options);
+      if (icon) {
+        return icon;
+      }
+    }
+    if (definition?.icon) {
+      const fallbackIcon = document.createElement('img');
+      fallbackIcon.src = definition.icon;
+      fallbackIcon.alt = options.alt || `${definition.name || definition.id || 'Tower'} icon`;
+      fallbackIcon.decoding = 'async';
+      fallbackIcon.loading = 'lazy';
+      fallbackIcon.className = ['tower-icon', options.className || ''].filter(Boolean).join(' ');
+      return fallbackIcon;
+    }
+    return null;
   };
 
   /**
@@ -301,24 +323,21 @@ export function createTowerLoadoutController({
       item.setAttribute('aria-label', definition?.name || 'Empty loadout slot');
 
       if (definition && definition.placeable !== false) {
-        const artwork = document.createElement('img');
-        artwork.className = 'tower-loadout-art';
-        if (definition.icon) {
-          artwork.src = definition.icon;
-          artwork.alt = `${definition.name} sigil`;
-          artwork.decoding = 'async';
-          artwork.loading = 'lazy';
-        } else {
-          artwork.alt = '';
-          artwork.setAttribute('aria-hidden', 'true');
-        }
+        const artwork = safeCreateTowerIconElement(definition, {
+          className: 'tower-loadout-art',
+          alt: `${definition.name} sigil`,
+        });
 
         const costEl = document.createElement('span');
         costEl.className = 'tower-loadout-cost';
         costEl.textContent = '—';
         costEl.dataset.affordable = 'false';
 
-        item.append(artwork, costEl);
+        if (artwork) {
+          item.append(artwork, costEl);
+        } else {
+          item.append(costEl);
+        }
       } else {
         item.classList.add('tower-loadout-item--empty');
         const emptyArt = document.createElement('span');
@@ -406,16 +425,27 @@ export function createTowerLoadoutController({
       width: wheelState.container.offsetWidth || 0,
       height: wheelState.container.offsetHeight || 0,
     };
+    // Prefer the active playfield bounds so the wheel stays inside the battlefield when a level is running.
+    const playfield = safeGetPlayfield();
+    const playfieldBounds =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container?.getBoundingClientRect?.()
+        ? playfield.container.getBoundingClientRect()
+        : null;
+    const boundaryRect = loadoutContainer?.getBoundingClientRect?.() || playfieldBounds;
     const anchorCenterY = anchorRect.top + anchorRect.height / 2;
     const scrollX = window.scrollX || window.pageXOffset || 0;
     const scrollY = window.scrollY || window.pageYOffset || 0;
-    const maxLeft = Math.max(0, viewportWidth - containerRect.width - 8);
-    const maxTop = Math.max(0, viewportHeight - containerRect.height - 8);
+    const minLeft = (boundaryRect?.left ?? 0) + 8;
+    const minTop = (boundaryRect?.top ?? 0) + 8;
+    const maxLeft = (boundaryRect?.right ?? viewportWidth) - containerRect.width - 8;
+    const maxTop = (boundaryRect?.bottom ?? viewportHeight) - containerRect.height - 8;
+    const boundedMaxLeft = Math.max(minLeft, maxLeft);
+    const boundedMaxTop = Math.max(minTop, maxTop);
     // Anchor the wheel to the slot's left edge so the glyph column sits directly atop the held slot.
     const desiredLeft = anchorRect.left;
     const desiredTop = anchorCenterY - containerRect.height / 2;
-    const left = Math.min(maxLeft, Math.max(8, desiredLeft));
-    const top = Math.min(maxTop, Math.max(8, desiredTop));
+    const left = Math.min(boundedMaxLeft, Math.max(minLeft, desiredLeft));
+    const top = Math.min(boundedMaxTop, Math.max(minTop, desiredTop));
     // Track how far the wheel was clamped vertically so the list can be nudged to stay aligned with the held slot.
     wheelState.verticalOffset = desiredTop - top;
     // Track horizontal clamp offset so the wheel contents can stay centered on the slot even near the viewport edge.
@@ -529,24 +559,16 @@ export function createTowerLoadoutController({
       item.dataset.distance = String(Math.abs(index - clampedIndex));
 
       const costState = resolveTowerCostState(definition.id);
-      if (definition.icon) {
-        const art = document.createElement('img');
-        art.className = 'tower-loadout-wheel__icon';
-        art.src = definition.icon;
-        art.alt = `${definition.name} icon`;
-        art.decoding = 'async';
-        art.loading = 'lazy';
+      const art = safeCreateTowerIconElement(definition, {
+        className: 'tower-loadout-wheel__icon',
+        alt: `${definition.name} icon`,
+      });
+      if (art) {
         item.append(art);
       }
 
       const infoRow = document.createElement('div');
       infoRow.className = 'tower-loadout-wheel__info';
-
-      // Keep the glyph and its price paired so the wheel stays text-light.
-      const label = document.createElement('span');
-      label.className = 'tower-loadout-wheel__label';
-      label.textContent = definition.symbol || definition.name || definition.id;
-      infoRow.append(label);
 
       const costValue = Number.isFinite(costState.anchorCostValue) ? costState.anchorCostValue : 0;
       const costLabel = document.createElement('span');
@@ -563,7 +585,8 @@ export function createTowerLoadoutController({
         }`,
       );
 
-      item.addEventListener('click', () => {
+      // Require a deliberate double click before swapping a loadout slot.
+      item.addEventListener('dblclick', () => {
         wheelState.activeIndex = index;
         const slots = safeGetLoadoutSlots();
         if (Array.isArray(slots) && wheelState.slotIndex >= 0 && wheelState.slotIndex < slots.length) {
@@ -589,8 +612,15 @@ export function createTowerLoadoutController({
     const listGap = Number.parseFloat(gapValue) || 0;
     const totalHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
     const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || totalHeight;
+    // Keep the wheel height within the active playfield to prevent overflow beyond the battlefield.
+    const playfield = safeGetPlayfield();
+    const playfieldBounds =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container?.getBoundingClientRect?.()
+        ? playfield.container.getBoundingClientRect()
+        : null;
+    const availableHeight = playfieldBounds?.height ? playfieldBounds.height - 24 : viewportHeight - 24;
     // Clamp the wheel height to the viewport so the active option can sit over the slot without clipping off-screen.
-    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * 3, viewportHeight - 24));
+    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * MAX_VISIBLE_LOADOUT_ITEMS, availableHeight));
     list.style.setProperty('--tower-loadout-wheel-height', `${clampedHeight}px`);
     updateLoadoutWheelTransform({ immediate });
   }
@@ -699,14 +729,24 @@ export function createTowerLoadoutController({
     list.addEventListener('pointerdown', beginWheelDrag);
     list.addEventListener('wheel', (event) => {
       event.preventDefault();
-      const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
-      const deltaIndex = (event.deltaY || 0) / itemHeight;
-      const currentTarget = Number.isFinite(wheelState.targetIndex)
-        ? wheelState.targetIndex
-        : wheelState.activeIndex;
-      setLoadoutWheelTarget(currentTarget + deltaIndex);
+      const delta = event.deltaY || 0;
+      const direction = delta > 0 ? 1 : -1;
+      const currentIndex = Math.round(Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.activeIndex);
+      const newTarget = currentIndex + direction;
+      const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheelState.towers.length - 1));
+      // Use immediate snapping by setting all indices directly and updating transform immediately
+      wheelState.focusIndex = clampedTarget;
+      wheelState.targetIndex = clampedTarget;
+      wheelState.activeIndex = clampedTarget;
+      updateLoadoutWheelTransform({ immediate: true });
     });
 
+    // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
+    const playfield = safeGetPlayfield();
+    const loadoutContainer =
+      playfield?.isInteractiveLevelActive?.() && playfield?.container
+        ? playfield.container
+        : safeGetLoadoutElements()?.container || null;
     positionLoadoutWheel(anchorElement, loadoutContainer);
 
     wheelState.outsideHandler = (event) => {
@@ -910,5 +950,6 @@ export function createTowerLoadoutController({
     renderTowerLoadout,
     startTowerDrag,
     cancelTowerDrag,
+    closeLoadoutWheel,
   };
 }

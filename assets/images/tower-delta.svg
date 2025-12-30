@@ -4,16 +4,53 @@
       <stop offset="0%" stop-color="#ffdc8f" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#ff9b3f" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Delta infantry unit (small triangle) -->
+    <g id="infantry-unit">
+      <!-- Small triangle ship pointing right - use static neutral color -->
+      <polygon points="0,-2 4,0 0,2" fill="#b0d8e8" opacity="0.85" />
+      <!-- Small trail effect - use static neutral color -->
+      <line x1="-1" y1="0" x2="-3" y2="0" stroke="#b0d8e8" stroke-width="0.5" opacity="0.5" />
+    </g>
   </defs>
+  
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#deltaAura)" opacity="0.92" />
+  
+  <!-- Infantry unit flying in a circle (behind the letter) -->
+  <g id="circling-infantry">
+    <use href="#infantry-unit">
+      <!-- Circular motion animation -->
+      <animateTransform 
+        attributeName="transform" 
+        type="translate"
+        values="32,20; 40,24; 42,32; 40,40; 32,44; 24,40; 22,32; 24,24; 32,20"
+        keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+        dur="4s" 
+        repeatCount="indefinite" />
+      <!-- Rotation to face direction of travel -->
+      <animateTransform 
+        attributeName="transform" 
+        type="rotate"
+        values="0,32,20; 45,40,24; 90,42,32; 135,40,40; 180,32,44; 225,24,40; 270,22,32; 315,24,24; 360,32,20"
+        keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+        dur="4s" 
+        repeatCount="indefinite"
+        additive="sum" />
+    </use>
+  </g>
+  
+  <!-- Tower letter with white fill and black outline -->
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#2c1604"
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >δ</text>
 </svg>

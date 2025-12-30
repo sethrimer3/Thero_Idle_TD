@@ -25,6 +25,7 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
+  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
 });
 
 /**
@@ -72,6 +73,8 @@ let sunDetailToggle = null;
 let sunSplashesToggle = null;
 let shootingStarTrailsToggle = null;
 let spawnFlashesToggle = null;
+let renderSizeSelect = null;
+let renderSizeRow = null;
 
 /**
  * Retrieve the current graphics level label for the UI.
@@ -154,28 +157,20 @@ function applySettingsToSimulation() {
     simulation.surfaceTextureDirty = true;
   }
 
-  // Configure lens flare and geyser splash effects.
+  // Configure geyser splash effects.
   if (simulation.visualEffectSettings) {
-    const flareSettings = simulation.visualEffectSettings.lensFlare;
     const geyserSettings = simulation.visualEffectSettings.geyser;
 
     if (!lamedSettings.sunSplashes) {
-      flareSettings.baseAlpha = 0;
       geyserSettings.particleCountMin = 0;
       geyserSettings.particleCountMax = 0;
     } else if (isLow) {
-      flareSettings.baseAlpha = 0.15;
-      flareSettings.ghostCount = 1;
       geyserSettings.particleCountMin = 2;
       geyserSettings.particleCountMax = 4;
     } else if (isMedium) {
-      flareSettings.baseAlpha = 0.25;
-      flareSettings.ghostCount = 2;
       geyserSettings.particleCountMin = 4;
       geyserSettings.particleCountMax = 8;
     } else {
-      flareSettings.baseAlpha = 0.35;
-      flareSettings.ghostCount = 3;
       geyserSettings.particleCountMin = 6;
       geyserSettings.particleCountMax = 14;
     }
@@ -196,7 +191,7 @@ function applySettingsToSimulation() {
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
 
   // Downscale extremely dense canvases on high-DPI devices to protect mobile GPUs from overdraw.
-  const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.5 : 2;
+  const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.35 : 1.5;
   if (simulation.maxDevicePixelRatio !== targetMaxDpr) {
     simulation.maxDevicePixelRatio = targetMaxDpr;
     if (typeof simulation.resize === 'function') {
@@ -226,6 +221,7 @@ function loadPersistedSettings() {
     if (stored) {
       const parsed = JSON.parse(stored);
       lamedSettings = { ...createDefaultLamedSettings(), ...parsed };
+      lamedSettings.renderSizeLevel = normalizeRenderSizeLevel(parsed.renderSizeLevel);
     }
   } catch (error) {
     console.warn('Failed to load Lamed visual settings; using defaults:', error);
@@ -295,6 +291,10 @@ function syncAllToggles() {
     document.getElementById('lamed-flashes-toggle-state'),
     lamedSettings.spawnFlashes,
   );
+  
+  if (renderSizeSelect) {
+    renderSizeSelect.value = String(normalizeRenderSizeLevel(lamedSettings.renderSizeLevel));
+  }
 }
 
 /**
@@ -328,6 +328,53 @@ function applySetting(key, value) {
 }
 
 /**
+ * Normalize the render size level to a safe 0-2 range.
+ */
+function normalizeRenderSizeLevel(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return 1; // Default to Medium if invalid
+  }
+  return Math.min(2, Math.max(0, parsed));
+}
+
+/**
+ * Apply the Lamed render size settings by offsetting the spire container.
+ */
+function applyRenderSizeLayout() {
+  const lamedStage = document.getElementById('lamed-canvas');
+  if (!lamedStage) {
+    return;
+  }
+
+  const sizeLevel = normalizeRenderSizeLevel(lamedSettings.renderSizeLevel);
+  const panel = lamedStage.closest('.panel');
+
+  const readPadding = (element) => {
+    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+      return { top: 0, left: 0, right: 0 };
+    }
+    const styles = window.getComputedStyle(element);
+    return {
+      top: Number.parseFloat(styles.paddingTop) || 0,
+      left: Number.parseFloat(styles.paddingLeft) || 0,
+      right: Number.parseFloat(styles.paddingRight) || 0,
+    };
+  };
+
+  const panelPadding = readPadding(panel);
+  // Medium and Large should expand past panel padding to keep the spire centered.
+  const inlineLeft = sizeLevel >= 1 ? panelPadding.left : 0;
+  const inlineRight = sizeLevel >= 1 ? panelPadding.right : 0;
+  const topOffset = sizeLevel >= 1 ? panelPadding.top : 0;
+
+  lamedStage.dataset.sizeLevel = String(sizeLevel);
+  lamedStage.style.setProperty('--lamed-size-inline-left', `${inlineLeft}px`);
+  lamedStage.style.setProperty('--lamed-size-inline-right', `${inlineRight}px`);
+  lamedStage.style.setProperty('--lamed-size-top', `${topOffset}px`);
+}
+
+/**
  * Bind all DOM elements and event listeners for the Lamed spire options panel.
  */
 export function bindLamedSpireOptions() {
@@ -340,6 +387,8 @@ export function bindLamedSpireOptions() {
   sunSplashesToggle = document.getElementById('lamed-splashes-toggle');
   shootingStarTrailsToggle = document.getElementById('lamed-shooting-trails-toggle');
   spawnFlashesToggle = document.getElementById('lamed-flashes-toggle');
+  renderSizeSelect = document.getElementById('lamed-render-size-select');
+  renderSizeRow = document.getElementById('lamed-render-size-row');
 
   if (optionsToggleButton) {
     optionsToggleButton.addEventListener('click', toggleOptionsMenu);
@@ -395,6 +444,15 @@ export function bindLamedSpireOptions() {
     });
   }
 
+  if (renderSizeSelect) {
+    renderSizeSelect.addEventListener('change', (event) => {
+      lamedSettings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
+      persistSettings();
+      syncAllToggles();
+      applyRenderSizeLayout();
+    });
+  }
+
   // Sync UI with persisted settings.
   updateGraphicsLevelButton();
   syncAllToggles();
@@ -413,6 +471,7 @@ export function setLamedSimulationGetter(getter) {
 export function initializeLamedSpirePreferences() {
   loadPersistedSettings();
   applySettingsToSimulation();
+  applyRenderSizeLayout();
 }
 
 /**
@@ -436,3 +495,10 @@ export function applyLamedVisualSettings(settings, { persist = true } = {}) {
 }
 
 export { LAMED_GRAPHICS_LEVELS };
+
+// Recalculate size offsets on viewport changes to keep the render aligned.
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', () => {
+    applyRenderSizeLayout();
+  });
+}

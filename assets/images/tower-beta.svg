@@ -4,16 +4,126 @@
       <stop offset="0%" stop-color="#c8f7ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#3a9bd1" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Beta particles with organic spreading and converging motion -->
+    <!-- Particle 1: Spreads out and converges -->
+    <circle id="betaParticle1" cx="0" cy="0" r="1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 26,28; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 2: Spreads out and converges, different path -->
+    <circle id="betaParticle2" cx="0" cy="0" r="1.5" fill="#8af7ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        begin="0.4s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 28,36; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        begin="0.4s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 3: Spreads out and converges, higher arc -->
+    <circle id="betaParticle3" cx="0" cy="0" r="1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 30,24; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 4: Spreads out and converges, lower arc -->
+    <circle id="betaParticle4" cx="0" cy="0" r="1.5" fill="#8af7ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        begin="1.2s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 30,40; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        begin="1.2s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 5: Spreads out and converges, slight upper spread -->
+    <circle id="betaParticle5" cx="0" cy="0" r="1.5" fill="#ff8ad8" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        begin="1.6s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 24,30; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        begin="1.6s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 6: Spreads out and converges, slight lower spread -->
+    <circle id="betaParticle6" cx="0" cy="0" r="1.5" fill="#8af7ff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0.8;0.8;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 24,34; 44,32; 44,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#betaAura)" opacity="0.92" />
+  
+  <!-- Organic spreading particles (behind the letter) -->
+  <g id="particles">
+    <use href="#betaParticle1" />
+    <use href="#betaParticle2" />
+    <use href="#betaParticle3" />
+    <use href="#betaParticle4" />
+    <use href="#betaParticle5" />
+    <use href="#betaParticle6" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#082430"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >β</text>
 </svg>

@@ -7,82 +7,23 @@
  * The highest tier reached determines the number of Tsadi glyphs earned.
  */
 
-/**
- * Ordered list of Greek letter metadata for tier naming.
- * Each entry contains the capitalized English name, lowercase glyph, and uppercase glyph.
- */
-const GREEK_TIER_SEQUENCE = [
-  { name: 'Alpha', letter: 'α', capital: 'Α' },
-  { name: 'Beta', letter: 'β', capital: 'Β' },
-  { name: 'Gamma', letter: 'γ', capital: 'Γ' },
-  { name: 'Delta', letter: 'δ', capital: 'Δ' },
-  { name: 'Epsilon', letter: 'ε', capital: 'Ε' },
-  { name: 'Zeta', letter: 'ζ', capital: 'Ζ' },
-  { name: 'Eta', letter: 'η', capital: 'Η' },
-  { name: 'Theta', letter: 'θ', capital: 'Θ' },
-  { name: 'Iota', letter: 'ι', capital: 'Ι' },
-  { name: 'Kappa', letter: 'κ', capital: 'Κ' },
-  { name: 'Lambda', letter: 'λ', capital: 'Λ' },
-  { name: 'Mu', letter: 'μ', capital: 'Μ' },
-  { name: 'Nu', letter: 'ν', capital: 'Ν' },
-  { name: 'Xi', letter: 'ξ', capital: 'Ξ' },
-  { name: 'Omicron', letter: 'ο', capital: 'Ο' },
-  { name: 'Pi', letter: 'π', capital: 'Π' },
-  { name: 'Rho', letter: 'ρ', capital: 'Ρ' },
-  { name: 'Sigma', letter: 'σ', capital: 'Σ' },
-  { name: 'Tau', letter: 'τ', capital: 'Τ' },
-  { name: 'Upsilon', letter: 'υ', capital: 'Υ' },
-  { name: 'Phi', letter: 'φ', capital: 'Φ' },
-  { name: 'Chi', letter: 'χ', capital: 'Χ' },
-  { name: 'Psi', letter: 'ψ', capital: 'Ψ' },
-  { name: 'Omega', letter: 'ω', capital: 'Ω' },
-];
-
-// Null particle is tier -1, the base reference particle
-const NULL_TIER = -1;
-// Total Greek letters in sequence (used for tier calculations)
-const GREEK_SEQUENCE_LENGTH = GREEK_TIER_SEQUENCE.length;
-// Canvas dimensions below this value indicate the spire view is collapsed or hidden.
-const COLLAPSED_DIMENSION_THRESHOLD = 2;
-
-// Interactive wave effect constants
-const WAVE_INITIAL_RADIUS_MULTIPLIER = 3; // Initial wave radius as multiple of null particle radius
-const WAVE_MAX_RADIUS_MULTIPLIER = 15; // Maximum wave radius as multiple of null particle radius
-const WAVE_INITIAL_FORCE = 300; // Initial force strength for pushing particles
-const WAVE_FADE_RATE = 3; // Alpha fade rate per second
-const WAVE_EXPANSION_RATE = 200; // Radius expansion rate in pixels per second
-const WAVE_FORCE_DECAY_RATE = 0.3; // Force decay power per second (exponential)
-const WAVE_FORCE_DECAY_LOG = Math.log(WAVE_FORCE_DECAY_RATE); // Precomputed for efficient exponential decay
-const WAVE_MIN_FORCE_THRESHOLD = 0.1; // Skip waves below this force strength for performance
-const WAVE_MIN_DISTANCE = 0.001; // Minimum distance to prevent division by zero
-
-// Legacy molecule recipes kept for backward compatibility with old saves.
-const LEGACY_MOLECULE_RECIPES = [
-  {
-    id: 'null-alpha-beta',
-    name: 'Catalyst Triangle',
-    tiers: [NULL_TIER, 0, 1],
-    bonus: { spawnRateBonus: 0.15, repellingShift: -0.05 },
-    description: 'Stabilizes null, α, and β bonds to gently hasten particle spawning.',
-  },
-  {
-    id: 'alpha-beta-gamma',
-    name: 'Prismatic Triplet',
-    tiers: [0, 1, 2],
-    bonus: { spawnRateBonus: 0.1, repellingShift: -0.2 },
-    description: 'Aligns α/β/γ into an attractive prism that weakens repelling forces.',
-  },
-  {
-    id: 'delta-epsilon-zeta',
-    name: 'Stability Weave',
-    tiers: [3, 4, 5],
-    bonus: { spawnRateBonus: 0.05, repellingShift: -0.15 },
-    description: 'Weaves δ/ε/ζ together to keep higher-tier clusters from scattering.',
-  },
-];
-
-// Tier threshold that unlocks advanced molecule weaving with repeated particle tiers.
-const ADVANCED_MOLECULE_UNLOCK_TIER = 20;
+import {
+  GREEK_TIER_SEQUENCE,
+  NULL_TIER,
+  GREEK_SEQUENCE_LENGTH,
+  COLLAPSED_DIMENSION_THRESHOLD,
+  WAVE_INITIAL_RADIUS_MULTIPLIER,
+  WAVE_MAX_RADIUS_MULTIPLIER,
+  WAVE_INITIAL_FORCE,
+  WAVE_FADE_RATE,
+  WAVE_EXPANSION_RATE,
+  WAVE_FORCE_DECAY_RATE,
+  WAVE_FORCE_DECAY_LOG,
+  WAVE_MIN_FORCE_THRESHOLD,
+  WAVE_MIN_DISTANCE,
+  LEGACY_MOLECULE_RECIPES,
+  ADVANCED_MOLECULE_UNLOCK_TIER,
+} from './tsadiTowerData.js';
 
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
@@ -270,6 +211,50 @@ function tierToColor(tier, sampleGradientFn = null) {
   }
   
   return `hsl(${hue}, ${70 + position * 20}%, ${lightness}%)`;
+}
+
+/**
+ * Normalize a gem or palette color into a CSS color string.
+ * @param {string|Object} color - Raw color input ({r,g,b} or {hue,saturation,lightness}).
+ * @returns {string|null} CSS color string when resolvable.
+ */
+function colorToCssString(color) {
+  if (!color) {
+    return null;
+  }
+  if (typeof color === 'string') {
+    return color;
+  }
+  if (typeof color === 'object') {
+    if (Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b)) {
+      return `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+    if (
+      Number.isFinite(color.hue) &&
+      Number.isFinite(color.saturation) &&
+      Number.isFinite(color.lightness)
+    ) {
+      return `hsl(${color.hue}, ${color.saturation}%, ${color.lightness}%)`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Apply an alpha multiplier to an rgb() color string, falling back to the base color when parsing fails.
+ * @param {string} colorStr - CSS color string.
+ * @param {number} alpha - Alpha channel between 0 and 1.
+ * @returns {string} rgba() string with the provided alpha.
+ */
+function applyAlphaToColor(colorStr, alpha) {
+  if (!colorStr) {
+    return `rgba(255, 255, 255, ${alpha})`;
+  }
+  const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (match) {
+    return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+  }
+  return colorStr;
 }
 
 /**
@@ -515,7 +500,10 @@ export class ParticleFusionSimulation {
       renderForceLinks: true,
       renderFusionEffects: true,
       renderSpawnEffects: true,
+      smoothRendering: true, // Enable subpixel rendering by default for smooth particle motion
     };
+    // Cap the render resolution on high-DPI devices so the fusion viewport does not overdraw.
+    this.maxDevicePixelRatio = Math.max(1, typeof options.maxDevicePixelRatio === 'number' ? options.maxDevicePixelRatio : 1.5);
 
     // Track when the simulation needs to scatter particles after a collapsed resize.
     this.pendingScatterFromCollapse = false;
@@ -548,7 +536,7 @@ export class ParticleFusionSimulation {
     if (!this.canvas) return;
 
     const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this.getEffectiveDevicePixelRatio();
 
     const previousWidth = this.width;
     const previousHeight = this.height;
@@ -567,6 +555,9 @@ export class ParticleFusionSimulation {
       // Reset transform before applying DPR scaling to avoid cumulative scaling.
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
+      
+      // Apply smooth rendering settings after context reset
+      this.applySmoothRenderingSettings();
     }
 
     if (this.width <= COLLAPSED_DIMENSION_THRESHOLD || this.height <= COLLAPSED_DIMENSION_THRESHOLD) {
@@ -590,6 +581,16 @@ export class ParticleFusionSimulation {
       this.scatterParticlesRandomly();
       this.pendingScatterFromCollapse = false;
     }
+  }
+
+  /**
+   * Determine a sane device pixel ratio for the fusion canvas to avoid runaway resolution.
+   * @returns {number} Clamped DPR respecting the configured graphics preset
+   */
+  getEffectiveDevicePixelRatio() {
+    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
+    return Math.max(1, Math.min(rawDpr, cap));
   }
 
   /**
@@ -698,7 +699,7 @@ export class ParticleFusionSimulation {
   /**
    * Spawn a new particle with random position and velocity
    */
-  spawnParticle(tier = NULL_TIER) {
+  spawnParticle(config = NULL_TIER) {
     if (this.particles.length >= this.maxParticles) return false;
     if (this.particleBank <= 0) return false;
 
@@ -707,8 +708,28 @@ export class ParticleFusionSimulation {
       return false;
     }
 
-    // Apply starting tier upgrade
-    const effectiveTier = tier + this.upgrades.startingTier;
+    let tier = NULL_TIER;
+    let tierOffset = 0;
+    let colorOverride = null;
+    let shimmer = false;
+
+    if (typeof config === 'number') {
+      tier = config;
+    } else if (config && typeof config === 'object') {
+      if (Number.isFinite(config.tier)) {
+        tier = config.tier;
+      }
+      if (Number.isFinite(config.tierOffset)) {
+        tierOffset = config.tierOffset;
+      }
+      if (config.color) {
+        colorOverride = colorToCssString(config.color);
+      }
+      shimmer = Boolean(config.shimmer);
+    }
+
+    // Apply starting tier upgrade and any gem-driven offsets.
+    const effectiveTier = tier + tierOffset + this.upgrades.startingTier;
     
     const radius = this.getRadiusForTier(effectiveTier);
     const tierInfo = getGreekTierInfo(effectiveTier);
@@ -747,11 +768,14 @@ export class ParticleFusionSimulation {
       vy,
       radius,
       tier: effectiveTier,
-      color: tierToColor(effectiveTier, this.samplePaletteGradient),
+      color: colorOverride || tierToColor(effectiveTier, this.samplePaletteGradient),
       label: tierInfo.letter,
       id: Math.random(), // Unique ID for tracking
       repellingForce,
       speedMultiplier,
+      shimmer,
+      shimmerPhase: Math.random() * Math.PI * 2, // Offset shimmer so stacked particles do not pulse in sync.
+      shimmerColor: colorOverride || null,
     });
     
     // Add spawn flash and wave effects when the options menu allows it.
@@ -810,16 +834,22 @@ export class ParticleFusionSimulation {
       case 'low':
         this.maxParticles = 70;
         this.glowIntensity = 0.75;
+        this.maxDevicePixelRatio = 1.1;
         break;
       case 'medium':
         this.maxParticles = 90;
         this.glowIntensity = 0.9;
+        this.maxDevicePixelRatio = 1.35;
         break;
       default:
         this.maxParticles = 100;
         this.glowIntensity = 1.0;
+        this.maxDevicePixelRatio = 1.5;
         break;
     }
+
+    // Apply resolution cap changes immediately so the canvas resizes to the new target.
+    this.resize();
 
     if (!this.visualSettings.renderFusionEffects) {
       this.fusionEffects.length = 0;
@@ -829,6 +859,30 @@ export class ParticleFusionSimulation {
     }
     if (!this.visualSettings.renderForceLinks) {
       this.forceLinks.length = 0;
+    }
+    
+    // Apply smooth rendering settings to canvas context if available
+    this.applySmoothRenderingSettings();
+  }
+  
+  /**
+   * Apply smooth rendering settings to the canvas context.
+   * Enables subpixel rendering when smooth mode is active.
+   */
+  applySmoothRenderingSettings() {
+    if (!this.ctx) {
+      return;
+    }
+    
+    // Enable image smoothing for antialiased subpixel rendering in smooth mode
+    // Default to true if smoothRendering is undefined
+    const smoothingEnabled = this.visualSettings.smoothRendering !== false;
+    this.ctx.imageSmoothingEnabled = smoothingEnabled;
+    
+    // Set the quality of image smoothing to high for best subpixel results
+    // Note: imageSmoothingQuality is not supported in older browsers (IE, older Safari versions)
+    if (smoothingEnabled && this.ctx.imageSmoothingQuality) {
+      this.ctx.imageSmoothingQuality = 'high';
     }
   }
   
@@ -2289,12 +2343,29 @@ export class ParticleFusionSimulation {
       glowGradient.addColorStop(0, color);
       glowGradient.addColorStop(0.7, color);
       glowGradient.addColorStop(1, this.backgroundColor);
-      
+
       ctx.fillStyle = glowGradient;
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, particle.radius * 1.5, 0, Math.PI * 2);
       ctx.fill();
-      
+
+      if (particle.shimmer) {
+        const shimmerAlpha = 0.35 + 0.25 * Math.sin((Date.now() / 240) + (particle.shimmerPhase || 0));
+        const shimmerColor = particle.shimmerColor || particle.color;
+        ctx.save();
+        ctx.strokeStyle = applyAlphaToColor(shimmerColor, shimmerAlpha);
+        ctx.lineWidth = Math.max(1.5, particle.radius * 0.35);
+        ctx.setLineDash([
+          Math.max(2, particle.radius * 0.8),
+          Math.max(2, particle.radius * 0.6),
+        ]);
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.radius * 1.25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       // Main particle body
       ctx.fillStyle = color;
       ctx.beginPath();

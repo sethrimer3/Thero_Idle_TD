@@ -34,6 +34,8 @@ import {
   resetActiveMoteGems,
   resolveEnemyGemDropMultiplier,
   getGemSpriteImage,
+  updateGemSuctionAnimations,
+  assignRandomShell,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -53,6 +55,7 @@ import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
 import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
+import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
   PLAYFIELD_VIEW_PAN_MARGIN_METERS,
@@ -61,6 +64,7 @@ import * as InputController from './playfield/input/InputController.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
+import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
 import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
@@ -196,6 +200,13 @@ import {
   teardownOmegaTower as teardownOmegaTowerHelper,
   drawOmegaParticles as drawOmegaParticlesHelper,
 } from '../scripts/features/towers/omegaTower.js';
+import {
+  getPlayfieldResolutionCap,
+  PLAYFIELD_RESOLUTION_EVENT,
+} from './playfield/playfieldPreferences.js';
+
+// Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
+const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -258,6 +269,51 @@ const DEBUFF_ICON_SYMBOLS = {
   theta: 'θ',
   'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
 };
+/**
+ * Standardized Hitbox System
+ * 
+ * All projectiles and enemies use meter-based hitbox radii that scale consistently
+ * with viewport size. This ensures collision detection stays accurate across devices.
+ * 
+ * Projectile Hitbox: 0.3m diameter (0.15m radius) ≈ 11px mobile, 23px tablet
+ * Enemy Hitbox: 0.4m diameter (0.2m radius) ≈ 15px mobile, 31px tablet
+ * 
+ * Collision occurs when: distance <= (projectileRadius + enemyRadius)
+ * 
+ * Usage:
+ * - Projectiles: Set hitRadius using playfield.getStandardShotHitRadius()
+ * - Enemies: hitRadius calculated via playfield.getEnemyHitRadius(enemy, metrics)
+ * - Both methods convert meters to pixels using the viewport's minimum dimension
+ */
+// Normalize α/β/γ projectile hitboxes to a 0.3 meter diameter so collision checks stay consistent across view sizes.
+const STANDARD_SHOT_RADIUS_METERS = 0.15;
+// Standardize enemy hitboxes using a 0.4 meter diameter circle for consistent collision detection.
+const STANDARD_ENEMY_RADIUS_METERS = 0.2;
+// Preserve β triangle proportions when reflecting shots back to the tower.
+const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
+// Tunables for the β sticking sequence and slow effect cadence.
+const BETA_STICK_HIT_COUNT = 3;
+const BETA_STICK_HIT_INTERVAL = 0.18;
+const BETA_SLOW_DURATION_SECONDS = 0.5;
+const BETA_TRIANGLE_SPEED = 144;
+// Tunables for the γ piercing/star/return sequence.
+const GAMMA_OUTBOUND_SPEED = 260;
+const GAMMA_STAR_SPEED = 200;
+const GAMMA_RETURN_SPEED = 260;
+const GAMMA_STAR_HIT_COUNT = 5;
+// Keep γ's impact star compact so the pattern hugs the enemy model.
+const GAMMA_STAR_RADIUS_METERS = 0.45;
+const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
+// Stun durations for stored shots (in seconds)
+const ALPHA_STORED_SHOT_STUN_DURATION = 0.02; // 20 milliseconds
+const BETA_STORED_SHOT_STUN_DURATION = 0.1;   // 100 milliseconds
+// Swarm cloud persistence and behavior
+const SWARM_CLOUD_BASE_DURATION = 1.0; // 1 second base
+const SWARM_CLOUD_DURATION_PER_SHOT = 0.02; // 20 milliseconds per stored shot
+const SWARM_CLOUD_RADIUS_METERS = 0.8; // Localized area for swarming
+const SWARM_PARTICLE_FADE_DURATION = 0.6; // Fade out over 600ms
+const SWARM_PARTICLE_SPREAD_SPEED = 80; // Pixels per second when dissipating
+const SWARM_CLOUD_DAMAGE_MULTIPLIER = 0.5; // Damage dealt by cloud as fraction of base tower damage
 
 export class SimplePlayfield {
   constructor(options) {
@@ -301,6 +357,13 @@ export class SimplePlayfield {
     this.renderWidth = this.canvas ? this.canvas.clientWidth : 0;
     this.renderHeight = this.canvas ? this.canvas.clientHeight : 0;
     this.pixelRatio = 1;
+    // Rebuild the canvas backing store when the resolution preference changes.
+    this.handleResolutionChange = () => {
+      this.syncCanvasSize();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(PLAYFIELD_RESOLUTION_EVENT, this.handleResolutionChange);
+    }
 
     this.arcOffset = 0;
     this.energy = 0;
@@ -343,6 +406,8 @@ export class SimplePlayfield {
     this.pathSegments = [];
     this.pathPoints = [];
     this.pathLength = 0;
+    // Track tunnel segments for path fading and enemy invulnerability
+    this.tunnelSegments = [];
     // Store both the ambient river particles and the luminous tracer sparks.
     this.trackRiverParticles = [];
     this.trackRiverTracerParticles = [];
@@ -362,7 +427,11 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
+    this.gammaStarBursts = []; // Track star burst effects on enemies hit by gamma projectiles
     this.nuBursts = [];
+    // Track swarm clouds from stored shot particles
+    this.swarmClouds = [];
     this.chiThralls = [];
     this.chiLightTrails = [];
     this.chiThrallIdCounter = 0;
@@ -380,6 +449,9 @@ export class SimplePlayfield {
     this.floaters = [];
     this.floaterConnections = [];
     this.floaterBounds = { width: 0, height: 0 };
+    // Keep a cloud of background swimmers so the lattice circles feel alive.
+    this.backgroundSwimmers = [];
+    this.swimmerBounds = { width: 0, height: 0 };
 
     // Track explicit lattice connections so only linked towers share resources.
     this.towerConnectionMap = new Map(); // sourceId -> targetId
@@ -433,6 +505,7 @@ export class SimplePlayfield {
     this.hoverEnemy = null;
     this.pointerPosition = null;
     this.focusedEnemyId = null;
+    this.focusedCellId = null; // Track focused Voronoi/Delaunay cell
     this.focusMarkerAngle = 0;
     this.anchorTolerance = 0.06;
 
@@ -470,11 +543,15 @@ export class SimplePlayfield {
       startClientX: 0,
       startClientY: 0,
       lastClientY: 0,
+      activationClientX: 0,
+      activationClientY: 0,
       holdTimeoutId: null,
       holdActivated: false,
       scribbleCleanup: null,
       actionTriggered: null,
       pointerType: null,
+      swipeStepPixels: 0,
+      appliedSteps: 0,
     };
     this.towerSelectionWheel = {
       container: null,
@@ -534,6 +611,7 @@ export class SimplePlayfield {
       this.attachResizeObservers();
       this.attachCanvasInteractions();
       this.createEnemyTooltip();
+      this.initializeFloatingFeedback();
 
       this.disableSlots(true);
       this.updateHud();
@@ -683,6 +761,42 @@ export class SimplePlayfield {
       alpha: 1,
       // Store how intense the outline highlight should be for this impact.
       outlineAlpha,
+    };
+    this.damageNumbers.push(entry);
+    const maxEntries = 90;
+    if (this.damageNumbers.length > maxEntries) {
+      this.damageNumbers.splice(0, this.damageNumbers.length - maxEntries);
+    }
+  }
+
+  spawnMissText(enemy) {
+    if (!this.areDamageNumbersActive() || !enemy) {
+      return;
+    }
+    const enemyPosition = this.getEnemyPosition(enemy);
+    if (!enemyPosition) {
+      return;
+    }
+    const metrics = this.getEnemyVisualMetrics(enemy);
+    const offsetDistance = (metrics?.ringRadius || 12) + 6;
+    const spawnPosition = {
+      x: enemyPosition.x,
+      y: enemyPosition.y - offsetDistance,
+    };
+    const entry = {
+      id: (this.damageNumberIdCounter += 1),
+      position: spawnPosition,
+      velocity: {
+        x: 0,
+        y: -80,
+      },
+      text: 'Miss',
+      color: { r: 180, g: 180, b: 180 },
+      fontSize: 18,
+      elapsed: 0,
+      lifetime: 1.0,
+      alpha: 1,
+      outlineAlpha: 0.3,
     };
     this.damageNumbers.push(entry);
     const maxEntries = 90;
@@ -1899,12 +2013,28 @@ export class SimplePlayfield {
     return HudBindings.createEnemyTooltip.call(this);
   }
 
+  initializeFloatingFeedback() {
+    if (!this.canvas || !this.ctx) {
+      return;
+    }
+    this.floatingFeedback = createFloatingFeedbackController({
+      canvas: this.canvas,
+      ctx: this.ctx,
+      getCanvasPosition: (worldPos) => {
+        return worldPos; // Gems are already in canvas coordinates
+      },
+    });
+  }
+
   syncCanvasSize() {
     if (!this.canvas || !this.ctx) {
       return;
     }
     const rect = this.canvas.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
+    // Clamp the device pixel ratio so the canvas backing store does not balloon on high-resolution devices.
+    // Respect the user-selected playfield resolution cap when calculating backing scale.
+    const resolutionCap = Math.max(MAX_PLAYFIELD_DEVICE_PIXEL_RATIO, getPlayfieldResolutionCap());
+    const ratio = Math.min(window.devicePixelRatio || 1, resolutionCap);
     const width = Math.max(1, Math.floor(rect.width * ratio));
     const height = Math.max(1, Math.floor(rect.height * ratio));
     if (this.canvas.width !== width || this.canvas.height !== height) {
@@ -1942,6 +2072,7 @@ export class SimplePlayfield {
       x: node.x * this.renderWidth,
       y: node.y * this.renderHeight,
       speedMultiplier: Number.isFinite(node.speedMultiplier) ? node.speedMultiplier : 1,
+      tunnel: Boolean(node.tunnel),
     }));
 
     const smoothPoints = this.generateSmoothPathPoints(points, 14);
@@ -1966,14 +2097,73 @@ export class SimplePlayfield {
         speedMultiplier = end.speedMultiplier;
       }
       
-      segments.push({ start, end, length, speedMultiplier });
+      // Mark if this segment is inside a tunnel
+      const inTunnel = Boolean(start.tunnel && end.tunnel);
+      
+      segments.push({ start, end, length, speedMultiplier, inTunnel });
       totalLength += length;
     }
 
     this.pathPoints = smoothPoints;
     this.pathSegments = segments;
     this.pathLength = totalLength || 1;
+    
+    // Identify tunnel zones: consecutive tunnel segments with fade zones at entry/exit
+    this.buildTunnelSegments(smoothPoints);
+    
     this.initializeTrackRiverParticles();
+  }
+
+  buildTunnelSegments(points) {
+    this.tunnelSegments = [];
+    
+    if (!Array.isArray(points) || points.length < 2) {
+      return;
+    }
+    
+    // Find consecutive tunnel points to identify tunnel zones
+    let tunnelStart = null;
+    let tunnelStartIndex = -1;
+    
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      const isTunnel = Boolean(point.tunnel);
+      
+      if (isTunnel && tunnelStart === null) {
+        // Entering a tunnel zone
+        tunnelStart = i;
+        tunnelStartIndex = i;
+      } else if (!isTunnel && tunnelStart !== null) {
+        // Exiting a tunnel zone
+        const tunnelEnd = i - 1;
+        
+        // Only create tunnel segment if there are at least 2 points
+        if (tunnelEnd >= tunnelStart) {
+          this.tunnelSegments.push({
+            startIndex: tunnelStart,
+            endIndex: tunnelEnd,
+            startPoint: points[tunnelStart],
+            endPoint: points[tunnelEnd],
+          });
+        }
+        
+        tunnelStart = null;
+        tunnelStartIndex = -1;
+      }
+    }
+    
+    // Handle case where tunnel extends to the end of the path
+    if (tunnelStart !== null) {
+      const tunnelEnd = points.length - 1;
+      if (tunnelEnd >= tunnelStart) {
+        this.tunnelSegments.push({
+          startIndex: tunnelStart,
+          endIndex: tunnelEnd,
+          startPoint: points[tunnelStart],
+          endPoint: points[tunnelEnd],
+        });
+      }
+    }
   }
 
   initializeTrackRiverParticles() {
@@ -1985,8 +2175,13 @@ export class SimplePlayfield {
     }
 
     const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const baseCount = Math.round(this.pathLength / Math.max(28, minDimension * 0.35));
-    const particleCount = Math.max(36, Math.min(160, baseCount));
+    const lowGraphicsEnabled = this.isLowGraphicsMode();
+    const performanceScale = lowGraphicsEnabled ? 0.6 : 1;
+    // Reduce the river spawn budget on low fidelity so the tracer math stays lightweight on busy boards.
+    const baseCount = Math.round(
+      (this.pathLength / Math.max(28, minDimension * 0.35)) * performanceScale,
+    );
+    const particleCount = Math.max(36, Math.min(lowGraphicsEnabled ? 120 : 160, baseCount));
     const createParticle = () => ({
       progress: Math.random(),
       speed: 0.045 + Math.random() * 0.05,
@@ -2012,8 +2207,11 @@ export class SimplePlayfield {
     });
 
     this.trackRiverParticles = Array.from({ length: particleCount }, createParticle);
-    const tracerCount = Math.max(10, Math.round(particleCount * 0.25));
-    this.trackRiverTracerParticles = Array.from({ length: tracerCount }, createTracerParticle);
+    const tracerCount = lowGraphicsEnabled ? 0 : Math.max(10, Math.round(particleCount * 0.25));
+    // Suppress tracer particles entirely in low graphics mode to eliminate the heaviest draw calls.
+    this.trackRiverTracerParticles = lowGraphicsEnabled
+      ? []
+      : Array.from({ length: tracerCount }, createTracerParticle);
     this.trackRiverPulse = 0;
   }
 
@@ -2028,6 +2226,36 @@ export class SimplePlayfield {
 
   randomFloaterRadiusFactor() {
     return 0.0075 + Math.random() * 0.0045;
+  }
+
+  // Determine how many background swimmers to spawn based on canvas area.
+  computeSwimmerCount(width, height) {
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      return 0;
+    }
+    const area = Math.max(0, width * height);
+    const base = Math.round(area / 16000);
+    return Math.max(28, Math.min(120, base));
+  }
+
+  // Seed a tiny swimmer with randomized drift and flicker state.
+  createBackgroundSwimmer(width, height) {
+    const margin = Math.min(width, height) * 0.05;
+    const usableWidth = Math.max(1, width - margin * 2);
+    const usableHeight = Math.max(1, height - margin * 2);
+    const angle = Math.random() * Math.PI * 2;
+    const drift = 8 + Math.random() * 6;
+    return {
+      x: margin + Math.random() * usableWidth,
+      y: margin + Math.random() * usableHeight,
+      vx: Math.cos(angle) * drift,
+      vy: Math.sin(angle) * drift,
+      ax: 0,
+      ay: 0,
+      // Seed a subtle pulsation so tiny swimmers feel alive even at low speed.
+      flicker: Math.random() * Math.PI * 2,
+      sizeScale: 0.5 + Math.random() * 0.8,
+    };
   }
 
   createFloater(width, height) {
@@ -2055,6 +2283,8 @@ export class SimplePlayfield {
       this.floaters = [];
       this.floaterConnections = [];
       this.floaterBounds = { width, height };
+      this.backgroundSwimmers = [];
+      this.swimmerBounds = { width, height };
       return;
     }
 
@@ -2062,6 +2292,10 @@ export class SimplePlayfield {
     const previousHeight = this.floaterBounds?.height || height;
     const scaleX = previousWidth ? width / previousWidth : 1;
     const scaleY = previousHeight ? height / previousHeight : 1;
+    const previousSwimmerWidth = this.swimmerBounds?.width || width;
+    const previousSwimmerHeight = this.swimmerBounds?.height || height;
+    const swimmerScaleX = previousSwimmerWidth ? width / previousSwimmerWidth : scaleX;
+    const swimmerScaleY = previousSwimmerHeight ? height / previousSwimmerHeight : scaleY;
 
     if (this.floaters.length && (scaleX !== 1 || scaleY !== 1)) {
       this.floaters.forEach((floater) => {
@@ -2069,6 +2303,15 @@ export class SimplePlayfield {
         floater.y *= scaleY;
         floater.vx *= scaleX;
         floater.vy *= scaleY;
+      });
+    }
+
+    if (this.backgroundSwimmers.length && (swimmerScaleX !== 1 || swimmerScaleY !== 1)) {
+      this.backgroundSwimmers.forEach((swimmer) => {
+        swimmer.x *= swimmerScaleX;
+        swimmer.y *= swimmerScaleY;
+        swimmer.vx *= swimmerScaleX;
+        swimmer.vy *= swimmerScaleY;
       });
     }
 
@@ -2085,6 +2328,20 @@ export class SimplePlayfield {
       }
     } else if (this.floaters.length > desired) {
       this.floaters.length = desired;
+    }
+
+    const desiredSwimmers = this.computeSwimmerCount(width, height);
+    if (!this.backgroundSwimmers.length) {
+      this.backgroundSwimmers = [];
+    }
+
+    if (this.backgroundSwimmers.length < desiredSwimmers) {
+      const needed = desiredSwimmers - this.backgroundSwimmers.length;
+      for (let index = 0; index < needed; index += 1) {
+        this.backgroundSwimmers.push(this.createBackgroundSwimmer(width, height));
+      }
+    } else if (this.backgroundSwimmers.length > desiredSwimmers) {
+      this.backgroundSwimmers.length = desiredSwimmers;
     }
 
     const safeMargin = Math.min(width, height) * 0.04;
@@ -2108,7 +2365,19 @@ export class SimplePlayfield {
       floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
     });
 
+    this.backgroundSwimmers.forEach((swimmer) => {
+      swimmer.x = Math.min(width - safeMargin, Math.max(safeMargin, swimmer.x));
+      swimmer.y = Math.min(height - safeMargin, Math.max(safeMargin, swimmer.y));
+      swimmer.vx = Number.isFinite(swimmer.vx) ? swimmer.vx : 0;
+      swimmer.vy = Number.isFinite(swimmer.vy) ? swimmer.vy : 0;
+      swimmer.ax = Number.isFinite(swimmer.ax) ? swimmer.ax : 0;
+      swimmer.ay = Number.isFinite(swimmer.ay) ? swimmer.ay : 0;
+      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
+      swimmer.sizeScale = Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1;
+    });
+
     this.floaterBounds = { width, height };
+    this.swimmerBounds = { width, height };
   }
 
   generateSmoothPathPoints(points, subdivisions = 12) {
@@ -2135,7 +2404,10 @@ export class SimplePlayfield {
         const nextSpeed = Number.isFinite(next.speedMultiplier) ? next.speedMultiplier : 1;
         const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
         
-        const point = { x, y, speedMultiplier };
+        // Preserve tunnel property - point is in tunnel only if both current and next are tunnels
+        const tunnel = Boolean(current.tunnel && next.tunnel);
+        
+        const point = { x, y, speedMultiplier, tunnel };
         if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
           smooth.push(point);
         }
@@ -2145,7 +2417,8 @@ export class SimplePlayfield {
     const lastPoint = points[points.length - 1];
     if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], lastPoint) > 0) {
       const speedMultiplier = Number.isFinite(lastPoint.speedMultiplier) ? lastPoint.speedMultiplier : 1;
-      smooth.push({ ...lastPoint, speedMultiplier });
+      const tunnel = Boolean(lastPoint.tunnel);
+      smooth.push({ ...lastPoint, speedMultiplier, tunnel });
     }
 
     return smooth;
@@ -2280,7 +2553,9 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+      this.gammaStarBursts = [];
       this.nuBursts = [];
+      this.swarmClouds = [];
       this.towers = [];
       // Clear cached Nu tower dimensions when entering non-interactive mode.
       clearNuCachedDimensionsHelper();
@@ -2391,7 +2666,9 @@ export class SimplePlayfield {
       this.alphaBursts = [];
       this.betaBursts = [];
       this.gammaBursts = [];
+      this.gammaStarBursts = [];
       this.nuBursts = [];
+      this.swarmClouds = [];
       this.towers = [];
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -2420,6 +2697,7 @@ export class SimplePlayfield {
     this.setAvailableTowers(getTowerLoadoutState().selected);
     this.shouldAnimate = true;
     this.resetState();
+    this.loadLevelCrystals();
     this.enableSlots();
     this.syncCanvasSize();
     this.ensureLoop();
@@ -2480,6 +2758,9 @@ export class SimplePlayfield {
       this.pathLength = 0;
       this.floaters = [];
       this.floaterConnections = [];
+      // Drop ambient swimmers when the preview grid is torn down.
+      this.backgroundSwimmers = [];
+      this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
       this.arcOffset = 0;
       this.hoverPlacement = null;
       this.pointerPosition = null;
@@ -2520,6 +2801,9 @@ export class SimplePlayfield {
     this.deltaSoldierIdCounter = 0;
     this.floaters = [];
     this.floaterConnections = [];
+    // Clear ambient swimmers when leaving a level so the next run re-seeds them cleanly.
+    this.backgroundSwimmers = [];
+    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     // Clear mote gem drops whenever the battlefield resets.
     resetActiveMoteGems();
@@ -2610,9 +2894,14 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
+    // Reset ambient swimmers whenever the battlefield is rebuilt for a new run.
+    this.backgroundSwimmers = [];
+    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     if (this.towerGlyphTransitions) {
       this.towerGlyphTransitions.clear();
@@ -2643,6 +2932,35 @@ export class SimplePlayfield {
     this.scheduleStatsPanelRefresh();
     this.refreshStatsPanel({ force: true });
     refreshTowerLoadoutDisplay();
+  }
+
+  loadLevelCrystals() {
+    // Clear any existing developer crystals
+    if (typeof this.clearDeveloperCrystals === 'function') {
+      this.clearDeveloperCrystals({ silent: true });
+    }
+    
+    // Load crystals from level config if present
+    if (!this.levelConfig || !Array.isArray(this.levelConfig.crystals)) {
+      return;
+    }
+    
+    this.levelConfig.crystals.forEach((crystalConfig) => {
+      if (!crystalConfig || typeof crystalConfig.x !== 'number' || typeof crystalConfig.y !== 'number') {
+        return;
+      }
+      
+      const normalized = { x: crystalConfig.x, y: crystalConfig.y };
+      const options = {
+        integrity: crystalConfig.integrity,
+        thero: crystalConfig.thero || 0,
+        theroMultiplier: crystalConfig.theroMultiplier || 0,
+      };
+      
+      if (typeof this.addDeveloperCrystal === 'function') {
+        this.addDeveloperCrystal(normalized, options);
+      }
+    });
   }
 
   enableSlots() {
@@ -2755,9 +3073,14 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
+    // Reset ambient swimmers when replaying a wave so the background loop restarts cleanly.
+    this.backgroundSwimmers = [];
+    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     this.currentWaveNumber = 1;
     this.maxWaveReached = 0;
 
@@ -3094,14 +3417,21 @@ export class SimplePlayfield {
   }
 
   getEnemyHitRadius(enemy = null, metrics = null) {
-    const width = Number.isFinite(this.renderWidth) ? this.renderWidth : 0;
-    const height = Number.isFinite(this.renderHeight) ? this.renderHeight : 0;
-    const baseRadius = Math.max(16, Math.min(width, height) * 0.05);
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const standardRadius = metersToPixels(STANDARD_ENEMY_RADIUS_METERS, minDimension);
+    const baseRadius = Math.max(12, standardRadius);
     if (!enemy || !metrics) {
       return baseRadius;
     }
     const { focusRadius = 0, ringRadius = 0 } = metrics;
     return Math.max(baseRadius, focusRadius || ringRadius || baseRadius);
+  }
+
+  // Standardize α/β/γ projectile hitboxes using a shared 0.3 m diameter circle.
+  getStandardShotHitRadius() {
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const radiusPixels = metersToPixels(STANDARD_SHOT_RADIUS_METERS, minDimension);
+    return Math.max(2, radiusPixels);
   }
 
   getTowerHoldScribbleText(tower) {
@@ -3114,7 +3444,7 @@ export class SimplePlayfield {
     }
     const nextCost = this.getCurrentTowerCost(nextId);
     const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
-    return `Upgrade · ${this.theroSymbol}${costLabel} · Swipe ↓ to demote`;
+    return `Swipe ↑ to upgrade (${this.theroSymbol}${costLabel}) · Swipe ↓ to demote`;
   }
 
   spawnTowerUpgradeCostScribble(tower, text = '') {
@@ -3309,9 +3639,14 @@ export class SimplePlayfield {
     this.towerHoldState.startClientX = event.clientX;
     this.towerHoldState.startClientY = event.clientY;
     this.towerHoldState.lastClientY = event.clientY;
+    this.towerHoldState.activationClientX = event.clientX;
+    this.towerHoldState.activationClientY = event.clientY;
     this.towerHoldState.pointerType = event.pointerType || 'mouse';
     this.towerHoldState.holdActivated = false;
     this.towerHoldState.actionTriggered = null;
+    this.towerHoldState.appliedSteps = 0;
+    const stepPixels = this.getPixelsForMeters(2);
+    this.towerHoldState.swipeStepPixels = Math.max(1, Number.isFinite(stepPixels) ? stepPixels : 1);
     this.towerHoldState.holdTimeoutId = setTimeout(
       () => this.activateTowerHoldGesture(),
       TOWER_HOLD_ACTIVATION_MS,
@@ -3332,9 +3667,7 @@ export class SimplePlayfield {
     state.holdActivated = true;
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
-    state.scribbleCleanup = null;
-    this.openTowerSelectionWheel(tower);
-    this.startTowerSelectionWheelDrag({ pointerId: state.pointerId, initialClientY: state.lastClientY });
+    state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
@@ -3369,10 +3702,29 @@ export class SimplePlayfield {
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
-    if (this.towerSelectionWheel?.container && state.towerId) {
+    const rawStepPixels = Number.isFinite(state.swipeStepPixels) ? state.swipeStepPixels : this.getPixelsForMeters(2);
+    const stepPixels = Math.max(1, Number.isFinite(rawStepPixels) ? rawStepPixels : 1);
+    const anchorY = Number.isFinite(state.activationClientY) ? state.activationClientY : state.startClientY;
+    const deltaY = event.clientY - anchorY;
+    const currentSteps = Math.trunc(deltaY / stepPixels);
+    const appliedSteps = Number.isFinite(state.appliedSteps) ? state.appliedSteps : 0;
+    const pendingSteps = currentSteps - appliedSteps;
+    if (pendingSteps !== 0 && state.towerId) {
       const tower = this.getTowerById(state.towerId);
-      if (tower) {
-        this.positionTowerSelectionWheel(tower);
+      const direction = pendingSteps > 0 ? 1 : -1;
+      const swipeVector = { x: state.activationClientX - state.startClientX, y: deltaY };
+      let remaining = Math.abs(pendingSteps);
+      while (remaining > 0 && tower) {
+        const applied =
+          direction > 0
+            ? this.commitTowerHoldDemotion({ swipeVector })
+            : this.commitTowerHoldUpgrade({ swipeVector });
+        if (!applied) {
+          state.appliedSteps = currentSteps;
+          break;
+        }
+        state.appliedSteps += direction;
+        remaining -= 1;
       }
     }
   }
@@ -3399,11 +3751,15 @@ export class SimplePlayfield {
     state.startClientX = 0;
     state.startClientY = 0;
     state.lastClientY = 0;
+    state.activationClientX = 0;
+    state.activationClientY = 0;
     state.holdTimeoutId = null;
     state.holdActivated = false;
     state.scribbleCleanup = null;
     state.actionTriggered = null;
     state.pointerType = null;
+    state.swipeStepPixels = 0;
+    state.appliedSteps = 0;
     if (!pointerId || this.viewPanLockPointerId === pointerId) {
       this.viewPanLockPointerId = null;
     }
@@ -4759,6 +5115,67 @@ export class SimplePlayfield {
     return true;
   }
 
+  /**
+   * Find a Voronoi/Delaunay cell at the given position.
+   */
+  findCellAt(position) {
+    if (!position) {
+      return null;
+    }
+    const mosaicManager = getCrystallineMosaicManager();
+    if (!mosaicManager) {
+      return null;
+    }
+    return mosaicManager.findCellAt(position);
+  }
+
+  /**
+   * Toggle focus on a Voronoi/Delaunay cell.
+   */
+  toggleCellFocus(cell) {
+    if (!cell) {
+      this.clearFocusedCell();
+      return;
+    }
+    if (this.focusedCellId === cell.id) {
+      this.clearFocusedCell();
+    } else {
+      this.setFocusedCell(cell);
+    }
+  }
+
+  /**
+   * Set focused cell.
+   */
+  setFocusedCell(cell) {
+    if (!cell) {
+      this.clearFocusedCell();
+      return;
+    }
+    this.focusedCellId = cell.id;
+  }
+
+  /**
+   * Clear focused cell.
+   */
+  clearFocusedCell() {
+    this.focusedCellId = null;
+  }
+
+  /**
+   * Get the currently focused cell.
+   */
+  getFocusedCell() {
+    if (!this.focusedCellId) {
+      return null;
+    }
+    const mosaicManager = getCrystallineMosaicManager();
+    if (!mosaicManager) {
+      return null;
+    }
+    return mosaicManager.getCellById(this.focusedCellId);
+  }
+
   renderEnemyTooltip(enemy) {
     if (!this.enemyTooltip || !this.pointerPosition) {
       this.clearEnemyHover();
@@ -5008,7 +5425,9 @@ export class SimplePlayfield {
       return false;
     }
 
-    if (!this.availableTowers.includes(selectedType)) {
+    // Allow autoAnchors with explicit tower types to bypass loadout restrictions
+    const isAutoAnchorPlacement = towerType && options.silent;
+    if (!isAutoAnchorPlacement && !this.availableTowers.includes(selectedType)) {
       if (this.messageEl && !silent) {
         this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
       }
@@ -5886,17 +6305,31 @@ export class SimplePlayfield {
         return;
       }
       const particles = tower.connectionParticles.filter((particle) => particle && particle.state !== 'done');
+      const newSwarmParticles = [];
       particles.forEach((particle) => {
         if (particle.state === 'launch') {
           this.updateConnectionLaunchParticle(particle, step);
+          // Check if particle just hit and needs to create a swarm cloud
+          if (particle.justHit && particle.state === 'swarm') {
+            particle.justHit = false;
+            newSwarmParticles.push(particle);
+          }
           return;
         }
         if (particle.state === 'arrive') {
           this.updateConnectionArriveParticle(tower, particle, step);
           return;
         }
+        if (particle.state === 'swarm') {
+          this.updateConnectionSwarmParticle(particle, step);
+          return;
+        }
         this.updateConnectionOrbitParticle(particle, step);
       });
+      // Process newly swarming particles to create/update swarm clouds
+      if (newSwarmParticles.length > 0) {
+        this.processSwarmParticleHits(tower, newSwarmParticles);
+      }
       tower.connectionParticles = particles.filter((particle) => particle && particle.state !== 'done');
     });
 
@@ -6058,15 +6491,157 @@ export class SimplePlayfield {
     const progress = duration > 0 ? Math.min(1, particle.launchTime / duration) : 1;
     const eased = easeInCubic(progress);
     const start = particle.launchStart || particle.position || { x: 0, y: 0 };
-    const target = particle.targetPosition || start;
+    
+    // Track the enemy if we have a target enemy ID
+    let target = particle.targetPosition || start;
+    if (particle.targetEnemyId) {
+      const targetEnemy = this.enemies.find((enemy) => enemy && enemy.id === particle.targetEnemyId);
+      if (targetEnemy) {
+        // Update target position to enemy's current position
+        const enemyPos = this.getEnemyPosition(targetEnemy);
+        if (enemyPos) {
+          target = enemyPos;
+          particle.targetPosition = { ...enemyPos };
+        }
+      }
+    }
+    
     particle.position = {
       x: start.x + (target.x - start.x) * eased,
       y: start.y + (target.y - start.y) * eased,
     };
     particle.pulse = (particle.pulse || 0) + step * 1.5;
     if (progress >= 1) {
-      particle.state = 'done';
+      // When particle completes its launch, transition to swarm state
+      particle.state = 'swarm';
+      particle.swarmTime = 0;
+      particle.swarmCenter = { ...target };
+      particle.swarmAngle = Math.random() * Math.PI * 2;
+      particle.swarmSpeed = 2 + Math.random() * 1.5;
+      particle.swarmRadius = 8 + Math.random() * 12;
+      // Mark for swarm cloud creation (handled by tower update logic)
+      particle.justHit = true;
     }
+  }
+
+  /**
+   * Update connection particle in swarm state, circling around impact point before dissipating.
+   */
+  updateConnectionSwarmParticle(particle, step) {
+    if (!particle || particle.state !== 'swarm') {
+      return;
+    }
+    particle.swarmTime = (particle.swarmTime || 0) + step;
+    const swarmDuration = Number.isFinite(particle.swarmDuration) ? particle.swarmDuration : 1.2;
+    const fadeDuration = Number.isFinite(particle.fadeDuration) ? particle.fadeDuration : SWARM_PARTICLE_FADE_DURATION;
+    const totalDuration = swarmDuration + fadeDuration;
+    
+    if (particle.swarmTime >= totalDuration) {
+      particle.state = 'done';
+      return;
+    }
+    
+    const center = particle.swarmCenter || { x: 0, y: 0 };
+    const angle = (particle.swarmAngle || 0) + (particle.swarmSpeed || 2) * particle.swarmTime;
+    const radius = particle.swarmRadius || 10;
+    
+    // During swarm phase, circle around the impact point
+    if (particle.swarmTime < swarmDuration) {
+      particle.position = {
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
+      };
+      particle.opacity = 0.85;
+    } else {
+      // During fade phase, spread outward and fade
+      const fadeProgress = (particle.swarmTime - swarmDuration) / fadeDuration;
+      const spreadDistance = SWARM_PARTICLE_SPREAD_SPEED * (particle.swarmTime - swarmDuration);
+      particle.position = {
+        x: center.x + Math.cos(angle) * (radius + spreadDistance),
+        y: center.y + Math.sin(angle) * (radius + spreadDistance),
+      };
+      particle.opacity = Math.max(0, 0.85 * (1 - fadeProgress));
+    }
+    
+    particle.pulse = (particle.pulse || 0) + step;
+  }
+
+  /**
+   * Process particles that just hit enemies to create/update swarm clouds.
+   */
+  processSwarmParticleHits(tower, particles) {
+    if (!tower || !Array.isArray(particles) || particles.length === 0) {
+      return;
+    }
+    
+    // Group particles by their swarm center (impact location)
+    const impactGroups = new Map();
+    particles.forEach((particle) => {
+      if (!particle.swarmCenter) {
+        return;
+      }
+      const key = `${Math.round(particle.swarmCenter.x)}_${Math.round(particle.swarmCenter.y)}`;
+      if (!impactGroups.has(key)) {
+        impactGroups.set(key, { center: particle.swarmCenter, particles: [], types: {} });
+      }
+      const group = impactGroups.get(key);
+      group.particles.push(particle);
+      group.types[particle.type] = (group.types[particle.type] || 0) + 1;
+    });
+    
+    // Create or update swarm clouds for each impact location
+    impactGroups.forEach((group) => {
+      const alphaCount = group.types.alpha || 0;
+      const betaCount = group.types.beta || 0;
+      const totalShots = alphaCount + betaCount;
+      
+      if (totalShots === 0) {
+        return;
+      }
+      
+      // Calculate swarm duration based on shot count
+      const swarmDuration = SWARM_CLOUD_BASE_DURATION + totalShots * SWARM_CLOUD_DURATION_PER_SHOT;
+      
+      // Update particle durations to match cloud duration
+      group.particles.forEach((particle) => {
+        particle.swarmDuration = swarmDuration;
+      });
+      
+      // Find or create swarm cloud
+      const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+      const cloudRadius = metersToPixels(SWARM_CLOUD_RADIUS_METERS, minDimension);
+      
+      this.swarmClouds.push({
+        position: { ...group.center },
+        radius: cloudRadius,
+        alphaCount,
+        betaCount,
+        totalShots,
+        duration: swarmDuration,
+        lifetime: 0,
+        towerId: tower.id,
+        damage: tower.damage || 0,
+        hitEnemies: new Set(),
+      });
+      
+      // Apply immediate stun to any enemy at the impact location
+      const stunDuration = alphaCount * ALPHA_STORED_SHOT_STUN_DURATION + betaCount * BETA_STORED_SHOT_STUN_DURATION;
+      if (stunDuration > 0) {
+        this.enemies.forEach((enemy) => {
+          if (!enemy) {
+            return;
+          }
+          const enemyPos = this.getEnemyPosition(enemy);
+          if (!enemyPos) {
+            return;
+          }
+          const distance = Math.hypot(enemyPos.x - group.center.x, enemyPos.y - group.center.y);
+          if (distance <= cloudRadius) {
+            this.applyStunEffect(enemy, stunDuration, `swarm_${tower.id}`);
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -6128,7 +6703,7 @@ export class SimplePlayfield {
   /**
    * Trigger any queued swirl launches toward the resolved attack position.
    */
-  triggerQueuedSwirlLaunches(tower, targetPosition) {
+  triggerQueuedSwirlLaunches(tower, targetPosition, targetEnemy = null) {
     if (!tower || !Array.isArray(tower.pendingSwirlLaunches) || !tower.pendingSwirlLaunches.length) {
       return;
     }
@@ -6136,14 +6711,14 @@ export class SimplePlayfield {
       tower.pendingSwirlLaunches = [];
       return;
     }
-    this.launchTowerConnectionParticles(tower, tower.pendingSwirlLaunches, targetPosition);
+    this.launchTowerConnectionParticles(tower, tower.pendingSwirlLaunches, targetPosition, targetEnemy);
     tower.pendingSwirlLaunches = [];
   }
 
   /**
    * Convert orbiting motes into travelling bursts aimed at the provided target.
    */
-  launchTowerConnectionParticles(tower, entries, targetPosition) {
+  launchTowerConnectionParticles(tower, entries, targetPosition, targetEnemy = null) {
     if (!tower || !Array.isArray(tower.connectionParticles) || !Array.isArray(entries) || !targetPosition) {
       return;
     }
@@ -6171,6 +6746,7 @@ export class SimplePlayfield {
           particle.launchStart = startPosition;
           particle.position = { ...startPosition };
           particle.targetPosition = { ...targetPosition };
+          particle.targetEnemyId = targetEnemy ? targetEnemy.id : null;
           particle.launchTime = 0;
           particle.launchDuration = 0.28 + Math.random() * 0.14;
           remaining -= 1;
@@ -6318,6 +6894,76 @@ export class SimplePlayfield {
   }
 
   /**
+   * Update swarm clouds that persist after stored shots hit enemies.
+   */
+  updateSwarmClouds(delta) {
+    if (!Array.isArray(this.swarmClouds) || this.swarmClouds.length === 0) {
+      return;
+    }
+    
+    const step = Math.max(0, delta);
+    const survivors = [];
+    
+    this.swarmClouds.forEach((cloud) => {
+      if (!cloud) {
+        return;
+      }
+      
+      cloud.lifetime = (cloud.lifetime || 0) + step;
+      
+      // Remove expired clouds
+      if (cloud.lifetime >= cloud.duration) {
+        return;
+      }
+      
+      // Check for enemies entering the cloud
+      this.enemies.forEach((enemy) => {
+        if (!enemy) {
+          return;
+        }
+        
+        // Skip enemies we've already hit
+        if (cloud.hitEnemies.has(enemy.id)) {
+          return;
+        }
+        
+        const enemyPos = this.getEnemyPosition(enemy);
+        if (!enemyPos) {
+          return;
+        }
+        
+        const distance = Math.hypot(enemyPos.x - cloud.position.x, enemyPos.y - cloud.position.y);
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+        
+        // Check if enemy is within cloud radius
+        if (distance <= cloud.radius + enemyRadius) {
+          // Apply damage (scaled by shot count)
+          const damagePerShot = cloud.damage || 0;
+          const totalDamage = damagePerShot * SWARM_CLOUD_DAMAGE_MULTIPLIER;
+          
+          const tower = this.towers.find((t) => t && t.id === cloud.towerId);
+          this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower });
+          
+          // Apply stun based on shot types
+          const stunDuration = cloud.alphaCount * ALPHA_STORED_SHOT_STUN_DURATION + 
+                               cloud.betaCount * BETA_STORED_SHOT_STUN_DURATION;
+          if (stunDuration > 0) {
+            this.applyStunEffect(enemy, stunDuration, `swarm_${cloud.towerId}`);
+          }
+          
+          // Mark this enemy as hit by this cloud
+          cloud.hitEnemies.add(enemy.id);
+        }
+      });
+      
+      survivors.push(cloud);
+    });
+    
+    this.swarmClouds = survivors;
+  }
+
+  /**
    * Initialize a connection link effect between two lattices.
    */
   createConnectionEffect(source, target) {
@@ -6374,6 +7020,12 @@ export class SimplePlayfield {
       if (clearance < pathBuffer) {
         return { valid: false, reason: 'Maintain clearance from the glyph lane.', position };
       }
+    }
+
+    // Check for Voronoi/Delaunay cell overlap
+    const cellAtPosition = this.findCellAt(position);
+    if (cellAtPosition && !cellAtPosition.isDestroyed) {
+      return { valid: false, reason: 'Cannot place tower on crystalline formation.', position };
     }
 
     return { valid: true, position };
@@ -6585,7 +7237,10 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
+    this.gammaStarBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
     this.lives = this.levelConfig.lives;
     this.markWaveStart();
@@ -6800,6 +7455,140 @@ export class SimplePlayfield {
       return '—';
     }
     return `${Math.max(0, speed).toFixed(3)} path/s`;
+  }
+
+  updateBackgroundSwimmers(delta) {
+    if (!Array.isArray(this.backgroundSwimmers) || !this.backgroundSwimmers.length || !this.levelConfig) {
+      return;
+    }
+
+    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+    if (!width || !height) {
+      return;
+    }
+
+    // Tune swimmer motion so they meander slowly but never stall out.
+    const dt = Math.max(0, Math.min(delta, 0.05));
+    const minDimension = Math.min(width, height);
+    const speedFloor = Math.max(6, minDimension * 0.012);
+    const speedCap = minDimension * 0.38;
+    const wanderStrength = minDimension * 0.22;
+    const towerInfluence = minDimension * 0.24;
+    const projectileInfluence = minDimension * 0.16;
+    const currentWidth = minDimension * 0.18;
+    const damping = dt > 0 ? Math.exp(-dt * 0.8) : 1;
+    const blend = dt > 0 ? 1 - Math.exp(-dt * 4.5) : 1;
+
+    const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
+    const projectilePositions = this.projectiles
+      .map((projectile) => {
+        if (projectile?.currentPosition?.x !== undefined && projectile?.currentPosition?.y !== undefined) {
+          return projectile.currentPosition;
+        }
+        if (projectile?.position?.x !== undefined && projectile?.position?.y !== undefined) {
+          return projectile.position;
+        }
+        if (projectile?.x !== undefined && projectile?.y !== undefined) {
+          return { x: projectile.x, y: projectile.y };
+        }
+        if (projectile?.source && projectile?.target && Number.isFinite(projectile?.progress)) {
+          const ratio = Math.max(0, Math.min(1, projectile.progress));
+          const x = projectile.source.x + (projectile.target.x - projectile.source.x) * ratio;
+          const y = projectile.source.y + (projectile.target.y - projectile.source.y) * ratio;
+          return { x, y };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    this.backgroundSwimmers.forEach((swimmer) => {
+      // Keep the motion lively by applying a small random wander every frame.
+      swimmer.ax = (Math.random() - 0.5) * wanderStrength;
+      swimmer.ay = (Math.random() - 0.5) * wanderStrength;
+
+      let closestDistance = Infinity;
+      let flowDirection = null;
+      // Let nearby track lanes act like a current that nudges motes forward.
+      this.pathSegments.forEach((segment) => {
+        const projection = this.projectPointOntoSegment(swimmer, segment.start, segment.end);
+        const dx = projection.point.x - swimmer.x;
+        const dy = projection.point.y - swimmer.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          const length = Math.hypot(segment.end.x - segment.start.x, segment.end.y - segment.start.y) || 1;
+          flowDirection = {
+            x: (segment.end.x - segment.start.x) / length,
+            y: (segment.end.y - segment.start.y) / length,
+          };
+        }
+      });
+
+      if (flowDirection && closestDistance < currentWidth) {
+        const influence = 1 - closestDistance / currentWidth;
+        const push = speedFloor * 2.2 * influence;
+        swimmer.ax += flowDirection.x * push;
+        swimmer.ay += flowDirection.y * push;
+      }
+
+      towerPositions.forEach((towerPosition) => {
+        const dx = swimmer.x - towerPosition.x;
+        const dy = swimmer.y - towerPosition.y;
+        const distance = Math.hypot(dx, dy);
+        if (!distance || distance >= towerInfluence) {
+          return;
+        }
+        const proximity = 1 - distance / towerInfluence;
+        const force = speedFloor * 3.8 * proximity;
+        swimmer.ax += (dx / distance) * force;
+        swimmer.ay += (dy / distance) * force;
+      });
+
+      projectilePositions.forEach((projectilePosition) => {
+        const dx = swimmer.x - projectilePosition.x;
+        const dy = swimmer.y - projectilePosition.y;
+        const distance = Math.hypot(dx, dy);
+        if (!distance || distance >= projectileInfluence) {
+          return;
+        }
+        const proximity = 1 - distance / projectileInfluence;
+        const force = speedFloor * 2.4 * proximity;
+        swimmer.ax += (dx / distance) * force;
+        swimmer.ay += (dy / distance) * force;
+      });
+
+      swimmer.vx = ((Number.isFinite(swimmer.vx) ? swimmer.vx : 0) + swimmer.ax * dt) * damping;
+      swimmer.vy = ((Number.isFinite(swimmer.vy) ? swimmer.vy : 0) + swimmer.ay * dt) * damping;
+
+      const speed = Math.hypot(swimmer.vx, swimmer.vy);
+      if (speed > speedCap) {
+        const scale = speedCap / speed;
+        swimmer.vx *= scale;
+        swimmer.vy *= scale;
+      } else if (speed < speedFloor) {
+        const nudgeAngle = Math.random() * Math.PI * 2;
+        swimmer.vx = Math.cos(nudgeAngle) * speedFloor * 0.65 + swimmer.vx * blend;
+        swimmer.vy = Math.sin(nudgeAngle) * speedFloor * 0.65 + swimmer.vy * blend;
+      }
+
+      swimmer.x += swimmer.vx * dt;
+      swimmer.y += swimmer.vy * dt;
+
+      const softMargin = Math.min(width, height) * 0.02;
+      if (swimmer.x < softMargin || swimmer.x > width - softMargin) {
+        swimmer.vx *= -0.6;
+        swimmer.x = Math.min(width - softMargin, Math.max(softMargin, swimmer.x));
+      }
+      if (swimmer.y < softMargin || swimmer.y > height - softMargin) {
+        swimmer.vy *= -0.6;
+        swimmer.y = Math.min(height - softMargin, Math.max(softMargin, swimmer.y));
+      }
+
+      // Advance the flicker timer so the renderer can breathe subtle brightness pulses.
+      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
+      swimmer.flicker += dt * 1.2;
+    });
   }
 
   updateFloaters(delta) {
@@ -7076,15 +7865,24 @@ export class SimplePlayfield {
     // Measure passive ambient effects (particles, floaters, connections) as a single bucket.
     const finishAmbientSegment = beginPerformanceSegment('update:ambient');
     try {
+      // Update crystalline background mosaic
+      const mosaicManager = getCrystallineMosaicManager();
+      if (mosaicManager) {
+        mosaicManager.update(speedDelta * 1000); // Convert to milliseconds for animation
+      }
+      // Drift ambient swimmers before the wider floater network updates.
+      this.updateBackgroundSwimmers(speedDelta);
       this.updateFloaters(speedDelta);
       this.updateTrackRiverParticles(speedDelta);
       this.updateFocusIndicator(speedDelta);
       this.updateAlphaBursts(speedDelta);
       this.updateBetaBursts(speedDelta);
       this.updateGammaBursts(speedDelta);
+      this.updateGammaStarBursts(speedDelta);
       this.updateNuBursts(speedDelta);
       this.updateCrystals(speedDelta);
       this.updateConnectionParticles(speedDelta);
+      this.updateSwarmClouds(speedDelta);
       this.updateTowerGlyphTransitions(speedDelta);
       this.updateDamageNumbers(speedDelta);
       // Advance collapse shards so fallen enemies leave a brief, graceful trail.
@@ -7102,11 +7900,29 @@ export class SimplePlayfield {
       this.arcOffset += wrapDistance;
     }
 
-    if (!this.combatActive) {
-      // Keep unique tower behaviors alive even while waves are paused.
-      // Keep a tower bucket active even when waves are paused so idle behaviors are tracked.
-      const finishMaintenanceSegment = beginPerformanceSegment('update:towers');
+    // Update enemies and spawn logic only while combat is active
+    if (this.combatActive) {
+      this.waveTimer += speedDelta;
+      // Group enemy spawning and marching updates to weigh pathfinding cost.
+      const finishEnemySegment = beginPerformanceSegment('update:enemies');
       try {
+        this.spawnEnemies();
+        this.updateEnemies(speedDelta);
+        this.updateChiThralls(speedDelta);
+        this.updateChiLightTrails(speedDelta);
+      } finally {
+        finishEnemySegment();
+      }
+    }
+
+    // Keep unique tower behaviors alive even while waves are paused or after victory.
+    // Keep a tower bucket active so idle behaviors and maintenance are tracked.
+    const finishTowerSegment = beginPerformanceSegment('update:towers');
+    try {
+      if (this.combatActive) {
+        this.updateTowers(speedDelta);
+      } else {
+        // When combat is paused or finished, only update towers with special maintenance needs
         this.towers.forEach((tower) => {
           if (tower.type === 'zeta') {
             this.updateZetaTower(tower, speedDelta);
@@ -7126,36 +7942,7 @@ export class SimplePlayfield {
           tower.cooldown = Math.max(0, tower.cooldown - speedDelta);
           this.updateDeltaTower(tower, speedDelta);
         });
-      } finally {
-        finishMaintenanceSegment();
       }
-      // Record HUD/progress refresh time for the paused state separately.
-      const finishHudSegment = beginPerformanceSegment('update:hud');
-      try {
-        this.updateHud();
-        this.updateProgress();
-      } finally {
-        finishHudSegment();
-      }
-      return;
-    }
-
-    this.waveTimer += speedDelta;
-    // Group enemy spawning and marching updates to weigh pathfinding cost.
-    const finishEnemySegment = beginPerformanceSegment('update:enemies');
-    try {
-      this.spawnEnemies();
-      this.updateEnemies(speedDelta);
-      this.updateChiThralls(speedDelta);
-      this.updateChiLightTrails(speedDelta);
-    } finally {
-      finishEnemySegment();
-    }
-
-    // Track the live tower loop while combat is active.
-    const finishTowerSegment = beginPerformanceSegment('update:towers');
-    try {
-      this.updateTowers(speedDelta);
     } finally {
       finishTowerSegment();
     }
@@ -7424,6 +8211,7 @@ export class SimplePlayfield {
       if (spawningBoss) {
         enemy.isBoss = true;
       }
+      assignRandomShell(enemy);
       this.enemies.push(enemy);
       this.activeWave.spawned += 1;
       this.activeWave.nextSpawn += interval;
@@ -7641,6 +8429,95 @@ export class SimplePlayfield {
    */
   updateGammaBursts(delta) {
     updateGammaBurstsHelper(this, delta);
+  }
+
+  /**
+   * Update gamma star burst effects on enemies that were hit by gamma projectiles.
+   */
+  updateGammaStarBursts(delta) {
+    if (!Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
+      return;
+    }
+    
+    const sequence = GAMMA_STAR_SEQUENCE;
+    
+    for (let i = this.gammaStarBursts.length - 1; i >= 0; i--) {
+      const burst = this.gammaStarBursts[i];
+      burst.lifetime = (burst.lifetime || 0) + delta;
+      burst.starElapsed = (burst.starElapsed || 0) + delta;
+      
+      // Remove if lifetime exceeded
+      if (burst.lifetime >= burst.maxLifetime) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      // Update center to track enemy if it still exists
+      const enemy = this.enemies.find(e => e && e.id === burst.enemyId);
+      if (enemy) {
+        const enemyPos = this.getEnemyPosition(enemy);
+        if (enemyPos) {
+          burst.center = { ...enemyPos };
+        }
+      }
+      
+      // Update star tracing animation
+      const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
+      const atEndOfSequence = edgeIndex >= sequence.length - 1;
+      
+      if (atEndOfSequence && burst.burstDuration <= 0) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      if (atEndOfSequence && burst.burstDuration > 0 && burst.starElapsed >= burst.burstDuration) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      if (atEndOfSequence && burst.burstDuration > 0) {
+        burst.starEdgeIndex = 0;
+        burst.starEdgeProgress = 0;
+        continue;
+      }
+      
+      // Calculate star edge distance and progress
+      const radius = burst.starRadius || 22;
+      const angles = [];
+      for (let step = 0; step < 5; step += 1) {
+        angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+      }
+      const starPoints = angles.map((angle) => ({
+        x: burst.center.x + Math.cos(angle) * radius,
+        y: burst.center.y + Math.sin(angle) * radius,
+      }));
+      
+      const fromIndex = sequence[edgeIndex];
+      const toIndex = sequence[edgeIndex + 1];
+      const fromPoint = starPoints[fromIndex];
+      const toPoint = starPoints[toIndex];
+      
+      if (!fromPoint || !toPoint) {
+        this.gammaStarBursts.splice(i, 1);
+        continue;
+      }
+      
+      const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
+      const starSpeed = burst.starSpeed || GAMMA_STAR_SPEED;
+      const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
+      const progress = Math.min(1, (burst.starEdgeProgress || 0) + delta / edgeDuration);
+      
+      burst.currentPosition = {
+        x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
+        y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
+      };
+      burst.starEdgeProgress = progress;
+      
+      if (progress >= 1) {
+        burst.starEdgeIndex = edgeIndex + 1;
+        burst.starEdgeProgress = 0;
+      }
+    }
   }
 
   /**
@@ -8094,6 +8971,15 @@ export class SimplePlayfield {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
+    
+    // Check if enemy is in a tunnel - if so, they cannot take damage
+    const tunnelState = this.getEnemyTunnelState(enemy);
+    if (tunnelState.inTunnel) {
+      // Enemy is in a tunnel, show "Miss" instead of damage
+      this.spawnMissText(enemy);
+      return 0;
+    }
+    
     const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
     const applied = mitigatedBase * multiplier;
@@ -8134,35 +9020,225 @@ export class SimplePlayfield {
     return applied;
   }
 
+  // Helper to create a damage projectile with travel time for towers that use particle bursts
+  createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    if (!Number.isFinite(baseTravelSpeed) || baseTravelSpeed <= 0) {
+      baseTravelSpeed = 300; // Default fallback speed
+    }
+    const sourcePosition = { x: tower.x, y: tower.y };
+    const targetPosition = effectPosition || sourcePosition;
+    const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
+    const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
+    const maxLifetime = Math.max(0.24, travelTime);
+    this.projectiles.push({
+      source: sourcePosition,
+      targetId: enemy.id,
+      target: targetPosition,
+      lifetime: 0,
+      maxLifetime,
+      travelTime,
+      damage: resolvedDamage,
+      towerId: tower.id,
+      hitRadius: this.getStandardShotHitRadius(),
+    });
+  }
+
+  // Alternate β triangle shots so successive returns mirror across the firing line.
+  resolveNextBetaTriangleOrientation(tower) {
+    if (!tower) {
+      return 1;
+    }
+    const lastOrientation = Number.isFinite(tower.nextBetaTriangleOrientation)
+      ? tower.nextBetaTriangleOrientation
+      : 1;
+    const orientation = lastOrientation === -1 ? -1 : 1;
+    tower.nextBetaTriangleOrientation = orientation * -1;
+    return orientation;
+  }
+
+  // Apply the β slow formula while a triangle bolt is attached to an enemy.
+  applyBetaStickSlow(enemy, tower, glyphRank = 0) {
+    if (!enemy || !tower) {
+      return;
+    }
+    const bet1 = Math.max(0, Number.isFinite(glyphRank) ? glyphRank : 0);
+    const slowPercent = Math.min(60, 20 + 2 * bet1);
+    const multiplier = Math.max(0, 1 - slowPercent / 100);
+    const slwTime = computeTowerVariableValue('beta', 'slwTime');
+    const slowDurationSeconds = Number.isFinite(slwTime)
+      ? Math.max(0, slwTime)
+      : BETA_SLOW_DURATION_SECONDS;
+    const expiresAt =
+      (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now()) /
+      1000 +
+      slowDurationSeconds;
+    if (!(enemy.slowEffects instanceof Map)) {
+      enemy.slowEffects = new Map();
+    }
+    enemy.slowEffects.set(tower.id, {
+      type: 'beta',
+      multiplier,
+      slowPercent,
+      expiresAt,
+    });
+  }
+
+  // Spawn a β projectile that sticks to enemies, applies slow ticks, and traces a returning triangle.
+  spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage, triangleOrientation = 1) {
+    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    const attackValue = computeTowerVariableValue('beta', 'attack');
+    const alphaValue = Math.max(1e-6, calculateTowerEquationResult('alpha'));
+    const bet1 = Math.max(0, attackValue / alphaValue);
+    this.projectiles.push({
+      patternType: 'betaTriangle',
+      towerId: tower.id,
+      damage: resolvedDamage,
+      position: { x: tower.x, y: tower.y },
+      previousPosition: { x: tower.x, y: tower.y },
+      origin: { x: tower.x, y: tower.y },
+      targetId: enemy.id,
+      targetPosition: effectPosition || { x: tower.x, y: tower.y },
+      hitRadius: this.getStandardShotHitRadius(),
+      speed: BETA_TRIANGLE_SPEED,
+      phase: 'seek',
+      bet1,
+      lifetime: 0,
+      maxLifetime: 10,
+      triangleOrientation: Number.isFinite(triangleOrientation)
+        ? Math.sign(triangleOrientation) || 1
+        : 1,
+    });
+  }
+
+  // Spawn a γ projectile that shoots straight to the screen edge, piercing all enemies and spawning star bursts on each hit.
+  spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage) {
+    if (!tower || !resolvedDamage || resolvedDamage <= 0) {
+      return;
+    }
+    
+    // Calculate direction from tower to target (or enemy position if available)
+    const targetPos = effectPosition || (enemy ? this.getEnemyPosition(enemy) : null);
+    if (!targetPos) {
+      return;
+    }
+    
+    const dx = targetPos.x - tower.x;
+    const dy = targetPos.y - tower.y;
+    const distance = Math.hypot(dx, dy);
+    
+    if (distance < 0.1) {
+      return; // No valid direction
+    }
+    
+    // Calculate direction vector
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+    
+    // Calculate screen edge position in this direction
+    const renderWidth = this.renderWidth || 800;
+    const renderHeight = this.renderHeight || 600;
+    
+    // Find intersection with screen edges
+    let endX, endY;
+    const tX = dirX > 0 ? (renderWidth - tower.x) / dirX : (0 - tower.x) / dirX;
+    const tY = dirY > 0 ? (renderHeight - tower.y) / dirY : (0 - tower.y) / dirY;
+    const t = Math.min(Math.abs(tX), Math.abs(tY));
+    
+    endX = tower.x + dirX * t;
+    endY = tower.y + dirY * t;
+    
+    // Allow the pentagram orbit to persist based on the Brst glyph allocation.
+    const burstDuration = Math.max(0, computeTowerVariableValue('gamma', 'brst'));
+    const beamLength = Math.hypot(endX - tower.x, endY - tower.y);
+    const travelTime = beamLength / GAMMA_OUTBOUND_SPEED;
+    const maxLifetime = Math.max(travelTime + 1, burstDuration + travelTime + 1);
+    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
+    const starRadius = metersToPixels(GAMMA_STAR_RADIUS_METERS, minDimension);
+    
+    this.projectiles.push({
+      patternType: 'gammaStar',
+      towerId: tower.id,
+      damage: resolvedDamage,
+      position: { x: tower.x, y: tower.y },
+      previousPosition: { x: tower.x, y: tower.y },
+      origin: { x: tower.x, y: tower.y },
+      targetPosition: { x: endX, y: endY },
+      direction: { x: dirX, y: dirY },
+      hitRadius: this.getStandardShotHitRadius(),
+      outboundSpeed: GAMMA_OUTBOUND_SPEED,
+      starSpeed: GAMMA_STAR_SPEED,
+      starRadius: Math.max(12, starRadius),
+      starBurstDuration: burstDuration,
+      phase: 'outbound',
+      hitEnemies: new Set(), // Track all enemies hit for piercing
+      enemyBursts: new Map(), // Track star burst state for each enemy hit
+      maxLifetime,
+    });
+  }
+
   emitTowerAttackVisuals(tower, targetInfo = {}) {
     if (!tower) {
       return;
     }
     const enemy = targetInfo.enemy || null;
     const crystal = targetInfo.crystal || null;
+    const resolvedDamage = Number.isFinite(targetInfo.damage) ? Math.max(0, targetInfo.damage) : 0;
     const effectPosition =
       targetInfo.position ||
       (enemy ? this.getEnemyPosition(enemy) : crystal ? this.getCrystalPosition(crystal) : null);
     if (tower.type === 'alpha') {
       this.spawnAlphaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Create a projectile for damage application when particles reach target
+      this.createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, 300);
     } else if (tower.type === 'beta') {
-      this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Keep visuals and hitbox traversal aligned while alternating the return side.
+      const triangleOrientation = this.resolveNextBetaTriangleOrientation(tower);
+      const betaOptions = enemy
+        ? { enemyId: enemy.id, triangleOrientation }
+        : { triangleOrientation };
+      this.spawnBetaAttackBurst(tower, { enemy, position: effectPosition }, betaOptions);
+      // Launch a sticky triangle projectile that slows, multi-hits, and returns to the tower.
+      this.spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage, triangleOrientation);
     } else if (tower.type === 'gamma') {
       this.spawnGammaAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
+      // Launch a piercing pentagram projectile that multi-hits on a return arc.
+      this.spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage);
     } else if (tower.type === 'nu') {
       this.spawnNuAttackBurst(tower, { enemy, position: effectPosition }, enemy ? { enemyId: enemy.id } : {});
     } else {
+      const sourcePosition = { x: tower.x, y: tower.y };
+      const targetPosition = effectPosition || sourcePosition;
+      const hasPendingHit = enemy && resolvedDamage > 0;
+      // Track a simple projectile travel time so damage is applied on impact instead of immediately on firing.
+      const baseTravelSpeed = 520;
+      const travelDistance = hasPendingHit
+        ? Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y)
+        : 0;
+      const travelTime = hasPendingHit ? Math.max(0.08, travelDistance / baseTravelSpeed) : 0;
+      const maxLifetime = hasPendingHit ? Math.max(0.24, travelTime) : 0.24;
+
       this.projectiles.push({
-        source: { x: tower.x, y: tower.y },
+        source: sourcePosition,
         targetId: enemy ? enemy.id : null,
         targetCrystalId: crystal ? crystal.id : null,
-        target: effectPosition,
+        target: targetPosition,
         lifetime: 0,
-        maxLifetime: 0.24,
+        maxLifetime,
+        travelTime,
+        damage: hasPendingHit ? resolvedDamage : 0,
+        towerId: tower.id,
+        hitRadius: this.getStandardShotHitRadius(),
       });
     }
     if ((tower.type === 'beta' || tower.type === 'gamma' || tower.type === 'nu')) {
-      this.triggerQueuedSwirlLaunches(tower, effectPosition);
+      this.triggerQueuedSwirlLaunches(tower, effectPosition, enemy);
     }
     if (getTowerTierValue(tower) >= 24) {
       this.spawnOmegaWave(tower);
@@ -8252,8 +9328,7 @@ export class SimplePlayfield {
       this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
       return;
     }
-    this.applyDamageToEnemy(enemy, damage, { sourceTower: tower });
-    this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition });
+    this.emitTowerAttackVisuals(tower, { enemy, position: attackPosition, damage });
   }
 
   /**
@@ -8317,12 +9392,21 @@ export class SimplePlayfield {
     if (!enemy) {
       return 1;
     }
+    const nowSeconds =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now() / 1000
+        : Date.now() / 1000;
     const slowEffects = enemy.slowEffects;
     if (slowEffects instanceof Map) {
       let multiplier = 1;
       const stale = [];
       slowEffects.forEach((effect, key) => {
         if (!effect || !Number.isFinite(effect.multiplier)) {
+          stale.push(key);
+          return;
+        }
+        const expired = Number.isFinite(effect.expiresAt) && effect.expiresAt <= nowSeconds;
+        if (expired) {
           stale.push(key);
           return;
         }
@@ -8342,6 +9426,11 @@ export class SimplePlayfield {
     Object.keys(slowEffects).forEach((key) => {
       const effect = slowEffects[key];
       if (!effect || !Number.isFinite(effect.multiplier)) {
+        delete slowEffects[key];
+        return;
+      }
+      const expired = Number.isFinite(effect.expiresAt) && effect.expiresAt <= nowSeconds;
+      if (expired) {
         delete slowEffects[key];
         return;
       }
@@ -8395,6 +9484,68 @@ export class SimplePlayfield {
     this.syncEnemyDebuffIndicators(enemy, this.resolveActiveDebuffTypes(enemy));
   }
 
+  // Apply stun effect to an enemy from stored shots
+  applyStunEffect(enemy, duration, sourceId = 'stored_shots') {
+    if (!enemy || !Number.isFinite(duration) || duration <= 0) {
+      return;
+    }
+    const nowSeconds = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) / 1000;
+    const expiresAt = nowSeconds + duration;
+    if (!(enemy.stunEffects instanceof Map)) {
+      enemy.stunEffects = new Map();
+    }
+    const existing = enemy.stunEffects.get(sourceId);
+    // Extend the stun duration if we're already stunned
+    if (existing && Number.isFinite(existing.expiresAt)) {
+      enemy.stunEffects.set(sourceId, {
+        expiresAt: Math.max(existing.expiresAt, expiresAt),
+      });
+    } else {
+      enemy.stunEffects.set(sourceId, { expiresAt });
+    }
+  }
+
+  // Check if enemy is stunned and return the stun status
+  isEnemyStunned(enemy) {
+    if (!enemy || !(enemy.stunEffects instanceof Map)) {
+      return false;
+    }
+    const nowSeconds = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) / 1000;
+    const stale = [];
+    let isStunned = false;
+    enemy.stunEffects.forEach((effect, key) => {
+      if (!effect || !Number.isFinite(effect.expiresAt)) {
+        stale.push(key);
+        return;
+      }
+      if (effect.expiresAt <= nowSeconds) {
+        stale.push(key);
+        return;
+      }
+      isStunned = true;
+    });
+    stale.forEach((key) => enemy.stunEffects.delete(key));
+    if (enemy.stunEffects.size === 0) {
+      delete enemy.stunEffects;
+    }
+    return isStunned;
+  }
+
+  // Clear all stun effects from an enemy
+  clearEnemyStunEffects(enemy) {
+    if (!enemy) {
+      return;
+    }
+    if (enemy.stunEffects instanceof Map) {
+      enemy.stunEffects.clear();
+    }
+    delete enemy.stunEffects;
+  }
+
   updateEnemies(delta) {
     this.updateDerivativeShieldStates(delta);
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
@@ -8446,7 +9597,9 @@ export class SimplePlayfield {
       const mapSpeedMultiplier = Number.isFinite(this.levelConfig?.mapSpeedMultiplier) 
         ? this.levelConfig.mapSpeedMultiplier 
         : 1;
-      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier);
+      // Apply stun - stunned enemies cannot move
+      const stunMultiplier = this.isEnemyStunned(enemy) ? 0 : 1;
+      const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier * stunMultiplier);
       enemy.speed = effectiveSpeed;
       enemy.progress += enemy.speed * delta;
       if (enemy.progress >= 1) {
@@ -8649,6 +9802,280 @@ export class SimplePlayfield {
         continue;
       }
 
+      if (projectile.patternType === 'gammaStar') {
+        const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+        if (!tower) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const hitRadius = Math.max(
+          2,
+          Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius(),
+        );
+        const currentPosition = projectile.position || { x: tower.x, y: tower.y };
+        
+        if (projectile.phase === 'outbound') {
+          const targetPosition = projectile.targetPosition || { x: tower.x, y: tower.y };
+          const outboundSpeed = Number.isFinite(projectile.outboundSpeed)
+            ? projectile.outboundSpeed
+            : GAMMA_OUTBOUND_SPEED;
+          
+          const dx = targetPosition.x - currentPosition.x;
+          const dy = targetPosition.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy);
+          
+          if (distance <= 1) {
+            // Reached screen edge, projectile is done
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+          
+          const travel = outboundSpeed * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...targetPosition }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          
+          // Check for enemy collisions along the beam path
+          const hitEnemies = projectile.hitEnemies || new Set();
+          
+          this.enemies.forEach((enemy) => {
+            if (!enemy) {
+              return;
+            }
+            if (hitEnemies.has(enemy.id)) {
+              return;
+            }
+            const enemyPosition = this.getEnemyPosition(enemy);
+            if (!enemyPosition) {
+              return;
+            }
+            const metrics = this.getEnemyVisualMetrics(enemy);
+            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+            const combined = enemyRadius + hitRadius;
+            const distanceSq = distanceSquaredToSegment(enemyPosition, currentPosition, nextPosition);
+            if (distanceSq <= combined * combined) {
+              // Apply damage to this enemy
+              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+              hitEnemies.add(enemy.id);
+              
+              // Create star burst effect on this enemy
+              const burstDuration = Number.isFinite(projectile.starBurstDuration) ? projectile.starBurstDuration : 0;
+              const starRadius = Math.max(12, projectile.starRadius || 22);
+              const starSpeed = Number.isFinite(projectile.starSpeed) ? projectile.starSpeed : GAMMA_STAR_SPEED;
+              
+              this.gammaStarBursts.push({
+                enemyId: enemy.id,
+                towerId: tower.id,
+                center: { ...enemyPosition },
+                starEdgeIndex: 0,
+                starEdgeProgress: 0,
+                starElapsed: 0,
+                starRadius,
+                starSpeed,
+                burstDuration,
+                lifetime: 0,
+                maxLifetime: burstDuration > 0 ? burstDuration + 2 : 2,
+              });
+            }
+          });
+          
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          projectile.hitEnemies = hitEnemies;
+          
+          if (reached) {
+            // Reached screen edge, projectile is done
+            this.projectiles.splice(index, 1);
+          }
+          continue;
+        }
+        
+        // If not in outbound phase, remove projectile
+        this.projectiles.splice(index, 1);
+        continue;
+      }
+
+      if (projectile.patternType === 'betaTriangle') {
+        const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+        if (!tower) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (Number.isFinite(projectile.maxLifetime) && projectile.lifetime >= projectile.maxLifetime) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const hitRadius = Math.max(
+          2,
+          Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius(),
+        );
+        const towerPosition = { x: tower.x, y: tower.y };
+        const currentPosition = projectile.position || towerPosition;
+        const registryFallback = (set) => (set instanceof Set ? set : new Set());
+        // Remember enemies already pinned so the sticky bolt cannot latch onto the same target twice.
+        const stuckRegistry = registryFallback(projectile.stuckRegistry);
+        const hasStuckEnemy = (enemy) => enemy && stuckRegistry.has(enemy.id);
+        const registerStuckEnemy = (enemy) => {
+          if (enemy && Number.isFinite(enemy.id)) {
+            stuckRegistry.add(enemy.id);
+            projectile.stuckRegistry = stuckRegistry;
+          }
+        };
+        const resolveCollisionTarget = (start, end) => {
+          for (let enemyIndex = 0; enemyIndex < this.enemies.length; enemyIndex += 1) {
+            const enemy = this.enemies[enemyIndex];
+            if (!enemy) {
+              continue;
+            }
+            if (hasStuckEnemy(enemy)) {
+              continue;
+            }
+            const position = this.getEnemyPosition(enemy);
+            if (!position) {
+              continue;
+            }
+            const metrics = this.getEnemyVisualMetrics(enemy);
+            const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+            const combined = enemyRadius + hitRadius;
+            const distanceSq = distanceSquaredToSegment(position, start, end);
+            if (distanceSq <= combined * combined) {
+              return { enemy, position };
+            }
+          }
+          return null;
+        };
+        const beginTriangleReturn = (anchorPosition) => {
+          const anchor = anchorPosition || currentPosition;
+          const dx = towerPosition.x - anchor.x;
+          const dy = towerPosition.y - anchor.y;
+          const midX = anchor.x + dx * 0.5;
+          const midY = anchor.y + dy * 0.5;
+          // Flip the perpendicular vertex each shot so the return path alternates sides.
+          const triangleOrientation = Number.isFinite(projectile.triangleOrientation)
+            ? Math.sign(projectile.triangleOrientation) || 1
+            : 1;
+          const baseAngle = Math.atan2(dy, dx) + triangleOrientation * (Math.PI / 2);
+          const distance = Math.hypot(dx, dy);
+          const height = distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO;
+          const thirdVertex = {
+            x: midX + Math.cos(baseAngle) * height,
+            y: midY + Math.sin(baseAngle) * height,
+          };
+          projectile.pathNodes = [thirdVertex, { ...towerPosition }];
+          projectile.phase = 'triangle';
+          projectile.pathProgress = 0;
+        };
+        const stickToEnemy = (enemy, impactPosition) => {
+          projectile.phase = 'attached';
+          projectile.attachedEnemyId = enemy?.id || null;
+          projectile.attachPosition = impactPosition || this.getEnemyPosition(enemy) || { ...currentPosition };
+          projectile.hitsApplied = 0;
+          projectile.hitTimer = 0;
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = impactPosition || projectile.position || { ...currentPosition };
+          if (enemy) {
+            registerStuckEnemy(enemy);
+            this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+          }
+        };
+
+        if (projectile.phase === 'seek') {
+          const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+          const targetPosition = targetEnemy
+            ? this.getEnemyPosition(targetEnemy)
+            : projectile.targetPosition || towerPosition;
+          if (!targetPosition) {
+            this.projectiles.splice(index, 1);
+            continue;
+          }
+          const dx = targetPosition.x - currentPosition.x;
+          const dy = targetPosition.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const travel = (Number.isFinite(projectile.speed) ? projectile.speed : BETA_TRIANGLE_SPEED) * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...targetPosition }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          const collision = resolveCollisionTarget(currentPosition, nextPosition);
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          if (collision && collision.enemy) {
+            stickToEnemy(collision.enemy, collision.position || nextPosition);
+          } else if (reached) {
+            if (targetEnemy && !hasStuckEnemy(targetEnemy)) {
+              stickToEnemy(targetEnemy, nextPosition);
+            } else {
+              beginTriangleReturn(nextPosition);
+            }
+          }
+          continue;
+        }
+
+        if (projectile.phase === 'attached') {
+          const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.attachedEnemyId) || null;
+          const position = enemy ? this.getEnemyPosition(enemy) : projectile.attachPosition || currentPosition;
+          const previousPosition = projectile.position || position || currentPosition;
+          projectile.previousPosition = { ...previousPosition };
+          projectile.position = position || previousPosition;
+          projectile.hitTimer = (projectile.hitTimer || 0) + delta;
+          if (enemy) {
+            this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+          }
+          while (projectile.hitsApplied < BETA_STICK_HIT_COUNT && projectile.hitTimer >= BETA_STICK_HIT_INTERVAL) {
+            projectile.hitTimer -= BETA_STICK_HIT_INTERVAL;
+            if (enemy) {
+              this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+              this.applyBetaStickSlow(enemy, tower, projectile.bet1);
+              const enemyStillAlive = this.enemies.some((candidate) => candidate && candidate.id === enemy.id);
+              if (!enemyStillAlive) {
+                break;
+              }
+            }
+            projectile.hitsApplied += 1;
+          }
+          if (projectile.hitsApplied >= BETA_STICK_HIT_COUNT || !enemy) {
+            beginTriangleReturn(position || previousPosition);
+          }
+          continue;
+        }
+
+        if (projectile.phase === 'triangle') {
+          const pathNodes = Array.isArray(projectile.pathNodes) ? projectile.pathNodes : [];
+          const nextNode = pathNodes.length ? pathNodes[0] : towerPosition;
+          const dx = nextNode.x - currentPosition.x;
+          const dy = nextNode.y - currentPosition.y;
+          const distance = Math.hypot(dx, dy) || 1;
+          const travel = (Number.isFinite(projectile.speed) ? projectile.speed : BETA_TRIANGLE_SPEED) * delta;
+          const reached = distance <= travel;
+          const nextPosition = reached
+            ? { ...nextNode }
+            : { x: currentPosition.x + (dx / distance) * travel, y: currentPosition.y + (dy / distance) * travel };
+          // Keep collision checks active on the return legs so the slowing bolt can grab new targets on the way back.
+          const collision = resolveCollisionTarget(currentPosition, nextPosition);
+          projectile.previousPosition = { ...currentPosition };
+          projectile.position = nextPosition;
+          if (collision && collision.enemy) {
+            stickToEnemy(collision.enemy, collision.position || nextPosition);
+            continue;
+          }
+          if (reached) {
+            projectile.pathNodes.shift();
+            if (!projectile.pathNodes.length) {
+              this.projectiles.splice(index, 1);
+            }
+          }
+          continue;
+        }
+
+        this.projectiles.splice(index, 1);
+        continue;
+      }
+
       if (projectile.patternType === 'epsilonNeedle') {
         // Extend the lifetime window when a needle embeds itself in a target.
         const recordedLifetime = Number.isFinite(projectile.maxLifetime) ? projectile.maxLifetime : 3.5;
@@ -8785,6 +10212,50 @@ export class SimplePlayfield {
         continue;
       }
 
+      if (
+        !projectile.patternType &&
+        projectile.damage > 0 &&
+        Number.isFinite(projectile.travelTime) &&
+        projectile.travelTime > 0
+      ) {
+        const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId);
+        if (!enemy) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        const position = this.getEnemyPosition(enemy);
+        if (!position) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        if (projectile.target) {
+          projectile.target = position;
+        }
+
+        // Check for collision using hitbox detection
+        const metrics = this.getEnemyVisualMetrics(enemy);
+        const enemyRadius = this.getEnemyHitRadius(enemy, metrics);
+        const hitRadius = Math.max(2, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : this.getStandardShotHitRadius());
+        const combinedRadius = enemyRadius + hitRadius;
+
+        // Calculate current projectile position based on travel progress, tracking toward enemy's current position
+        const progress = Math.min(1, projectile.lifetime / projectile.travelTime);
+        const source = projectile.source || { x: 0, y: 0 };
+        const currentX = source.x + (position.x - source.x) * progress;
+        const currentY = source.y + (position.y - source.y) * progress;
+        // Check distance from projectile's interpolated position to enemy's current position
+        const separation = Math.hypot(currentX - position.x, currentY - position.y);
+
+        // Apply damage on collision
+        if (separation <= combinedRadius) {
+          const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+          this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
+          this.projectiles.splice(index, 1);
+          continue;
+        }
+        // Continue to let the fallback maxLifetime check handle expiration
+      }
+
       if (projectile.lifetime >= projectile.maxLifetime) {
         this.projectiles.splice(index, 1);
       }
@@ -8796,6 +10267,35 @@ export class SimplePlayfield {
     if (!moteGemState.active.length || !Number.isFinite(delta)) {
       return;
     }
+
+    // Update gem suction animations and collect completed gems
+    const collectedGems = updateGemSuctionAnimations(delta);
+    
+    // Show floating feedback for collected gems
+    if (collectedGems.length > 0 && this.floatingFeedback) {
+      // Group by collection point and show feedback
+      const byTarget = new Map();
+      collectedGems.forEach((gem) => {
+        const key = `${gem.targetX},${gem.targetY}`;
+        if (!byTarget.has(key)) {
+          byTarget.set(key, {
+            x: gem.targetX,
+            y: gem.targetY,
+            gems: [],
+          });
+        }
+        byTarget.get(key).gems.push(gem);
+      });
+
+      byTarget.forEach((group) => {
+        this.floatingFeedback.show({
+          x: group.x,
+          y: group.y,
+          gems: group.gems,
+        });
+      });
+    }
+
     const step = Math.max(0, delta);
     const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
     const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
@@ -8806,6 +10306,11 @@ export class SimplePlayfield {
     const toCollect = [];
 
     moteGemState.active.forEach((gem) => {
+      // Skip gems that are being sucked toward a target
+      if (gem.suction && gem.suction.active) {
+        return;
+      }
+
       if (!Number.isFinite(gem.pulse)) {
         gem.pulse = 0;
       }
@@ -9167,9 +10672,14 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
+      this.gammaStarBursts = [];
     this.nuBursts = [];
+    this.swarmClouds = [];
     this.floaters = [];
     this.floaterConnections = [];
+    // Refresh ambient swimmers so checkpoint restores regenerate the soft background motion.
+    this.backgroundSwimmers = [];
+    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
     this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
     this.currentWaveNumber = snapshot.waveNumber || this.computeWaveNumber(targetIndex);
     this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
@@ -9438,6 +10948,7 @@ export class SimplePlayfield {
     if (parent.isBoss) {
       shard.isBoss = true;
     }
+    assignRandomShell(shard);
     this.enemies.push(shard);
     this.scheduleStatsPanelRefresh();
     return shard;
@@ -9623,24 +11134,13 @@ export class SimplePlayfield {
       return { x: 0.5, y: 0.5 };
     }
     const scale = Math.max(this.viewScale || 1, 0.0001);
-    const halfWidth = Math.min(0.5, 0.5 / scale);
-    const halfHeight = Math.min(0.5, 0.5 / scale);
-    const width =
-      this.renderWidth ||
-      (this.canvas ? this.canvas.clientWidth || this.canvas.width || 0 : 0);
-    const height =
-      this.renderHeight ||
-      (this.canvas ? this.canvas.clientHeight || this.canvas.height || 0 : 0);
-    const minDimension = width && height ? Math.min(width, height) : 0;
-    const marginPixels =
-      minDimension > 0 && PLAYFIELD_VIEW_PAN_MARGIN_METERS > 0
-        ? metersToPixels(PLAYFIELD_VIEW_PAN_MARGIN_METERS, minDimension)
-        : 0;
-    // Keep the camera inside the rendered walls by shrinking the clamp window instead of extending it past the bounds.
-    const marginNormalizedX = width > 0 ? Math.max(0, marginPixels / width) : 0;
-    const marginNormalizedY = height > 0 ? Math.max(0, marginPixels / height) : 0;
-    const safeMarginX = Math.min(marginNormalizedX, Math.max(0, halfWidth - 0.001));
-    const safeMarginY = Math.min(marginNormalizedY, Math.max(0, halfHeight - 0.001));
+    // Calculate the half-viewport size in normalized coordinates (0-1 space)
+    const halfWidth = 0.5 / scale;
+    const halfHeight = 0.5 / scale;
+    
+    // Allow camera to move right up to the edges when zoomed in
+    // The camera center can be as close to the edge as halfWidth/halfHeight
+    // This ensures the viewport edge aligns with the playfield boundary
     const clamp = (value, min, max) => {
       if (min > max) {
         return 0.5;
@@ -9648,8 +11148,8 @@ export class SimplePlayfield {
       return Math.min(Math.max(value, min), max);
     };
     return {
-      x: clamp(normalized.x, halfWidth + safeMarginX, 1 - halfWidth - safeMarginX),
-      y: clamp(normalized.y, halfHeight + safeMarginY, 1 - halfHeight - safeMarginY),
+      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
+      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
     };
   }
 
@@ -9732,14 +11232,115 @@ export class SimplePlayfield {
     for (let index = 0; index < this.pathSegments.length; index += 1) {
       const segment = this.pathSegments[index];
       if (traversed + segment.length >= target) {
-        return Number.isFinite(segment.speedMultiplier) ? segment.speedMultiplier : 1;
+        // Interpolate speed multiplier within the segment based on position
+        const distanceIntoSegment = target - traversed;
+        const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+        
+        const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
+        const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
+        
+        return startSpeed + (endSpeed - startSpeed) * t;
       }
       traversed += segment.length;
     }
 
-    // Default to 1 if no segment found
+    // Default to the last point's speed if no segment found
     const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    return lastSegment && Number.isFinite(lastSegment.speedMultiplier) ? lastSegment.speedMultiplier : 1;
+    if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
+      return lastSegment.end.speedMultiplier;
+    }
+    return 1;
+  }
+
+  /**
+   * Check if an enemy is currently in a tunnel and get tunnel opacity info
+   * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }
+   */
+  getEnemyTunnelState(enemy) {
+    if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
+      return { inTunnel: false, opacity: 1, isFadeZone: false };
+    }
+
+    const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
+    const targetDistance = progress * this.pathLength;
+    let traversed = 0;
+
+    // Find which segment the enemy is on
+    for (let i = 0; i < this.pathSegments.length; i += 1) {
+      const segment = this.pathSegments[i];
+      const segmentEnd = traversed + segment.length;
+      
+      if (targetDistance <= segmentEnd) {
+        // Enemy is on this segment - check if it's in a tunnel
+        if (segment.inTunnel) {
+          // Find which tunnel zone this segment belongs to
+          for (const tunnel of this.tunnelSegments) {
+            // Check if this segment falls within the tunnel zone
+            // Guard against zero pathLength
+            if (this.pathLength <= 0) {
+              continue;
+            }
+            const segmentProgress = traversed / this.pathLength;
+            const segmentEndProgress = segmentEnd / this.pathLength;
+            const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
+            const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
+            
+            if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
+              // Enemy is in this tunnel - calculate opacity based on position
+              const distanceIntoSegment = targetDistance - traversed;
+              const segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+              
+              // Define fade zones: first 20% and last 20% of tunnel
+              const FADE_ZONE_RATIO = 0.2;
+              const tunnelLength = tunnelEndProgress - tunnelStartProgress;
+              
+              // Guard against zero-length tunnels
+              if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
+                return { inTunnel: true, opacity: 0, isFadeZone: false };
+              }
+              
+              const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
+              
+              let opacity = 0; // Default to invisible in tunnel
+              let isFadeZone = false;
+              
+              if (progressInTunnel < FADE_ZONE_RATIO) {
+                // Entry fade zone - fade from 1 to 0
+                opacity = 1 - (progressInTunnel / FADE_ZONE_RATIO);
+                isFadeZone = true;
+              } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
+                // Exit fade zone - fade from 0 to 1
+                opacity = (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
+                isFadeZone = true;
+              }
+              
+              return { inTunnel: true, opacity, isFadeZone };
+            }
+          }
+        }
+        break;
+      }
+      
+      traversed = segmentEnd;
+    }
+
+    return { inTunnel: false, opacity: 1, isFadeZone: false };
+  }
+
+  /**
+   * Get the progress (0-1) at a specific path point index
+   */
+  getProgressAtPointIndex(pointIndex) {
+    if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
+      return 0;
+    }
+    
+    let distance = 0;
+    for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
+      distance += this.pathSegments[i].length;
+    }
+    
+    return this.pathLength > 0 ? distance / this.pathLength : 0;
   }
 
   getEnemyPosition(enemy) {
@@ -9768,6 +11369,14 @@ export class SimplePlayfield {
 
   drawFloaters() {
     return CanvasRenderer.drawFloaters.call(this);
+  }
+
+  drawCrystallineMosaic() {
+    return CanvasRenderer.drawCrystallineMosaic.call(this);
+  }
+
+  drawSketches() {
+    return CanvasRenderer.drawSketches.call(this);
   }
 
   // Render each mote gem using its sprite when available so drops mirror the inventory art.
@@ -9958,8 +11567,16 @@ export class SimplePlayfield {
     return CanvasRenderer.drawEnemyDeathParticles.call(this);
   }
 
+  drawSwarmClouds() {
+    return CanvasRenderer.drawSwarmClouds.call(this);
+  }
+
   drawDamageNumbers() {
     return CanvasRenderer.drawDamageNumbers.call(this);
+  }
+
+  drawFloatingFeedback() {
+    return CanvasRenderer.drawFloatingFeedback.call(this);
   }
 
   drawWaveTallies() {
@@ -9989,6 +11606,13 @@ export class SimplePlayfield {
    */
   drawGammaBursts() {
     return CanvasRenderer.drawGammaBursts.call(this);
+  }
+
+  /**
+   * Render gamma star burst effects on enemies hit by gamma projectiles.
+   */
+  drawGammaStarBursts() {
+    return CanvasRenderer.drawGammaStarBursts.call(this);
   }
 
   drawNuBursts() {

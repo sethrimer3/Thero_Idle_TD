@@ -4,16 +4,143 @@
       <stop offset="0%" stop-color="#f5e6ff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#6d4aa4" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Gamma particles with organic spreading and converging motion -->
+    <!-- Particle 1: Spreads out and converges -->
+    <circle id="gammaParticle1" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 28,26; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 2: Spreads out and converges, different path -->
+    <circle id="gammaParticle2" cx="0" cy="0" r="1.5" fill="#78dbff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 26,38; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="0.5s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 3: Spreads out and converges, higher arc -->
+    <circle id="gammaParticle3" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="1.0s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 30,22; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="1.0s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 4: Spreads out and converges, lower arc -->
+    <circle id="gammaParticle4" cx="0" cy="0" r="1.5" fill="#78dbff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 30,42; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="1.5s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 5: Spreads out and converges, medium upper spread -->
+    <circle id="gammaParticle5" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 24,28; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="2.0s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 6: Spreads out and converges, medium lower spread -->
+    <circle id="gammaParticle6" cx="0" cy="0" r="1.5" fill="#78dbff" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="2.5s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 24,36; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="2.5s"
+        repeatCount="indefinite" />
+    </circle>
+    
+    <!-- Particle 7: Spreads out and converges, subtle upper spread -->
+    <circle id="gammaParticle7" cx="0" cy="0" r="1.5" fill="#b0ffcd" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0.9;0" 
+        keyTimes="0;0.15;0.4;0.7;1" 
+        dur="3.5s" 
+        begin="3.0s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="22,32; 22,32; 26,30; 46,32; 46,32"
+        keyTimes="0;0.15;0.4;0.7;1"
+        dur="3.5s" 
+        begin="3.0s"
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#gammaAura)" opacity="0.92" />
+  
+  <!-- Organic spreading particles (behind the letter) -->
+  <g id="particles">
+    <use href="#gammaParticle1" />
+    <use href="#gammaParticle2" />
+    <use href="#gammaParticle3" />
+    <use href="#gammaParticle4" />
+    <use href="#gammaParticle5" />
+    <use href="#gammaParticle6" />
+    <use href="#gammaParticle7" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#1a1232"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >γ</text>
 </svg>

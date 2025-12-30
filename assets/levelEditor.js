@@ -862,7 +862,7 @@ export function createLevelEditorController({
         path: 'Click to place path anchors. Drag to adjust, Shift-click to remove.',
         crystal: 'Click the battlefield to place crystal obstacles.',
         tower: 'Click the battlefield to place pre-configured towers.',
-        erase: 'Click on crystals or towers to remove them.',
+        erase: 'Click on path anchors, crystals, or towers to remove them.',
       };
       const message = noteMessages[nextMode] || '';
       developerMapElements.note.hidden = !message;

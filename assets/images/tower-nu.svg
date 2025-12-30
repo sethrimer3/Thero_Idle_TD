@@ -4,16 +4,87 @@
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#ffe7c0" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- Nu piercing laser beams -->
+    <line id="nuLaser1" x1="20" y1="32" x2="44" y2="32" stroke="#ffd88f" stroke-width="1.5" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.9;0.9;0" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.5;2.5;2.5;1" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        repeatCount="indefinite" />
+    </line>
+    
+    <line id="nuLaser2" x1="20" y1="28" x2="44" y2="36" stroke="#ffebaa" stroke-width="1.2" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        begin="0.4s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.2;2;2;0.8" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        begin="0.4s"
+        repeatCount="indefinite" />
+    </line>
+    
+    <line id="nuLaser3" x1="20" y1="36" x2="44" y2="28" stroke="#ffebaa" stroke-width="1.2" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.7;0.7;0" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+      <animate attributeName="stroke-width" 
+        values="1.2;2;2;0.8" 
+        keyTimes="0;0.15;0.65;1" 
+        dur="2.2s" 
+        begin="0.8s"
+        repeatCount="indefinite" />
+    </line>
+    
+    <!-- Pierce impact particles -->
+    <circle id="nuImpact1" r="1" fill="#ffde90" opacity="0">
+      <animate attributeName="opacity" 
+        values="0;0.8;0" 
+        keyTimes="0;0.3;1" 
+        dur="1.5s" 
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="44,32; 46,32; 48,32"
+        keyTimes="0;0.5;1"
+        dur="1.5s" 
+        repeatCount="indefinite" />
+    </circle>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#nuAura)" opacity="0.92" />
+  
+  <!-- Piercing laser beams (behind the letter) -->
+  <g id="lasers">
+    <use href="#nuLaser1" />
+    <use href="#nuLaser2" />
+    <use href="#nuLaser3" />
+    <use href="#nuImpact1" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#241d12"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >ν</text>
 </svg>

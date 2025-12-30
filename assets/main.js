@@ -94,6 +94,16 @@ import {
   bindFpsCounterToggle,
   initializeFpsCounterPreference,
   applyFpsCounterPreference,
+  bindEnemyParticlesToggle,
+  initializeEnemyParticlesPreference,
+  areEnemyParticlesEnabled,
+  bindEdgeCrystalsToggle,
+  initializeEdgeCrystalsPreference,
+  bindBackgroundParticlesToggle,
+  initializeBackgroundParticlesPreference,
+  bindPlayfieldTrackTypeButton,
+  bindTowerLoadoutToggleSideButton,
+  initializeTowerLoadoutToggleSidePreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -138,12 +148,16 @@ import { createPowderResizeObserver } from './powderResizeObserver.js';
 import { createPowderUiDomHelpers } from './powderUiDomHelpers.js';
 // Lightweight animation overlay that keeps the Bet terrarium lively.
 import { FluidTerrariumCreatures } from './fluidTerrariumCreatures.js';
+// Flying gamma birds that soar through the Bet terrarium.
+import { FluidTerrariumBirds } from './fluidTerrariumBirds.js';
 // Brownian forest crystal growth pinned to the Bet cavern walls.
 import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 // Fractal trees anchored by the Bet terrarium placement masks.
 import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
+// Water layer tinted with Bet cyan and a gentle ripple.
+import { FluidTerrariumWater } from './fluidTerrariumWater.js';
 // Day/night cycle that animates the Bet terrarium sky and celestial bodies.
 import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 // Voronoi fractal sun and moon for the Bet terrarium sky.
@@ -155,6 +169,9 @@ import { createBetHappinessSystem } from './betHappiness.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
+import { initBetSpireRender, stopBetSpireRender, resumeBetSpireRender, getBetSpireRenderInstance } from './betSpireRender.js';
+import { initParticleInventoryDisplay } from './betParticleInventory.js';
+import { createBetSpireUpgradeMenu } from './betSpireUpgradeMenu.js';
 import { createTsadiUpgradeUi } from './tsadiUpgradeUi.js';
 import { createTsadiBindingUi } from './tsadiBindingUi.js';
 import { createSpireTabVisibilityManager } from './spireTabVisibility.js';
@@ -246,7 +263,31 @@ import {
   getUnlockedAchievementCount,
   notifyTowerPlaced,
   getAchievementPowderRate,
+  stopAllAchievementSparkles,
+  notifyAchievementsTabVisibilityChange,
 } from './achievementsTab.js';
+import {
+  configureBoostsSection,
+  initializeBoostsSection,
+} from './boostsSection.js';
+import {
+  loadMonetizationState,
+} from './state/monetizationState.js';
+import {
+  cognitiveRealmState,
+  isCognitiveRealmUnlocked,
+  unlockCognitiveRealm,
+  updateTerritoriesForLevel,
+  serializeCognitiveRealmState,
+  deserializeCognitiveRealmState,
+} from './state/cognitiveRealmState.js';
+import {
+  initializeCognitiveRealmMap,
+  stopCognitiveRealmMap,
+  showCognitiveRealmMap,
+  hideCognitiveRealmMap,
+  resetCognitiveRealmView,
+} from './cognitiveRealmMap.js';
 import {
   configureFieldNotesOverlay,
   initializeFieldNotesOverlay,
@@ -314,6 +355,8 @@ import {
   simplifyTowerCards,
   annotateTowerCardsWithCost,
   initializeTowerSelection,
+  initializeTowerVisibilityToggle,
+  initializeTowerElementDebugControls,
   initializeTowerEquipmentInterface,
   synchronizeTowerCardMasterEquations,
   syncLoadoutToPlayfield,
@@ -328,6 +371,8 @@ import {
   calculateInvestedGlyphs,
   clearTowerUpgradeState,
   configureTowersTabCallbacks,
+  refreshTowerIconPalettes,
+  closeLoadoutWheel,
 } from './towersTab.js';
 import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
@@ -339,6 +384,7 @@ import { createLevelPreviewRenderer, getPreviewPointsForLevel } from './levelPre
 import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
+import { createSpireGemMenuController } from './spireGemMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createManualDropController } from './manualDropController.js';
 import { bindPageLifecycleEvents } from './pageLifecycle.js';
@@ -358,6 +404,22 @@ import {
   setFluidTerrariumGetters,
 } from './fluidSpirePreferences.js';
 import {
+  bindBetSpireParticleOptions,
+  initializeBetSpireParticlePreferences,
+  setBetSpireRenderGetter,
+  updateBetSpireDebugControlsVisibility,
+} from './betSpireParticlePreferences.js';
+import {
+  applyPowderVisualSettings,
+  bindPowderSpireOptions,
+  initializePowderSpirePreferences,
+  setPowderSimulationGetter,
+} from './powderSpirePreferences.js';
+import {
+  bindAchievementsTerrariumOptions,
+  initializeAchievementsTerrariumPreferences,
+} from './achievementsTerrariumPreferences.js';
+import {
   bindTsadiSpireOptions,
   initializeTsadiSpirePreferences,
   setTsadiSimulationGetter,
@@ -365,6 +427,8 @@ import {
 import { bindSpireOptionsDropdown, closeAllSpireDropdowns } from './spireOptionsDropdowns.js';
 import { bindKufSpireOptions, initializeKufSpirePreferences } from './kufSpirePreferences.js';
 import { bindShinSpireOptions, initializeShinSpirePreferences, setShinSimulationGetter } from './shinSpirePreferences.js';
+import { bindCognitiveRealmOptions, initializeCognitiveRealmPreferences } from './cognitiveRealmPreferences.js';
+import { bindPlayfieldOptions, initializePlayfieldPreferences } from './playfield/playfieldPreferences.js';
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
@@ -377,6 +441,8 @@ import {
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
   getGemSpriteAssetPath,
+  GEM_DEFINITIONS,
+  rollGemDropDefinition,
 } from './enemies.js';
 import {
   initializeCraftingOverlay,
@@ -596,6 +662,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let expandedCampaign = null;
   let campaignRowElement = null;
   let campaignButtons = [];
+  // Track the tallest expanded campaign so every diamond can align to the same height.
+  let tallestCampaignHeight = 0;
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -656,6 +724,114 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let activeLevelIsInteractive = false;
   let playfieldMenuController = null;
   let audioManager = null;
+  // Track the current playfield fullscreen state so UI and layout stay in sync.
+  let playfieldFullscreenActive = false;
+  // Cache the fullscreen toggle button once the DOM is available.
+  let playfieldFullscreenButton = null;
+
+  // Keep the playfield visual settings toggle in sync with whether an interactive defense is running.
+  function syncPlayfieldSettingsVisibility() {
+    const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
+    if (!playfieldSettingsWrapper) {
+      return;
+    }
+
+    const shouldShowSettings = Boolean(activeLevelId && activeLevelIsInteractive);
+    playfieldSettingsWrapper.hidden = !shouldShowSettings;
+    playfieldSettingsWrapper.setAttribute('aria-hidden', shouldShowSettings ? 'false' : 'true');
+  }
+
+  /**
+   * Resolve the active fullscreen element across browser implementations.
+   * @returns {Element|null} The fullscreen element, if any.
+   */
+  function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  /**
+   * Update the fullscreen toggle button text and accessibility labels.
+   * @param {boolean} isFullscreen - Whether fullscreen mode is active.
+   */
+  function updatePlayfieldFullscreenButton(isFullscreen) {
+    if (!playfieldFullscreenButton) {
+      return;
+    }
+    const label = isFullscreen ? 'Exit full screen' : 'Enter full screen';
+    playfieldFullscreenButton.textContent = isFullscreen ? '⤡' : '⤢';
+    playfieldFullscreenButton.setAttribute('aria-label', label);
+    playfieldFullscreenButton.setAttribute('title', label);
+  }
+
+  /**
+   * Apply or clear the fullscreen layout styles for the playfield.
+   * @param {boolean} isFullscreen - Whether fullscreen mode should be active.
+   */
+  function applyPlayfieldFullscreenStyles(isFullscreen) {
+    document.body.classList.toggle('playfield-fullscreen', isFullscreen);
+    updatePlayfieldFullscreenButton(isFullscreen);
+    if (playfield && typeof playfield.determinePreferredOrientation === 'function') {
+      // Recalculate orientation after viewport changes to keep path geometry aligned.
+      playfield.layoutOrientation = playfield.determinePreferredOrientation();
+      playfield.applyLevelOrientation();
+      playfield.applyContainerOrientationClass();
+      playfield.syncCanvasSize();
+    }
+  }
+
+  /**
+   * Request browser fullscreen for the playfield wrapper when supported.
+   * @returns {boolean} True if a fullscreen request was initiated.
+   */
+  function requestPlayfieldFullscreen() {
+    if (!playfieldWrapper) {
+      return false;
+    }
+    const request = playfieldWrapper.requestFullscreen || playfieldWrapper.webkitRequestFullscreen;
+    if (typeof request === 'function') {
+      request.call(playfieldWrapper);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Exit browser fullscreen when supported.
+   * @returns {boolean} True if an exit request was initiated.
+   */
+  function exitPlayfieldFullscreen() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (typeof exit === 'function') {
+      exit.call(document);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Sync internal fullscreen state with the browser fullscreen API.
+   */
+  function syncPlayfieldFullscreenState() {
+    const isBrowserFullscreen = Boolean(getFullscreenElement());
+    if (playfieldFullscreenActive !== isBrowserFullscreen) {
+      playfieldFullscreenActive = isBrowserFullscreen;
+      applyPlayfieldFullscreenStyles(playfieldFullscreenActive);
+    }
+  }
+
+  /**
+   * Toggle playfield fullscreen and fall back to CSS-only if the API is unavailable.
+   */
+  function togglePlayfieldFullscreen() {
+    const shouldEnter = !playfieldFullscreenActive;
+    playfieldFullscreenActive = shouldEnter;
+    applyPlayfieldFullscreenStyles(shouldEnter);
+    if (shouldEnter) {
+      requestPlayfieldFullscreen();
+    } else {
+      exitPlayfieldFullscreen();
+    }
+  }
 
   function updateLayoutVisibility() {
     // Hide the battlefield until an interactive level is in progress.
@@ -664,7 +840,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setElementVisibility(stageControls, shouldShowPlayfield);
     setElementVisibility(levelSelectionSection, !shouldShowPlayfield);
 
+    // Keep the playfield settings panel aligned with the current layout state.
+    syncPlayfieldSettingsVisibility();
+
     if (!shouldShowPlayfield) {
+      // Exit fullscreen when leaving the battlefield layout to avoid trapping the UI.
+      if (playfieldFullscreenActive) {
+        playfieldFullscreenActive = false;
+        applyPlayfieldFullscreenStyles(false);
+        exitPlayfieldFullscreen();
+      }
       if (playfieldMenuController) {
         playfieldMenuController.closeMenu();
         playfieldMenuController.resetStatsPanelState();
@@ -818,6 +1003,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     revealOverlay,
     scheduleOverlayHide,
     audioManager,
+    getStoryEntries: buildSeenStoryEntries,
   });
 
   const {
@@ -853,8 +1039,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     registerResourceContainers,
   });
 
-  // Re-enable the Bet Spire Terrarium so its ambient terrarium renders (slimes, grass, trees, sky cycle).
-  const FLUID_STUDY_ENABLED = true;
+  // Fluid simulation has been disabled to prevent creation errors
+  const FLUID_STUDY_ENABLED = false;
 
   const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Serendipity upon unlock.
 
@@ -862,6 +1048,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderConfig,
     powderState,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns,
     fluidGlyphColumns,
     getPowderElements,
@@ -889,12 +1076,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let betHappinessSystem = null;
   // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
+  // Animate flying gamma birds in the Bet terrarium.
+  let fluidTerrariumBirds = null;
   // Grow a Shin-inspired Brownian forest along the Bet cavern walls.
   let fluidTerrariumCrystal = null;
   // Grow Shin-inspired fractal trees on top of the Bet terrain silhouettes.
   let fluidTerrariumTrees = null;
   // Render swaying grass blades that cling to the Bet spire silhouettes.
   let fluidTerrariumGrass = null;
+  // Tint the Bet caverns with a shimmering cyan water layer.
+  let fluidTerrariumWater = null;
   // Drive the Bet terrarium day/night palette and celestial bodies.
   let fluidTerrariumSkyCycle = null;
   // Voronoi fractal sun and moon rendered in the Bet terrarium sky.
@@ -903,6 +1094,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumShrooms = null;
   // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
   let fluidTerrariumItemsDropdown = null;
+
+  // Achievements terrarium visual components - mirrors Bet terrarium but in achievements tab
+  let achievementsTerrariumCreatures = null;
+  let achievementsTerrariumBirds = null;
+  let achievementsTerrariumCrystal = null;
+  let achievementsTerrariumTrees = null;
+  let achievementsTerrariumGrass = null;
+  let achievementsTerrariumWater = null;
+  let achievementsTerrariumSkyCycle = null;
+  let achievementsTerrariumCelestialBodies = null;
+  let achievementsTerrariumShrooms = null;
 
   // Expose Bet terrarium overlays to the visual settings module so the new options menu can pause heavy effects.
   setFluidTerrariumGetters({
@@ -1007,6 +1209,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       await waitForTerrariumSprite(collisionSprite);
     }
     await waitForTerrariumSprite(fluidElements.terrainSprite);
+    const islandCollisionSprite = fluidElements.floatingIslandCollisionSprite;
+    if (islandCollisionSprite && islandCollisionSprite !== fluidElements.floatingIslandSprite) {
+      await waitForTerrariumSprite(islandCollisionSprite);
+    }
     await waitForTerrariumSprite(fluidElements.floatingIslandSprite);
   }
 
@@ -1028,6 +1234,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       container: fluidElements.viewport,
       terrainElement: fluidElements.terrainSprite,
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
@@ -1035,6 +1242,33 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       betHappinessSystem.setProducerCount('slime', slimeCount);
     }
     fluidTerrariumCreatures.start();
+  }
+
+  function ensureFluidTerrariumBirds() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    // Lazily create the bird overlay
+    if (fluidTerrariumBirds || !fluidElements?.viewport) {
+      return;
+    }
+    // Start with 0 birds by default - players purchase them through the store.
+    const birdCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('bird') : 0);
+    // Skip creating the bird layer if no birds are owned yet.
+    if (birdCount <= 0) {
+      return;
+    }
+    fluidTerrariumBirds = new FluidTerrariumBirds({
+      container: fluidElements.viewport,
+      terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
+      birdCount: birdCount,
+    });
+    if (betHappinessSystem) {
+      betHappinessSystem.setProducerCount('bird', birdCount);
+    }
+    fluidTerrariumBirds.start();
   }
 
   // Lazily generate the terrarium grass overlay once the stage media is available.
@@ -1048,14 +1282,31 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumGrass = new FluidTerrariumGrass({
       container: fluidElements.terrariumMedia,
       terrainElement: fluidElements.terrainSprite,
+      terrainCollisionElement: fluidElements.terrainCollisionSprite,
       floatingIslandElement: fluidElements.floatingIslandSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       // Use both ground and floating island placement masks so grass sprouts in each marked zone.
       maskUrls: [
-        './assets/sprites/spires/betSpire/Grass.png',
-        './assets/sprites/spires/betSpire/Island-Grass.png',
+        './assets/sprites/spires/betSpire/terrarium/Grass.png',
+        './assets/sprites/spires/betSpire/terrarium/Island-Grass.png',
       ],
     });
     fluidTerrariumGrass.start();
+  }
+
+  // Paint the Bet terrarium water mask with a cyan tint and animated ripples.
+  function ensureFluidTerrariumWater() {
+    if (!FLUID_STUDY_ENABLED) {
+      return;
+    }
+    if (fluidTerrariumWater || !fluidElements?.terrariumMedia) {
+      return;
+    }
+    fluidTerrariumWater = new FluidTerrariumWater({
+      container: fluidElements.terrariumMedia,
+      maskUrl: './assets/sprites/spires/betSpire/terrarium/Water.png',
+    });
+    fluidTerrariumWater.start();
   }
 
   // Grow a Brownian forest inside the growing crystal alcove, constrained by the collision silhouette.
@@ -1069,7 +1320,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumCrystal = new FluidTerrariumCrystal({
       container: fluidElements.terrariumMedia,
       collisionElement: fluidElements.terrainCollisionSprite,
-      maskUrl: './assets/sprites/spires/betSpire/Growing-Crystal.png',
+      maskUrl: './assets/sprites/spires/betSpire/terrarium/Growing-Crystal.png',
     });
   }
 
@@ -1108,20 +1359,22 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidTerrariumTrees = new FluidTerrariumTrees({
       container: fluidElements.terrariumMedia,
       // Masks removed so trees are only placed via the store. The store already has tree items.
-      // largeMaskUrl: './assets/sprites/spires/betSpire/Tree.png',
-      // smallMaskUrl: './assets/sprites/spires/betSpire/Small-Tree.png',
-      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/Island-Small-Tree.png',
+      // largeMaskUrl: './assets/sprites/spires/betSpire/terrarium/Tree.png',
+      // smallMaskUrl: './assets/sprites/spires/betSpire/terrarium/Small-Tree.png',
+      // islandSmallMaskUrl: './assets/sprites/spires/betSpire/terrarium/Island-Small-Tree.png',
       state: powderState.betTerrarium,
       powderState: powderState,
       spendSerendipity: spendFluidSerendipity,
       getSerendipityBalance: getCurrentFluidDropBank,
       onShroomPlace: handleShroomPlacement,
       onSlimePlace: handleSlimePlacement,
+      onBirdPlace: handleBirdPlacement,
       onCelestialPlace: handleCelestialPlacement,
       // Cave spawn zones enable cave-only fractal placement validation.
       caveSpawnZones: BET_CAVE_SPAWN_ZONES,
       // Terrain collision sprite enables walkable mask for Brownian growth.
       terrainCollisionElement: fluidElements.terrainCollisionSprite,
+      floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       onStateChange: (state) => {
         powderState.betTerrarium = {
           levelingMode: Boolean(state?.levelingMode),
@@ -1187,6 +1440,124 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     schedulePowderBasinSave();
     return true;
+  }
+
+  /**
+   * Unlock a celestial body (sun or moon) in the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} celestialBody - 'sun' or 'moon'
+   */
+  function unlockTerrariumCelestialBody(celestialBody) {
+    if (!celestialBody || (celestialBody !== 'sun' && celestialBody !== 'moon')) {
+      return;
+    }
+    handleCelestialPlacement({ storeItem: { celestialBody } });
+    
+    // Also show in achievements terrarium
+    if (achievementsTerrariumElements.terrariumSun && celestialBody === 'sun') {
+      achievementsTerrariumElements.terrariumSun.hidden = false;
+      achievementsTerrariumElements.terrariumSun.style.display = '';
+      achievementsTerrariumElements.terrariumSun.style.opacity = '1';
+    }
+    if (achievementsTerrariumElements.terrariumMoon && celestialBody === 'moon') {
+      achievementsTerrariumElements.terrariumMoon.hidden = false;
+      achievementsTerrariumElements.terrariumMoon.style.display = '';
+      achievementsTerrariumElements.terrariumMoon.style.opacity = '1';
+    }
+  }
+
+  /**
+   * Add creatures to the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} creatureType - Type of creature ('slime', 'bird')
+   * @param {number} count - Number to add
+   */
+  function addTerrariumCreature(creatureType, count = 1) {
+    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+      return;
+    }
+    
+    if (creatureType === 'slime') {
+      const currentCount = betHappinessSystem.getProducerCount('slime');
+      const newCount = currentCount + count;
+      betHappinessSystem.setProducerCount('slime', newCount);
+      
+      // Recreate creatures with new count
+      if (fluidTerrariumCreatures) {
+        fluidTerrariumCreatures.destroy();
+        fluidTerrariumCreatures = null;
+      }
+      ensureFluidTerrariumCreatures();
+      
+      schedulePowderBasinSave();
+    } else if (creatureType === 'bird') {
+      const currentCount = betHappinessSystem.getProducerCount('bird');
+      const newCount = currentCount + count;
+      betHappinessSystem.setProducerCount('bird', newCount);
+      
+      // Recreate birds with new count
+      if (fluidTerrariumBirds) {
+        fluidTerrariumBirds.destroy();
+        fluidTerrariumBirds = null;
+      }
+      ensureFluidTerrariumBirds();
+      
+      schedulePowderBasinSave();
+    }
+  }
+
+  /**
+   * Add items (trees, shrooms) to the achievements terrarium.
+   * Called when achievements are unlocked.
+   * @param {string} itemType - Type of item ('betTreeLarge', 'betTreeSmall', 'phiShroomYellow', etc.)
+   * @param {number} count - Number/level to add
+   */
+  function addTerrariumItem(itemType, count = 1) {
+    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+      return;
+    }
+    
+    const currentCount = betHappinessSystem.getProducerCount(itemType);
+    const newCount = currentCount + count;
+    betHappinessSystem.setProducerCount(itemType, newCount);
+    
+    // Refresh terrarium visuals based on item type
+    if (itemType.includes('Tree')) {
+      // Trees need special handling via the tree system
+      if (!powderState.betTerrarium) {
+        powderState.betTerrarium = {};
+      }
+      if (!powderState.betTerrarium.trees) {
+        powderState.betTerrarium.trees = {};
+      }
+      
+      // Add allocation to the appropriate tree
+      const treeKey = itemType === 'betTreeLarge' ? 'largeTree1' : 'smallTree1';
+      const currentAllocation = powderState.betTerrarium.trees[treeKey]?.allocated || 0;
+      const newAllocation = currentAllocation + count;
+      
+      if (!powderState.betTerrarium.trees[treeKey]) {
+        powderState.betTerrarium.trees[treeKey] = { allocated: 0 };
+      }
+      powderState.betTerrarium.trees[treeKey].allocated = newAllocation;
+      
+      // Recreate trees
+      if (fluidTerrariumTrees) {
+        fluidTerrariumTrees.destroy();
+        fluidTerrariumTrees = null;
+      }
+      updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
+      ensureFluidTerrariumTrees();
+    } else if (itemType.includes('Shroom')) {
+      // Shrooms are rendered via the shrooms system
+      if (fluidTerrariumShrooms) {
+        fluidTerrariumShrooms.destroy();
+        fluidTerrariumShrooms = null;
+      }
+      ensureFluidTerrariumShrooms();
+    }
+    
+    schedulePowderBasinSave();
   }
 
   // Paint the Bet terrarium sky with a looping day/night gradient and celestial path.
@@ -1353,6 +1724,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         container: fluidElements.viewport,
         terrainElement: fluidElements.terrainSprite,
         terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
         creatureCount: newCount,
         spawnZones: BET_CAVE_SPAWN_ZONES,
       });
@@ -1365,6 +1737,45 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     
     // Schedule save to persist the slime count
+    schedulePowderBasinSave();
+    
+    return true;
+  }
+
+  // Handle bird placement from the terrarium store by increasing bird count and re-initializing bird system.
+  function handleBirdPlacement() {
+    if (!betHappinessSystem) {
+      return false;
+    }
+    // Increment the bird count in the happiness system
+    const currentCount = betHappinessSystem.getProducerCount('bird') || 0;
+    const newCount = currentCount + 1;
+    betHappinessSystem.setProducerCount('bird', newCount);
+    
+    // Re-initialize the bird system with the new count
+    if (fluidTerrariumBirds) {
+      fluidTerrariumBirds.destroy();
+      fluidTerrariumBirds = null;
+    }
+    
+    // Create new bird instance with updated count
+    if (fluidElements?.viewport) {
+      fluidTerrariumBirds = new FluidTerrariumBirds({
+        container: fluidElements.viewport,
+        terrainElement: fluidElements.terrainSprite,
+        terrainCollisionElement: fluidElements.terrainCollisionSprite,
+        floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
+        birdCount: newCount,
+      });
+      fluidTerrariumBirds.start();
+    }
+    
+    // Update happiness display
+    if (betHappinessSystem.updateDisplay) {
+      betHappinessSystem.updateDisplay();
+    }
+    
+    // Schedule save to persist the bird count
     schedulePowderBasinSave();
     
     return true;
@@ -1458,6 +1869,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   });
 
   let spireMenuController = null;
+  let spireGemMenuController = null;
 
   const {
     getLamedSparkBank,
@@ -1469,6 +1881,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
+    getBetSandBank,
+    setBetSandBank,
   } = createSpireResourceBanks({
     spireResourceState,
     getSpireMenuController: () => spireMenuController,
@@ -1499,6 +1913,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
     },
   });
+
+  // Shared gem selector that plugs into every spire render.
+  spireGemMenuController = createSpireGemMenuController({
+    documentRef: typeof document !== 'undefined' ? document : null,
+    moteGemInventory: moteGemState?.inventory,
+    gemDefinitions: GEM_DEFINITIONS,
+  });
+
+  // Quick lookup for gem definitions so gem consumption can reference mote size and palette data.
+  const gemDefinitionLookup = new Map((GEM_DEFINITIONS || []).map((gem) => [gem.id, gem]));
 
   const lamedSpireUi = createLamedSpireUi({
     formatWholeNumber,
@@ -1550,13 +1974,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   const {
     bindFluidControls,
+    bindAchievementsTerrariumControls,
     applyMindGatePaletteToDom,
-    updateMoteGemInventoryDisplay,
+    updateMoteGemInventoryDisplay: renderMoteGemInventoryDisplay,
     updatePowderGlyphColumns,
     updateFluidGlyphColumns,
   } = createPowderUiDomHelpers({
     getPowderElements,
     fluidElements,
+    achievementsTerrariumElements,
     powderGlyphColumns,
     fluidGlyphColumns,
     moteGemState,
@@ -1565,6 +1991,30 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getMoteGemColor,
     getGemSpriteAssetPath,
   });
+
+  const updateMoteGemInventoryDisplay = () => {
+    renderMoteGemInventoryDisplay();
+    spireGemMenuController?.updateCounts();
+  };
+
+  /**
+   * Decrement a gem from the shared inventory and return its definition so spire consumers can react.
+   * @param {string} gemId - Unique gem identifier.
+   * @returns {Object|null} Gem definition when successfully consumed.
+   */
+  function consumeGemFromInventory(gemId) {
+    if (!gemId) {
+      return null;
+    }
+    const record = moteGemState.inventory.get(gemId);
+    if (!record || !Number.isFinite(record.count) || record.count <= 0) {
+      return null;
+    }
+    const nextCount = Math.max(0, record.count - 1);
+    moteGemState.inventory.set(gemId, { ...record, count: nextCount });
+    updateMoteGemInventoryDisplay();
+    return gemDefinitionLookup.get(gemId) || null;
+  }
 
   const powderPersistence = createPowderPersistence({
     powderState,
@@ -1603,6 +2053,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let cardinalWardenInitialized = false;
   let pendingSpireResizeFrame = null;
   let previousTabId = getActiveTabId();
+
+  // Surface the active powder simulation so Aleph visual preferences can reapply on swaps.
+  setPowderSimulationGetter(() => powderSimulation);
 
   // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
   const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
@@ -1737,6 +2190,33 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   setPowderElements(powderElements);
 
+  function initializeSpireGemMenus() {
+    if (!spireGemMenuController) {
+      return;
+    }
+    const powder = getPowderElements();
+    // Capture the Bet spire basin so its terrarium can host the gem selector.
+    const betBasin = document.getElementById('bet-spire-basin');
+    // Capture Shin and Kuf viewports so their primary renders can host the gem selector.
+    const shinViewport = document.querySelector('.shin-cardinal-viewport');
+    const kufViewport = document.querySelector('.kuf-sim-viewport');
+    // Register each spire render so the gem selector appears on every spire.
+    const hosts = [
+      { spireId: 'powder', element: powder?.basin || document.getElementById('powder-basin') },
+      { spireId: 'fluid', element: betBasin },
+      { spireId: 'lamed', element: document.getElementById('lamed-basin') },
+      { spireId: 'tsadi', element: document.getElementById('tsadi-basin') },
+      { spireId: 'shin', element: shinViewport },
+      { spireId: 'kuf', element: kufViewport },
+    ];
+    hosts.forEach(({ spireId, element }) => {
+      if (element) {
+        spireGemMenuController.registerMenu({ spireId, hostElement: element });
+      }
+    });
+    spireGemMenuController.updateCounts();
+  }
+
   registerResourceHudRefreshCallback(updateMoteStatsDisplays);
   registerResourceHudRefreshCallback(updatePowderModeButton);
   registerResourceHudRefreshCallback(updateFluidDisplay);
@@ -1785,11 +2265,57 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     setIterationRate,
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
+    updateBetSpireDebugControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
   });
 
   configureEnemyHandlers({ queueMoteDrop, recordPowderEvent });
+
+  // Helper function to apply idle time for a specific spire (for ad boosts)
+  function applyIdleTimeToSpire(spireId, idleTimeSeconds) {
+    const idleTimeMs = idleTimeSeconds * 1000;
+    // Call notifyIdleTime which will distribute resources to all unlocked spires
+    notifyIdleTime(idleTimeMs);
+    // Record the boost event
+    recordPowderEvent('boost-applied', {
+      spireId,
+      idleTimeSeconds,
+    });
+    // Update displays
+    updateResourceRates();
+    updatePowderDisplay();
+  }
+
+  // Helper function to grant random gems (for ad boosts)
+  function grantRandomGems(count) {
+    let gemsGranted = 0;
+    // Roll for each gem according to drop chances
+    for (let i = 0; i < count; i++) {
+      const gem = rollGemDropDefinition({ hp: 1000 }); // Use moderate HP for balanced distribution
+      if (gem) {
+        const record = moteGemState.inventory.get(gem.id) || { label: gem.name, total: 0, count: 0 };
+        record.total += gem.moteSize;
+        record.count = (record.count || 0) + 1;
+        record.label = gem.name || record.label;
+        moteGemState.inventory.set(gem.id, record);
+        gemsGranted++;
+      }
+    }
+    // Update gem inventory display
+    updateMoteGemInventoryDisplay();
+    // Record the boost event
+    recordPowderEvent('boost-gems-granted', {
+      count: gemsGranted,
+    });
+    return gemsGranted;
+  }
+
+  // Configure the boosts section with dependencies
+  configureBoostsSection({
+    applyIdleTimeToSpire,
+    grantRandomGems,
+  });
 
   // Wire the standalone offline persistence helpers to the shared gameplay state and utilities.
   configureOfflinePersistence({
@@ -1928,6 +2454,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getFluidSimulation: () => fluidSimulationInstance,
     getLamedSimulation: () => lamedSimulationInstance,
     getTsadiSimulation: () => tsadiSimulationInstance,
+    getSelectedGem: (spireId) => spireGemMenuController?.getSelection(spireId),
+    consumeGem: consumeGemFromInventory,
     addIterons,
   });
 
@@ -2007,6 +2535,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     syncDeveloperControlValues,
     syncLevelEditorVisibility,
     updateDeveloperMapElementsVisibility,
+    updateBetSpireDebugControlsVisibility,
     getPlayfield: () => playfield,
     getPlayfieldMenuController: () => playfieldMenuController,
     unlockAllFractals,
@@ -2353,6 +2882,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
+        applyPowderVisualSettings();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         syncFluidCameraModeUi();
@@ -2409,6 +2939,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyLoadedPowderSimulationState(powderSimulation);
         flushPendingMoteDrops();
         powderSimulation.start();
+        applyPowderVisualSettings();
         initializePowderViewInteraction();
         handlePowderViewTransformChange(powderSimulation.getViewTransform());
         syncFluidCameraModeUi();
@@ -2764,6 +3295,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluid: {
         unlocked: Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked),
         storySeen: Boolean(fluidStoryState.storySeen),
+        generators: fluidStoryState.generators || {},
+        particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
+        betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
+        particlesByTierAndSize: getBetSpireRenderInstance()?.getParticleStateSnapshot(),
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
@@ -2827,6 +3362,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const fluidStoryState = spireResourceState.fluid || {};
     fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
     fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
+    fluidStoryState.generators = fluidBranch.generators || fluidStoryState.generators || {};
+    fluidStoryState.particleFactorMilestone = fluidBranch.particleFactorMilestone || fluidStoryState.particleFactorMilestone || 10;
+    fluidStoryState.betGlyphsAwarded = fluidBranch.betGlyphsAwarded || fluidStoryState.betGlyphsAwarded || 0;
+    fluidStoryState.particlesByTierAndSize = fluidBranch.particlesByTierAndSize || fluidStoryState.particlesByTierAndSize || null;
     spireResourceState.fluid = fluidStoryState;
     powderState.fluidUnlocked = Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked);
 
@@ -2928,6 +3467,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }),
     getSpireResourceStateSnapshot,
     applySpireResourceStateSnapshot,
+    getCognitiveRealmStateSnapshot: serializeCognitiveRealmState,
+    applyCognitiveRealmStateSnapshot: (snapshot) => {
+      deserializeCognitiveRealmState(snapshot);
+      updateCognitiveRealmVisibility();
+    },
   });
 
   levelOverlayController = createLevelOverlayController({
@@ -3003,6 +3547,51 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   /**
+   * Build the ordered list of story screens the player has unlocked for the codex field notes view.
+   * Story-only levels are listed in campaign order, followed by any spire briefings that have been read.
+   * @returns {Promise<Array<{id:string,title:string,sections:string[]}>>} Authored story entries the player has seen.
+   */
+  async function buildSeenStoryEntries() {
+    if (!levelStoryScreen || typeof levelStoryScreen.getStoryEntry !== 'function') {
+      return [];
+    }
+
+    const storyIds = [];
+
+    levelBlueprints.forEach((level) => {
+      if (!isStoryOnlyLevel(level.id)) {
+        return;
+      }
+      const state = levelState.get(level.id);
+      if (state?.storySeen) {
+        storyIds.push(level.id);
+      }
+    });
+
+    Object.entries(spireStoryTargets).forEach(([spireId, storyTarget]) => {
+      const branch = getSpireStoryBranch(spireId);
+      if (storyTarget?.id && branch?.storySeen) {
+        storyIds.push(storyTarget.id);
+      }
+    });
+
+    const uniqueStoryIds = [...new Set(storyIds)];
+    const seenEntries = [];
+    for (const storyId of uniqueStoryIds) {
+      try {
+        const entry = await levelStoryScreen.getStoryEntry(storyId);
+        if (entry) {
+          seenEntries.push(entry);
+        }
+      } catch (error) {
+        console.warn('Unable to load story entry for field notes', storyId, error);
+      }
+    }
+
+    return seenEntries;
+  }
+
+  /**
    * Trigger the shared story overlay when a spire tab opens for the first time.
    * @param {string} spireId - Identifier for the spire tab being opened.
    */
@@ -3059,6 +3648,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderState.motePalette = palette;
       // Broadcast palette swaps to the Mind Gate badge so theme toggles remain cohesive.
       applyMindGatePaletteToDom(powderState.motePalette);
+      refreshTowerIconPalettes();
       if (powderSimulation && typeof powderSimulation.setMotePalette === 'function') {
         powderSimulation.setMotePalette(palette);
         powderSimulation.render();
@@ -3068,6 +3658,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (playfield) {
         playfield.draw();
       }
+      refreshTowerIconPalettes();
     },
   });
 
@@ -3534,6 +4125,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     updateActiveLevelBanner();
     updateLevelCards();
+    
+    // Update cognitive realm territories on level victory
+    if (isCognitiveRealmUnlocked()) {
+      updateTerritoriesForLevel(levelId, true);
+    }
+    
     commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
@@ -3572,6 +4169,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     resourceState.running = false;
     updateActiveLevelBanner();
     updateLevelCards();
+    
+    // Update cognitive realm territories on level defeat
+    if (isCognitiveRealmUnlocked()) {
+      updateTerritoriesForLevel(levelId, false);
+    }
+    
     commitAutoSave();
 
     if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
@@ -3666,6 +4269,62 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedLevelSet = element;
   }
 
+  // Measure the expanded height of a campaign without flashing it on screen.
+  function measureExpandedCampaignHeight(element) {
+    if (!element || !campaignRowElement) {
+      return 0;
+    }
+
+    const clone = element.cloneNode(true);
+    const referenceWidth = element.getBoundingClientRect().width || element.offsetWidth;
+
+    clone.style.position = 'absolute';
+    clone.style.visibility = 'hidden';
+    clone.style.pointerEvents = 'none';
+    clone.style.opacity = '0';
+    clone.style.width = `${referenceWidth}px`;
+    clone.classList.add('expanded');
+
+    const setsContainer = clone.querySelector('.campaign-button-sets');
+    if (setsContainer) {
+      setsContainer.hidden = false;
+      setsContainer.setAttribute('aria-hidden', 'false');
+      setsContainer.style.maxHeight = 'none';
+      setsContainer.style.opacity = '1';
+      setsContainer.style.transform = 'translateY(0)';
+      setsContainer.style.padding = '24px 12px';
+    }
+
+    campaignRowElement.append(clone);
+    const height = clone.getBoundingClientRect().height;
+    clone.remove();
+
+    return height;
+  }
+
+  // Apply the shared expanded height so every campaign diamond lines up when opened.
+  function updateCampaignExpandedHeight(height) {
+    if (!campaignRowElement || !height) {
+      return;
+    }
+
+    tallestCampaignHeight = Math.max(tallestCampaignHeight, height);
+    campaignRowElement.style.setProperty('--campaign-expanded-height', `${tallestCampaignHeight}px`);
+  }
+
+  // Ensure campaigns inherit the tallest option (Story) even before interaction.
+  function primeCampaignHeightBaseline() {
+    const storyCampaign = campaignButtons.find((campaign) => campaign.name === 'Story');
+    if (!storyCampaign || !storyCampaign.element) {
+      return;
+    }
+
+    const measuredHeight = measureExpandedCampaignHeight(storyCampaign.element);
+    if (measuredHeight) {
+      updateCampaignExpandedHeight(measuredHeight);
+    }
+  }
+
   // Reset an expanded campaign button so its sets slide back into the diamond.
   function collapseCampaign(element, { focusTrigger = false } = {}) {
     if (!element) {
@@ -3733,28 +4392,18 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignRowElement.classList.add('campaign-row--has-selection');
     }
 
+    updateCampaignExpandedHeight(element.getBoundingClientRect().height);
     expandedCampaign = element;
   }
 
   function handleDocumentPointerDown(event) {
-    const hasExpandedSet = Boolean(expandedLevelSet);
+    // Allow level sets to remain open while the player scrolls; rely on the set trigger toggle to close them.
+    const clickedTrigger = event?.target?.closest ? event.target.closest('.level-set-trigger') : null;
+    const interactingWithOpenSet =
+      clickedTrigger && expandedLevelSet && expandedLevelSet.contains(clickedTrigger);
 
-    // Only handle level set collapse on outside click; campaigns require explicit toggle or swipe.
-    if (!hasExpandedSet) {
+    if (!interactingWithOpenSet) {
       return;
-    }
-
-    const clickedLevelSet = event?.target?.closest ? event.target.closest('.level-set') : null;
-    if (clickedLevelSet && expandedLevelSet && expandedLevelSet.contains(clickedLevelSet)) {
-      return;
-    }
-
-    // Collapse open level content when the player clicks anywhere else on the page.
-    if (!clickedLevelSet && expandedLevelSet) {
-      collapseLevelSet(expandedLevelSet);
-      if (audioManager) {
-        audioManager.playSfx('menuSelect');
-      }
     }
   }
 
@@ -3767,9 +4416,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
 
-    collapseLevelSet(expandedLevelSet, { focusTrigger: true });
-    if (audioManager) {
-      audioManager.playSfx('menuSelect');
+    const trigger = expandedLevelSet.querySelector('.level-set-trigger');
+    if (trigger && typeof trigger.focus === 'function') {
+      trigger.focus();
     }
   }
 
@@ -3829,6 +4478,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     return false;
   }
 
+  // Helper function to check if a campaign uses an SVG icon
+  function isSvgCampaign(glyphEl) {
+    return glyphEl && glyphEl.querySelector('.campaign-button-glyph__image') !== null;
+  }
+
   function updateLevelSetLocks() {
     if (!levelSetEntries.length) {
       return;
@@ -3847,6 +4501,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const unlocked = developerModeActive
         || index === 0
         || areSetNormalLevelsCompleted(previous?.levels);
+
+      // Check if we should unlock the cognitive realm (level set 3+ unlocked)
+      // Level set 3 is typically at index 3 (0=Hypothesis, 1=Conjecture, 2=Corollary, 3+=...)
+      if (unlocked && index >= 2 && !isCognitiveRealmUnlocked()) {
+        unlockCognitiveRealm();
+        updateCognitiveRealmVisibility();
+      }
 
       if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);
@@ -3894,6 +4555,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
       const status = campaignLocks.get(campaignButton.name);
       const glyphEl = campaignButton.glyphEl;
+      const displayName = campaignButton.displayName || campaignButton.name;
       const isLocked = !status || !status.anyUnlocked;
 
       if (isLocked) {
@@ -3902,23 +4564,66 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         campaignButton.trigger.disabled = true;
         campaignButton.trigger.setAttribute('aria-disabled', 'true');
         campaignButton.trigger.setAttribute('tabindex', '-1');
-        campaignButton.trigger.title = `${campaignButton.name} campaign locked`;
-        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign locked`);
+        campaignButton.trigger.title = `${displayName} campaign locked`;
+        campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign locked`);
         if (glyphEl) {
-          glyphEl.textContent = '🔒';
+          if (isSvgCampaign(glyphEl)) {
+            // For SVG icons, show locked state visually without replacing the image
+            glyphEl.style.opacity = '0.4';
+            glyphEl.style.filter = 'grayscale(1)';
+          } else {
+            // For text-based glyphs, replace with lock emoji
+            glyphEl.textContent = '🔒';
+          }
         }
       } else {
         campaignButton.element.classList.remove('campaign-button--locked');
         campaignButton.trigger.disabled = false;
         campaignButton.trigger.setAttribute('aria-disabled', 'false');
         campaignButton.trigger.removeAttribute('tabindex');
-        campaignButton.trigger.title = `${campaignButton.name} campaign`;
-        campaignButton.trigger.setAttribute('aria-label', `${campaignButton.name} campaign`);
+        campaignButton.trigger.title = `${displayName} campaign`;
+        campaignButton.trigger.setAttribute('aria-label', `${displayName} campaign`);
         if (glyphEl) {
-          glyphEl.textContent = campaignButton.defaultGlyph;
+          if (isSvgCampaign(glyphEl)) {
+            // For SVG icons, restore normal appearance
+            glyphEl.style.opacity = '';
+            glyphEl.style.filter = '';
+          } else {
+            // For text-based glyphs, set the text content
+            glyphEl.textContent = campaignButton.defaultGlyph;
+          }
         }
       }
     });
+  }
+
+  // Update cognitive realm map visibility based on unlock status, tab, and level state
+  function updateCognitiveRealmVisibility() {
+    const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
+    if (!cognitiveRealmSection) {
+      return;
+    }
+
+    if (isCognitiveRealmUnlocked()) {
+      cognitiveRealmSection.hidden = false;
+      cognitiveRealmSection.setAttribute('aria-hidden', 'false');
+      
+      // Only show map if on Defense tab AND not inside a level
+      const activeTabId = getActiveTabId();
+      const isDefenseTab = activeTabId === 'tower';
+      const isInsideLevel = Boolean(activeLevelId);
+      const shouldShowMap = isDefenseTab && !isInsideLevel;
+      
+      if (shouldShowMap) {
+        showCognitiveRealmMap();
+      } else {
+        hideCognitiveRealmMap();
+      }
+    } else {
+      cognitiveRealmSection.hidden = true;
+      cognitiveRealmSection.setAttribute('aria-hidden', 'true');
+      hideCognitiveRealmMap();
+    }
   }
 
   // Draw a translucent version of the level's path behind the selection label so the card hints at its route.
@@ -3965,6 +4670,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     expandedCampaign = null;
     campaignButtons = [];
     campaignRowElement = null;
+    // Reset the campaign height baseline before rebuilding the grid.
+    tallestCampaignHeight = 0;
     levelGrid.innerHTML = '';
 
     const fragment = document.createDocumentFragment();
@@ -3978,11 +4685,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (level.developerOnly && !developerModeActive) {
         return;
       }
-      const groupKey = level.set || level.id.split(' - ')[0] || 'Levels';
+      const setName = level.set || level.id.split(' - ')[0] || 'Levels';
       const campaignKey = level.campaign || null;
-      
+      const groupKey = campaignKey ? `${campaignKey}::${setName}` : setName;
+
       if (!groups.has(groupKey)) {
-        groups.set(groupKey, { levels: [], campaign: campaignKey });
+        groups.set(groupKey, { levels: [], campaign: campaignKey, name: setName });
       }
       groups.get(groupKey).levels.push(level);
       
@@ -4009,10 +4717,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (groupData.campaign) return; // Skip campaign sets for now
       const levels = groupData.levels;
       if (!levels.length) return;
+
+      const displaySetName = groupData.name || setName;
       
       const setElement = document.createElement('div');
       setElement.className = 'level-set';
-      setElement.dataset.set = setName;
+      setElement.dataset.set = displaySetName;
 
       const trigger = document.createElement('button');
       trigger.type = 'button';
@@ -4027,7 +4737,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       const title = document.createElement('span');
       title.className = 'level-set-title';
-      title.textContent = setName;
+      title.textContent = displaySetName;
 
       const count = document.createElement('span');
       count.className = 'level-set-count';
@@ -4036,7 +4746,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       trigger.append(glyph, title, count);
 
-      const slug = setName
+      const slug = displaySetName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
@@ -4127,7 +4837,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
 
       levelSetEntries.push({
-        name: setName,
+        name: displaySetName,
         element: setElement,
         trigger,
         titleEl: title,
@@ -4143,6 +4853,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Prioritize Story at the front of the rail and defer Challenges to the back for clearer progression.
     const campaignPriority = ['Story', 'Ladder', 'Challenges'];
+    // Player-facing names can differ from campaign keys so data remains stable while UI copy evolves.
+    const campaignDisplayNames = { Challenges: 'Trials' };
     const orderedCampaigns = Array.from(campaigns.entries()).sort((a, b) => {
       const [campaignA] = a;
       const [campaignB] = b;
@@ -4158,9 +4870,18 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     // Now render campaign buttons with their level sets
     orderedCampaigns.forEach(([campaignName, setKeys]) => {
+      // Defensive copy keeps the campaign rail rendering even if the data payload is malformed.
+      const orderedSetKeys = Array.isArray(setKeys) ? setKeys : [];
       const campaignElement = document.createElement('div');
       campaignElement.className = 'campaign-button';
       campaignElement.dataset.campaign = campaignName;
+
+      const displayName = campaignDisplayNames[campaignName] || campaignName;
+      const stackRank = campaignPriority.indexOf(campaignName);
+      if (stackRank !== -1) {
+        // Higher z-index ensures Story sits above Ladder which sits above Trials when icons overlap.
+        campaignElement.style.zIndex = `${campaignPriority.length - stackRank}`;
+      }
 
       const campaignTrigger = document.createElement('button');
       campaignTrigger.type = 'button';
@@ -4173,18 +4894,30 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const campaignGlyph = document.createElement('span');
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
-      // Assign unique glyph symbols for each campaign type.
+      // Assign campaign glyphs; Story and Ladder reuse the achievement SVGs for consistent iconography.
+      const campaignIcons = {
+        Story: 'assets/images/campaign-story.svg',
+        Ladder: 'assets/images/campaign-ladder.svg',
+      };
+      const iconPath = campaignIcons[campaignName] || null;
       let glyphSymbol = '⚔';
-      if (campaignName === 'Story') {
-        glyphSymbol = '◈';
-      } else if (campaignName === 'Challenges') {
-        glyphSymbol = 'α²+β²≠γ²';
+      if (iconPath) {
+        campaignGlyph.classList.add('campaign-button-glyph--svg');
+        const glyphImage = document.createElement('img');
+        glyphImage.src = iconPath;
+        glyphImage.alt = '';
+        glyphImage.className = 'campaign-button-glyph__image';
+        campaignGlyph.append(glyphImage);
+      } else {
+        if (campaignName === 'Challenges') {
+          glyphSymbol = 'α²+β²≠γ²';
+        }
+        campaignGlyph.textContent = glyphSymbol;
       }
-      campaignGlyph.textContent = glyphSymbol;
       
       const campaignTitle = document.createElement('span');
       campaignTitle.className = 'campaign-button-title';
-      campaignTitle.textContent = campaignName;
+      campaignTitle.textContent = displayName;
       
       const campaignCount = document.createElement('span');
       campaignCount.className = 'campaign-button-count';
@@ -4252,15 +4985,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignContainer.addEventListener('pointercancel', resetSwipeState);
       
       // Render level sets inside this campaign
-      setKeys.forEach((setName) => {
-        const groupData = groups.get(setName);
+      orderedSetKeys.forEach((setKey) => {
+        const groupData = groups.get(setKey);
         if (!groupData) return;
         const levels = groupData.levels;
         if (!levels.length) return;
+
+        const displaySetName = groupData.name || setKey;
         
         const setElement = document.createElement('div');
         setElement.className = 'level-set';
-        setElement.dataset.set = setName;
+        setElement.dataset.set = displaySetName;
         
         const trigger = document.createElement('button');
         trigger.type = 'button';
@@ -4275,7 +5010,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         
         const title = document.createElement('span');
         title.className = 'level-set-title';
-        title.textContent = setName;
+        title.textContent = displaySetName;
         
         const count = document.createElement('span');
         count.className = 'level-set-count';
@@ -4284,7 +5019,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         
         trigger.append(glyph, title, count);
         
-        const slug = setName
+        const slug = displaySetName
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '')
@@ -4374,7 +5109,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         });
         
         levelSetEntries.push({
-          name: setName,
+          name: displaySetName,
           element: setElement,
           trigger,
           titleEl: title,
@@ -4392,6 +5127,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       campaignRow.append(campaignElement);
       campaignButtons.push({
         name: campaignName,
+        displayName,
         element: campaignElement,
         trigger: campaignTrigger,
         glyphEl: campaignGlyph,
@@ -4404,6 +5140,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     levelGrid.append(fragment);
+    primeCampaignHeightBaseline();
     updateLevelSetLocks();
   }
 
@@ -4536,6 +5273,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const isInteractive = isInteractiveLevel(level.id);
     const levelConfig = levelConfigs.get(level.id);
     const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
+    const endlessCampaign = level?.campaign === 'Ladder';
     if (isInteractive && !isLevelUnlocked(level.id)) {
       if (playfield?.messageEl) {
         const requiredId = getPreviousInteractiveLevelId(level.id);
@@ -4576,9 +5314,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateActiveLevelBanner();
     updateLevelCards();
 
+    // Hide cognitive realm map whenever a level begins so rendering pauses inside encounters
+    if (isCognitiveRealmUnlocked()) {
+      hideCognitiveRealmMap();
+    }
+
     if (playfield) {
       playfield.enterLevel(level, {
-        endlessMode: forceEndlessMode || Boolean(updatedState.completed),
+        endlessMode: forceEndlessMode || endlessCampaign,
       });
     }
 
@@ -4602,6 +5345,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
 
     updateTowerSelectionButtons();
+
     // Swap the visible UI surfaces to match the new level state.
     updateLayoutVisibility();
   }
@@ -4616,10 +5360,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     stopIdleLevelRun(activeLevelId);
     if (playfield) {
+      // Close any open tower selection wheels when leaving the level
+      if (typeof playfield.closeTowerSelectionWheel === 'function') {
+        playfield.closeTowerSelectionWheel();
+      }
       playfield.leaveLevel();
+    }
+    // Close the loadout wheel when leaving the level
+    if (typeof closeLoadoutWheel === 'function') {
+      closeLoadoutWheel();
     }
     refreshTabMusic({ restart: true });
     activeLevelId = null;
+
     // Reset the interaction flag so the level grid is visible again.
     activeLevelIsInteractive = false;
     resourceState.running = false;
@@ -4628,6 +5381,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Ensure the battlefield stays hidden until another level begins.
     updateLayoutVisibility();
     updateTowerSelectionButtons();
+    
+    // Show cognitive realm map when leaving a level if on Defense tab
+    if (isCognitiveRealmUnlocked()) {
+      const activeTabId = getActiveTabId();
+      if (activeTabId === 'tower') {
+        showCognitiveRealmMap();
+      }
+    }
     if (playfieldMenuController) {
       playfieldMenuController.updateMenuState();
     }
@@ -5327,6 +6088,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updatePowderLedger,
     updateStatusDisplays,
     gameStats,
+    spireResourceState,
+    moteGemInventory: moteGemState.inventory,
+    powderState,
+    unlockTerrariumCelestialBody,
+    addTerrariumCreature,
+    addTerrariumItem,
   });
 
   async function init() {
@@ -5353,6 +6120,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     playfieldWrapper = document.getElementById('playfield-wrapper');
     stageControls = document.getElementById('stage-controls');
     levelSelectionSection = document.getElementById('level-selection');
+    // Bind the playfield fullscreen control once the DOM is available.
+    playfieldFullscreenButton = document.getElementById('playfield-fullscreen-button');
+    if (playfieldFullscreenButton) {
+      playfieldFullscreenButton.addEventListener('click', () => {
+        togglePlayfieldFullscreen();
+      });
+      updatePlayfieldFullscreenButton(playfieldFullscreenActive);
+    }
+    // Keep the fullscreen state synced with browser-level changes (ESC, gesture exit).
+    document.addEventListener('fullscreenchange', syncPlayfieldFullscreenState);
+    document.addEventListener('webkitfullscreenchange', syncPlayfieldFullscreenState);
     if (playfieldMenuController) {
       // Wire the playfield quick menu buttons through the dedicated controller.
       playfieldMenuController.bindMenuElements({
@@ -5398,6 +6176,19 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeLevelEditorElements();
     initializeDeveloperMapElements();
 
+    // Initialize cognitive realm map
+    const cognitiveRealmContainer = document.getElementById('cognitive-realm-container');
+    const cognitiveRealmCanvas = document.getElementById('cognitive-realm-canvas');
+    if (cognitiveRealmContainer && cognitiveRealmCanvas) {
+      initializeCognitiveRealmPreferences();
+      bindCognitiveRealmOptions();
+      initializeCognitiveRealmMap(cognitiveRealmContainer, cognitiveRealmCanvas, {
+        getDeveloperModeActive: () => developerModeActive,
+      });
+      // Ensure visibility and render state line up with the current tab and level status.
+      updateCognitiveRealmVisibility();
+    }
+
     // Apply the preferred graphics fidelity before other controls render.
     initializeGraphicsMode();
     initializeTrackRenderMode();
@@ -5417,6 +6208,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();
     bindFpsCounterToggle();
+
+    // Bind playfield visual settings
+    bindEnemyParticlesToggle();
+    initializeEnemyParticlesPreference();
+    bindEdgeCrystalsToggle();
+    initializeEdgeCrystalsPreference();
+    bindBackgroundParticlesToggle();
+    initializeBackgroundParticlesPreference();
+    bindPlayfieldTrackTypeButton();
+    initializeTowerLoadoutToggleSidePreference();
+    bindTowerLoadoutToggleSideButton();
+    initializePlayfieldPreferences();
+    bindPlayfieldOptions();
+
+    // Bind playfield settings dropdown using the spire options dropdown behavior
+    bindSpireOptionsDropdown({
+      toggleId: 'playfield-settings-toggle',
+      menuId: 'playfield-settings-menu',
+      spireId: 'playfield-settings',
+    });
+    
     // Activate spire option dropdown toggles so every tab shares the same UX as Lamed.
     bindSpireOptionsDropdown({
       toggleId: 'powder-options-toggle-button',
@@ -5427,6 +6239,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       toggleId: 'fluid-options-toggle-button',
       menuId: 'fluid-options-menu',
       spireId: 'fluid',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'bet-spire-options-toggle-button',
+      menuId: 'bet-spire-options-menu',
+      spireId: 'bet',
     });
     bindSpireOptionsDropdown({
       toggleId: 'tsadi-options-toggle-button',
@@ -5443,8 +6260,24 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       menuId: 'kuf-options-menu',
       spireId: 'kuf',
     });
+    bindSpireOptionsDropdown({
+      toggleId: 'cognitive-realm-options-toggle',
+      menuId: 'cognitive-realm-options-menu',
+      spireId: 'cognitive-realm',
+    });
+    bindSpireOptionsDropdown({
+      toggleId: 'achievements-terrarium-options-toggle-button',
+      menuId: 'achievements-terrarium-options-menu',
+      spireId: 'achievements-terrarium',
+    });
+    initializePowderSpirePreferences();
+    bindPowderSpireOptions();
     initializeFluidSpirePreferences();
     bindFluidSpireOptions();
+    initializeBetSpireParticlePreferences();
+    bindBetSpireParticleOptions();
+    initializeAchievementsTerrariumPreferences();
+    bindAchievementsTerrariumOptions();
     initializeColorScheme();
     bindAudioControls();
 
@@ -5551,6 +6384,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
     }
 
+    function stopFluidSimulationLoop() {
+      if (powderState.simulationMode !== 'fluid') {
+        return;
+      }
+      if (fluidSimulationInstance && typeof fluidSimulationInstance.stop === 'function') {
+        fluidSimulationInstance.stop();
+      }
+    }
+
+    function resumeFluidSimulationLoop() {
+      if (powderState.simulationMode !== 'fluid') {
+        return;
+      }
+      if (fluidSimulationInstance && typeof fluidSimulationInstance.start === 'function') {
+        fluidSimulationInstance.start();
+        if (typeof fluidSimulationInstance.handleResize === 'function') {
+          fluidSimulationInstance.handleResize();
+        }
+      }
+    }
+
     // Synchronize tab interactions with overlay state, audio cues, and banner refreshes.
     configureTabManager({
       getOverlayActiveState: () => Boolean(levelOverlayController?.isOverlayActive()),
@@ -5560,6 +6414,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // Hide the tower selection wheel whenever players leave the Stage tab.
         if (tabId !== 'tower' && playfield && typeof playfield.closeTowerSelectionWheel === 'function') {
           playfield.closeTowerSelectionWheel();
+        }
+        // Hide the loadout wheel whenever players leave the Tower tab.
+        if (tabId !== 'tower' && typeof closeLoadoutWheel === 'function') {
+          closeLoadoutWheel();
         }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           captureTsadiSimulationSnapshot();
@@ -5601,6 +6459,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // (Fluid simulation itself is stopped via applyPowderSimulationMode when switching modes)
         if (previousTabId === 'fluid' && tabId !== 'fluid') {
           stopTerrariumAnimations();
+          stopFluidSimulationLoop();
         }
 
         // Surface spire briefings the first time each tab opens.
@@ -5631,6 +6490,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 : null;
             updateFluidDisplay(fluidStatus);
           }
+          resumeFluidSimulationLoop();
           // Restart terrarium animations when returning to the Fluid/Bet tab
           startTerrariumAnimations();
         } else if (tabId === 'powder') {
@@ -5827,7 +6687,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 onParticleCountChange: (count) => {
                   const countEl = document.getElementById('tsadi-particle-count');
                   if (countEl) {
-                    countEl.textContent = `${count} particles`;
+                    countEl.textContent = `${count} atoms`;
                   }
                 },
                 onGlyphChange: (glyphCount) => {
@@ -5879,7 +6739,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
-                generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} particles/sec`;
+                generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} atoms/sec`;
               }
               spireMenuController.updateCounts();
               tsadiSimulationInstance.start();
@@ -5960,6 +6820,26 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               handlePowderViewTransformChange(powderSimulation.getViewTransform());
             }
           });
+        }
+
+        // Update cognitive realm map visibility based on tab and level state
+        // Hide the map if not on Defense tab OR if player is inside a level
+        if (isCognitiveRealmUnlocked()) {
+          const isDefenseTab = tabId === 'tower';
+          const isInsideLevel = Boolean(activeLevelId);
+          const shouldShowMap = isDefenseTab && !isInsideLevel;
+
+          if (shouldShowMap) {
+            showCognitiveRealmMap();
+          } else {
+            hideCognitiveRealmMap();
+          }
+        }
+
+        // Handle achievements tab visibility for sparkle management
+        // Notify achievements tab when visibility changes
+        if (typeof notifyAchievementsTabVisibilityChange === 'function') {
+          notifyAchievementsTabVisibilityChange(tabId === 'achievements');
         }
 
         previousTabId = tabId;
@@ -6135,6 +7015,195 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindStatusElements();
     bindPowderControls();
     bindFluidControls();
+    bindAchievementsTerrariumControls(); // Bind achievements terrarium elements
+    
+    // Initialize basic pan/zoom for achievements terrarium viewport
+    if (achievementsTerrariumElements.viewport && achievementsTerrariumElements.terrariumLayer) {
+      const viewport = achievementsTerrariumElements.viewport;
+      const layer = achievementsTerrariumElements.terrariumLayer;
+      let scale = 1;
+      let translateX = 0;
+      let translateY = 0;
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let startTranslateX = 0;
+      let startTranslateY = 0;
+      
+      // Anchor transforms from the top-left so clamping math stays predictable across zoom levels.
+      layer.style.transformOrigin = '0 0';
+
+      // Clamp the terrarium translation so the viewport never exposes empty space beyond the edges.
+      const clampTerrariumTranslation = () => {
+        const viewportWidth = viewport.clientWidth;
+        const viewportHeight = viewport.clientHeight;
+        const contentWidth = layer.offsetWidth;
+        const contentHeight = layer.offsetHeight;
+        if (!viewportWidth || !viewportHeight || !contentWidth || !contentHeight) {
+          return;
+        }
+        const scaledWidth = contentWidth * scale;
+        const scaledHeight = contentHeight * scale;
+        
+        // Prevent zooming out past the terrarium bounds
+        // Calculate minimum scale to ensure content fills the viewport
+        const minScaleX = viewportWidth / contentWidth;
+        const minScaleY = viewportHeight / contentHeight;
+        const minScale = Math.max(minScaleX, minScaleY, 0.5); // Use 0.5 as absolute minimum
+        
+        // Clamp scale to prevent zooming out too far
+        if (scale < minScale) {
+          scale = minScale;
+        }
+        
+        // Recalculate scaled dimensions with clamped scale
+        const clampedScaledWidth = contentWidth * scale;
+        const clampedScaledHeight = contentHeight * scale;
+        
+        const maxTranslateX = 0;
+        const maxTranslateY = 0;
+        const minTranslateX = viewportWidth - clampedScaledWidth;
+        const minTranslateY = viewportHeight - clampedScaledHeight;
+        const resolveTranslation = (current, min, max, viewportSize, scaledSize) => {
+          if (min > max) {
+            return (viewportSize - scaledSize) / 2;
+          }
+          return Math.min(max, Math.max(min, current));
+        };
+        translateX = resolveTranslation(translateX, minTranslateX, maxTranslateX, viewportWidth, clampedScaledWidth);
+        translateY = resolveTranslation(translateY, minTranslateY, maxTranslateY, viewportHeight, clampedScaledHeight);
+      };
+
+      const updateTransform = () => {
+        clampTerrariumTranslation();
+        layer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+      };
+      
+      // Mouse wheel zoom
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoomSpeed = 0.001;
+        const delta = -e.deltaY * zoomSpeed;
+        const newScale = Math.max(0.5, Math.min(3, scale * (1 + delta)));
+        
+        if (newScale !== scale) {
+          // Zoom towards mouse position
+          const rect = viewport.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          
+          // Calculate point in content space before zoom
+          const contentX = (mouseX - translateX) / scale;
+          const contentY = (mouseY - translateY) / scale;
+          
+          // Update scale
+          scale = newScale;
+          
+          // Calculate new translation to keep the content point under the mouse
+          translateX = mouseX - contentX * scale;
+          translateY = mouseY - contentY * scale;
+          
+          updateTransform();
+        }
+      }, { passive: false });
+      
+      // Mouse drag pan
+      viewport.addEventListener('mousedown', (e) => {
+        if (e.button === 0) { // Left mouse button
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          startTranslateX = translateX;
+          startTranslateY = translateY;
+          viewport.style.cursor = 'grabbing';
+        }
+      });
+      
+      viewport.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+          translateX = startTranslateX + (e.clientX - startX);
+          translateY = startTranslateY + (e.clientY - startY);
+          updateTransform();
+        }
+      });
+      
+      const stopDrag = () => {
+        if (isDragging) {
+          isDragging = false;
+          viewport.style.cursor = 'grab';
+        }
+      };
+      
+      viewport.addEventListener('mouseup', stopDrag);
+      viewport.addEventListener('mouseleave', stopDrag);
+      viewport.style.cursor = 'grab';
+      
+      // Touch support for mobile
+      let touchStartDist = 0;
+      let touchStartScale = 1;
+      let pinchCenterX = 0;
+      let pinchCenterY = 0;
+      
+      viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          // Single touch - pan
+          isDragging = true;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          startTranslateX = translateX;
+          startTranslateY = translateY;
+        } else if (e.touches.length === 2) {
+          // Two finger pinch - zoom
+          isDragging = false; // Cancel panning when pinch starts
+          const dx = e.touches[1].clientX - e.touches[0].clientX;
+          const dy = e.touches[1].clientY - e.touches[0].clientY;
+          touchStartDist = Math.sqrt(dx * dx + dy * dy);
+          touchStartScale = scale;
+          
+          // Calculate pinch center in viewport coordinates
+          const rect = viewport.getBoundingClientRect();
+          pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+          pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+        }
+      }, { passive: true });
+      
+      viewport.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && isDragging) {
+          e.preventDefault();
+          translateX = startTranslateX + (e.touches[0].clientX - startX);
+          translateY = startTranslateY + (e.touches[0].clientY - startY);
+          updateTransform();
+        } else if (e.touches.length === 2) {
+          e.preventDefault();
+          const dx = e.touches[1].clientX - e.touches[0].clientX;
+          const dy = e.touches[1].clientY - e.touches[0].clientY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const newScale = Math.max(0.5, Math.min(3, touchStartScale * (dist / touchStartDist)));
+          
+          if (newScale !== scale) {
+            // Calculate point in content space before zoom
+            const contentX = (pinchCenterX - translateX) / scale;
+            const contentY = (pinchCenterY - translateY) / scale;
+            
+            // Update scale
+            scale = newScale;
+            
+            // Calculate new translation to keep the content point under the pinch center
+            translateX = pinchCenterX - contentX * scale;
+            translateY = pinchCenterY - contentY * scale;
+            
+            updateTransform();
+          }
+        }
+      }, { passive: false });
+      
+      viewport.addEventListener('touchend', () => {
+        isDragging = false;
+        touchStartDist = 0;
+      }, { passive: true });
+    }
+    
+    initializeSpireGemMenus();
     bindFluidCameraModeToggle();
     syncFluidCameraModeUi();
     if (betHappinessSystem) {
@@ -6142,7 +7211,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       betHappinessSystem.updateDisplay(fluidElements);
     }
     await ensureTerrariumSurfacesReady();
+    ensureFluidTerrariumWater();
     ensureFluidTerrariumCreatures();
+    ensureFluidTerrariumBirds();
     ensureFluidTerrariumGrass();
     ensureFluidTerrariumCrystal();
     ensureFluidTerrariumTrees();
@@ -6161,6 +7232,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
     });
     bindAchievements();
+    // Initialize boosts section in achievements tab
+    loadMonetizationState();
+    initializeBoostsSection();
     updatePowderLogDisplay();
     updateResourceRates();
     updatePowderDisplay();
@@ -6187,6 +7261,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
     refreshTowerTreeMap();
     initializeTowerSelection();
+    initializeTowerVisibilityToggle();
+    initializeTowerElementDebugControls();
     bindTowerCardUpgradeInteractions();
     syncLoadoutToPlayfield();
     renderEnemyCodex();
@@ -6197,12 +7273,48 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindUpgradeMatrix();
     bindLeaveLevelButton();
     initializeManualDropHandlers();
+    
+    // Initialize Bet Spire particle physics render and inventory display
+    initBetSpireRender(spireResourceState.fluid);
+    setBetSpireRenderGetter(getBetSpireRenderInstance);
+    initParticleInventoryDisplay();
+    
+    // Initialize BET spire upgrade menu
+    const betUpgradeMenu = createBetSpireUpgradeMenu({
+      formatWholeNumber,
+      formatGameNumber,
+      formatDecimal,
+      state: spireResourceState.fluid,
+    });
+    
+    betUpgradeMenu.bindPurchaseButtons();
+    betUpgradeMenu.startGenerationLoop();
+    
+    // Update the upgrade menu display every second
+    setInterval(() => {
+      betUpgradeMenu.updateDisplay();
+    }, 1000);
+    
+    // Listen for BET glyph awards
+    const betCanvas = document.getElementById('bet-spire-canvas');
+    if (betCanvas) {
+      betCanvas.addEventListener('betGlyphsAwarded', (event) => {
+        const count = event.detail?.count || 0;
+        if (count > 0) {
+          // Award BET glyphs to the player
+          setBetGlyphCurrency(getBetGlyphCurrency() + count);
+          recordPowderEvent('bet-glyph-award', { count });
+          // Trigger autosave to persist the milestone achievement
+          schedulePowderSave();
+        }
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => init().catch(console.error));
   } else {
-    init();
+    init().catch(console.error);
   }
 
   bindPageLifecycleEvents({
@@ -6213,6 +7325,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     refreshTabMusic,
     checkOfflineRewards,
     audioManager,
+    stopBetSpireRender,
+    resumeBetSpireRender,
   });
 
   document.addEventListener('keydown', (event) => {

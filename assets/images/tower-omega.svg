@@ -4,16 +4,122 @@
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.94" />
       <stop offset="100%" stop-color="#9ea6ff" stop-opacity="0.72" />
     </linearGradient>
+    
+    <!-- 8 dots around inside edge (radius ~12) that slice across to opposite edge -->
+    <!-- Dot 1: Right (44,32) slicing to Left (20,32) -->
+    <g id="slice1">
+      <circle r="1.5" fill="#ffd88f" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="44,32; 44,32; 20,32; 20,32" keyTimes="0;0.1;0.8;1" dur="3s" repeatCount="indefinite" />
+      </circle>
+      <line x1="44" y1="32" x2="20" y2="32" stroke="#ffd88f" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 2: Top (32,20) slicing to Bottom (32,44) -->
+    <g id="slice2">
+      <circle r="1.5" fill="#ffeb9f" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="0.375s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="32,20; 32,20; 32,44; 32,44" keyTimes="0;0.1;0.8;1" dur="3s" begin="0.375s" repeatCount="indefinite" />
+      </circle>
+      <line x1="32" y1="20" x2="32" y2="44" stroke="#ffeb9f" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="0.375s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 3: Top-Right (40.5,23.5) slicing to Bottom-Left (23.5,40.5) -->
+    <g id="slice3">
+      <circle r="1.5" fill="#ffe4a8" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="0.75s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="40.5,23.5; 40.5,23.5; 23.5,40.5; 23.5,40.5" keyTimes="0;0.1;0.8;1" dur="3s" begin="0.75s" repeatCount="indefinite" />
+      </circle>
+      <line x1="40.5" y1="23.5" x2="23.5" y2="40.5" stroke="#ffe4a8" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="0.75s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 4: Bottom-Right (40.5,40.5) slicing to Top-Left (23.5,23.5) -->
+    <g id="slice4">
+      <circle r="1.5" fill="#ffdfa0" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.125s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="40.5,40.5; 40.5,40.5; 23.5,23.5; 23.5,23.5" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.125s" repeatCount="indefinite" />
+      </circle>
+      <line x1="40.5" y1="40.5" x2="23.5" y2="23.5" stroke="#ffdfa0" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="1.125s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 5: Left (20,32) slicing to Right (44,32) -->
+    <g id="slice5">
+      <circle r="1.5" fill="#ffe8b0" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.5s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="20,32; 20,32; 44,32; 44,32" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.5s" repeatCount="indefinite" />
+      </circle>
+      <line x1="20" y1="32" x2="44" y2="32" stroke="#ffe8b0" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="1.5s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 6: Bottom (32,44) slicing to Top (32,20) -->
+    <g id="slice6">
+      <circle r="1.5" fill="#ffd88f" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.875s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="32,44; 32,44; 32,20; 32,20" keyTimes="0;0.1;0.8;1" dur="3s" begin="1.875s" repeatCount="indefinite" />
+      </circle>
+      <line x1="32" y1="44" x2="32" y2="20" stroke="#ffd88f" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="1.875s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 7: Bottom-Left (23.5,40.5) slicing to Top-Right (40.5,23.5) -->
+    <g id="slice7">
+      <circle r="1.5" fill="#ffeb9f" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="2.25s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="23.5,40.5; 23.5,40.5; 40.5,23.5; 40.5,23.5" keyTimes="0;0.1;0.8;1" dur="3s" begin="2.25s" repeatCount="indefinite" />
+      </circle>
+      <line x1="23.5" y1="40.5" x2="40.5" y2="23.5" stroke="#ffeb9f" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="2.25s" repeatCount="indefinite" />
+      </line>
+    </g>
+    
+    <!-- Dot 8: Top-Left (23.5,23.5) slicing to Bottom-Right (40.5,40.5) -->
+    <g id="slice8">
+      <circle r="1.5" fill="#ffe4a8" opacity="0">
+        <animate attributeName="opacity" values="0;0.9;0.9;0" keyTimes="0;0.1;0.8;1" dur="3s" begin="2.625s" repeatCount="indefinite" />
+        <animateTransform attributeName="transform" type="translate" values="23.5,23.5; 23.5,23.5; 40.5,40.5; 40.5,40.5" keyTimes="0;0.1;0.8;1" dur="3s" begin="2.625s" repeatCount="indefinite" />
+      </circle>
+      <line x1="23.5" y1="23.5" x2="40.5" y2="40.5" stroke="#ffe4a8" stroke-width="0.8" opacity="0">
+        <animate attributeName="opacity" values="0;0;0.6;0" keyTimes="0;0.1;0.5;1" dur="3s" begin="2.625s" repeatCount="indefinite" />
+      </line>
+    </g>
   </defs>
   <rect width="64" height="64" rx="14" fill="#0a0c13" />
   <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
   <circle cx="32" cy="32" r="16" fill="url(#omegaAura)" opacity="0.92" />
+  
+  <!-- Slicing dots animation (behind the letter) -->
+  <g id="slices">
+    <use href="#slice1" />
+    <use href="#slice2" />
+    <use href="#slice3" />
+    <use href="#slice4" />
+    <use href="#slice5" />
+    <use href="#slice6" />
+    <use href="#slice7" />
+    <use href="#slice8" />
+  </g>
+  
   <text
     x="32"
     y="39"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
-    fill="#1a1733"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
   >Ω</text>
 </svg>

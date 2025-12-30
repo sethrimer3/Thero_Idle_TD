@@ -18,6 +18,48 @@ const waveEditorState = {
 // DOM element references
 const waveEditorElements = {};
 
+// Create a short display label for enemy types using the first four letters.
+function getEnemyTypeShortLabel(enemyLabel) {
+  const normalized = String(enemyLabel || '').replace(/[^a-zA-Z]/g, '');
+  return normalized ? normalized.slice(0, 4) : 'Type';
+}
+
+// Ensure the wave editor list has a header row describing the columns.
+function ensureWaveEditorHeader() {
+  if (!waveEditorElements.list) {
+    return;
+  }
+
+  const existingHeader = waveEditorElements.list.querySelector('.wave-editor-item--header');
+  if (existingHeader) {
+    return;
+  }
+
+  const header = document.createElement('div');
+  header.className = 'wave-editor-item wave-editor-item--header';
+  header.setAttribute('aria-hidden', 'true');
+
+  const columnLabels = ['Wave', 'Count', 'Type', 'HP', 'Interval', 'Delay', 'Boss', ''];
+  columnLabels.forEach((text) => {
+    const label = document.createElement('div');
+    label.className = 'wave-editor-item__label wave-editor-item__label--header';
+    label.textContent = text;
+    header.appendChild(label);
+  });
+
+  waveEditorElements.list.appendChild(header);
+}
+
+// Reset the wave list UI while keeping the column header visible.
+function resetWaveEditorList() {
+  if (!waveEditorElements.list) {
+    return;
+  }
+
+  waveEditorElements.list.innerHTML = '';
+  ensureWaveEditorHeader();
+}
+
 /**
  * Initialize wave editor UI and bind event handlers.
  */
@@ -52,6 +94,9 @@ export function initializeWaveEditor() {
     waveEditorElements.importButton.addEventListener('click', handleImportWaves);
   }
 
+  // Ensure column headers are present even before any waves are added.
+  ensureWaveEditorHeader();
+
   return true;
 }
 
@@ -84,9 +129,7 @@ export function hideWaveEditor() {
 export function loadWavesIntoEditor(waves) {
   // Clear existing waves
   waveEditorState.waves = [];
-  if (waveEditorElements.list) {
-    waveEditorElements.list.innerHTML = '';
-  }
+  resetWaveEditorList();
 
   // Parse waves if string
   let waveArray = waves;
@@ -159,7 +202,8 @@ export function addWaveEditorRow(waveData = null) {
   Object.entries(ENEMY_TYPES).forEach(([letter, data]) => {
     const option = document.createElement('option');
     option.value = letter;
-    option.textContent = letter;
+    // Show the first four letters of the enemy type to keep the selector compact.
+    option.textContent = getEnemyTypeShortLabel(data.label);
     option.title = data.label;
     if (letter === primaryGroup.enemyType) {
       option.selected = true;
@@ -327,7 +371,8 @@ function createAdditionalGroupRow(waveIndex, groupIndex, groupData) {
   Object.entries(ENEMY_TYPES).forEach(([letter, data]) => {
     const option = document.createElement('option');
     option.value = letter;
-    option.textContent = letter;
+    // Show the first four letters of the enemy type to keep the selector compact.
+    option.textContent = getEnemyTypeShortLabel(data.label);
     option.title = data.label;
     if (letter === groupData.enemyType) {
       option.selected = true;
@@ -470,7 +515,7 @@ function rebuildWaveEditorList() {
       : []
   }));
   waveEditorState.waves = [];
-  waveEditorElements.list.innerHTML = '';
+  resetWaveEditorList();
 
   existingWaves.forEach((wave) => {
     addWaveEditorRow(wave);
@@ -598,9 +643,7 @@ function handleClearWaves() {
   }
 
   waveEditorState.waves = [];
-  if (waveEditorElements.list) {
-    waveEditorElements.list.innerHTML = '';
-  }
+  resetWaveEditorList();
 
   if (waveEditorElements.output) {
     waveEditorElements.output.value = '';
@@ -826,8 +869,13 @@ function createDefaultGroup(overrides = {}) {
  */
 function extractWaveGroups(waveData) {
   const fallbackType = resolveEnemyTypeLetter(waveData, 'A');
-  const groups = Array.isArray(waveData?.enemyGroups) ? waveData.enemyGroups : null;
+  const groups = Array.isArray(waveData?.enemyGroups) && waveData.enemyGroups.length
+    ? waveData.enemyGroups
+    : Array.isArray(waveData?.groups) && waveData.groups.length
+      ? waveData.groups
+      : null;
   if (Array.isArray(groups) && groups.length) {
+    // Support both decoded wave data and the editor's in-memory `groups` structure.
     return groups
       .map((group) => {
         const count = Number.isFinite(group?.count) ? Math.max(1, Math.floor(group.count)) : 10;

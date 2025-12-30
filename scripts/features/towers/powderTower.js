@@ -60,6 +60,25 @@ export const POWDER_CELL_SIZE_PX = 1;
 export const MOTE_RENDER_SCALE = 1;
 export const MOTE_COLLISION_SCALE = 1;
 
+// Background star configuration constants
+const MIN_STAR_SIZE = 0.5;
+const MAX_STAR_SIZE = 2.5;
+const STAR_MAX_SPEED = 0.0002;
+const GOLD_STAR_PROBABILITY = 0.3;
+const STAR_MIN_LIFETIME_SECONDS = 6;
+const STAR_MAX_LIFETIME_SECONDS = 12;
+const STAR_FADE_MIN_SECONDS = 1.25;
+const STAR_FADE_MAX_SECONDS = 2.4;
+
+function randomInRange(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return min;
+  }
+  const clampedMin = Math.min(min, max);
+  const clampedMax = Math.max(min, max);
+  return clampedMin + Math.random() * (clampedMax - clampedMin);
+}
+
 export class PowderSimulation {
   constructor(options = {}) {
     this.canvas = options.canvas || null;
@@ -67,7 +86,11 @@ export class PowderSimulation {
     const baseCellSize = Number.isFinite(options.cellSize) && options.cellSize > 0
       ? options.cellSize
       : POWDER_CELL_SIZE_PX;
-    const deviceScale = window.devicePixelRatio || 1;
+    // Cap the effective device pixel ratio so the Aleph basin canvas stays lightweight on dense screens.
+    this.maxDevicePixelRatio = Number.isFinite(options.maxDevicePixelRatio) && options.maxDevicePixelRatio > 0
+      ? options.maxDevicePixelRatio
+      : 1.8;
+    const deviceScale = this.getEffectiveDeviceScale();
     this.cellSize = Math.max(1, Math.round(baseCellSize * deviceScale));
     this.deviceScale = deviceScale;
     this.collisionScale =
@@ -162,11 +185,22 @@ export class PowderSimulation {
     this.flowOffset = 0;
     const fallbackPalette = options.fallbackMotePalette || DEFAULT_MOTE_PALETTE;
     this.motePalette = mergeMotePalette(options.motePalette || fallbackPalette);
+    // Enable luminous motes and glowing trails by default to keep the Aleph basin readable.
+    this.moteGlowEnabled = options.glowTrailsEnabled !== false;
+    this.moteTrailStretch = Number.isFinite(options.moteTrailStretch)
+      ? Math.max(0, options.moteTrailStretch)
+      : 0.35;
     this.onWallMetricsChange =
       typeof options.onWallMetricsChange === 'function' ? options.onWallMetricsChange : null;
     // Surface camera changes so UI overlays can mirror the simulation transform.
     this.onViewTransformChange =
       typeof options.onViewTransformChange === 'function' ? options.onViewTransformChange : null;
+
+    // Background star particles
+    this.backgroundStarsEnabled = options.backgroundStarsEnabled !== false;
+    this.moteTrailsEnabled = options.moteTrailsEnabled !== false;
+    this.stars = [];
+    this.initializeStars();
 
     this.defaultProfile = {
       grainSizes: [...this.grainSizes],
@@ -186,6 +220,20 @@ export class PowderSimulation {
     if (this.ctx) {
       this.configureCanvas();
     }
+  }
+
+  /**
+   * Resolve a capped device pixel ratio so Aleph Spire renders never exceed budget on high-resolution hardware.
+   * @returns {number} Effective device pixel ratio for the powder canvas
+   */
+  getEffectiveDeviceScale() {
+    const rawRatio = Number.isFinite(window?.devicePixelRatio) && window.devicePixelRatio > 0
+      ? window.devicePixelRatio
+      : 1;
+    const maxRatio = Number.isFinite(this.maxDevicePixelRatio) && this.maxDevicePixelRatio > 0
+      ? this.maxDevicePixelRatio
+      : rawRatio;
+    return Math.max(1, Math.min(rawRatio, maxRatio));
   }
 
   handleResize() {
@@ -214,9 +262,8 @@ export class PowderSimulation {
           scrollOffsetCells: this.scrollOffsetCells,
         }
       : null; // Cache the previous grid metrics so we can rescale grains after the resize.
-    const ratio = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
-      ? window.devicePixelRatio
-      : 1;
+    // Use the capped DPR to prevent giant backing stores on ultra-dense screens.
+    const ratio = this.getEffectiveDeviceScale();
     const rect =
       typeof this.canvas.getBoundingClientRect === 'function'
         ? this.canvas.getBoundingClientRect()
@@ -467,6 +514,7 @@ export class PowderSimulation {
       return;
     }
 
+    this.updateStars(delta);
     this.convertIdleBank(delta);
     this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
 
@@ -758,6 +806,7 @@ export class PowderSimulation {
       freefall: !this.stabilized,
       inGrid: false,
       resting: false,
+      previousY: spawnY,
       color: this.normalizeDropColor(drop.color),
     };
     this.nextId += 1;
@@ -849,6 +898,7 @@ export class PowderSimulation {
         grain.colliderSize = this.computeColliderSize(grain.size);
       }
       const colliderSize = Math.max(1, Math.round(grain.colliderSize));
+      grain.previousY = Number.isFinite(grain.y) ? grain.y : 0;
       if (!this.stabilized || grain.freefall) {
         grain.freefall = true;
         grain.inGrid = false;
@@ -1267,6 +1317,44 @@ export class PowderSimulation {
     this.ctx.fillRect(0, height - 2, width, 2);
 
     const cellSizePx = this.cellSize;
+    const laneLeftPx = Math.max(0, this.wallInsetLeftCells * cellSizePx);
+    const laneRightPx = Math.max(0, this.wallInsetRightCells * cellSizePx);
+    const laneWidthPx = Math.max(0, width - laneLeftPx - laneRightPx);
+
+    // Draw background stars
+    if (this.backgroundStarsEnabled && laneWidthPx > 0) {
+      for (const star of this.stars) {
+        const starX = laneLeftPx + star.x * laneWidthPx;
+        const starY = star.y * height;
+        const twinkle = Math.sin(star.twinklePhase) * 0.5 + 0.5;
+        const fade = this.getStarFadeFactor(star);
+        const opacity = Math.max(0, Math.min(1, (star.opacity || 0) * twinkle * fade));
+        if (opacity <= 0) {
+          continue;
+        }
+
+        this.ctx.save();
+        this.ctx.globalAlpha = opacity;
+        this.ctx.shadowBlur = star.size * 3;
+
+        if (star.isGold) {
+          this.ctx.fillStyle = 'rgb(255, 215, 100)';
+          this.ctx.shadowColor = 'rgba(255, 215, 100, 0.8)';
+        } else {
+          this.ctx.fillStyle = 'rgb(255, 255, 255)';
+          this.ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        }
+
+        this.ctx.beginPath();
+        this.ctx.arc(starX, starY, star.size, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    }
+    const glowEnabled = this.moteGlowEnabled !== false;
+    // Expand the halo so resting motes remain legible even when zoomed out.
+    const baseGlowBlur = Math.max(6, cellSizePx * 2.2) * 2;
+    const fallbackGlowColor = { r: 235, g: 214, b: 170 };
     for (const grain of this.grains) {
       const visualSize = Number.isFinite(grain.size) ? Math.max(1, grain.size) : 1;
       const colliderSize = Number.isFinite(grain.colliderSize)
@@ -1283,9 +1371,67 @@ export class PowderSimulation {
         continue;
       }
 
-      this.ctx.fillStyle = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      const resolvedColor = this.normalizeDropColor(grain.color) || fallbackGlowColor;
+      const glowColor = colorToRgbaString(
+        mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.35),
+        0.75,
+      );
+      const fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      const seamlessPadding = Math.max(0.25, sizePx * 0.06);
+      const seamlessX = px - seamlessPadding;
+      const seamlessY = py - seamlessPadding;
+      const seamlessSize = sizePx + seamlessPadding * 2;
+
+      this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = 'transparent';
+      this.ctx.fillStyle = fillColor;
+      this.ctx.fillRect(seamlessX, seamlessY, seamlessSize, seamlessSize);
+
+      const glowBlur = Math.max(baseGlowBlur, sizePx * 2.3);
+      if (glowEnabled) {
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = glowBlur;
+      } else {
+        this.ctx.shadowBlur = 0;
+        this.ctx.shadowColor = 'transparent';
+      }
+
+      if (
+        this.moteTrailsEnabled
+        && glowEnabled
+        && grain.freefall
+        && Number.isFinite(grain.previousY)
+        && Math.abs(grain.previousY - grain.y) > Number.EPSILON
+      ) {
+        const trailHeight = Math.max(
+          sizePx * 1.2,
+          Math.abs(grain.previousY - grain.y) * cellSizePx + sizePx * this.moteTrailStretch,
+        );
+        const trailTop = Math.min(grain.previousY, grain.y) * cellSizePx - offsetPx;
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.6;
+        this.ctx.shadowColor = glowColor;
+        this.ctx.shadowBlur = Math.max(baseGlowBlur, sizePx * 1.8);
+        // Paint a brighter gradient trail so falling motes leave a visible shimmer.
+        const trailGradient = this.ctx.createLinearGradient(
+          px,
+          trailTop,
+          px,
+          trailTop + trailHeight,
+        );
+        trailGradient.addColorStop(0, colorToRgbaString(resolvedColor, 0.32));
+        trailGradient.addColorStop(1, colorToRgbaString(resolvedColor, 0.08));
+        this.ctx.fillStyle = trailGradient;
+        this.ctx.fillRect(px, trailTop, sizePx, trailHeight);
+        this.ctx.restore();
+      }
+
+      this.ctx.fillStyle = fillColor;
       this.ctx.fillRect(px, py, sizePx, sizePx);
     }
+
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowColor = 'transparent';
 
     this.ctx.restore();
   }
@@ -1364,6 +1510,104 @@ export class PowderSimulation {
 
   setMotePalette(palette) {
     this.motePalette = mergeMotePalette(palette);
+  }
+
+  /**
+   * Toggle luminous mote rendering and apply the change immediately.
+   * @param {{ glowTrailsEnabled?: boolean }} settings - Visual preference payload from the UI.
+   */
+  applyMoteGlowSettings(settings = {}) {
+    const enabled = settings.glowTrailsEnabled !== false;
+    this.moteGlowEnabled = enabled;
+    this.render();
+  }
+
+  /**
+   * Initialize background star particles
+   */
+  initializeStars() {
+    this.stars = [];
+    const starCount = 100;
+    for (let i = 0; i < starCount; i++) {
+      this.stars.push(this.seedStar());
+    }
+  }
+
+  /**
+   * Update star positions and twinkle effect
+   */
+  updateStars(deltaMs) {
+    if (!this.backgroundStarsEnabled) {
+      return;
+    }
+    const deltaSeconds = deltaMs / 1000;
+    for (const star of this.stars) {
+      star.age = Number.isFinite(star.age) ? star.age + deltaSeconds : deltaSeconds;
+      if (!Number.isFinite(star.life) || star.age >= star.life) {
+        this.seedStar(star);
+      }
+      star.x += star.speedX * deltaSeconds;
+      star.y += star.speedY * deltaSeconds;
+
+      // Wrap around edges
+      if (star.x < 0) star.x += 1;
+      if (star.x > 1) star.x -= 1;
+      if (star.y < 0) star.y += 1;
+      if (star.y > 1) star.y -= 1;
+
+      // Update twinkle
+      star.twinklePhase += star.twinkleSpeed * deltaSeconds;
+    }
+  }
+
+  seedStar(existing = null) {
+    const star = existing || {};
+    star.x = Math.random();
+    star.y = Math.random();
+    star.size = Math.random() * (MAX_STAR_SIZE - MIN_STAR_SIZE) + MIN_STAR_SIZE;
+    star.speedX = (Math.random() - 0.5) * STAR_MAX_SPEED;
+    star.speedY = (Math.random() - 0.5) * STAR_MAX_SPEED;
+    star.opacity = Math.random() * 0.6 + 0.2;
+    star.twinklePhase = Math.random() * Math.PI * 2;
+    star.twinkleSpeed = Math.random() * 0.02 + 0.01;
+    star.isGold = Math.random() < GOLD_STAR_PROBABILITY;
+    const life = randomInRange(STAR_MIN_LIFETIME_SECONDS, STAR_MAX_LIFETIME_SECONDS);
+    const fadeIn = randomInRange(STAR_FADE_MIN_SECONDS, STAR_FADE_MAX_SECONDS);
+    const fadeOut = randomInRange(STAR_FADE_MIN_SECONDS, STAR_FADE_MAX_SECONDS);
+    const safeFadeOut = Math.min(fadeOut, Math.max(0.25, life * 0.5));
+    star.age = 0;
+    star.life = Math.max(fadeIn + safeFadeOut + 1, life);
+    star.fadeIn = Math.max(0.25, fadeIn);
+    star.fadeOut = Math.max(0.25, safeFadeOut);
+    return star;
+  }
+
+  getStarFadeFactor(star) {
+    const fadeIn = Number.isFinite(star?.fadeIn) ? Math.max(0.25, star.fadeIn) : STAR_FADE_MIN_SECONDS;
+    const fadeOut = Number.isFinite(star?.fadeOut) ? Math.max(0.25, star.fadeOut) : STAR_FADE_MIN_SECONDS;
+    const life = Number.isFinite(star?.life)
+      ? Math.max(fadeIn + fadeOut, star.life)
+      : fadeIn + fadeOut;
+    const age = Math.max(0, Number.isFinite(star?.age) ? star.age : 0);
+    const fadeInFactor = clampUnitInterval(age / fadeIn);
+    const fadeOutFactor = clampUnitInterval((life - age) / fadeOut);
+    return Math.min(fadeInFactor, fadeOutFactor);
+  }
+
+  /**
+   * Set background stars enabled/disabled
+   */
+  setBackgroundStarsEnabled(enabled) {
+    this.backgroundStarsEnabled = enabled;
+    this.render();
+  }
+
+  /**
+   * Set mote trails enabled/disabled
+   */
+  setMoteTrailsEnabled(enabled) {
+    this.moteTrailsEnabled = enabled;
+    this.render();
   }
 
   normalizeDropColor(color) {
