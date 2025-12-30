@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Test - buildInfo</title>
+</head>
+<body>
+    <h1>Testing buildInfo.js</h1>
+    <div id="status">Loading...</div>
+    <script type="module">
+        try {
+            import('./assets/buildInfo.js')
+                .then((module) => {
+                    document.getElementById('status').textContent = 'SUCCESS: buildInfo loaded, BUILD_NUMBER=' + module.BUILD_NUMBER;
+                    document.getElementById('status').style.color = 'green';
+                })
+                .catch((error) => {
+                    document.getElementById('status').textContent = 'ERROR: ' + error.message + ' | ' + error.stack;
+                    document.getElementById('status').style.color = 'red';
+                    console.error('Module load error:', error);
+                });
+        } catch (e) {
+            document.getElementById('status').textContent = 'EXCEPTION: ' + e.message;
+            document.getElementById('status').style.color = 'red';
+            console.error('Exception:', e);
+        }
+    </script>
+</body>
+</html>
