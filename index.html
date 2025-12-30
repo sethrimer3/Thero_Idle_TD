@@ -3751,183 +3751,199 @@
                 <!-- Pre-simulation menu with unit deployment and upgrades -->
                 <div class="kuf-sim-menu" id="kuf-sim-menu">
                   <button class="action-button kuf-sim-menu-start" type="button" id="kuf-start-button">Start Simulation</button>
-
-                  <div class="kuf-sim-map" aria-live="polite">
-                    <p class="kuf-sim-map-label">Battlefield</p>
-                    <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
-                    <p class="kuf-sim-map-meta" id="kuf-map-difficulty"></p>
-                    <p class="kuf-sim-map-description" id="kuf-map-description">Select a battlefield to see its briefing.</p>
-                    <ul class="kuf-map-mechanics" id="kuf-map-mechanics">
-                      <li>No unique mechanics documented yet.</li>
-                    </ul>
-                  </div>
-
-                  <div class="kuf-sim-menu-units">
-                    <!-- Core Ship -->
-                    <div class="kuf-sim-unit kuf-sim-unit--core">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Core Ship</span>
-                        <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
-                          Hull: <span id="kuf-core-ship-health">120 HP</span>
-                        </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
-                        </button>
+                  <!-- Kuf main menu grid to organize pre-simulation choices in four tiles. -->
+                  <div class="kuf-sim-menu-grid">
+                    <!-- Levels tile houses the battlefield selection list. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--levels">
+                      <h4 class="kuf-sim-menu-title">Levels</h4>
+                      <div class="kuf-sim-map" aria-live="polite">
+                        <p class="kuf-sim-map-label">Battlefield</p>
+                        <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
+                        <p class="kuf-sim-map-meta" id="kuf-map-difficulty"></p>
+                        <p class="kuf-sim-map-description" id="kuf-map-description">Select a battlefield to see its briefing.</p>
+                        <ul class="kuf-map-mechanics" id="kuf-map-mechanics">
+                          <li>No unique mechanics documented yet.</li>
+                        </ul>
                       </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Hull</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-core-ship-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="health">+</button>
+                    </section>
+                    <!-- Ship tile presents core ship upgrades and hull status. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--ship">
+                      <h4 class="kuf-sim-menu-title">Ship</h4>
+                      <div class="kuf-sim-menu-units">
+                        <div class="kuf-sim-unit kuf-sim-unit--core">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Core Ship</span>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
+                              Hull: <span id="kuf-core-ship-health">120 HP</span>
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
+                            </button>
                           </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Cannons</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="cannons">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-core-ship-cannon-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="cannons">+</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <!-- Marine -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Marine</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="marines" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
-                        </div>
-                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                          Trained from the core ship
-                        </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
-                        </button>
-                      </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-marines-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="health">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-marines-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attackSpeed">+</button>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Hull</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Cannons</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="cannons">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-cannon-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="cannons">+</button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <!-- Sniper -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Sniper</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="snipers" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
+                    </section>
+                    <!-- Units tile groups all recruitable unit upgrades. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--units">
+                      <h4 class="kuf-sim-menu-title">Units</h4>
+                      <div class="kuf-sim-menu-units">
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Marine</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="marines" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-marines-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="marines" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-marines-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="marines" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                          Trained from the core ship
+                        
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Sniper</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="snipers" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-snipers-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-snipers-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
-                        </button>
+                        
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Splayer</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="splayers" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
+                            </div>
+                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
+                              Trained from the core ship
+                            </div>
+                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
+                              Upgrades
+                              <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-splayers-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-snipers-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="health">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="snipers" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-snipers-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="snipers" data-stat="attackSpeed">+</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- Splayer -->
-                    <div class="kuf-sim-unit">
-                      <div class="kuf-sim-unit-header">
-                        <span class="kuf-sim-unit-name">Splayer</span>
-                        <div class="kuf-sim-unit-count-controls">
-                          <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="splayers" data-action="minus">−</button>
-                          <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
-                          <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
-                        </div>
-                        <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                          Trained from the core ship
-                        </div>
-                        <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
-                          Upgrades
-                          <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
-                        </button>
-                      </div>
-                      <div class="kuf-sim-unit-upgrades" id="kuf-splayers-upgrades" hidden>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Health</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="health">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-health-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="health">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attack">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-attack-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attack">+</button>
-                          </div>
-                        </div>
-                        <div class="kuf-upgrade-option">
-                          <span class="kuf-upgrade-name">Attack Speed</span>
-                          <div class="kuf-upgrade-controls">
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
-                            <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
-                            <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    </section>
+                    <!-- TBD tile reserves space for future Kuf menu content. -->
+                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--tbd">
+                      <h4 class="kuf-sim-menu-title">TBD</h4>
+                      <p class="kuf-sim-menu-tbd">Awaiting future systems.</p>
+                    </section>
                   </div>
                 </div>
                 
