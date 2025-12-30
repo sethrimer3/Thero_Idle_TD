@@ -24,7 +24,6 @@ import {
   importJsonModule,
   loadGameplayConfigViaFetch,
   loadGameplayConfigViaModule,
-  loadGameplayConfigViaXhr,
 } from './gameplayConfigLoaders.js';
 import { mergeMotePalette } from '../scripts/features/towers/powderTower.js';
 
@@ -322,17 +321,6 @@ export async function ensureGameplayConfigLoaded() {
   }
 
   try {
-    // Fall back to XHR for environments where fetch is blocked or file:// restrictions apply.
-    const configFromXhr = await loadGameplayConfigViaXhr(GAMEPLAY_CONFIG_URL.href);
-    if (configFromXhr) {
-      return applyGameplayConfigInternal(configFromXhr);
-    }
-  } catch (error) {
-    lastError = error;
-    console.warn('XHR gameplay-config load failed; falling back to module loaders.', error);
-  }
-
-  try {
     const configFromModule = await loadGameplayConfigViaModule(GAMEPLAY_CONFIG_URL.href);
     if (configFromModule) {
       return applyGameplayConfigInternal(configFromModule);
@@ -394,3 +382,4 @@ export function getGameplayConfigData() {
 export function resetGameplayConfigCache() {
   gameplayConfigData = null;
 }
+
