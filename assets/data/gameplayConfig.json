@@ -21,52 +21,52 @@
       "traits": [
         "Display as (E^{k}) with a crimson exponent tied to (10^{k}) maximum health; even reduced health never hides the power tier.",
         "March in geometric platoons whose health resolves to (H(k) = H_0 \times 10^{k}) for rank k within the current set.",
-        "Reward Σ mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
+        "Reward \u03a3 mote gems on defeat using the same multiplier, making them ideal calibration targets for lattice tuning."
       ],
-      "counter": "Layer multiplicative auras and β/γ towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
+      "counter": "Layer multiplicative auras and \u03b2/\u03b3 towers so burst and splash damage keep pace with the exponential swell before specialist glyphs appear.",
       "lore": "Archivists open every defense proof against E glyphs; when their sigils begin to blur, heavier conjectures are on approach.",
       "formula": "(H(k) = H_0 \times 10^{k})",
       "formulaLabel": "Growth Law"
     },
     {
       "id": "divisor",
-      "symbol": "÷",
+      "symbol": "\u00f7",
       "name": "Divisors",
       "summary": "Factor-savvy husks that invert reckless power. They judge every incoming strike by its divisor weight and respond in kind.",
       "traits": [
-        "Appear as (÷^{k})—their glowing red exponent advertises the precise ten-power plateaus they occupy.",
+        "Appear as (\u00f7^{k})\u2014their glowing red exponent advertises the precise ten-power plateaus they occupy.",
         "Damage from one source collapses to (\\Delta H = 1 / \text{DPS}_{\\text{source}}), so slower cannons barely scratch the shell.",
         "Stacked beams add their DPS before inversion, rewarding multi-lane coverage and allied summons."
       ],
-      "counter": "Deploy swarm emitters, Ω slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
+      "counter": "Deploy swarm emitters, \u03a9 slows, and status lattices to multiply projectile count while letting lingering damage-over-time finish the proof.",
       "lore": "Their chants enumerate divisors as they advance; silence one and the entire column hesitates for a breath.",
       "formula": "(\\Delta H = 1 / \text{DPS}_{\\text{source}})",
       "formulaLabel": "Mitigation Rule"
     },
     {
       "id": "prime",
-      "symbol": "ℙ",
+      "symbol": "\u2119",
       "name": "Prime Counters",
-      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage—only how often they are struck.",
+      "summary": "Inquisitors that audit impact counts against the prime sequence. They do not care about damage\u2014only how often they are struck.",
       "traits": [
-        "Broadcast as (ℙ^{k}), letting you spot at a glance which prime threshold—scaled by (10^{k}) health—they are testing.",
-        "Maintain an internal counter η that increases with each hit until (η = p_n), the nth prime for their current wave.",
-        "Overflow resets η to the next prime threshold, so wasted barrages delay a collapse."
+        "Broadcast as (\u2119^{k}), letting you spot at a glance which prime threshold\u2014scaled by (10^{k}) health\u2014they are testing.",
+        "Maintain an internal counter \u03b7 that increases with each hit until (\u03b7 = p_n), the nth prime for their current wave.",
+        "Overflow resets \u03b7 to the next prime threshold, so wasted barrages delay a collapse."
       ],
-      "counter": "Favor rapid-fire towers, β resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
+      "counter": "Favor rapid-fire towers, \u03b2 resonance buffs, or allied reversals that deal consistent tap damage to meet each prime without overshooting.",
       "lore": "Their whispers recite primes in ascending order; the moment you match their cadence, the husk fractures.",
-      "formula": "(η = p_n)",
+      "formula": "(\u03b7 = p_n)",
       "formulaLabel": "Prime Threshold"
     },
     {
       "id": "reversal",
-      "symbol": "↺",
+      "symbol": "\u21ba",
       "name": "Reversal Sentinels",
       "summary": "Vanguard constructs tuned to flip allegiance. Defeat one and it races backward to join your formation with inverted statistics.",
       "traits": [
-        "Carry the mark (↺^{k})—the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
+        "Carry the mark (\u21ba^{k})\u2014the exponent glows brighter after conversion to highlight the retained ten-power health tier.",
         "Upon collapse they sprint to the start of the path; if unblocked they respawn as allies with (H_{ally} = lfloor 0.5 H_{foe} \rfloor).",
-        "Allied reversals inherit your active tower modifiers and pulse Σ mote gems while retracing enemy ground."
+        "Allied reversals inherit your active tower modifiers and pulse \u03a3 mote gems while retracing enemy ground."
       ],
       "counter": "Catch them near choke points so the conversion occurs within supportive auras, otherwise their retreat might breach the core first.",
       "lore": "Legend says each sentinel carries a mirrored proof; persuade it to turn the page and the margin glows with your sigil.",
@@ -75,25 +75,25 @@
     },
     {
       "id": "tunneler",
-      "symbol": "⇥",
+      "symbol": "\u21e5",
       "name": "Quantum Tunnelers",
       "summary": "Phase-shifted glyphs that refuse to follow etched rails, boring a straight tunnel toward the core regardless of your lattice work.",
       "traits": [
         "Advance along the direct vector from spawn gate to core nexus, bypassing every bend, choke point, and slow field etched onto the lane.",
         "Treat their displacement as (\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t); only raw damage intersecting that ray can arrest their collapse."
       ],
-      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line—positioning, not crowd control, halts their breach.",
+      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line\u2014positioning, not crowd control, halts their breach.",
       "lore": "Archivists describe them as qubits gone feral: collapse their waveform before it resolves inside the heart of your proof.",
       "formula": "(\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t)",
       "formulaLabel": "Tunnel Vector"
     },
     {
       "id": "aleph-swarm",
-      "symbol": "ℵ₀",
+      "symbol": "\u2135\u2080",
       "name": "Aleph Swarm",
       "summary": "Countable-infinity splinters that multiply the longer they survive, overwhelming defenses with relentless recursion.",
       "traits": [
-        "Render as (ℵ_0^{k})—their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
+        "Render as (\u2135_0^{k})\u2014their red exponent pulses with each duplication to telegraph the growing (10^{k}) health pool.",
         "Spawn additional copies at intervals determined by (\\lambda(t) = \\lambda_0 + \\lfloor t / T \rfloor), so survival time fuels the swarm."
       ],
       "counter": "Keep continuous-area effects engaged to prune duplicates before their exponent climbs beyond manageable tiers.",
@@ -103,11 +103,11 @@
     },
     {
       "id": "partial-wraith",
-      "symbol": "∂",
+      "symbol": "\u2202",
       "name": "Partial Wraith",
       "summary": "Spectral siphons that leech tower stats until slowed, modelling derivatives that refuse to settle.",
       "traits": [
-        "Stride in (∂^{k}) forms—the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
+        "Stride in (\u2202^{k}) forms\u2014the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
         "Absorb a fraction of nearby tower modifiers as (\\Delta S = \\alpha \\cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
       ],
       "counter": "Leverage stuns or heavy slows to pin the wraith, forcing it to disgorge the stolen bonuses.",
@@ -117,11 +117,11 @@
     },
     {
       "id": "gradient-sapper",
-      "symbol": "∇",
+      "symbol": "\u2207",
       "name": "Gradient Sapper",
       "summary": "Vector-chasing saboteurs that accelerate toward downhill buffs while draining everything in their path.",
       "traits": [
-        "Marked as (∇^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
+        "Marked as (\u2207^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
         "Gain speed according to (v = v_0 + \beta \\|\nabla B\\|), with B representing nearby buff intensity."
       ],
       "counter": "Rotate support zones or erect knockback fields to flatten the gradient before they sprint through your defenses.",
@@ -131,11 +131,11 @@
     },
     {
       "id": "weierstrass-prism",
-      "symbol": "℘",
+      "symbol": "\u2118",
       "name": "Weierstrass Prism",
       "summary": "Fractal shifters that jitter between vulnerable and invulnerable states at nowhere-differentiable intervals.",
       "traits": [
-        "Manifest as (℘^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
+        "Manifest as (\u2118^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
         "Toggle immunity on a schedule approximating (f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t)) with (0 < a < 1, b \\in \\mathbb{N})."
       ],
       "counter": "Sync burst damage to the brief windows when the prism's glow steadies, or lock them down with perfectly timed stasis.",
@@ -145,39 +145,39 @@
     },
     {
       "id": "planck-shade",
-      "symbol": "ħ",
+      "symbol": "\u0127",
       "name": "Planck Shade",
       "summary": "Quantum phantoms that phase in and out of reality, respecting only perfectly timed strikes.",
       "traits": [
-        "Wink into view as (ħ^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
+        "Wink into view as (\u0127^{k}); the exponent flashes bright red exactly when they are tangible, revealing the active (10^{k}) reservoir.",
         "Phase according to (\\tau = 2\\pi / \\omega); missed beats reset the cycle and restore a slice of their health tier."
       ],
       "counter": "Coordinate rhythmic towers or metronome buffs to line up hits the instant the shade materializes.",
-      "lore": "They shed cold blue motes—quantized echoes of every missed opportunity.",
+      "lore": "They shed cold blue motes\u2014quantized echoes of every missed opportunity.",
       "formula": "(\\tau = 2\\pi / \\omega)",
       "formulaLabel": "Quantum Cadence"
     },
     {
       "id": "null-husk",
-      "symbol": "∅",
+      "symbol": "\u2205",
       "name": "Null Husk",
       "summary": "Empty-set shells that ignore your lanes until provoked, then redistribute their absence as lethal mass.",
       "traits": [
-        "Appear dormant as (∅^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
-        "Upon collapse, transfer health (\\Delta H = \\gamma H_{∅}) evenly to nearby allies unless contained in a void field."
+        "Appear dormant as (\u2205^{k}); striking them ignites the exponent, signalling the (10^{k}) payload about to spill outward.",
+        "Upon collapse, transfer health (\\Delta H = \\gamma H_{\u2205}) evenly to nearby allies unless contained in a void field."
       ],
       "counter": "Ping them with sacrificial shots to control when and where the redistributed mass lands.",
       "lore": "Their translucent powderfall leaves outlines of nothing, framing the foes that absorbed their loss.",
-      "formula": "(\\Delta H = \\gamma H_{∅})",
+      "formula": "(\\Delta H = \\gamma H_{\u2205})",
       "formulaLabel": "Absence Transfer"
     },
     {
       "id": "imaginary-strider",
-      "symbol": "ℑ",
+      "symbol": "\u2111",
       "name": "Imaginary Strider",
       "summary": "Phase-dancing invaders that stack evasion whenever damage arrives out of phase with their complex stride.",
       "traits": [
-        "Stride as (ℑ^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
+        "Stride as (\u2111^{k}); each alternating damage type reduces the glowing exponent, collapsing their complex facade.",
         "Gain evasion stacks via (E_{new} = E_{old} + \\sigma \\sin(\\phi_{hit})), rewarding alternating real/imaginary damage inputs."
       ],
       "counter": "Alternate damage schools or use towers that naturally interleave phases to peel away their defenses.",
@@ -187,7 +187,7 @@
     },
     {
       "id": "combination-cohort",
-      "symbol": "ⁿCₖ",
+      "symbol": "\u207fC\u2096",
       "name": "Combination Cohort",
       "summary": "Squads bound by binomial ties that reshuffle total health every time a member collapses.",
       "traits": [
@@ -201,7 +201,7 @@
     },
     {
       "id": "polygon-splitter",
-      "symbol": "⬢",
+      "symbol": "\u2b22",
       "name": "Polygonal Splitter",
       "summary": "Recursive polygons that fracture into simpler shapes whenever they collapse.",
       "traits": [
@@ -215,7 +215,7 @@
     },
     {
       "id": "derivative-shield",
-      "symbol": "∂",
+      "symbol": "\u2202",
       "name": "Derivative Shield",
       "summary": "Calculus projectors that halve incoming damage for nearby allies and themselves.",
       "traits": [
@@ -234,7 +234,7 @@
       "campaign": "Story",
       "id": "Prologue - 1",
       "title": "First Lattice",
-      "path": "A straight path—the simplest proof.",
+      "path": "A straight path\u2014the simplest proof.",
       "focus": "Learn tower placement and basic defense.",
       "example": "Tutorial: Place your first tower and defend the Mind Gate."
     },
@@ -243,7 +243,7 @@
       "campaign": "Story",
       "id": "Prologue - 2",
       "title": "Curved Path",
-      "path": "A gentle arc—position matters.",
+      "path": "A gentle arc\u2014position matters.",
       "focus": "Master tower positioning on curved paths.",
       "example": "Tutorial: Adapt your strategy to curved enemy movement."
     },
@@ -252,7 +252,7 @@
       "campaign": "Story",
       "id": "Prologue - 3",
       "title": "Final Test",
-      "path": "A winding proof—combine all techniques.",
+      "path": "A winding proof\u2014combine all techniques.",
       "focus": "Demonstrate mastery of basic concepts.",
       "example": "Tutorial: Complete your training to unlock the full game."
     },
@@ -271,9 +271,9 @@
       "id": "Conjecture - 1",
       "campaign": "Story",
       "title": "Lemniscate Hypothesis",
-      "path": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.",
-      "focus": "Early E glyphs surge with divisor scouts—tempo control is vital.",
-      "example": "Goldbach’s Conjecture: Every even integer greater than 2 is the sum of two primes."
+      "path": "\u221e loop traced from r\u00b2 = cos(2\u03b8); mirrored spawn lanes cross twice.",
+      "focus": "Early E glyphs surge with divisor scouts\u2014tempo control is vital.",
+      "example": "Goldbach\u2019s Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
       "set": "Chapter 1",
@@ -282,16 +282,16 @@
       "title": "Collatz Cascade",
       "path": "Stepwise descent generated from the 3n + 1 map with teleport risers.",
       "focus": "Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
-      "example": "Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1."
+      "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
       "set": "Chapter 1",
       "id": "Conjecture - 3",
       "campaign": "Story",
       "title": "Riemann Helix",
-      "path": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.",
-      "focus": "Divisor elites flank wave bosses—Ω previews excel at splash slows.",
-      "example": "Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2."
+      "path": "Logarithmic spiral with harmonic bulges keyed to \u03b6(s) zero estimates.",
+      "focus": "Divisor elites flank wave bosses\u2014\u03a9 previews excel at splash slows.",
+      "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
     },
     {
       "set": "Chapter 1",
@@ -299,7 +299,7 @@
       "campaign": "Story",
       "title": "Twin Prime Fork",
       "path": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.",
-      "focus": "Prime counters demand rapid-fire towers—γ chaining resets their count.",
+      "focus": "Prime counters demand rapid-fire towers\u2014\u03b3 chaining resets their count.",
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
@@ -308,7 +308,7 @@
       "campaign": "Story",
       "title": "Birch Flow",
       "path": "Cardioid river influenced by elliptic curve rank gradients.",
-      "focus": "Reversal sentinels join late waves—δ soldiers can flip them to your side.",
+      "focus": "Reversal sentinels join late waves\u2014\u03b4 soldiers can flip them to your side.",
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
     },
     {
@@ -317,56 +317,8 @@
       "campaign": "Story",
       "title": "Apocrypha Loop",
       "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
-      "focus": "Only reveals during total glyph alignment—expect mixed archetypes in waves.",
+      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
-    },
-    {
-      "id": "level-00-prologue-01",
-      "title": "Developer Test Level",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-00-prologue-02",
-      "title": "Curved Path",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-00-prologue-03",
-      "title": "Final Test",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-01-epsilon-loop",
-      "title": "Epsilon Loop",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-02-cardioid",
-      "title": "Cardioid",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-03-figure-eight",
-      "title": "Figure Eight",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-04-spiral",
-      "title": "Spiral",
-      "campaign": "Story",
-      "set": "Chapter 1"
-    },
-    {
-      "id": "level-05-infinity",
-      "title": "Infinity",
-      "campaign": "Story",
-      "set": "Chapter 1"
     },
     {
       "set": "Chapter 2",
@@ -652,7 +604,7 @@
       "campaign": "Ladder",
       "id": "Developer - Test Range",
       "title": "Endless Codex Trials",
-      "path": "Developer-only training lattice—direct path reveals every glyph as it approaches.",
+      "path": "Developer-only training lattice\u2014direct path reveals every glyph as it approaches.",
       "focus": "Spawn one exemplar of every enemy archetype to validate balancing and visuals.",
       "example": "Developer Sandbox: Toggle endless codex trials to rehearse each glyph in slow motion.",
       "developerOnly": true,
@@ -672,7 +624,7 @@
         {
           "label": "first glyphs",
           "count": 3,
-          "interval": 2,
+          "interval": 2.0,
           "hp": 50,
           "speed": 0.08,
           "reward": 5,
@@ -690,7 +642,7 @@
           "codexId": "etype"
         }
       ],
-      "rewardScore": 100000000000000000000,
+      "rewardScore": 1e+20,
       "rewardFlux": 0,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -768,7 +720,7 @@
           "codexId": "divisor"
         }
       ],
-      "rewardScore": 500000000000000000000,
+      "rewardScore": 5e+20,
       "rewardFlux": 0,
       "rewardThero": 0,
       "rewardEnergy": 0,
@@ -987,7 +939,7 @@
             "speed": 0.02,
             "reward": 120,
             "color": "rgba(200, 236, 255, 0.95)",
-            "symbol": "Α"
+            "symbol": "\u0391"
           }
         }
       ],
@@ -1179,7 +1131,7 @@
       "lives": 100,
       "waves": [
         {
-          "label": "ζ scouts",
+          "label": "\u03b6 scouts",
           "count": 8,
           "interval": 1.4,
           "hp": 150,
@@ -1520,1216 +1472,6 @@
           "y": 0.122
         }
       ]
-    },
-    {
-      "id": "level-00-prologue-01",
-      "displayName": "Developer Test Level",
-      "waves": "1:3A5.0e1/2.0|2:4A8.0e1/1.8",
-      "path": [
-        {
-          "x": 0.1,
-          "y": 0.5
-        },
-        {
-          "x": 0.25,
-          "y": 0.5
-        },
-        {
-          "x": 0.35,
-          "y": 0.5,
-          "tunnel": true
-        },
-        {
-          "x": 0.45,
-          "y": 0.5,
-          "tunnel": true
-        },
-        {
-          "x": 0.55,
-          "y": 0.5,
-          "tunnel": true
-        },
-        {
-          "x": 0.65,
-          "y": 0.5
-        },
-        {
-          "x": 0.8,
-          "y": 0.5
-        },
-        {
-          "x": 0.9,
-          "y": 0.5
-        }
-      ],
-      "autoAnchors": [
-        {
-          "x": 0.2,
-          "y": 0.3,
-          "type": "alpha"
-        },
-        {
-          "x": 0.35,
-          "y": 0.3,
-          "type": "beta"
-        },
-        {
-          "x": 0.5,
-          "y": 0.3,
-          "type": "gamma"
-        },
-        {
-          "x": 0.65,
-          "y": 0.3,
-          "type": "delta"
-        },
-        {
-          "x": 0.8,
-          "y": 0.3,
-          "type": "epsilon"
-        },
-        {
-          "x": 0.2,
-          "y": 0.7,
-          "type": "zeta"
-        },
-        {
-          "x": 0.35,
-          "y": 0.7,
-          "type": "eta"
-        },
-        {
-          "x": 0.5,
-          "y": 0.7,
-          "type": "theta"
-        },
-        {
-          "x": 0.65,
-          "y": 0.7,
-          "type": "iota"
-        },
-        {
-          "x": 0.8,
-          "y": 0.7,
-          "type": "kappa"
-        }
-      ],
-      "startThero": 50,
-      "lives": 20,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-00-prologue-02",
-      "displayName": "Curved Path",
-      "waves": "1:5A1.0e2/1.5|2:6A1.5e2/1.4|3:4B2.0e2+3A1.2e2/1.3",
-      "path": [
-        {
-          "x": 0.1,
-          "y": 0.3
-        },
-        {
-          "x": 0.3,
-          "y": 0.2
-        },
-        {
-          "x": 0.5,
-          "y": 0.3
-        },
-        {
-          "x": 0.7,
-          "y": 0.5
-        },
-        {
-          "x": 0.8,
-          "y": 0.7
-        },
-        {
-          "x": 0.9,
-          "y": 0.8
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 80,
-      "lives": 15,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-00-prologue-03",
-      "displayName": "Final Test",
-      "waves": "1:6A2.0e2/1.5|2:5B2.5e2+3A2.0e2/1.4|3:7B3.0e2+4A2.5e2/1.3|4:8C3.5e2+4B3.0e2/1.2",
-      "path": [
-        {
-          "x": 0.1,
-          "y": 0.2
-        },
-        {
-          "x": 0.2,
-          "y": 0.4
-        },
-        {
-          "x": 0.4,
-          "y": 0.5
-        },
-        {
-          "x": 0.5,
-          "y": 0.3
-        },
-        {
-          "x": 0.6,
-          "y": 0.5
-        },
-        {
-          "x": 0.7,
-          "y": 0.7
-        },
-        {
-          "x": 0.85,
-          "y": 0.8
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 100,
-      "lives": 12,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-01-epsilon-loop",
-      "displayName": "Epsilon Loop",
-      "waves": "1:8A1.0e2/1.5|2:6B1.5e3+4A1.0e3/1.4|3:8C2.0e4+4B1.5e4/1.3|4:10C2.5e5+4A2.0e5/1.2/0.8|5:12C3.0e6+4B2.5e6/1.1/0.9",
-      "path": [
-        {
-          "x": 0.86,
-          "y": 0.87
-        },
-        {
-          "x": 0.856,
-          "y": 0.805
-        },
-        {
-          "x": 0.846,
-          "y": 0.742
-        },
-        {
-          "x": 0.829,
-          "y": 0.68
-        },
-        {
-          "x": 0.805,
-          "y": 0.621
-        },
-        {
-          "x": 0.776,
-          "y": 0.566
-        },
-        {
-          "x": 0.741,
-          "y": 0.515
-        },
-        {
-          "x": 0.701,
-          "y": 0.469
-        },
-        {
-          "x": 0.658,
-          "y": 0.429
-        },
-        {
-          "x": 0.611,
-          "y": 0.395
-        },
-        {
-          "x": 0.563,
-          "y": 0.368
-        },
-        {
-          "x": 0.513,
-          "y": 0.347
-        },
-        {
-          "x": 0.462,
-          "y": 0.333
-        },
-        {
-          "x": 0.413,
-          "y": 0.326
-        },
-        {
-          "x": 0.365,
-          "y": 0.326
-        },
-        {
-          "x": 0.32,
-          "y": 0.332
-        },
-        {
-          "x": 0.278,
-          "y": 0.344
-        },
-        {
-          "x": 0.241,
-          "y": 0.361
-        },
-        {
-          "x": 0.209,
-          "y": 0.383
-        },
-        {
-          "x": 0.182,
-          "y": 0.409
-        },
-        {
-          "x": 0.162,
-          "y": 0.438
-        },
-        {
-          "x": 0.148,
-          "y": 0.47
-        },
-        {
-          "x": 0.141,
-          "y": 0.503
-        },
-        {
-          "x": 0.141,
-          "y": 0.537
-        },
-        {
-          "x": 0.148,
-          "y": 0.57
-        },
-        {
-          "x": 0.162,
-          "y": 0.602
-        },
-        {
-          "x": 0.182,
-          "y": 0.631
-        },
-        {
-          "x": 0.209,
-          "y": 0.657
-        },
-        {
-          "x": 0.241,
-          "y": 0.679
-        },
-        {
-          "x": 0.278,
-          "y": 0.696
-        },
-        {
-          "x": 0.32,
-          "y": 0.708
-        },
-        {
-          "x": 0.365,
-          "y": 0.714
-        },
-        {
-          "x": 0.413,
-          "y": 0.714
-        },
-        {
-          "x": 0.462,
-          "y": 0.707
-        },
-        {
-          "x": 0.513,
-          "y": 0.693
-        },
-        {
-          "x": 0.563,
-          "y": 0.672
-        },
-        {
-          "x": 0.611,
-          "y": 0.645
-        },
-        {
-          "x": 0.658,
-          "y": 0.611
-        },
-        {
-          "x": 0.701,
-          "y": 0.571
-        },
-        {
-          "x": 0.741,
-          "y": 0.525
-        },
-        {
-          "x": 0.776,
-          "y": 0.474
-        },
-        {
-          "x": 0.805,
-          "y": 0.419
-        },
-        {
-          "x": 0.829,
-          "y": 0.36
-        },
-        {
-          "x": 0.846,
-          "y": 0.298
-        },
-        {
-          "x": 0.856,
-          "y": 0.235
-        },
-        {
-          "x": 0.86,
-          "y": 0.17
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 120,
-      "lives": 10,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-02-cardioid",
-      "displayName": "Cardioid",
-      "waves": "1:8A1.0e2/1.5|2:10B1.5e3/1.4|3:9C2.0e4+3A1.5e4/1.3|4:10C2.5e5+4B2.0e5/1.2/0.8|5:12C3.0e6+4A2.5e6/1.1/0.9",
-      "path": [
-        {
-          "x": 0.88,
-          "y": 0.87
-        },
-        {
-          "x": 0.88,
-          "y": 0.787
-        },
-        {
-          "x": 0.88,
-          "y": 0.707
-        },
-        {
-          "x": 0.88,
-          "y": 0.633
-        },
-        {
-          "x": 0.88,
-          "y": 0.568
-        },
-        {
-          "x": 0.88,
-          "y": 0.512
-        },
-        {
-          "x": 0.839,
-          "y": 0.469
-        },
-        {
-          "x": 0.772,
-          "y": 0.437
-        },
-        {
-          "x": 0.705,
-          "y": 0.418
-        },
-        {
-          "x": 0.641,
-          "y": 0.411
-        },
-        {
-          "x": 0.582,
-          "y": 0.414
-        },
-        {
-          "x": 0.532,
-          "y": 0.426
-        },
-        {
-          "x": 0.491,
-          "y": 0.444
-        },
-        {
-          "x": 0.46,
-          "y": 0.466
-        },
-        {
-          "x": 0.44,
-          "y": 0.489
-        },
-        {
-          "x": 0.43,
-          "y": 0.512
-        },
-        {
-          "x": 0.428,
-          "y": 0.532
-        },
-        {
-          "x": 0.434,
-          "y": 0.548
-        },
-        {
-          "x": 0.445,
-          "y": 0.558
-        },
-        {
-          "x": 0.458,
-          "y": 0.562
-        },
-        {
-          "x": 0.472,
-          "y": 0.56
-        },
-        {
-          "x": 0.485,
-          "y": 0.553
-        },
-        {
-          "x": 0.494,
-          "y": 0.541
-        },
-        {
-          "x": 0.499,
-          "y": 0.527
-        },
-        {
-          "x": 0.499,
-          "y": 0.513
-        },
-        {
-          "x": 0.494,
-          "y": 0.499
-        },
-        {
-          "x": 0.485,
-          "y": 0.487
-        },
-        {
-          "x": 0.472,
-          "y": 0.48
-        },
-        {
-          "x": 0.458,
-          "y": 0.478
-        },
-        {
-          "x": 0.445,
-          "y": 0.482
-        },
-        {
-          "x": 0.434,
-          "y": 0.492
-        },
-        {
-          "x": 0.428,
-          "y": 0.508
-        },
-        {
-          "x": 0.43,
-          "y": 0.528
-        },
-        {
-          "x": 0.44,
-          "y": 0.551
-        },
-        {
-          "x": 0.46,
-          "y": 0.574
-        },
-        {
-          "x": 0.491,
-          "y": 0.596
-        },
-        {
-          "x": 0.532,
-          "y": 0.614
-        },
-        {
-          "x": 0.582,
-          "y": 0.626
-        },
-        {
-          "x": 0.641,
-          "y": 0.629
-        },
-        {
-          "x": 0.705,
-          "y": 0.622
-        },
-        {
-          "x": 0.772,
-          "y": 0.603
-        },
-        {
-          "x": 0.839,
-          "y": 0.571
-        },
-        {
-          "x": 0.88,
-          "y": 0.528
-        },
-        {
-          "x": 0.88,
-          "y": 0.472
-        },
-        {
-          "x": 0.88,
-          "y": 0.407
-        },
-        {
-          "x": 0.88,
-          "y": 0.333
-        },
-        {
-          "x": 0.88,
-          "y": 0.253
-        },
-        {
-          "x": 0.88,
-          "y": 0.17
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 140,
-      "lives": 10,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-03-figure-eight",
-      "displayName": "Figure Eight",
-      "waves": "1:8A1.0e2/1.5|2:7B1.5e3+3A1.0e3/1.4|3:9C2.0e4+3B1.5e4/1.3|4:10C2.5e5+4A2.0e5/1.2/0.8|5:10C3.0e6+6B2.5e6/1.1/0.9",
-      "path": [
-        {
-          "x": 0.88,
-          "y": 0.87
-        },
-        {
-          "x": 0.88,
-          "y": 0.88
-        },
-        {
-          "x": 0.88,
-          "y": 0.88
-        },
-        {
-          "x": 0.866,
-          "y": 0.88
-        },
-        {
-          "x": 0.816,
-          "y": 0.88
-        },
-        {
-          "x": 0.766,
-          "y": 0.88
-        },
-        {
-          "x": 0.718,
-          "y": 0.88
-        },
-        {
-          "x": 0.674,
-          "y": 0.876
-        },
-        {
-          "x": 0.635,
-          "y": 0.845
-        },
-        {
-          "x": 0.599,
-          "y": 0.812
-        },
-        {
-          "x": 0.567,
-          "y": 0.777
-        },
-        {
-          "x": 0.536,
-          "y": 0.741
-        },
-        {
-          "x": 0.507,
-          "y": 0.704
-        },
-        {
-          "x": 0.478,
-          "y": 0.667
-        },
-        {
-          "x": 0.449,
-          "y": 0.631
-        },
-        {
-          "x": 0.417,
-          "y": 0.595
-        },
-        {
-          "x": 0.383,
-          "y": 0.561
-        },
-        {
-          "x": 0.346,
-          "y": 0.529
-        },
-        {
-          "x": 0.305,
-          "y": 0.5
-        },
-        {
-          "x": 0.259,
-          "y": 0.477
-        },
-        {
-          "x": 0.209,
-          "y": 0.461
-        },
-        {
-          "x": 0.159,
-          "y": 0.455
-        },
-        {
-          "x": 0.12,
-          "y": 0.46
-        },
-        {
-          "x": 0.12,
-          "y": 0.478
-        },
-        {
-          "x": 0.12,
-          "y": 0.505
-        },
-        {
-          "x": 0.12,
-          "y": 0.535
-        },
-        {
-          "x": 0.12,
-          "y": 0.562
-        },
-        {
-          "x": 0.12,
-          "y": 0.58
-        },
-        {
-          "x": 0.159,
-          "y": 0.585
-        },
-        {
-          "x": 0.209,
-          "y": 0.579
-        },
-        {
-          "x": 0.259,
-          "y": 0.563
-        },
-        {
-          "x": 0.305,
-          "y": 0.54
-        },
-        {
-          "x": 0.346,
-          "y": 0.511
-        },
-        {
-          "x": 0.383,
-          "y": 0.479
-        },
-        {
-          "x": 0.417,
-          "y": 0.445
-        },
-        {
-          "x": 0.449,
-          "y": 0.409
-        },
-        {
-          "x": 0.478,
-          "y": 0.373
-        },
-        {
-          "x": 0.507,
-          "y": 0.336
-        },
-        {
-          "x": 0.536,
-          "y": 0.299
-        },
-        {
-          "x": 0.567,
-          "y": 0.263
-        },
-        {
-          "x": 0.599,
-          "y": 0.228
-        },
-        {
-          "x": 0.635,
-          "y": 0.195
-        },
-        {
-          "x": 0.674,
-          "y": 0.164
-        },
-        {
-          "x": 0.718,
-          "y": 0.15
-        },
-        {
-          "x": 0.766,
-          "y": 0.15
-        },
-        {
-          "x": 0.816,
-          "y": 0.15
-        },
-        {
-          "x": 0.866,
-          "y": 0.15
-        },
-        {
-          "x": 0.88,
-          "y": 0.15
-        },
-        {
-          "x": 0.88,
-          "y": 0.15
-        },
-        {
-          "x": 0.88,
-          "y": 0.17
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 160,
-      "lives": 10,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-04-spiral",
-      "displayName": "Spiral",
-      "waves": "1:8A1.0e2/1.5|2:10B1.5e3/1.4|3:12C2.0e4/1.3|4:14C2.5e5/1.2/0.8|5:16C3.0e6/1.1/0.9",
-      "path": [
-        {
-          "x": 0.56,
-          "y": 0.88
-        },
-        {
-          "x": 0.561,
-          "y": 0.88
-        },
-        {
-          "x": 0.555,
-          "y": 0.88
-        },
-        {
-          "x": 0.541,
-          "y": 0.88
-        },
-        {
-          "x": 0.518,
-          "y": 0.88
-        },
-        {
-          "x": 0.489,
-          "y": 0.88
-        },
-        {
-          "x": 0.453,
-          "y": 0.88
-        },
-        {
-          "x": 0.412,
-          "y": 0.88
-        },
-        {
-          "x": 0.368,
-          "y": 0.88
-        },
-        {
-          "x": 0.323,
-          "y": 0.88
-        },
-        {
-          "x": 0.278,
-          "y": 0.877
-        },
-        {
-          "x": 0.236,
-          "y": 0.844
-        },
-        {
-          "x": 0.199,
-          "y": 0.804
-        },
-        {
-          "x": 0.17,
-          "y": 0.757
-        },
-        {
-          "x": 0.15,
-          "y": 0.706
-        },
-        {
-          "x": 0.141,
-          "y": 0.65
-        },
-        {
-          "x": 0.144,
-          "y": 0.593
-        },
-        {
-          "x": 0.16,
-          "y": 0.536
-        },
-        {
-          "x": 0.188,
-          "y": 0.481
-        },
-        {
-          "x": 0.229,
-          "y": 0.431
-        },
-        {
-          "x": 0.281,
-          "y": 0.387
-        },
-        {
-          "x": 0.342,
-          "y": 0.351
-        },
-        {
-          "x": 0.41,
-          "y": 0.325
-        },
-        {
-          "x": 0.482,
-          "y": 0.31
-        },
-        {
-          "x": 0.555,
-          "y": 0.308
-        },
-        {
-          "x": 0.625,
-          "y": 0.317
-        },
-        {
-          "x": 0.689,
-          "y": 0.339
-        },
-        {
-          "x": 0.743,
-          "y": 0.371
-        },
-        {
-          "x": 0.784,
-          "y": 0.412
-        },
-        {
-          "x": 0.809,
-          "y": 0.461
-        },
-        {
-          "x": 0.815,
-          "y": 0.515
-        },
-        {
-          "x": 0.802,
-          "y": 0.57
-        },
-        {
-          "x": 0.768,
-          "y": 0.623
-        },
-        {
-          "x": 0.713,
-          "y": 0.672
-        },
-        {
-          "x": 0.64,
-          "y": 0.712
-        },
-        {
-          "x": 0.55,
-          "y": 0.741
-        },
-        {
-          "x": 0.447,
-          "y": 0.755
-        },
-        {
-          "x": 0.335,
-          "y": 0.752
-        },
-        {
-          "x": 0.218,
-          "y": 0.73
-        },
-        {
-          "x": 0.12,
-          "y": 0.69
-        },
-        {
-          "x": 0.12,
-          "y": 0.629
-        },
-        {
-          "x": 0.12,
-          "y": 0.551
-        },
-        {
-          "x": 0.12,
-          "y": 0.456
-        },
-        {
-          "x": 0.12,
-          "y": 0.347
-        },
-        {
-          "x": 0.12,
-          "y": 0.228
-        },
-        {
-          "x": 0.12,
-          "y": 0.15
-        },
-        {
-          "x": 0.12,
-          "y": 0.15
-        },
-        {
-          "x": 0.12,
-          "y": 0.15
-        },
-        {
-          "x": 0.12,
-          "y": 0.15
-        },
-        {
-          "x": 0.12,
-          "y": 0.15
-        },
-        {
-          "x": 0.228,
-          "y": 0.15
-        },
-        {
-          "x": 0.4,
-          "y": 0.15
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 180,
-      "lives": 10,
-      "gateDefense": 0
-    },
-    {
-      "id": "level-05-infinity",
-      "displayName": "Infinity",
-      "waves": "1:8A1.0e2/1.5|2:10B1.5e3/1.4|3:12C2.0e4/1.3|4:14C2.5e5/1.2/0.8|5:16C3.0e6/1.1/0.9/3.0e9",
-      "path": [
-        {
-          "x": 0.2,
-          "y": 0.332
-        },
-        {
-          "x": 0.212,
-          "y": 0.329
-        },
-        {
-          "x": 0.224,
-          "y": 0.326
-        },
-        {
-          "x": 0.237,
-          "y": 0.324
-        },
-        {
-          "x": 0.249,
-          "y": 0.322
-        },
-        {
-          "x": 0.261,
-          "y": 0.322
-        },
-        {
-          "x": 0.273,
-          "y": 0.322
-        },
-        {
-          "x": 0.286,
-          "y": 0.323
-        },
-        {
-          "x": 0.298,
-          "y": 0.325
-        },
-        {
-          "x": 0.31,
-          "y": 0.328
-        },
-        {
-          "x": 0.322,
-          "y": 0.332
-        },
-        {
-          "x": 0.335,
-          "y": 0.337
-        },
-        {
-          "x": 0.347,
-          "y": 0.343
-        },
-        {
-          "x": 0.359,
-          "y": 0.35
-        },
-        {
-          "x": 0.371,
-          "y": 0.358
-        },
-        {
-          "x": 0.384,
-          "y": 0.368
-        },
-        {
-          "x": 0.396,
-          "y": 0.378
-        },
-        {
-          "x": 0.408,
-          "y": 0.39
-        },
-        {
-          "x": 0.42,
-          "y": 0.402
-        },
-        {
-          "x": 0.433,
-          "y": 0.416
-        },
-        {
-          "x": 0.445,
-          "y": 0.43
-        },
-        {
-          "x": 0.457,
-          "y": 0.445
-        },
-        {
-          "x": 0.469,
-          "y": 0.46
-        },
-        {
-          "x": 0.482,
-          "y": 0.476
-        },
-        {
-          "x": 0.494,
-          "y": 0.492
-        },
-        {
-          "x": 0.506,
-          "y": 0.508
-        },
-        {
-          "x": 0.518,
-          "y": 0.524
-        },
-        {
-          "x": 0.531,
-          "y": 0.54
-        },
-        {
-          "x": 0.543,
-          "y": 0.555
-        },
-        {
-          "x": 0.555,
-          "y": 0.57
-        },
-        {
-          "x": 0.567,
-          "y": 0.584
-        },
-        {
-          "x": 0.58,
-          "y": 0.598
-        },
-        {
-          "x": 0.592,
-          "y": 0.61
-        },
-        {
-          "x": 0.604,
-          "y": 0.622
-        },
-        {
-          "x": 0.616,
-          "y": 0.632
-        },
-        {
-          "x": 0.629,
-          "y": 0.642
-        },
-        {
-          "x": 0.641,
-          "y": 0.65
-        },
-        {
-          "x": 0.653,
-          "y": 0.657
-        },
-        {
-          "x": 0.665,
-          "y": 0.663
-        },
-        {
-          "x": 0.678,
-          "y": 0.668
-        },
-        {
-          "x": 0.69,
-          "y": 0.672
-        },
-        {
-          "x": 0.702,
-          "y": 0.675
-        },
-        {
-          "x": 0.714,
-          "y": 0.677
-        },
-        {
-          "x": 0.727,
-          "y": 0.678
-        },
-        {
-          "x": 0.739,
-          "y": 0.678
-        },
-        {
-          "x": 0.751,
-          "y": 0.678
-        },
-        {
-          "x": 0.763,
-          "y": 0.676
-        },
-        {
-          "x": 0.776,
-          "y": 0.674
-        },
-        {
-          "x": 0.788,
-          "y": 0.671
-        },
-        {
-          "x": 0.8,
-          "y": 0.668
-        }
-      ],
-      "autoAnchors": [],
-      "startThero": 200,
-      "lives": 10,
-      "gateDefense": 0
     },
     {
       "id": "level-06-trefoil",
