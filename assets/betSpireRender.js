@@ -21,8 +21,8 @@ const FORCE_SCALE = 0.01; // Scale factor for force application
 const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
 const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
 const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles slingshot past the forge
-const FORGE_ROTATION_SPEED = 0.02; // Rotation speed for forge triangles
-const SPAWNER_GRAVITY_STRENGTH = 0.75; // Gentle attraction strength used by individual spawners
+const FORGE_ROTATION_SPEED = 0.01; // Rotation speed for forge triangles (50% slower base spin).
+const SPAWNER_GRAVITY_STRENGTH = 1.5; // Gentle attraction strength used by individual spawners.
 const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
 const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
 const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.24; // Extremely gentle pull that nudges small particles toward their generator.
@@ -1066,6 +1066,16 @@ export class BetSpireRender {
     }
   }
 
+  // Scale the forge spin so crunches ramp up to triple speed, then ease back to baseline.
+  getForgeRotationSpeedMultiplier() {
+    if (!this.forgeCrunchActive) {
+      return 1;
+    }
+
+    const ramp = Math.sin(this.forgeCrunchProgress * Math.PI);
+    return 1 + 2 * ramp;
+  }
+
   // Complete the forge crunch and upgrade particles
   completeForgeCrunch() {
     // Find all particles marked for crunch upgrade
@@ -1708,13 +1718,20 @@ export class BetSpireRender {
     this.ctx.fillStyle = `rgba(0, 0, 0, ${trailFade})`;
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-    // Update forge rotation
-    this.forgeRotation += FORGE_ROTATION_SPEED * deltaFrameRatio;
-    
     // Update spawner rotations so paired triangles spin in opposing directions like the central forge.
     this.spawnerRotations.forEach((rotation, tierId) => {
       this.spawnerRotations.set(tierId, rotation + SPAWNER_ROTATION_SPEED * deltaFrameRatio);
     });
+
+    // Check for forge crunch effect (valid particles for 5 seconds)
+    this.checkForgeCreunch(now);
+    
+    // Update forge crunch animation
+    this.updateForgeCrunch(now);
+
+    // Accelerate forge spin during crunches so the animation ramps up and down.
+    const forgeRotationMultiplier = this.getForgeRotationSpeedMultiplier();
+    this.forgeRotation += FORGE_ROTATION_SPEED * forgeRotationMultiplier * deltaFrameRatio;
     
     // Draw the forge (Star of David with counter-rotating triangles)
     this.drawForge();
@@ -1724,12 +1741,6 @@ export class BetSpireRender {
 
     // Draw particle spawners for unlocked tiers
     this.drawSpawners();
-
-    // Check for forge crunch effect (valid particles for 5 seconds)
-    this.checkForgeCreunch(now);
-    
-    // Update forge crunch animation
-    this.updateForgeCrunch(now);
     
     // Draw forge crunch effect
     this.drawForgeCrunch();
@@ -1939,6 +1950,7 @@ export class BetSpireRender {
     const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
     const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
     const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;
+    const forgeSpriteOpacity = 0.5; // Keep the center forge sprites at 50% opacity.
     
     ctx.save();
     ctx.translate(this.forge.x, this.forge.y);
@@ -1947,7 +1959,9 @@ export class BetSpireRender {
     ctx.rotate(this.forgeRotation);
     if (forgeSpriteReady) {
       // Draw the clockwise forge sprite once the image has finished loading.
+      ctx.globalAlpha = forgeSpriteOpacity;
       ctx.drawImage(this.forgeSpriteClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+      ctx.globalAlpha = 1;
     } else {
       // Fallback to vector triangles if the sprite has not loaded yet.
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -1964,7 +1978,9 @@ export class BetSpireRender {
     ctx.rotate(-this.forgeRotation * 2); // Reset and rotate opposite direction
     if (forgeCounterSpriteReady) {
       // Draw the counter-clockwise forge sprite once the image has finished loading.
+      ctx.globalAlpha = forgeSpriteOpacity;
       ctx.drawImage(this.forgeSpriteCounterClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+      ctx.globalAlpha = 1;
     } else {
       // Fallback to vector triangles if the sprite has not loaded yet.
       ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
