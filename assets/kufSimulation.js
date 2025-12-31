@@ -186,6 +186,10 @@ export class KufBattlefieldSimulation {
     this.explosions = [];
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
+    // Track worker count for escalating costs and income bonuses.
+    this.workerCount = 0;
+    // Track base income per kill (starts at 1, increases by 1 per worker).
+    this.baseIncomePerKill = 1;
     this.bounds = { width: this.canvas?.width || 640, height: this.canvas?.height || 360 };
     this.pixelRatio = 1;
     this.camera = { x: 0, y: 0, zoom: 1.0 };
@@ -814,8 +818,13 @@ export class KufBattlefieldSimulation {
     this.canvas.style.cursor = 'grab';
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.active = true;
-    this.goldEarned = 0;
+    // Calculate starting gold: 10 gold per level (based on highest enemy level in map).
+    const maxEnemyLevel = this.turrets.reduce((max, turret) => Math.max(max, turret.level || 1), 1);
+    this.goldEarned = maxEnemyLevel * 10;
     this.destroyedTurrets = 0;
+    // Reset worker count and income per kill at the start of each simulation.
+    this.workerCount = 0;
+    this.baseIncomePerKill = 1;
     this.lastTimestamp = performance.now();
     requestAnimationFrame(this.step);
   }
@@ -873,11 +882,18 @@ export class KufBattlefieldSimulation {
 
   /**
    * Resolve the current unit spec for a toolbar slot.
+   * Handles dynamic worker cost calculation: cost = 2 + (workerCount * 2).
    * @param {object} slot - Toolbar slot payload.
    * @returns {{ id: string, label: string, icon: string, cost: number, duration: number }} Unit spec.
    */
   getTrainingSpecForSlot(slot) {
-    return KUF_TRAINING_CATALOG[slot?.unitId] || KUF_TRAINING_CATALOG.worker;
+    const baseSpec = KUF_TRAINING_CATALOG[slot?.unitId] || KUF_TRAINING_CATALOG.worker;
+    // If this is a worker slot, calculate dynamic cost based on current worker count.
+    if (baseSpec.id === 'worker') {
+      const workerCost = 2 + (this.workerCount * 2);
+      return { ...baseSpec, cost: workerCost };
+    }
+    return baseSpec;
   }
 
   /**
@@ -979,9 +995,17 @@ export class KufBattlefieldSimulation {
 
   /**
    * Spawn a trained unit at the base core exit.
+   * Workers increase income per kill instead of spawning a combat unit.
    * @param {string} unitType - Unit archetype identifier.
    */
   spawnTrainedUnit(unitType) {
+    // Workers increase income per kill by 1 and increment worker count.
+    if (unitType === 'worker') {
+      this.workerCount += 1;
+      this.baseIncomePerKill += 1;
+      return;
+    }
+    // Spawn combat units normally.
     const stats = this.unitStats[unitType] || this.unitStats.marine;
     const { x, y } = this.getBaseWorldPosition();
     const jitter = 14;
@@ -1051,6 +1075,9 @@ export class KufBattlefieldSimulation {
     this.explosions = [];
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
+    // Reset worker count and income per kill when resetting the simulation.
+    this.workerCount = 0;
+    this.baseIncomePerKill = 1;
     this.selectedEnemy = null;
     // Clear core ship state so fresh runs rehydrate hull integrity correctly.
     this.coreShip = null;
@@ -1790,8 +1817,9 @@ export class KufBattlefieldSimulation {
           hit.health -= bullet.damage;
           bullet.life = 0;
           if (hit.health <= 0) {
-            // Reward players based on the defeated enemy's configured payout.
-            const reward = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
+            // Base reward from enemy's configured value, plus income per kill bonus (1 + workers).
+            const enemyGoldValue = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
+            const reward = enemyGoldValue + this.baseIncomePerKill;
             this.goldEarned += reward;
             this.destroyedTurrets += 1;
           }
@@ -2697,20 +2725,7 @@ export class KufBattlefieldSimulation {
     ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = 'rgba(110, 220, 255, 0.9)';
-    ctx.strokeStyle = 'rgba(220, 250, 255, 0.7)';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(baseCenter.x, baseCenter.y, baseRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
-    ctx.beginPath();
-    ctx.arc(baseCenter.x, baseCenter.y, baseRadius * 0.45, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw the default core ship sprite on top of the base hull.
+    // Draw the core ship sprite (circle sprite removed as per requirement).
     const coreSprite = getKufSprite(KUF_SPRITE_PATHS.CORE_SHIP);
     if (coreSprite && coreSprite.loaded) {
       const spriteSize = baseRadius * 2.2;
