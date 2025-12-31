@@ -1222,6 +1222,8 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .playfield {
+  /* Prevent wheel chaining so the page doesn't scroll while hovering the battlefield. */
+  overscroll-behavior: contain;
   position: relative;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
