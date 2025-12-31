@@ -48,6 +48,7 @@ let stateChangeUnsubscribe = null;
 let runCompleteCallback = null;
 let currentOpenDropdown = null;
 let holdTimers = new Map(); // For hold-to-spam functionality
+let currentExpandedView = null; // Track which view is currently expanded
 const KUF_FALLBACK_MAP_ID = 'forward-bastion';
 
 let kufMapList = getCachedKufMaps();
@@ -124,12 +125,12 @@ function handleMapSelection(mapId) {
 
 function cacheElements() {
   kufElements = {
-    shardTotal: document.getElementById('kuf-shards-total'),
-    shardRemaining: document.getElementById('kuf-shards-remaining'),
-    glyphCount: document.getElementById('kuf-glyph-count'),
-    highScore: document.getElementById('kuf-high-score'),
-    lastResult: document.getElementById('kuf-last-result'),
-    startButton: document.getElementById('kuf-start-button'),
+    backButton: document.getElementById('kuf-back-button'),
+    menuGrid: document.getElementById('kuf-sim-menu-grid'),
+    levelsView: document.getElementById('kuf-levels-view'),
+    shipView: document.getElementById('kuf-ship-view'),
+    unitsView: document.getElementById('kuf-units-view'),
+    kufInfoView: document.getElementById('kuf-info-view'),
     canvas: document.getElementById('kuf-simulation-canvas'),
     simMenu: document.getElementById('kuf-sim-menu'),
     resultPanel: document.getElementById('kuf-result-panel'),
@@ -140,6 +141,10 @@ function cacheElements() {
     mapDescription: document.getElementById('kuf-map-description'),
     mapDifficulty: document.getElementById('kuf-map-difficulty'),
     mapMechanics: document.getElementById('kuf-map-mechanics'),
+    // Kuf info elements
+    totalGold: document.getElementById('kuf-total-gold'),
+    glyphsEarned: document.getElementById('kuf-glyphs-earned'),
+    goldUntilNext: document.getElementById('kuf-gold-until-next'),
     // Core ship summary display in the deployment menu.
     coreShipHealth: document.getElementById('kuf-core-ship-health'),
     
@@ -198,40 +203,113 @@ function cacheElements() {
         cannons: document.getElementById('kuf-core-ship-cannon-upgrade'),
       },
     },
-    
-    // Codex elements
-    codexUnitCounts: {
-      marines: document.getElementById('kuf-codex-marines-count'),
-      snipers: document.getElementById('kuf-codex-snipers-count'),
-      splayers: document.getElementById('kuf-codex-splayers-count'),
-    },
-    codexUnitStats: {
-      marines: {
-        health: document.getElementById('kuf-codex-marines-health'),
-        attack: document.getElementById('kuf-codex-marines-attack'),
-        speed: document.getElementById('kuf-codex-marines-speed'),
-      },
-      snipers: {
-        health: document.getElementById('kuf-codex-snipers-health'),
-        attack: document.getElementById('kuf-codex-snipers-attack'),
-        speed: document.getElementById('kuf-codex-snipers-speed'),
-      },
-      splayers: {
-        health: document.getElementById('kuf-codex-splayers-health'),
-        attack: document.getElementById('kuf-codex-splayers-attack'),
-        speed: document.getElementById('kuf-codex-splayers-speed'),
-      },
-    },
   };
 }
 
+// Navigation functions for expandable menu system
+function showExpandedView(viewName) {
+  if (!kufElements.menuGrid || !kufElements.backButton) {
+    return;
+  }
+  
+  // Hide main menu grid
+  kufElements.menuGrid.hidden = true;
+  
+  // Show back button
+  kufElements.backButton.hidden = false;
+  
+  // Hide all expanded views
+  if (kufElements.levelsView) kufElements.levelsView.hidden = true;
+  if (kufElements.shipView) kufElements.shipView.hidden = true;
+  if (kufElements.unitsView) kufElements.unitsView.hidden = true;
+  if (kufElements.kufInfoView) kufElements.kufInfoView.hidden = true;
+  
+  // Show the requested view
+  const viewMap = {
+    levels: kufElements.levelsView,
+    ship: kufElements.shipView,
+    units: kufElements.unitsView,
+    kuf: kufElements.kufInfoView,
+  };
+  
+  const targetView = viewMap[viewName];
+  if (targetView) {
+    targetView.hidden = false;
+    currentExpandedView = viewName;
+    
+    // Update Kuf info when showing that view
+    if (viewName === 'kuf') {
+      updateKufInfo();
+    }
+  }
+}
+
+function hideExpandedView() {
+  if (!kufElements.menuGrid || !kufElements.backButton) {
+    return;
+  }
+  
+  // Show main menu grid
+  kufElements.menuGrid.hidden = false;
+  
+  // Hide back button
+  kufElements.backButton.hidden = true;
+  
+  // Hide all expanded views
+  if (kufElements.levelsView) kufElements.levelsView.hidden = true;
+  if (kufElements.shipView) kufElements.shipView.hidden = true;
+  if (kufElements.unitsView) kufElements.unitsView.hidden = true;
+  if (kufElements.kufInfoView) kufElements.kufInfoView.hidden = true;
+  
+  currentExpandedView = null;
+}
+
+function updateKufInfo() {
+  const totalGold = getTotalMapGold();
+  const glyphs = getKufGlyphs();
+  
+  if (kufElements.totalGold) {
+    kufElements.totalGold.textContent = formatMapGoldValue(totalGold);
+  }
+  
+  if (kufElements.glyphsEarned) {
+    kufElements.glyphsEarned.textContent = String(glyphs);
+  }
+  
+  if (kufElements.goldUntilNext) {
+    // Calculate gold needed for next glyph
+    // glyphs = floor(log_5(gold)), so next glyph at gold = 5^(glyphs+1)
+    const KUF_GLYPH_GOLD_BASE = 5;
+    const nextGlyphThreshold = Math.pow(KUF_GLYPH_GOLD_BASE, glyphs + 1);
+    const goldNeeded = Math.max(0, nextGlyphThreshold - totalGold);
+    kufElements.goldUntilNext.textContent = formatMapGoldValue(goldNeeded);
+  }
+}
+
+// Helper function to get total gold from all maps
+function getTotalMapGold() {
+  const mapHighScores = getKufMapHighScores();
+  return Object.values(mapHighScores).reduce((sum, score) => sum + (Number.isFinite(score) ? score : 0), 0);
+}
+
 function bindButtons() {
-  // Start button
-  if (kufElements.startButton) {
-    kufElements.startButton.addEventListener('click', () => {
-      startSimulation();
+  // Back button
+  if (kufElements.backButton) {
+    kufElements.backButton.addEventListener('click', () => {
+      hideExpandedView();
     });
   }
+  
+  // Menu tile buttons
+  document.addEventListener('click', (e) => {
+    const menuButton = e.target.closest('.kuf-sim-menu-tile[data-menu]');
+    if (!menuButton) return;
+    
+    const menuName = menuButton.dataset.menu;
+    if (menuName) {
+      showExpandedView(menuName);
+    }
+  });
 
   if (kufElements.mapList) {
     kufElements.mapList.addEventListener('click', (event) => {
@@ -240,6 +318,8 @@ function bindButtons() {
         return;
       }
       handleMapSelection(mapButton.dataset.mapId);
+      // Start simulation immediately when a level is clicked
+      startSimulation();
     });
   }
   
@@ -366,6 +446,9 @@ function handleSimulationComplete(result) {
   if (kufElements.simMenu) {
     kufElements.simMenu.hidden = false;
   }
+  
+  // Return to main menu (hide any expanded views)
+  hideExpandedView();
 
   const mapId = ensureSelectedMapId();
   const resultWithMap = { ...result, mapId };
@@ -508,54 +591,14 @@ function updateUpgradeDisplay() {
 }
 
 function updateCodexDisplay() {
-  const units = getKufUnits();
-  
-  // Update unit counts in codex
-  Object.entries(kufElements.codexUnitCounts).forEach(([unitType, element]) => {
-    if (element) {
-      element.textContent = String(units[unitType]);
-    }
-  });
-  
-  // Update unit stats in codex
-  ['marines', 'snipers', 'splayers'].forEach((unitType) => {
-    const stats = calculateKufUnitStats(unitType);
-    if (kufElements.codexUnitStats[unitType]) {
-      if (kufElements.codexUnitStats[unitType].health) {
-        kufElements.codexUnitStats[unitType].health.textContent = `${stats.health.toFixed(0)} HP`;
-      }
-      if (kufElements.codexUnitStats[unitType].attack) {
-        kufElements.codexUnitStats[unitType].attack.textContent = `${stats.attack.toFixed(1)} Damage`;
-      }
-      if (kufElements.codexUnitStats[unitType].speed) {
-        kufElements.codexUnitStats[unitType].speed.textContent = `${stats.attackSpeed.toFixed(2)} /s`;
-      }
-    }
-  });
+  // Codex UI elements have been removed, but keep this function
+  // for backward compatibility and to avoid breaking existing calls.
 }
 
 function renderLedger() {
-  if (kufElements.shardTotal) {
-    kufElements.shardTotal.textContent = String(getKufTotalShards());
-  }
-  if (kufElements.shardRemaining) {
-    kufElements.shardRemaining.textContent = String(getKufRemainingShards());
-  }
-  if (kufElements.glyphCount) {
-    kufElements.glyphCount.textContent = String(getKufGlyphs());
-  }
-  if (kufElements.highScore) {
-    kufElements.highScore.textContent = String(getKufHighScore());
-  }
-  if (kufElements.lastResult) {
-    const last = getKufLastResult();
-    if (last) {
-      const victoryLabel = last.victory ? 'Victory' : 'Defeat';
-      kufElements.lastResult.textContent = `${victoryLabel} · ${last.goldEarned} gold · ${last.destroyedTurrets} turrets`;
-    } else {
-      kufElements.lastResult.textContent = 'Awaiting first simulation.';
-    }
-  }
+  // Ledger and Codex UI elements have been removed, but keep this function
+  // for backward compatibility and to avoid breaking existing calls.
+  // The Kuf info is now displayed in the expanded Kuf view instead.
 }
 
 function renderResultPanel(result, outcome) {
@@ -723,13 +766,6 @@ function setupHoldToSpam() {
   document.addEventListener('touchcancel', stopHold, { passive: true });
 }
 
-function primeLastResult() {
-  const last = getKufLastResult();
-  if (!last && kufElements.lastResult) {
-    kufElements.lastResult.textContent = 'Awaiting first simulation.';
-  }
-}
-
 /**
  * Initialize the Kuf Spire UI.
  * @param {object} options - Optional callbacks.
@@ -754,7 +790,6 @@ export function initializeKufUI(options = {}) {
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
-  primeLastResult();
 }
 
 /**
