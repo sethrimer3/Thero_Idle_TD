@@ -2,49 +2,49 @@
   "achievements": [
     {
       "id": "achievement-conjecture-1",
-      "levelId": "Conjecture - 1",
+      "levelId": "1 - 1",
       "title": "Lemniscate Hypothesis",
-      "subtitle": "Conjecture · Conjecture - 1",
+      "subtitle": "Chapter 1 · 1 - 1",
       "description": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice. Early E glyphs surge with divisor scouts—tempo control is vital.",
       "rewardFlux": 1
     },
     {
       "id": "achievement-conjecture-2",
-      "levelId": "Conjecture - 2",
+      "levelId": "1 - 2",
       "title": "Collatz Cascade",
-      "subtitle": "Conjecture · Conjecture - 2",
+      "subtitle": "Chapter 1 · 1 - 2",
       "description": "Stepwise descent generated from the 3n + 1 map with teleport risers. Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
       "rewardFlux": 1
     },
     {
       "id": "achievement-conjecture-3",
-      "levelId": "Conjecture - 3",
+      "levelId": "1 - 3",
       "title": "Riemann Helix",
-      "subtitle": "Conjecture · Conjecture - 3",
+      "subtitle": "Chapter 1 · 1 - 3",
       "description": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates. Divisor elites flank wave bosses—Ω previews excel at splash slows.",
       "rewardFlux": 1
     },
     {
       "id": "achievement-conjecture-4",
-      "levelId": "Conjecture - 4",
+      "levelId": "1 - 4",
       "title": "Twin Prime Fork",
-      "subtitle": "Conjecture · Conjecture - 4",
+      "subtitle": "Chapter 1 · 1 - 4",
       "description": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably. Prime counters demand rapid-fire towers—γ chaining resets their count.",
       "rewardFlux": 1
     },
     {
       "id": "achievement-conjecture-5",
-      "levelId": "Conjecture - 5",
+      "levelId": "1 - 5",
       "title": "Birch Flow",
-      "subtitle": "Conjecture · Conjecture - 5",
+      "subtitle": "Chapter 1 · 1 - 5",
       "description": "Cardioid river influenced by elliptic curve rank gradients. Reversal sentinels join late waves—δ soldiers can flip them to your side.",
       "rewardFlux": 1
     },
     {
       "id": "achievement-conjecture-secret",
-      "levelId": "Conjecture - Secret",
+      "levelId": "Trial - 4",
       "title": "Apocrypha Loop",
-      "subtitle": "Conjecture · Conjecture - Secret",
+      "subtitle": "Trial · Trial - 4",
       "description": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis. Only reveals during total glyph alignment—expect mixed archetypes in waves.",
       "rewardFlux": 1
     },
@@ -90,9 +90,9 @@
     },
     {
       "id": "achievement-corollary-secret",
-      "levelId": "Corollary - Secret",
+      "levelId": "Trial - 5",
       "title": "Shadow Integral",
-      "subtitle": "Corollary · Corollary - Secret",
+      "subtitle": "Trial · Trial - 5",
       "description": "Phase-shifted archipelago of calculus islands hidden beneath modular petals. Resource siphons and reversal elites stack together—prepare universal counters.",
       "rewardFlux": 1
     },

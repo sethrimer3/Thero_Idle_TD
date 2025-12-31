@@ -233,7 +233,7 @@
       "set": "Prologue",
       "campaign": "Story",
       "id": "Prologue - 1",
-      "title": "First Lattice",
+      "title": "Mind Gate Project",
       "path": "A straight path\u2014the simplest proof.",
       "focus": "Learn tower placement and basic defense.",
       "example": "Tutorial: Place your first tower and defend the Mind Gate."
@@ -242,7 +242,7 @@
       "set": "Prologue",
       "campaign": "Story",
       "id": "Prologue - 2",
-      "title": "Curved Path",
+      "title": "Stress Test",
       "path": "A gentle arc\u2014position matters.",
       "focus": "Master tower positioning on curved paths.",
       "example": "Tutorial: Adapt your strategy to curved enemy movement."
@@ -251,7 +251,7 @@
       "set": "Prologue",
       "campaign": "Story",
       "id": "Prologue - 3",
-      "title": "Final Test",
+      "title": "Wavelength",
       "path": "A winding proof\u2014combine all techniques.",
       "focus": "Demonstrate mastery of basic concepts.",
       "example": "Tutorial: Complete your training to unlock the full game."
@@ -260,69 +260,69 @@
       "set": "Prologue",
       "campaign": "Story",
       "id": "Prologue - Story",
-      "title": "The Beginning",
+      "title": "Consciousness",
       "path": "Read the story to continue.",
       "focus": "Learn about the Tower of Inspiration.",
       "example": "Story: Understand the origins of the Mind Gate.",
       "isStoryLevel": true
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - 1",
+      "set": "Chapter 1",
+      "id": "1 - 1",
       "campaign": "Story",
       "title": "Lemniscate Hypothesis",
-      "path": "\u221e loop traced from r\u00b2 = cos(2\u03b8); mirrored spawn lanes cross twice.",
-      "focus": "Early E glyphs surge with divisor scouts\u2014tempo control is vital.",
-      "example": "Goldbach\u2019s Conjecture: Every even integer greater than 2 is the sum of two primes."
+      "path": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.",
+      "focus": "Early E glyphs surge with divisor scouts—tempo control is vital.",
+      "example": "Goldbach's Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - 2",
+      "set": "Chapter 1",
+      "id": "1 - 2",
       "campaign": "Story",
       "title": "Collatz Cascade",
       "path": "Stepwise descent generated from the 3n + 1 map with teleport risers.",
       "focus": "Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
-      "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
+      "example": "Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - 3",
+      "set": "Chapter 1",
+      "id": "1 - 3",
       "campaign": "Story",
       "title": "Riemann Helix",
-      "path": "Logarithmic spiral with harmonic bulges keyed to \u03b6(s) zero estimates.",
-      "focus": "Divisor elites flank wave bosses\u2014\u03a9 previews excel at splash slows.",
-      "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
+      "path": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.",
+      "focus": "Divisor elites flank wave bosses—Ω previews excel at splash slows.",
+      "example": "Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2."
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - 4",
+      "set": "Chapter 1",
+      "id": "1 - 4",
       "campaign": "Story",
       "title": "Twin Prime Fork",
       "path": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.",
-      "focus": "Prime counters demand rapid-fire towers\u2014\u03b3 chaining resets their count.",
+      "focus": "Prime counters demand rapid-fire towers—γ chaining resets their count.",
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - 5",
+      "set": "Chapter 1",
+      "id": "1 - 5",
       "campaign": "Story",
       "title": "Birch Flow",
       "path": "Cardioid river influenced by elliptic curve rank gradients.",
-      "focus": "Reversal sentinels join late waves\u2014\u03b4 soldiers can flip them to your side.",
+      "focus": "Reversal sentinels join late waves—δ soldiers can flip them to your side.",
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
     },
     {
-      "set": "Conjecture",
-      "id": "Conjecture - Secret",
-      "campaign": "Story",
+      "set": "Trial",
+      "id": "Trial - 4",
+      "campaign": "Trial",
       "title": "Apocrypha Loop",
       "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
-      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
+      "focus": "Only reveals during total glyph alignment—expect mixed archetypes in waves.",
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
-      "set": "Level Set 2",
-      "id": "level-06-trefoil",
+      "set": "Chapter 2",
+      "id": "2 - 1",
       "campaign": "Story",
       "title": "Trefoil",
       "path": "Three-lobed path with symmetry",
@@ -330,8 +330,8 @@
       "example": "Three-lobed path with symmetry"
     },
     {
-      "set": "Level Set 2",
-      "id": "level-07-rose-curve",
+      "set": "Chapter 2",
+      "id": "2 - 2",
       "campaign": "Story",
       "title": "Rose Curve",
       "path": "Petal pattern with multiple lobes",
@@ -339,8 +339,8 @@
       "example": "Petal pattern with multiple lobes"
     },
     {
-      "set": "Level Set 2",
-      "id": "level-08-astroid",
+      "set": "Chapter 2",
+      "id": "2 - 3",
       "campaign": "Story",
       "title": "Astroid",
       "path": "Four-cusped hypocycloid path",
@@ -348,8 +348,8 @@
       "example": "Four-cusped hypocycloid path"
     },
     {
-      "set": "Level Set 2",
-      "id": "level-09-deltoid",
+      "set": "Chapter 2",
+      "id": "2 - 4",
       "campaign": "Story",
       "title": "Deltoid",
       "path": "Three-cusped curve with sharp turns",
@@ -357,8 +357,8 @@
       "example": "Three-cusped curve with sharp turns"
     },
     {
-      "set": "Level Set 2",
-      "id": "level-10-nephroid",
+      "set": "Chapter 2",
+      "id": "2 - 5",
       "campaign": "Story",
       "title": "Nephroid",
       "path": "Kidney-shaped path with double focus",
@@ -366,62 +366,62 @@
       "example": "Kidney-shaped path with double focus"
     },
     {
-      "set": "Corollary",
-      "id": "Corollary - Secret",
-      "campaign": "Story",
+      "set": "Trial",
+      "id": "Trial - 5",
+      "campaign": "Trial",
       "title": "Shadow Integral",
       "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
-      "focus": "Resource siphons and reversal elites stack together\u2014prepare universal counters.",
+      "focus": "Resource siphons and reversal elites stack together—prepare universal counters.",
       "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
-      "id": "level-11-lissajous",
+      "id": "3 - 1",
       "title": "Lissajous",
       "path": "Parametric curve with harmonic oscillation",
       "focus": "Parametric curve with harmonic oscillation",
       "example": "Parametric curve with harmonic oscillation"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
-      "id": "level-12-epicycloid",
+      "id": "3 - 2",
       "title": "Epicycloid",
       "path": "Rolling circle traced path",
       "focus": "Rolling circle traced path",
       "example": "Rolling circle traced path"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
-      "id": "level-13-hypocycloid",
+      "id": "3 - 3",
       "title": "Hypocycloid",
       "path": "Inner rolling circle path",
       "focus": "Inner rolling circle path",
       "example": "Inner rolling circle path"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
-      "id": "level-14-rhodonea",
+      "id": "3 - 4",
       "title": "Rhodonea",
       "path": "Rose curve with prime petals",
       "focus": "Rose curve with prime petals",
       "example": "Rose curve with prime petals"
     },
     {
-      "set": "Level Set 3",
+      "set": "Chapter 3",
       "campaign": "Story",
-      "id": "level-15-butterfly",
+      "id": "3 - 5",
       "title": "Butterfly",
       "path": "Transcendental butterfly curve",
       "focus": "Transcendental butterfly curve",
       "example": "Transcendental butterfly curve"
     },
     {
-      "set": "Level Set 4",
-      "id": "level-16-double-spiral",
+      "set": "Chapter 4",
+      "id": "4 - 1",
       "title": "Double Spiral",
       "path": "Dual spirals converging to center",
       "focus": "Dual spirals converging to center",
@@ -429,8 +429,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
-      "id": "level-17-conchoid",
+      "set": "Chapter 4",
+      "id": "4 - 2",
       "title": "Conchoid",
       "path": "Shell-like curved path",
       "focus": "Shell-like curved path",
@@ -438,8 +438,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
-      "id": "level-18-cissoid",
+      "set": "Chapter 4",
+      "id": "4 - 3",
       "title": "Cissoid",
       "path": "Ivy-leaf shaped curve",
       "focus": "Ivy-leaf shaped curve",
@@ -447,8 +447,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
-      "id": "level-19-trisectrix",
+      "set": "Chapter 4",
+      "id": "4 - 4",
       "title": "Trisectrix",
       "path": "Angle trisection curve",
       "focus": "Angle trisection curve",
@@ -456,8 +456,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 4",
-      "id": "level-20-witch-of-agnesi",
+      "set": "Chapter 4",
+      "id": "4 - 5",
       "title": "Witch of Agnesi",
       "path": "Bell-shaped versiera curve",
       "focus": "Bell-shaped versiera curve",
@@ -465,8 +465,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
-      "id": "level-21-serpentine",
+      "set": "Chapter 5",
+      "id": "5 - 1",
       "title": "Serpentine",
       "path": "Snake-like oscillating path",
       "focus": "Snake-like oscillating path",
@@ -474,8 +474,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
-      "id": "level-22-kampyle",
+      "set": "Chapter 5",
+      "id": "5 - 2",
       "title": "Kampyle",
       "path": "Curved euthymia path",
       "focus": "Curved euthymia path",
@@ -483,8 +483,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
-      "id": "level-23-folium",
+      "set": "Chapter 5",
+      "id": "5 - 3",
       "title": "Folium",
       "path": "Descartes folium with loop",
       "focus": "Descartes folium with loop",
@@ -492,8 +492,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
-      "id": "level-24-strophoid",
+      "set": "Chapter 5",
+      "id": "5 - 4",
       "title": "Strophoid",
       "path": "Twisted loop path",
       "focus": "Twisted loop path",
@@ -501,8 +501,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 5",
-      "id": "level-25-cochleoid",
+      "set": "Chapter 5",
+      "id": "5 - 5",
       "title": "Cochleoid",
       "path": "Spiral shell curve",
       "focus": "Spiral shell curve",
@@ -510,8 +510,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
-      "id": "level-26-tractrix",
+      "set": "Chapter 6",
+      "id": "6 - 1",
       "title": "Tractrix",
       "path": "Pursuit curve path",
       "focus": "Pursuit curve path",
@@ -519,8 +519,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
-      "id": "level-27-catenary",
+      "set": "Chapter 6",
+      "id": "6 - 2",
       "title": "Catenary",
       "path": "Hanging chain curve",
       "focus": "Hanging chain curve",
@@ -528,8 +528,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
-      "id": "level-28-cycloid",
+      "set": "Chapter 6",
+      "id": "6 - 3",
       "title": "Cycloid",
       "path": "Rolling wheel traced path",
       "focus": "Rolling wheel traced path",
@@ -537,8 +537,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
-      "id": "level-29-involute",
+      "set": "Chapter 6",
+      "id": "6 - 4",
       "title": "Involute",
       "path": "Unwrapping string curve",
       "focus": "Unwrapping string curve",
@@ -546,8 +546,8 @@
       "campaign": "Story"
     },
     {
-      "set": "Level Set 6",
-      "id": "level-30-evolute",
+      "set": "Chapter 6",
+      "id": "6 - 5",
       "title": "Evolute",
       "path": "Center of curvature path",
       "focus": "Center of curvature path",
