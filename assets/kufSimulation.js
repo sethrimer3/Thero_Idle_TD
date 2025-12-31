@@ -152,6 +152,9 @@ const KUF_TRAINING_CATALOG = {
   sniper: { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
   splayer: { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
 };
+// Worker cost escalation constants for the economic training system.
+const WORKER_BASE_COST = 2; // First worker costs 2 gold
+const WORKER_COST_INCREMENT = 2; // Each subsequent worker costs 2 more gold
 // Define the equipable unit rotation for the customizable toolbar slots.
 const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer'];
 // Define the fixed and customizable training slots displayed along the base toolbar.
@@ -818,9 +821,9 @@ export class KufBattlefieldSimulation {
     this.canvas.style.cursor = 'grab';
     this.camera = { x: 0, y: 0, zoom: 1.0 };
     this.active = true;
-    // Calculate starting gold: 10 gold per level (based on highest enemy level in map).
-    const maxEnemyLevel = this.turrets.reduce((max, turret) => Math.max(max, turret.level || 1), 1);
-    this.goldEarned = maxEnemyLevel * 10;
+    // Calculate starting gold: 10 gold per level (based on highest turret level in map).
+    const highestEnemyLevel = this.turrets.reduce((max, turret) => Math.max(max, turret.level || 1), 1);
+    this.goldEarned = highestEnemyLevel * 10;
     this.destroyedTurrets = 0;
     // Reset worker count and income per kill at the start of each simulation.
     this.workerCount = 0;
@@ -882,7 +885,7 @@ export class KufBattlefieldSimulation {
 
   /**
    * Resolve the current unit spec for a toolbar slot.
-   * Handles dynamic worker cost calculation: cost = 2 + (workerCount * 2).
+   * Handles dynamic worker cost calculation: cost = WORKER_BASE_COST + (workerCount * WORKER_COST_INCREMENT).
    * @param {object} slot - Toolbar slot payload.
    * @returns {{ id: string, label: string, icon: string, cost: number, duration: number }} Unit spec.
    */
@@ -890,7 +893,7 @@ export class KufBattlefieldSimulation {
     const baseSpec = KUF_TRAINING_CATALOG[slot?.unitId] || KUF_TRAINING_CATALOG.worker;
     // If this is a worker slot, calculate dynamic cost based on current worker count.
     if (baseSpec.id === 'worker') {
-      const workerCost = 2 + (this.workerCount * 2);
+      const workerCost = WORKER_BASE_COST + (this.workerCount * WORKER_COST_INCREMENT);
       return { ...baseSpec, cost: workerCost };
     }
     return baseSpec;
