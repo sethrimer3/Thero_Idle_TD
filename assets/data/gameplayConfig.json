@@ -895,7 +895,7 @@
       "autoAnchors": []
     },
     {
-      "id": "Conjecture - 1",
+      "id": "1 - 1",
       "displayName": "Lemniscate Hypothesis",
       "startThero": 45,
       "theroCap": 360,
@@ -1015,7 +1015,7 @@
       ]
     },
     {
-      "id": "Conjecture - 2",
+      "id": "1 - 2",
       "displayName": "Collatz Cascade",
       "startThero": 50,
       "theroCap": 420,
@@ -1131,7 +1131,7 @@
       ]
     },
     {
-      "id": "Conjecture - 3",
+      "id": "1 - 3",
       "displayName": "Riemann Helix",
       "startThero": 50,
       "theroCap": 480,
@@ -1255,7 +1255,7 @@
       ]
     },
     {
-      "id": "Conjecture - 4",
+      "id": "1 - 4",
       "displayName": "Twin Prime Fork",
       "startThero": 50,
       "theroCap": 520,
@@ -1365,7 +1365,7 @@
       ]
     },
     {
-      "id": "Conjecture - 5",
+      "id": "1 - 5",
       "displayName": "Birch Flow",
       "startThero": 50,
       "theroCap": 600,
@@ -1483,7 +1483,7 @@
       ]
     },
     {
-      "id": "level-06-trefoil",
+      "id": "2 - 1",
       "displayName": "Trefoil",
       "startThero": 50,
       "theroCap": 1320,
@@ -1703,7 +1703,7 @@
       "description": "Three-lobed path with symmetry"
     },
     {
-      "id": "level-07-rose-curve",
+      "id": "2 - 2",
       "displayName": "Rose Curve",
       "startThero": 50,
       "theroCap": 800,
@@ -1931,7 +1931,7 @@
       "description": "Petal pattern with multiple lobes"
     },
     {
-      "id": "level-08-astroid",
+      "id": "2 - 3",
       "displayName": "Astroid",
       "startThero": 50,
       "theroCap": 880,
@@ -2143,7 +2143,7 @@
       "description": "Four-cusped hypocycloid path"
     },
     {
-      "id": "level-09-deltoid",
+      "id": "2 - 4",
       "displayName": "Deltoid",
       "startThero": 50,
       "theroCap": 980,
@@ -2363,7 +2363,7 @@
       "description": "Three-cusped curve with sharp turns"
     },
     {
-      "id": "level-10-nephroid",
+      "id": "2 - 5",
       "displayName": "Nephroid",
       "startThero": 50,
       "theroCap": 1100,
@@ -2575,7 +2575,7 @@
       "description": "Kidney-shaped path with double focus"
     },
     {
-      "id": "level-12-epicycloid",
+      "id": "3 - 2",
       "displayName": "Epicycloid",
       "startThero": 50,
       "theroCap": 1460,
@@ -2795,7 +2795,7 @@
       "description": "Rolling circle traced path"
     },
     {
-      "id": "level-11-lissajous",
+      "id": "3 - 1",
       "displayName": "Lissajous",
       "startThero": 55,
       "theroCap": 1600,
@@ -3023,7 +3023,7 @@
       "description": "Parametric curve with harmonic oscillation"
     },
     {
-      "id": "level-13-hypocycloid",
+      "id": "3 - 3",
       "displayName": "Hypocycloid",
       "startThero": 55,
       "theroCap": 1880,
@@ -3235,7 +3235,7 @@
       "description": "Inner rolling circle path"
     },
     {
-      "id": "level-14-rhodonea",
+      "id": "3 - 4",
       "displayName": "Rhodonea",
       "startThero": 55,
       "theroCap": 2020,
@@ -3463,7 +3463,7 @@
       "description": "Rose curve with prime petals"
     },
     {
-      "id": "level-15-butterfly",
+      "id": "3 - 5",
       "displayName": "Butterfly",
       "startThero": 55,
       "theroCap": 2160,
@@ -3699,7 +3699,7 @@
       "description": "Transcendental butterfly curve"
     },
     {
-      "id": "level-16-double-spiral",
+      "id": "4 - 1",
       "displayName": "Double Spiral",
       "startThero": 60,
       "theroCap": 2300,
@@ -3935,7 +3935,7 @@
       "description": "Dual spirals converging to center"
     },
     {
-      "id": "level-17-conchoid",
+      "id": "4 - 2",
       "displayName": "Conchoid",
       "startThero": 60,
       "theroCap": 2440,
@@ -4147,7 +4147,7 @@
       "description": "Shell-like curved path"
     },
     {
-      "id": "level-18-cissoid",
+      "id": "4 - 3",
       "displayName": "Cissoid",
       "startThero": 60,
       "theroCap": 2580,
@@ -4351,7 +4351,7 @@
       "description": "Ivy-leaf shaped curve"
     },
     {
-      "id": "level-19-trisectrix",
+      "id": "4 - 4",
       "displayName": "Trisectrix",
       "startThero": 60,
       "theroCap": 2720,
@@ -4571,7 +4571,7 @@
       "description": "Angle trisection curve"
     },
     {
-      "id": "level-20-witch-of-agnesi",
+      "id": "4 - 5",
       "displayName": "Witch of Agnesi",
       "startThero": 60,
       "theroCap": 2860,
@@ -4791,7 +4791,7 @@
       "description": "Bell-shaped versiera curve"
     },
     {
-      "id": "level-21-serpentine",
+      "id": "5 - 1",
       "displayName": "Serpentine",
       "startThero": 65,
       "theroCap": 3000,
@@ -5003,7 +5003,7 @@
       "description": "Snake-like oscillating path"
     },
     {
-      "id": "level-22-kampyle",
+      "id": "5 - 2",
       "displayName": "Kampyle",
       "startThero": 65,
       "theroCap": 3140,
@@ -5207,7 +5207,7 @@
       "description": "Curved euthymia path"
     },
     {
-      "id": "level-23-folium",
+      "id": "5 - 3",
       "displayName": "Folium",
       "startThero": 65,
       "theroCap": 3280,
@@ -5427,7 +5427,7 @@
       "description": "Descartes folium with loop"
     },
     {
-      "id": "level-24-strophoid",
+      "id": "5 - 4",
       "displayName": "Strophoid",
       "startThero": 65,
       "theroCap": 3420,
@@ -5639,7 +5639,7 @@
       "description": "Twisted loop path"
     },
     {
-      "id": "level-25-cochleoid",
+      "id": "5 - 5",
       "displayName": "Cochleoid",
       "startThero": 65,
       "theroCap": 3560,
@@ -5867,7 +5867,7 @@
       "description": "Spiral shell curve"
     },
     {
-      "id": "level-26-tractrix",
+      "id": "6 - 1",
       "displayName": "Tractrix",
       "startThero": 70,
       "theroCap": 3700,
@@ -6055,7 +6055,7 @@
       "description": "Pursuit curve path"
     },
     {
-      "id": "level-27-catenary",
+      "id": "6 - 2",
       "displayName": "Catenary",
       "startThero": 70,
       "theroCap": 3840,
@@ -6263,7 +6263,7 @@
       "description": "Hanging chain curve"
     },
     {
-      "id": "level-28-cycloid",
+      "id": "6 - 3",
       "displayName": "Cycloid",
       "startThero": 70,
       "theroCap": 3980,
@@ -6491,7 +6491,7 @@
       "description": "Rolling wheel traced path"
     },
     {
-      "id": "level-29-involute",
+      "id": "6 - 4",
       "displayName": "Involute",
       "startThero": 70,
       "theroCap": 4120,
@@ -6695,7 +6695,7 @@
       "description": "Unwrapping string curve"
     },
     {
-      "id": "level-30-evolute",
+      "id": "6 - 5",
       "displayName": "Evolute",
       "startThero": 70,
       "theroCap": 4260,
