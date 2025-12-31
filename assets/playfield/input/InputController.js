@@ -18,7 +18,11 @@ function attachCanvasInteractions() {
   this.canvas.addEventListener('pointerup', this.pointerUpHandler);
   this.canvas.addEventListener('pointercancel', this.pointerUpHandler);
   this.canvas.addEventListener('lostpointercapture', this.pointerUpHandler);
-  this.canvas.addEventListener('wheel', this.wheelHandler, { passive: false });
+  // Block page scrolling while the pointer is over the playfield container or canvas.
+  const wheelTarget = this.container || this.canvas;
+  if (wheelTarget) {
+    wheelTarget.addEventListener('wheel', this.wheelHandler, { passive: false });
+  }
 }
 
 function handleCanvasPointerMove(event) {
