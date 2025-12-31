@@ -12506,7 +12506,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 /* Style each Kuf menu tile to read as a square dashboard panel. */
 .kuf-sim-menu-tile {
-  min-height: 260px;
+  min-height: 130px;
   border-radius: 16px;
   padding: 1.25rem;
   background: linear-gradient(160deg, rgba(18, 26, 48, 0.92), rgba(8, 12, 28, 0.95));
