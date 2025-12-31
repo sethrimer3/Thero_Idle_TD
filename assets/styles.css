@@ -12504,6 +12504,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   gap: 1.5rem;
 }
 
+.kuf-sim-menu-grid[hidden] {
+  display: none;
+}
+
 /* Style each Kuf menu tile to read as a square dashboard panel. */
 .kuf-sim-menu-tile {
   min-height: 130px;

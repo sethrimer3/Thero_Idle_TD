@@ -3757,8 +3757,21 @@
                     <button class="kuf-sim-menu-tile kuf-sim-menu-tile--levels" type="button" data-menu="levels">
                       <h4 class="kuf-sim-menu-title">Levels</h4>
                     </button>
-                    <!-- Expanded Levels content -->
-                    <section class="kuf-expanded-view" id="kuf-levels-view" hidden>
+                    <!-- Ship tile presents core ship upgrades and hull status. -->
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--ship" type="button" data-menu="ship">
+                      <h4 class="kuf-sim-menu-title">Ship</h4>
+                    </button>
+                    <!-- Units tile groups all recruitable unit upgrades. -->
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--units" type="button" data-menu="units">
+                      <h4 class="kuf-sim-menu-title">Units</h4>
+                    </button>
+                    <!-- Kuf tile shows glyph information and gold progress. -->
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--kuf" type="button" data-menu="kuf">
+                      <h4 class="kuf-sim-menu-title">ק</h4>
+                    </button>
+                  </div>
+                  <!-- Expanded Levels content -->
+                  <section class="kuf-expanded-view" id="kuf-levels-view" hidden>
                       <div class="kuf-sim-map" aria-live="polite">
                         <p class="kuf-sim-map-label">Battlefield</p>
                         <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
@@ -3769,12 +3782,8 @@
                         </ul>
                       </div>
                     </section>
-                    <!-- Ship tile presents core ship upgrades and hull status. -->
-                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--ship" type="button" data-menu="ship">
-                      <h4 class="kuf-sim-menu-title">Ship</h4>
-                    </button>
-                    <!-- Expanded Ship content -->
-                    <section class="kuf-expanded-view" id="kuf-ship-view" hidden>
+                  <!-- Expanded Ship content -->
+                  <section class="kuf-expanded-view" id="kuf-ship-view" hidden>
                       <div class="kuf-sim-menu-units">
                         <div class="kuf-sim-unit kuf-sim-unit--core">
                           <div class="kuf-sim-unit-header">
@@ -3808,12 +3817,8 @@
                         </div>
                       </div>
                     </section>
-                    <!-- Units tile groups all recruitable unit upgrades. -->
-                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--units" type="button" data-menu="units">
-                      <h4 class="kuf-sim-menu-title">Units</h4>
-                    </button>
-                    <!-- Expanded Units content -->
-                    <section class="kuf-expanded-view" id="kuf-units-view" hidden>
+                  <!-- Expanded Units content -->
+                  <section class="kuf-expanded-view" id="kuf-units-view" hidden>
                       <div class="kuf-sim-menu-units">
                         <div class="kuf-sim-unit">
                           <div class="kuf-sim-unit-header">
@@ -3948,12 +3953,8 @@
                         </div>
                       </div>
                     </section>
-                    <!-- Kuf tile shows glyph information and gold progress. -->
-                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--kuf" type="button" data-menu="kuf">
-                      <h4 class="kuf-sim-menu-title">ק</h4>
-                    </button>
-                    <!-- Expanded Kuf content -->
-                    <section class="kuf-expanded-view" id="kuf-info-view" hidden>
+                  <!-- Expanded Kuf content -->
+                  <section class="kuf-expanded-view" id="kuf-info-view" hidden>
                       <div class="kuf-info-panel">
                         <h4 class="kuf-info-title">Kuf Glyph Progress</h4>
                         <dl class="kuf-info-stats">
@@ -3973,7 +3974,6 @@
                       </div>
                     </section>
                   </div>
-                </div>
                 
                 <div class="kuf-result-panel" id="kuf-result-panel" hidden>
                   <h4>Simulation Complete</h4>
