@@ -4794,7 +4794,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
         card.innerHTML = `
           <span class="level-node-core">
-            <span class="level-status-pill">New</span>
             <span class="level-id">${level.id}</span>
             <span class="level-node-title">${level.title}</span>
           </span>
@@ -5067,7 +5066,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             : `${level.id}: ${level.title}. Path ${pathLabel}. Focus ${focusLabel}.`;
           card.innerHTML = `
             <span class="level-node-core">
-              <span class="level-status-pill">New</span>
               <span class="level-id">${level.id}</span>
               <span class="level-node-title">${level.title}</span>
             </span>
@@ -5400,7 +5398,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     levelBlueprints.forEach((level) => {
       const card = levelGrid.querySelector(`[data-level="${level.id}"]`);
       if (!card) return;
-      const pill = card.querySelector('.level-status-pill');
       const titleEl = card.querySelector('.level-node-title');
       const pathEl = card.querySelector('.level-path');
       const focusEl = card.querySelector('.level-focus');
@@ -5493,31 +5490,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             ? 'Focus on dialogue and lore.'
             : `Focus ${focusLabel}`
           : 'Focus details locked.';
-      }
-
-      if (pill) {
-        let pillVisible = false;
-        let pillText = '';
-        if (isStoryLevel) {
-          pillText = 'Story';
-          pillVisible = true;
-        } else if (unlocked && !entered) {
-          pillText = 'New';
-          pillVisible = true;
-        } else if (unlocked && running) {
-          pillText = 'Running';
-          pillVisible = true;
-        }
-
-        if (pillVisible) {
-          pill.textContent = pillText;
-          pill.removeAttribute('hidden');
-          pill.setAttribute('aria-hidden', 'false');
-        } else {
-          pill.textContent = pillText;
-          pill.setAttribute('aria-hidden', 'true');
-          pill.setAttribute('hidden', '');
-        }
       }
 
       const bestWave = isStoryLevel ? 0 : Number.isFinite(state?.bestWave) ? state.bestWave : 0;
