@@ -695,11 +695,13 @@ function handleCanvasClick(event) {
 }
 
 function handleCanvasWheel(event) {
-  if (!this.levelActive || !this.levelConfig) {
-    return;
-  }
+  // Always prevent default wheel behavior to avoid scrolling the tab when zooming the playfield
   if (typeof event.preventDefault === 'function') {
     event.preventDefault();
+  }
+  
+  if (!this.levelActive || !this.levelConfig) {
+    return;
   }
   if (typeof this.dependencies.isFieldNotesOverlayVisible === 'function' && this.dependencies.isFieldNotesOverlayVisible()) {
     return;

@@ -104,6 +104,47 @@ const KUF_CORE_SHIP_COMBAT = {
   CANNON_SPREAD_RADIANS: 0.35,
   CORE_COLLISION_SCALE: 0.65,
 };
+// Define sprite asset paths for the Kuf spire ships.
+const KUF_SPRITE_PATHS = {
+  CORE_SHIP: './assets/sprites/spires/kufSpire/playerShips/coreShipLevel2.png',
+  SPLAYER: './assets/sprites/spires/kufSpire/playerShips/splayer.png',
+  ENEMY_BOSS: './assets/sprites/spires/kufSpire/enemyShips/enemyBoss1.png',
+};
+// Cache Kuf spire sprite assets so repeated draws do not reload images.
+const KUF_SPRITE_CACHE = new Map();
+// Load and cache a Kuf spire sprite image for canvas rendering.
+function getKufSprite(spritePath) {
+  if (!spritePath || typeof Image === 'undefined') {
+    return null;
+  }
+  const cached = KUF_SPRITE_CACHE.get(spritePath);
+  if (cached && cached.loaded && !cached.error) {
+    return cached;
+  }
+  if (cached && cached.error) {
+    return null;
+  }
+  if (cached) {
+    return cached;
+  }
+  const image = new Image();
+  const record = { image, loaded: false, error: false };
+  image.addEventListener('load', () => {
+    record.loaded = true;
+  });
+  image.addEventListener('error', () => {
+    record.error = true;
+  });
+  image.src = spritePath;
+  KUF_SPRITE_CACHE.set(spritePath, record);
+  return record;
+}
+// Define baseline spin behavior for splayer units.
+const SPLAYER_BASE_SPIN_SPEED = 0.6;
+// Define the spin boost multiplier while the splayer is attacking.
+const SPLAYER_SPIN_BOOST_MULTIPLIER = 3;
+// Define how long the splayer keeps its boosted spin after firing.
+const SPLAYER_SPIN_BOOST_DURATION = 2;
 // Define the training catalog for Kuf units, including costs and durations.
 const KUF_TRAINING_CATALOG = {
   worker: { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
@@ -685,6 +726,10 @@ export class KufBattlefieldSimulation {
     const radius = type === 'sniper' ? SNIPER_RADIUS : type === 'splayer' ? SPLAYER_RADIUS : MARINE_RADIUS;
     const moveSpeed = type === 'sniper' ? MARINE_MOVE_SPEED * 0.8 : type === 'splayer' ? MARINE_MOVE_SPEED * 0.9 : MARINE_MOVE_SPEED;
     const range = type === 'sniper' ? SNIPER_RANGE : type === 'splayer' ? SPLAYER_RANGE : MARINE_RANGE;
+    // Seed splayer rotation so each ship animates with a unique idle orientation.
+    const rotation = type === 'splayer' ? Math.random() * Math.PI * 2 : 0;
+    // Assign the baseline spin rate only to splayer units.
+    const rotationSpeed = type === 'splayer' ? SPLAYER_BASE_SPIN_SPEED : 0;
     this.marines.push({
       type,
       x,
@@ -701,6 +746,10 @@ export class KufBattlefieldSimulation {
       moveSpeed,
       range,
       statusEffects: [],
+      rotation,
+      rotationSpeed,
+      // Track the remaining duration of the boosted spin after each splayer attack.
+      rotationBoostTimer: 0,
     });
   }
 
@@ -1410,6 +1459,12 @@ export class KufBattlefieldSimulation {
       if (marine.health <= 0) {
         return;
       }
+      // Animate splayer rotation continuously, with optional boost after firing.
+      if (marine.type === 'splayer') {
+        const boostedSpin = marine.rotationBoostTimer > 0 ? SPLAYER_SPIN_BOOST_MULTIPLIER : 1;
+        marine.rotationBoostTimer = Math.max(0, marine.rotationBoostTimer - delta);
+        marine.rotation = (marine.rotation + marine.rotationSpeed * boostedSpin * delta) % (Math.PI * 2);
+      }
       marine.cooldown = Math.max(0, marine.cooldown - delta);
       // Prioritize the focused enemy when one is set, only firing when it is in range.
       let target = null;
@@ -1435,41 +1490,40 @@ export class KufBattlefieldSimulation {
         
         // Fire at target
         if (marine.cooldown <= 0) {
-          this.spawnBullet({
-            owner: 'marine',
-            type: marine.type,
-            x: marine.x,
-            y: marine.y - marine.radius,
-            target,
-            speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : 
-                   marine.type === 'splayer' ? SPLAYER_ROCKET_SPEED : MARINE_BULLET_SPEED,
-            damage: marine.attack,
-            homing: marine.type === 'splayer',
-          });
-          
-          // Splayer fires multiple rockets
           if (marine.type === 'splayer') {
-            for (let i = 0; i < 5; i++) {
-              setTimeout(() => {
-                if (marine.health > 0) {
-                  const currentTarget = this.findClosestTurret(marine.x, marine.y, marine.range);
-                  if (currentTarget) {
-                    this.spawnBullet({
-                      owner: 'marine',
-                      type: 'splayer',
-                      x: marine.x + (Math.random() - 0.5) * 10,
-                      y: marine.y - marine.radius,
-                      target: currentTarget,
-                      speed: SPLAYER_ROCKET_SPEED,
-                      damage: marine.attack * 0.2,
-                      homing: true,
-                    });
-                  }
-                }
-              }, i * 50);
+            // Launch a randomized ring of homing rockets toward the focused or nearest enemy.
+            const rocketCount = 8;
+            const rocketDamage = marine.attack * 0.25;
+            for (let i = 0; i < rocketCount; i++) {
+              const launchAngle = Math.random() * Math.PI * 2;
+              this.spawnBullet({
+                owner: 'marine',
+                type: 'splayer',
+                x: marine.x,
+                y: marine.y - marine.radius,
+                target,
+                speed: SPLAYER_ROCKET_SPEED,
+                damage: rocketDamage,
+                homing: true,
+                angle: launchAngle,
+              });
             }
+            // Boost splayer spin rate briefly after firing.
+            marine.rotationBoostTimer = SPLAYER_SPIN_BOOST_DURATION;
+          } else {
+            // Fire a single projectile for non-splayer units.
+            this.spawnBullet({
+              owner: 'marine',
+              type: marine.type,
+              x: marine.x,
+              y: marine.y - marine.radius,
+              target,
+              speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : MARINE_BULLET_SPEED,
+              damage: marine.attack,
+              homing: false,
+            });
           }
-          
+
           marine.cooldown = 1 / marine.attackSpeed;
         }
       } else if (focusedEnemy) {
@@ -2209,6 +2263,24 @@ export class KufBattlefieldSimulation {
         ctx.arc(marine.x, marine.y, marine.range, 0, Math.PI * 2);
         ctx.stroke();
       }
+
+      // Use the dedicated splayer sprite when available.
+      const splayerSprite = marine.type === 'splayer' ? getKufSprite(KUF_SPRITE_PATHS.SPLAYER) : null;
+      const useSplayerSprite = marine.type === 'splayer' && splayerSprite && splayerSprite.loaded;
+      if (useSplayerSprite) {
+        const spriteSize = marine.radius * 6;
+        const marineGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 24) : 0;
+        ctx.save();
+        ctx.translate(marine.x, marine.y);
+        ctx.rotate(marine.rotation || 0);
+        ctx.shadowBlur = marineGlow;
+        ctx.shadowColor = glowsEnabled ? 'rgba(255, 66, 180, 0.8)' : 'transparent';
+        ctx.drawImage(splayerSprite.image, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+        ctx.restore();
+        return;
+      }
       
       // Different colors for different unit types
       let mainColor, shadowColor;
@@ -2373,6 +2445,19 @@ export class KufBattlefieldSimulation {
       const lineWidth = this.renderProfile === 'light' ? 1.5 : turret.type === 'big_turret' ? 3 : 2;
       ctx.lineWidth = lineWidth;
       ctx.stroke();
+
+      // Overlay the boss ship sprite on designated large turrets.
+      const bossSprite = turret.type === 'big_turret' ? getKufSprite(KUF_SPRITE_PATHS.ENEMY_BOSS) : null;
+      if (bossSprite && bossSprite.loaded) {
+        const spriteSize = turret.radius * 6.5;
+        ctx.drawImage(
+          bossSprite.image,
+          turret.x - spriteSize / 2,
+          turret.y - spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+      }
 
       if (turret.healVisualTimer > 0 && turret.activeHealTarget) {
         ctx.save();
@@ -2620,6 +2705,24 @@ export class KufBattlefieldSimulation {
     ctx.fill();
     ctx.stroke();
 
+    ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
+    ctx.beginPath();
+    ctx.arc(baseCenter.x, baseCenter.y, baseRadius * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw the default core ship sprite on top of the base hull.
+    const coreSprite = getKufSprite(KUF_SPRITE_PATHS.CORE_SHIP);
+    if (coreSprite && coreSprite.loaded) {
+      const spriteSize = baseRadius * 2.2;
+      ctx.drawImage(
+        coreSprite.image,
+        baseCenter.x - spriteSize / 2,
+        baseCenter.y - spriteSize / 2,
+        spriteSize,
+        spriteSize
+      );
+    }
+
     // Draw the core ship hull integrity arc to reflect remaining health.
     ctx.strokeStyle = 'rgba(255, 200, 120, 0.8)';
     ctx.lineWidth = 3;
@@ -2647,11 +2750,6 @@ export class KufBattlefieldSimulation {
         ctx.fill();
       }
     }
-
-    ctx.fillStyle = 'rgba(20, 40, 70, 0.6)';
-    ctx.beginPath();
-    ctx.arc(baseCenter.x, baseCenter.y, baseRadius * 0.45, 0, Math.PI * 2);
-    ctx.fill();
     ctx.restore();
   }
 

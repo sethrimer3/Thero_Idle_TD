@@ -88,19 +88,7 @@
               <span class="offline-number" id="offline-bet-total">0</span>
               <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">בּ</span>
               <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Serendipity</span>
-            </div>
-          </div>
-          <div class="offline-overlay__equation-row offline-overlay__equation-row--continuation" id="offline-happiness-row" aria-label="Bet happiness idle gains">
-            <span class="offline-overlay__label offline-overlay__label--placeholder" aria-hidden="true"></span>
-            <div class="offline-overlay__equation offline-overlay__equation--continuation">
-              <span class="offline-symbol">×</span>
-              <span class="offline-number" id="offline-happiness-multiplier">0</span>
-              <span class="offline-symbol">=</span>
-              <span class="offline-number" id="offline-happiness-total">0</span>
-              <span class="offline-symbol offline-symbol--glyph" aria-hidden="true">בּ</span>
-              <span class="offline-symbol">−</span>
-              <span class="offline-resource__label">Happiness</span>
+              <span class="offline-resource__label">Scintillae</span>
             </div>
           </div>
           <div class="offline-overlay__equation-row" id="offline-lamed-row" aria-label="Lamed idle gains">
@@ -504,6 +492,15 @@
                   </button>
                   <button class="action-button ghost" type="button" id="tower-loadout-toggle-side-button">
                     Tower Toggle · Left
+                  </button>
+                  <button
+                    class="action-button ghost"
+                    type="button"
+                    id="loadout-slot-button"
+                    aria-live="polite"
+                    aria-label="Cycle loadout slots"
+                  >
+                    Slots · 2
                   </button>
                   <button class="action-button ghost playfield-settings-close" type="button">Close</button>
                 </div>
@@ -3750,12 +3747,18 @@
                 ></canvas>
                 <!-- Pre-simulation menu with unit deployment and upgrades -->
                 <div class="kuf-sim-menu" id="kuf-sim-menu">
-                  <button class="action-button kuf-sim-menu-start" type="button" id="kuf-start-button">Start Simulation</button>
+                  <!-- Back button for expanded views -->
+                  <button class="kuf-back-button" type="button" id="kuf-back-button" hidden>
+                    <span aria-hidden="true">←</span> Back
+                  </button>
                   <!-- Kuf main menu grid to organize pre-simulation choices in four tiles. -->
-                  <div class="kuf-sim-menu-grid">
+                  <div class="kuf-sim-menu-grid" id="kuf-sim-menu-grid">
                     <!-- Levels tile houses the battlefield selection list. -->
-                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--levels">
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--levels" type="button" data-menu="levels">
                       <h4 class="kuf-sim-menu-title">Levels</h4>
+                    </button>
+                    <!-- Expanded Levels content -->
+                    <section class="kuf-expanded-view" id="kuf-levels-view" hidden>
                       <div class="kuf-sim-map" aria-live="polite">
                         <p class="kuf-sim-map-label">Battlefield</p>
                         <div class="kuf-map-list" id="kuf-map-list" aria-label="Battlefield selection"></div>
@@ -3767,8 +3770,11 @@
                       </div>
                     </section>
                     <!-- Ship tile presents core ship upgrades and hull status. -->
-                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--ship">
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--ship" type="button" data-menu="ship">
                       <h4 class="kuf-sim-menu-title">Ship</h4>
+                    </button>
+                    <!-- Expanded Ship content -->
+                    <section class="kuf-expanded-view" id="kuf-ship-view" hidden>
                       <div class="kuf-sim-menu-units">
                         <div class="kuf-sim-unit kuf-sim-unit--core">
                           <div class="kuf-sim-unit-header">
@@ -3803,8 +3809,11 @@
                       </div>
                     </section>
                     <!-- Units tile groups all recruitable unit upgrades. -->
-                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--units">
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--units" type="button" data-menu="units">
                       <h4 class="kuf-sim-menu-title">Units</h4>
+                    </button>
+                    <!-- Expanded Units content -->
+                    <section class="kuf-expanded-view" id="kuf-units-view" hidden>
                       <div class="kuf-sim-menu-units">
                         <div class="kuf-sim-unit">
                           <div class="kuf-sim-unit-header">
@@ -3939,10 +3948,29 @@
                         </div>
                       </div>
                     </section>
-                    <!-- TBD tile reserves space for future Kuf menu content. -->
-                    <section class="kuf-sim-menu-tile kuf-sim-menu-tile--tbd">
-                      <h4 class="kuf-sim-menu-title">TBD</h4>
-                      <p class="kuf-sim-menu-tbd">Awaiting future systems.</p>
+                    <!-- Kuf tile shows glyph information and gold progress. -->
+                    <button class="kuf-sim-menu-tile kuf-sim-menu-tile--kuf" type="button" data-menu="kuf">
+                      <h4 class="kuf-sim-menu-title">ק</h4>
+                    </button>
+                    <!-- Expanded Kuf content -->
+                    <section class="kuf-expanded-view" id="kuf-info-view" hidden>
+                      <div class="kuf-info-panel">
+                        <h4 class="kuf-info-title">Kuf Glyph Progress</h4>
+                        <dl class="kuf-info-stats">
+                          <div class="kuf-info-stat-row">
+                            <dt>Total Gold from Missions</dt>
+                            <dd id="kuf-total-gold">0</dd>
+                          </div>
+                          <div class="kuf-info-stat-row">
+                            <dt>Kuf Glyphs Earned</dt>
+                            <dd id="kuf-glyphs-earned">0</dd>
+                          </div>
+                          <div class="kuf-info-stat-row">
+                            <dt>Gold until Next Glyph</dt>
+                            <dd id="kuf-gold-until-next">0</dd>
+                          </div>
+                        </dl>
+                      </div>
                     </section>
                   </div>
                 </div>
@@ -3952,114 +3980,6 @@
                   <p id="kuf-result-summary">Awaiting results.</p>
                   <p id="kuf-result-glyphs">Surpass your high score to earn more glyphs.</p>
                   <button class="action-button ghost" type="button" id="kuf-result-close">Close</button>
-                </div>
-              </div>
-            </article>
-
-            <!-- Shard Ledger below simulation -->
-            <article class="card kuf-card kuf-card--ledger" id="kuf-ledger-card">
-              <h3 class="kuf-card-title">Shard Ledger</h3>
-              <p class="kuf-card-subtitle">Track shard allocation and performance metrics.</p>
-              <dl class="kuf-ledger" aria-live="polite">
-                <div class="kuf-ledger-row">
-                  <dt>Shards</dt>
-                  <dd>
-                    <span id="kuf-shards-remaining">0</span>
-                    <span aria-hidden="true">/</span>
-                    <span class="kuf-ledger-total" id="kuf-shards-total">0</span>
-                  </dd>
-                </div>
-                <div class="kuf-ledger-row">
-                  <dt>High Score</dt>
-                  <dd><span id="kuf-high-score">0</span> gold</dd>
-                </div>
-                <div class="kuf-ledger-row">
-                  <dt>Kuf Glyphs</dt>
-                  <dd><span id="kuf-glyph-count">0</span></dd>
-                </div>
-                <div class="kuf-ledger-row">
-                  <dt>Last Run</dt>
-                  <dd id="kuf-last-result">Awaiting first simulation.</dd>
-                </div>
-              </dl>
-              <p class="kuf-ledger-note">Earn new Kuf glyphs only by surpassing your best gold haul.</p>
-            </article>
-
-            <!-- Shard Codex - new section -->
-            <article class="card kuf-card kuf-card--codex" id="kuf-codex-card">
-              <h3 class="kuf-card-title">Shard Codex</h3>
-              <p class="kuf-card-subtitle">Unit records and encountered adversaries.</p>
-              
-              <div class="kuf-codex-section">
-                <h4 class="kuf-codex-section-title">Your Units</h4>
-                <div class="kuf-codex-unit" id="kuf-codex-marines">
-                  <div class="kuf-codex-unit-header">
-                    <span class="kuf-codex-unit-name">Marine</span>
-                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-marines-count">0</span></span>
-                  </div>
-                  <dl class="kuf-codex-stats">
-                    <div class="kuf-codex-stat-row">
-                      <dt>Health</dt>
-                      <dd id="kuf-codex-marines-health">10 HP</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack</dt>
-                      <dd id="kuf-codex-marines-attack">1.0 Damage</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack Speed</dt>
-                      <dd id="kuf-codex-marines-speed">1.00 /s</dd>
-                    </div>
-                  </dl>
-                </div>
-                
-                <div class="kuf-codex-unit" id="kuf-codex-snipers">
-                  <div class="kuf-codex-unit-header">
-                    <span class="kuf-codex-unit-name">Sniper</span>
-                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-snipers-count">0</span></span>
-                  </div>
-                  <dl class="kuf-codex-stats">
-                    <div class="kuf-codex-stat-row">
-                      <dt>Health</dt>
-                      <dd id="kuf-codex-snipers-health">8 HP</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack</dt>
-                      <dd id="kuf-codex-snipers-attack">2.0 Damage</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack Speed</dt>
-                      <dd id="kuf-codex-snipers-speed">0.50 /s</dd>
-                    </div>
-                  </dl>
-                </div>
-                
-                <div class="kuf-codex-unit" id="kuf-codex-splayers">
-                  <div class="kuf-codex-unit-header">
-                    <span class="kuf-codex-unit-name">Splayer</span>
-                    <span class="kuf-codex-unit-count">Count: <span id="kuf-codex-splayers-count">0</span></span>
-                  </div>
-                  <dl class="kuf-codex-stats">
-                    <div class="kuf-codex-stat-row">
-                      <dt>Health</dt>
-                      <dd id="kuf-codex-splayers-health">12 HP</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack</dt>
-                      <dd id="kuf-codex-splayers-attack">0.8 Damage</dd>
-                    </div>
-                    <div class="kuf-codex-stat-row">
-                      <dt>Attack Speed</dt>
-                      <dd id="kuf-codex-splayers-speed">0.70 /s</dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-              
-              <div class="kuf-codex-section">
-                <h4 class="kuf-codex-section-title">Encountered Enemies</h4>
-                <div id="kuf-codex-enemies">
-                  <p class="kuf-codex-empty">Complete a simulation to log enemy encounters.</p>
                 </div>
               </div>
             </article>
@@ -4565,21 +4485,6 @@
                 </div>
               </div>
             </article>
-            <article class="card loadout-slots-card">
-              <div class="loadout-slots-copy">
-                <h3>Loadout Slots</h3>
-                <p>Choose how many glyphs to keep ready. Long-press a loadout slot to swap towers mid-defense.</p>
-              </div>
-              <button
-                class="action-button ghost"
-                type="button"
-                id="loadout-slot-button"
-                aria-live="polite"
-                aria-label="Cycle loadout slots"
-              >
-                Slots · 2
-              </button>
-            </article>
             <article class="card">
               <h3>Field Notes</h3>
               <p>Consult the archivist for a briefing on the current storyline.</p>
@@ -4848,7 +4753,7 @@
                   <p class="developer-control-hint">Manually set Kuf glyph earnings from tactics.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-drop-rate">Bet Spire Serendipity rate</label>
+                  <label for="developer-bet-drop-rate">Bet Spire Scintillae rate</label>
                   <input
                     type="number"
                     id="developer-bet-drop-rate"
@@ -4857,10 +4762,10 @@
                     step="0.01"
                     inputmode="decimal"
                   />
-                  <p class="developer-control-hint">Set Serendipity per second for Bet Spire.</p>
+                  <p class="developer-control-hint">Set Scintillae per second for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
-                  <label for="developer-bet-bank">Bet Spire Serendipity reserve</label>
+                  <label for="developer-bet-bank">Bet Spire Scintillae reserve</label>
                   <input
                     type="number"
                     id="developer-bet-bank"
@@ -4869,7 +4774,7 @@
                     step="1"
                     inputmode="numeric"
                   />
-                  <p class="developer-control-hint">Override the stored Serendipity reserve for Bet Spire.</p>
+                  <p class="developer-control-hint">Override the stored Scintillae reserve for Bet Spire.</p>
                 </div>
                 <div class="developer-control-field">
                   <label for="developer-iteron-bank">Shin Spire iteron bank</label>
