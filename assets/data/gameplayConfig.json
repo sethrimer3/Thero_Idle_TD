@@ -271,8 +271,8 @@
       "id": "1 - 1",
       "campaign": "Story",
       "title": "Lemniscate Hypothesis",
-      "path": "∞ loop traced from r² = cos(2θ); mirrored spawn lanes cross twice.",
-      "focus": "Early E glyphs surge with divisor scouts—tempo control is vital.",
+      "path": "\u221e loop traced from r\u00b2 = cos(2\u03b8); mirrored spawn lanes cross twice.",
+      "focus": "Early E glyphs surge with divisor scouts\u2014tempo control is vital.",
       "example": "Goldbach's Conjecture: Every even integer greater than 2 is the sum of two primes."
     },
     {
@@ -282,16 +282,16 @@
       "title": "Collatz Cascade",
       "path": "Stepwise descent generated from the 3n + 1 map with teleport risers.",
       "focus": "Hit-count enemies appear on odd nodes; summon glyph soldiers to stall.",
-      "example": "Collatz Conjecture: Iterate n → n/2 or 3n + 1 and every positive integer reaches 1."
+      "example": "Collatz Conjecture: Iterate n \u2192 n/2 or 3n + 1 and every positive integer reaches 1."
     },
     {
       "set": "Chapter 1",
       "id": "1 - 3",
       "campaign": "Story",
       "title": "Riemann Helix",
-      "path": "Logarithmic spiral with harmonic bulges keyed to ζ(s) zero estimates.",
-      "focus": "Divisor elites flank wave bosses—Ω previews excel at splash slows.",
-      "example": "Riemann Hypothesis: Every nontrivial zero of ζ(s) lies on the line Re(s) = 1/2."
+      "path": "Logarithmic spiral with harmonic bulges keyed to \u03b6(s) zero estimates.",
+      "focus": "Divisor elites flank wave bosses\u2014\u03a9 previews excel at splash slows.",
+      "example": "Riemann Hypothesis: Every nontrivial zero of \u03b6(s) lies on the line Re(s) = 1/2."
     },
     {
       "set": "Chapter 1",
@@ -299,7 +299,7 @@
       "campaign": "Story",
       "title": "Twin Prime Fork",
       "path": "Dual lattice rails linked by prime gaps; enemies swap lanes unpredictably.",
-      "focus": "Prime counters demand rapid-fire towers—γ chaining resets their count.",
+      "focus": "Prime counters demand rapid-fire towers\u2014\u03b3 chaining resets their count.",
       "example": "Twin Prime Conjecture: Infinitely many primes p exist such that p + 2 is prime."
     },
     {
@@ -308,8 +308,18 @@
       "campaign": "Story",
       "title": "Birch Flow",
       "path": "Cardioid river influenced by elliptic curve rank gradients.",
-      "focus": "Reversal sentinels join late waves—δ soldiers can flip them to your side.",
+      "focus": "Reversal sentinels join late waves\u2014\u03b4 soldiers can flip them to your side.",
       "example": "Birch and Swinnerton-Dyer Conjecture: Rational points of elliptic curves link to L-series behavior."
+    },
+    {
+      "set": "Chapter 1",
+      "campaign": "Story",
+      "id": "1 - Story",
+      "title": "Scholars and Friends",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 1 narrative conclusion.",
+      "isStoryLevel": true
     },
     {
       "set": "Challenge Set 3",
@@ -317,7 +327,7 @@
       "campaign": "Challenges",
       "title": "Apocrypha Loop",
       "path": "Hidden lemniscate mirrored through complex planes; portals bloom off-axis.",
-      "focus": "Only reveals during total glyph alignment—expect mixed archetypes in waves.",
+      "focus": "Only reveals during total glyph alignment\u2014expect mixed archetypes in waves.",
       "example": "Secret Lemma: When harmonic sums stabilize, an unseen proof thread emerges from the void."
     },
     {
@@ -366,12 +376,22 @@
       "example": "Kidney-shaped path with double focus"
     },
     {
+      "set": "Chapter 2",
+      "campaign": "Story",
+      "id": "2 - Story",
+      "title": "The Archive's Whisper",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 2 narrative conclusion.",
+      "isStoryLevel": true
+    },
+    {
       "set": "Challenge Set 3",
       "id": "Trial - 5",
       "campaign": "Challenges",
       "title": "Shadow Integral",
       "path": "Phase-shifted archipelago of calculus islands hidden beneath modular petals.",
-      "focus": "Resource siphons and reversal elites stack together—prepare universal counters.",
+      "focus": "Resource siphons and reversal elites stack together\u2014prepare universal counters.",
       "example": "Secret Corollary: The boundary integral of concealed paths equals interior flux you never saw."
     },
     {
@@ -420,6 +440,16 @@
       "example": "Transcendental butterfly curve"
     },
     {
+      "set": "Chapter 3",
+      "campaign": "Story",
+      "id": "3 - Story",
+      "title": "Resonance Discovered",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 3 narrative conclusion.",
+      "isStoryLevel": true
+    },
+    {
       "set": "Chapter 4",
       "id": "4 - 1",
       "title": "Double Spiral",
@@ -463,6 +493,16 @@
       "focus": "Bell-shaped versiera curve",
       "example": "Bell-shaped versiera curve",
       "campaign": "Story"
+    },
+    {
+      "set": "Chapter 4",
+      "campaign": "Story",
+      "id": "4 - Story",
+      "title": "Proof of Concept",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 4 narrative conclusion.",
+      "isStoryLevel": true
     },
     {
       "set": "Chapter 5",
@@ -510,6 +550,16 @@
       "campaign": "Story"
     },
     {
+      "set": "Chapter 5",
+      "campaign": "Story",
+      "id": "5 - Story",
+      "title": "Harmonic Convergence",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 5 narrative conclusion.",
+      "isStoryLevel": true
+    },
+    {
       "set": "Chapter 6",
       "id": "6 - 1",
       "title": "Tractrix",
@@ -553,6 +603,16 @@
       "focus": "Center of curvature path",
       "example": "Center of curvature path",
       "campaign": "Story"
+    },
+    {
+      "set": "Chapter 6",
+      "campaign": "Story",
+      "id": "6 - Story",
+      "title": "The Final Theorem",
+      "path": "Read the story to continue.",
+      "focus": "Learn more about the scholars and their journey.",
+      "example": "Story: Chapter 6 narrative conclusion.",
+      "isStoryLevel": true
     },
     {
       "set": "Challenge Set 1",
@@ -1481,6 +1541,33 @@
           "y": 0.122
         }
       ]
+    },
+    {
+      "id": "1 - Story",
+      "displayName": "Scholars and Friends",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
     },
     {
       "id": "2 - 1",
@@ -2573,6 +2660,33 @@
       "autoAnchors": [],
       "title": "Nephroid",
       "description": "Kidney-shaped path with double focus"
+    },
+    {
+      "id": "2 - Story",
+      "displayName": "The Archive's Whisper",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
     },
     {
       "id": "3 - 2",
@@ -3699,6 +3813,33 @@
       "description": "Transcendental butterfly curve"
     },
     {
+      "id": "3 - Story",
+      "displayName": "Resonance Discovered",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
+    },
+    {
       "id": "4 - 1",
       "displayName": "Double Spiral",
       "startThero": 60,
@@ -4791,6 +4932,33 @@
       "description": "Bell-shaped versiera curve"
     },
     {
+      "id": "4 - Story",
+      "displayName": "Proof of Concept",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
+    },
+    {
       "id": "5 - 1",
       "displayName": "Serpentine",
       "startThero": 65,
@@ -5867,6 +6035,33 @@
       "description": "Spiral shell curve"
     },
     {
+      "id": "5 - Story",
+      "displayName": "Harmonic Convergence",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
+    },
+    {
       "id": "6 - 1",
       "displayName": "Tractrix",
       "startThero": 70,
@@ -6913,6 +7108,33 @@
       "autoAnchors": [],
       "title": "Evolute",
       "description": "Center of curvature path"
+    },
+    {
+      "id": "6 - Story",
+      "displayName": "The Final Theorem",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 1,
+      "waves": [],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.05,
+      "isStoryLevel": true,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.5
+        },
+        {
+          "x": 0.9,
+          "y": 0.5
+        }
+      ],
+      "autoAnchors": []
     },
     {
       "id": "Developer - Test Range",
