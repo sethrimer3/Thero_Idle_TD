@@ -418,18 +418,29 @@ function createInitialTerritories() {
 // Cognitive realm state container
 export const cognitiveRealmState = {
   unlocked: false,
+  locked: true, // Locked until Chapter 3, level 5 is completed
   territories: createInitialTerritories(),
   lastLevelCompleted: null,
 };
 
-// Check if the cognitive realm map should be visible
+// Check if the cognitive realm map should be visible (visible when story campaign opened)
 export function isCognitiveRealmUnlocked() {
   return cognitiveRealmState.unlocked;
 }
 
-// Unlock the cognitive realm (called when player reaches level set 3)
+// Check if the cognitive realm is locked (cannot render until Chapter 3-5 completed)
+export function isCognitiveRealmLocked() {
+  return cognitiveRealmState.locked;
+}
+
+// Unlock the cognitive realm visibility (called when player opens story campaign)
 export function unlockCognitiveRealm() {
   cognitiveRealmState.unlocked = true;
+}
+
+// Unlock the cognitive realm rendering (called when player completes Chapter 3, level 5)
+export function unlockCognitiveRealmRendering() {
+  cognitiveRealmState.locked = false;
 }
 
 // Get all territories
@@ -534,6 +545,7 @@ export function getTerritoryStats() {
 export function serializeCognitiveRealmState() {
   return {
     unlocked: cognitiveRealmState.unlocked,
+    locked: cognitiveRealmState.locked,
     territories: cognitiveRealmState.territories.map((t) => ({
       id: t.id,
       x: t.x,
@@ -555,6 +567,13 @@ export function deserializeCognitiveRealmState(data) {
   
   if (typeof data.unlocked === 'boolean') {
     cognitiveRealmState.unlocked = data.unlocked;
+  }
+
+  if (typeof data.locked === 'boolean') {
+    cognitiveRealmState.locked = data.locked;
+  } else {
+    // Default to locked if not present in save data
+    cognitiveRealmState.locked = true;
   }
 
   if (Array.isArray(data.territories) && data.territories.length === TOTAL_TERRITORIES) {
