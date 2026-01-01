@@ -11554,6 +11554,11 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border-radius: 6px;
 }
 
+/* Square styling for the spire cog buttons that live in the render corners. */
+.spire-options-trigger--square {
+  border-radius: 4px;
+}
+
 /* Keep the cog icon centered inside the button. */
 .spire-options-icon {
   font-size: 1rem;
@@ -11590,6 +11595,16 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .spire-options-trigger--footer {
   margin-top: 12px;
   width: 100%;
+}
+
+/* Hide footer spire buttons when the corner placement is active. */
+body[data-spire-options-placement='corner'] .spire-options-trigger--footer {
+  display: none;
+}
+
+/* Hide corner spire buttons when the footer placement is active. */
+body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
+  display: none;
 }
 
 @media (max-width: 720px) {

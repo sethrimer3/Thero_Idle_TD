@@ -1948,6 +1948,124 @@
           <section class="powder-stage" id="powder-stage" aria-label="Spire">
             <article class="card powder-simulation" id="powder-simulation-card">
               <div class="powder-basin" id="powder-basin">
+                <!-- Corner spire options popover for the Aleph spire render. -->
+                <div class="spire-options-popover spire-options-popover--powder">
+                  <button
+                    class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
+                    type="button"
+                    id="powder-spire-options-toggle-button"
+                    aria-expanded="false"
+                    aria-controls="powder-options-menu"
+                    aria-label="Open Aleph spire settings"
+                  >
+                    <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                  </button>
+                  <div
+                    class="spire-options-menu spire-options-menu--popover"
+                    id="powder-options-menu"
+                    data-open="false"
+                    aria-hidden="true"
+                    hidden
+                  >
+                    <div class="settings-toggle" id="powder-mote-glow-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="powder-mote-glow-title">Luminous motes</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="powder-mote-glow-description"
+                          >Soft glow on resting motes and a trailing shimmer while they fall.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="powder-mote-glow-toggle">
+                        <input
+                          type="checkbox"
+                          id="powder-mote-glow-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="powder-mote-glow-title"
+                          aria-describedby="powder-mote-glow-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="powder-mote-glow-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="powder-background-stars-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="powder-background-stars-title">Background stars</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="powder-background-stars-description"
+                          >Twinkling white and gold stars that swim in the background.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="powder-background-stars-toggle">
+                        <input
+                          type="checkbox"
+                          id="powder-background-stars-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="powder-background-stars-title"
+                          aria-describedby="powder-background-stars-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="powder-background-stars-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="powder-mote-trails-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="powder-mote-trails-title">Mote falling trails</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="powder-mote-trails-description"
+                          >Glowing trails behind falling motes for enhanced visual effect.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="powder-mote-trails-toggle">
+                        <input
+                          type="checkbox"
+                          id="powder-mote-trails-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="powder-mote-trails-title"
+                          aria-describedby="powder-mote-trails-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="powder-mote-trails-state">On</span>
+                      </label>
+                    </div>
+                    <!-- Render size option for Aleph spire. -->
+                    <div class="settings-toggle" id="powder-render-overlap-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="powder-render-overlap-title">Render Size</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="powder-render-overlap-description"
+                          >Adjust the Aleph spire render size.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="powder-render-overlap-select">
+                        <span class="screen-reader-only">Render size</span>
+                        <select
+                          id="powder-render-overlap-select"
+                          class="settings-select"
+                          aria-labelledby="powder-render-overlap-title"
+                          aria-describedby="powder-render-overlap-description"
+                        >
+                          <option value="0">Small</option>
+                          <option value="1" selected>Medium</option>
+                          <option value="2">Large</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button class="action-button ghost spire-options-close" type="button">Close</button>
+                  </div>
+                </div>
                 <canvas
                   id="powder-canvas"
                   width="240"
@@ -2028,7 +2146,7 @@
           <section class="panel-grid spire-options-grid" aria-label="Aleph Spire options">
             <article class="card spire-options-card">
               <button
-                class="action-button spire-options-trigger"
+                class="action-button spire-options-trigger spire-options-trigger--footer"
                 type="button"
                 id="powder-options-toggle-button"
                 aria-expanded="false"
@@ -2037,111 +2155,6 @@
                 <span class="spire-options-glyph" aria-hidden="true">ℵ</span>
                 <span>Spire Options</span>
               </button>
-              <div
-                class="spire-options-menu"
-                id="powder-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <div class="settings-toggle" id="powder-mote-glow-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="powder-mote-glow-title">Luminous motes</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="powder-mote-glow-description"
-                      >Soft glow on resting motes and a trailing shimmer while they fall.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="powder-mote-glow-toggle">
-                    <input
-                      type="checkbox"
-                      id="powder-mote-glow-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="powder-mote-glow-title"
-                      aria-describedby="powder-mote-glow-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="powder-mote-glow-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="powder-background-stars-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="powder-background-stars-title">Background stars</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="powder-background-stars-description"
-                      >Twinkling white and gold stars that swim in the background.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="powder-background-stars-toggle">
-                    <input
-                      type="checkbox"
-                      id="powder-background-stars-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="powder-background-stars-title"
-                      aria-describedby="powder-background-stars-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="powder-background-stars-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="powder-mote-trails-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="powder-mote-trails-title">Mote falling trails</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="powder-mote-trails-description"
-                      >Glowing trails behind falling motes for enhanced visual effect.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="powder-mote-trails-toggle">
-                    <input
-                      type="checkbox"
-                      id="powder-mote-trails-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="powder-mote-trails-title"
-                      aria-describedby="powder-mote-trails-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="powder-mote-trails-state">On</span>
-                  </label>
-                </div>
-                <!-- Render size option for Aleph spire. -->
-                <div class="settings-toggle" id="powder-render-overlap-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="powder-render-overlap-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="powder-render-overlap-description"
-                      >Adjust the Aleph spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="powder-render-overlap-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="powder-render-overlap-select"
-                      class="settings-select"
-                      aria-labelledby="powder-render-overlap-title"
-                      aria-describedby="powder-render-overlap-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
-              </div>
             </article>
           </section>
         </section>
@@ -2163,7 +2176,7 @@
               <div class="spire-options-popover spire-options-popover--bet">
                 <!-- Cog trigger for the Bet spire settings. -->
                 <button
-                  class="action-button spire-options-trigger spire-options-trigger--icon"
+                  class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
                   type="button"
                   id="bet-spire-options-toggle-button"
                   aria-expanded="false"
@@ -2470,7 +2483,7 @@
                 <div class="spire-options-popover spire-options-popover--bet">
                   <!-- Cog trigger for the Bet spire settings. -->
                   <button
-                    class="action-button spire-options-trigger spire-options-trigger--icon"
+                    class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
                     type="button"
                     id="bet-spire-options-toggle-button"
                     aria-expanded="false"
@@ -3017,6 +3030,186 @@
             <div class="lamed-simulation-slot" id="lamed-simulation-host">
               <article class="card powder-simulation lamed-simulation-card" id="lamed-simulation-card">
                 <div class="powder-basin lamed-basin" id="lamed-basin">
+                  <!-- Corner spire options popover for the Lamed spire render. -->
+                  <div class="spire-options-popover spire-options-popover--lamed">
+                    <button
+                      class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
+                      type="button"
+                      id="lamed-spire-options-toggle-button"
+                      aria-expanded="false"
+                      aria-controls="lamed-options-menu"
+                      aria-label="Open Lamed spire settings"
+                    >
+                      <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                    </button>
+                    <div
+                      class="lamed-spire-options-menu spire-options-menu--popover"
+                      id="lamed-options-menu"
+                      data-open="false"
+                      aria-hidden="true"
+                      hidden
+                    >
+                      <button class="action-button ghost" type="button" id="lamed-graphics-level-button">
+                        Graphics · High
+                      </button>
+                      <div class="settings-toggle" id="lamed-dust-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-dust-title">Dust Particles</span>
+                          <span class="settings-toggle-description" id="lamed-dust-description"
+                            >Swirling accretion disk particles around the celestial body.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-dust-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-dust-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-dust-title"
+                            aria-describedby="lamed-dust-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-dust-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-trails-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-trails-title">Star Trails</span>
+                          <span class="settings-toggle-description" id="lamed-trails-description"
+                            >Colorful velocity trails behind orbiting stars.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-trails-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-trails-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-trails-title"
+                            aria-describedby="lamed-trails-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-trails-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-sun-detail-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-sun-detail-title">Sun Detail</span>
+                          <span class="settings-toggle-description" id="lamed-sun-detail-description"
+                            >Animated sunspots, corona shimmer, and limb darkening effects.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-sun-detail-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-sun-detail-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-sun-detail-title"
+                            aria-describedby="lamed-sun-detail-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-sun-detail-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-splashes-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-splashes-title">Sun Splashes</span>
+                          <span class="settings-toggle-description" id="lamed-splashes-description"
+                            >Lens flare and geyser bursts when stars enter the sun.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-splashes-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-splashes-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-splashes-title"
+                            aria-describedby="lamed-splashes-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-splashes-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-shooting-trails-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-shooting-trails-title">Shooting Star Trails</span>
+                          <span class="settings-toggle-description" id="lamed-shooting-trails-description"
+                            >Luminous streaks following shooting stars across the sky.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-shooting-trails-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-shooting-trails-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-shooting-trails-title"
+                            aria-describedby="lamed-shooting-trails-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-shooting-trails-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-flashes-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-flashes-title">Spawn Flashes</span>
+                          <span class="settings-toggle-description" id="lamed-flashes-description"
+                            >Bright flash effects when new stars spawn into orbit.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-flashes-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-flashes-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-flashes-title"
+                            aria-describedby="lamed-flashes-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="lamed-render-size-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-render-size-title">Render Size</span>
+                          <span
+                            class="settings-toggle-description"
+                            id="lamed-render-size-description"
+                            >Adjust the Lamed spire render size.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-render-size-select">
+                          <span class="screen-reader-only">Render size</span>
+                          <select
+                            id="lamed-render-size-select"
+                            class="settings-select"
+                            aria-labelledby="lamed-render-size-title"
+                            aria-describedby="lamed-render-size-description"
+                          >
+                            <option value="0">Small</option>
+                            <option value="1" selected>Medium</option>
+                            <option value="2">Large</option>
+                          </select>
+                        </label>
+                      </div>
+                      <button class="action-button ghost spire-options-close" type="button">Close</button>
+                    </div>
+                  </div>
                   <!-- Starfield backdrop to ground the Lamed Spire in open space. -->
                   <div class="lamed-starfield" aria-hidden="true"></div>
                   <canvas
@@ -3121,7 +3314,7 @@
             <!-- Lamed Spire Options dropdown for visual settings -->
             <article class="card lamed-spire-options-card">
               <button
-                class="action-button lamed-spire-options-trigger"
+                class="action-button lamed-spire-options-trigger spire-options-trigger--footer"
                 type="button"
                 id="lamed-options-toggle-button"
                 aria-expanded="false"
@@ -3130,173 +3323,6 @@
                 <span class="lamed-spire-options-glyph" aria-hidden="true">ל</span>
                 <span>Spire Options</span>
               </button>
-              <div
-                class="lamed-spire-options-menu"
-                id="lamed-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="lamed-graphics-level-button">
-                  Graphics · High
-                </button>
-                <div class="settings-toggle" id="lamed-dust-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-dust-title">Dust Particles</span>
-                    <span class="settings-toggle-description" id="lamed-dust-description"
-                      >Swirling accretion disk particles around the celestial body.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-dust-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-dust-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-dust-title"
-                      aria-describedby="lamed-dust-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-dust-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-trails-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-trails-title">Star Trails</span>
-                    <span class="settings-toggle-description" id="lamed-trails-description"
-                      >Colorful velocity trails behind orbiting stars.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-trails-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-trails-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-trails-title"
-                      aria-describedby="lamed-trails-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-trails-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-sun-detail-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-sun-detail-title">Sun Detail</span>
-                    <span class="settings-toggle-description" id="lamed-sun-detail-description"
-                      >Animated sunspots, corona shimmer, and limb darkening effects.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-sun-detail-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-sun-detail-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-sun-detail-title"
-                      aria-describedby="lamed-sun-detail-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-sun-detail-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-splashes-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-splashes-title">Sun Splashes</span>
-                    <span class="settings-toggle-description" id="lamed-splashes-description"
-                      >Lens flare and geyser bursts when stars enter the sun.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-splashes-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-splashes-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-splashes-title"
-                      aria-describedby="lamed-splashes-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-splashes-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-shooting-trails-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-shooting-trails-title">Shooting Star Trails</span>
-                    <span class="settings-toggle-description" id="lamed-shooting-trails-description"
-                      >Luminous streaks following shooting stars across the sky.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-shooting-trails-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-shooting-trails-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-shooting-trails-title"
-                      aria-describedby="lamed-shooting-trails-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-shooting-trails-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-flashes-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-flashes-title">Spawn Flashes</span>
-                    <span class="settings-toggle-description" id="lamed-flashes-description"
-                      >Bright flash effects when new stars spawn into orbit.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-flashes-toggle">
-                    <input
-                      type="checkbox"
-                      id="lamed-flashes-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="lamed-flashes-title"
-                      aria-describedby="lamed-flashes-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="lamed-render-size-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="lamed-render-size-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="lamed-render-size-description"
-                      >Adjust the Lamed spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="lamed-render-size-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="lamed-render-size-select"
-                      class="settings-select"
-                      aria-labelledby="lamed-render-size-title"
-                      aria-describedby="lamed-render-size-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
-              </div>
             </article>
           </section>
         </section>
@@ -3393,6 +3419,142 @@
             <div class="tsadi-simulation-slot" id="tsadi-simulation-host">
               <article class="card powder-simulation tsadi-simulation-card" id="tsadi-simulation-card">
                 <div class="powder-basin tsadi-basin" id="tsadi-basin">
+                  <!-- Corner spire options popover for the Tsadi spire render. -->
+                  <div class="spire-options-popover spire-options-popover--tsadi">
+                    <button
+                      class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
+                      type="button"
+                      id="tsadi-spire-options-toggle-button"
+                      aria-expanded="false"
+                      aria-controls="tsadi-options-menu"
+                      aria-label="Open Tsadi spire settings"
+                    >
+                      <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                    </button>
+                    <div
+                      class="spire-options-menu spire-options-menu--popover"
+                      id="tsadi-options-menu"
+                      data-open="false"
+                      aria-hidden="true"
+                      hidden
+                    >
+                      <button class="action-button ghost" type="button" id="tsadi-graphics-level-button">
+                        Graphics · High
+                      </button>
+                      <div class="settings-toggle" id="tsadi-force-links-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="tsadi-force-links-title">Force Link Beams</span>
+                          <span class="settings-toggle-description" id="tsadi-force-links-description"
+                            >Render attractive and repelling filaments between nearby particles.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="tsadi-force-links-toggle">
+                          <input
+                            type="checkbox"
+                            id="tsadi-force-links-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="tsadi-force-links-title"
+                            aria-describedby="tsadi-force-links-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="tsadi-force-links-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="tsadi-fusion-effects-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="tsadi-fusion-effects-title">Fusion Flashes</span>
+                          <span class="settings-toggle-description" id="tsadi-fusion-effects-description"
+                            >Show glow rings when particles collide and fuse.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="tsadi-fusion-effects-toggle">
+                          <input
+                            type="checkbox"
+                            id="tsadi-fusion-effects-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="tsadi-fusion-effects-title"
+                            aria-describedby="tsadi-fusion-effects-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="tsadi-fusion-effects-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="tsadi-spawn-effects-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="tsadi-spawn-effects-title">Spawn Ripples</span>
+                          <span class="settings-toggle-description" id="tsadi-spawn-effects-description"
+                            >Animate flash and ripple effects when new particles enter the basin.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="tsadi-spawn-effects-toggle">
+                          <input
+                            type="checkbox"
+                            id="tsadi-spawn-effects-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="tsadi-spawn-effects-title"
+                            aria-describedby="tsadi-spawn-effects-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="tsadi-spawn-effects-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="tsadi-smooth-rendering-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="tsadi-smooth-rendering-title">Smooth Rendering</span>
+                          <span class="settings-toggle-description" id="tsadi-smooth-rendering-description"
+                            >Enable subpixel rendering for ultra-smooth particle motion without grid snapping.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="tsadi-smooth-rendering-toggle">
+                          <input
+                            type="checkbox"
+                            id="tsadi-smooth-rendering-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="tsadi-smooth-rendering-title"
+                            aria-describedby="tsadi-smooth-rendering-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="tsadi-smooth-rendering-state">On</span>
+                        </label>
+                      </div>
+                      <div class="settings-toggle" id="tsadi-render-size-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="tsadi-render-size-title">Render Size</span>
+                          <span
+                            class="settings-toggle-description"
+                            id="tsadi-render-size-description"
+                            >Adjust the Tsadi spire render size.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="tsadi-render-size-select">
+                          <span class="screen-reader-only">Render size</span>
+                          <select
+                            id="tsadi-render-size-select"
+                            class="settings-select"
+                            aria-labelledby="tsadi-render-size-title"
+                            aria-describedby="tsadi-render-size-description"
+                          >
+                            <option value="0">Small</option>
+                            <option value="1" selected>Medium</option>
+                            <option value="2">Large</option>
+                          </select>
+                        </label>
+                      </div>
+                      <button class="action-button ghost spire-options-close" type="button">Close</button>
+                    </div>
+                  </div>
                   <button
                     class="tsadi-binding-handle"
                     id="tsadi-binding-handle"
@@ -3550,7 +3712,7 @@
           <section class="panel-grid spire-options-grid" aria-label="Tsadi Spire options">
             <article class="card spire-options-card">
               <button
-                class="action-button spire-options-trigger"
+                class="action-button spire-options-trigger spire-options-trigger--footer"
                 type="button"
                 id="tsadi-options-toggle-button"
                 aria-expanded="false"
@@ -3559,129 +3721,6 @@
                 <span class="spire-options-glyph" aria-hidden="true">צ</span>
                 <span>Spire Options</span>
               </button>
-              <div
-                class="spire-options-menu"
-                id="tsadi-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="tsadi-graphics-level-button">
-                  Graphics · High
-                </button>
-                <div class="settings-toggle" id="tsadi-force-links-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="tsadi-force-links-title">Force Link Beams</span>
-                    <span class="settings-toggle-description" id="tsadi-force-links-description"
-                      >Render attractive and repelling filaments between nearby particles.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="tsadi-force-links-toggle">
-                    <input
-                      type="checkbox"
-                      id="tsadi-force-links-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="tsadi-force-links-title"
-                      aria-describedby="tsadi-force-links-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="tsadi-force-links-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="tsadi-fusion-effects-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="tsadi-fusion-effects-title">Fusion Flashes</span>
-                    <span class="settings-toggle-description" id="tsadi-fusion-effects-description"
-                      >Show glow rings when particles collide and fuse.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="tsadi-fusion-effects-toggle">
-                    <input
-                      type="checkbox"
-                      id="tsadi-fusion-effects-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="tsadi-fusion-effects-title"
-                      aria-describedby="tsadi-fusion-effects-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="tsadi-fusion-effects-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="tsadi-spawn-effects-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="tsadi-spawn-effects-title">Spawn Ripples</span>
-                    <span class="settings-toggle-description" id="tsadi-spawn-effects-description"
-                      >Animate flash and ripple effects when new particles enter the basin.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="tsadi-spawn-effects-toggle">
-                    <input
-                      type="checkbox"
-                      id="tsadi-spawn-effects-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="tsadi-spawn-effects-title"
-                      aria-describedby="tsadi-spawn-effects-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="tsadi-spawn-effects-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="tsadi-smooth-rendering-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="tsadi-smooth-rendering-title">Smooth Rendering</span>
-                    <span class="settings-toggle-description" id="tsadi-smooth-rendering-description"
-                      >Enable subpixel rendering for ultra-smooth particle motion without grid snapping.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="tsadi-smooth-rendering-toggle">
-                    <input
-                      type="checkbox"
-                      id="tsadi-smooth-rendering-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="tsadi-smooth-rendering-title"
-                      aria-describedby="tsadi-smooth-rendering-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="tsadi-smooth-rendering-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="tsadi-render-size-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="tsadi-render-size-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="tsadi-render-size-description"
-                      >Adjust the Tsadi spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="tsadi-render-size-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="tsadi-render-size-select"
-                      class="settings-select"
-                      aria-labelledby="tsadi-render-size-title"
-                      aria-describedby="tsadi-render-size-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
-              </div>
             </article>
           </section>
         </section>
@@ -3780,6 +3819,75 @@
             <!-- Cardinal Warden Reverse Danmaku Game -->
             <article class="card shin-cardinal-card" id="shin-cardinal-card">
               <div class="shin-cardinal-viewport">
+                <!-- Corner spire options popover for the Shin spire render. -->
+                <div class="spire-options-popover spire-options-popover--shin">
+                  <button
+                    class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
+                    type="button"
+                    id="shin-spire-options-toggle-button"
+                    aria-expanded="false"
+                    aria-controls="shin-options-menu"
+                    aria-label="Open Shin spire settings"
+                  >
+                    <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                  </button>
+                  <div
+                    class="spire-options-menu spire-options-menu--popover"
+                    id="shin-options-menu"
+                    data-open="false"
+                    aria-hidden="true"
+                    hidden
+                  >
+                    <button class="action-button ghost" type="button" id="shin-graphics-level-button">Graphics · High</button>
+                    <div class="settings-toggle" id="shin-night-mode-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="shin-night-mode-title">Night Mode</span>
+                        <span class="settings-toggle-description" id="shin-night-mode-description"
+                          >Switch the reverse danmaku canvas to a dark palette with luminous ships.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="shin-night-mode-toggle">
+                        <input
+                          type="checkbox"
+                          id="shin-night-mode-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="shin-night-mode-title"
+                          aria-describedby="shin-night-mode-description"
+                          aria-checked="false"
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="shin-night-mode-toggle-state">Off</span>
+                      </label>
+                    </div>
+                    <button class="action-button ghost" type="button" id="shin-enemy-trail-quality-button">Enemy Trail Quality · High</button>
+                    <button class="action-button ghost" type="button" id="shin-bullet-trail-length-button">Bullet Trails · Long</button>
+                    <div class="settings-toggle" id="shin-render-size-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="shin-render-size-title">Render Size</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="shin-render-size-description"
+                          >Adjust the Shin spire render size.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="shin-render-size-select">
+                        <span class="screen-reader-only">Render size</span>
+                        <select
+                          id="shin-render-size-select"
+                          class="settings-select"
+                          aria-labelledby="shin-render-size-title"
+                          aria-describedby="shin-render-size-description"
+                        >
+                          <option value="0">Small</option>
+                          <option value="1" selected>Medium</option>
+                          <option value="2">Large</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button class="action-button ghost spire-options-close" type="button">Close</button>
+                  </div>
+                </div>
                 <canvas
                   id="shin-cardinal-canvas"
                   class="shin-cardinal-canvas"
@@ -3894,7 +4002,7 @@
           <section class="panel-grid spire-options-grid" aria-label="Shin Spire options">
             <article class="card spire-options-card">
               <button
-                class="action-button spire-options-trigger"
+                class="action-button spire-options-trigger spire-options-trigger--footer"
                 type="button"
                 id="shin-options-toggle-button"
                 aria-expanded="false"
@@ -3903,62 +4011,6 @@
                 <span class="spire-options-glyph" aria-hidden="true">ש</span>
                 <span>Spire Options</span>
               </button>
-              <div
-                class="spire-options-menu"
-                id="shin-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="shin-graphics-level-button">Graphics · High</button>
-                <div class="settings-toggle" id="shin-night-mode-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="shin-night-mode-title">Night Mode</span>
-                    <span class="settings-toggle-description" id="shin-night-mode-description"
-                      >Switch the reverse danmaku canvas to a dark palette with luminous ships.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="shin-night-mode-toggle">
-                    <input
-                      type="checkbox"
-                      id="shin-night-mode-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="shin-night-mode-title"
-                      aria-describedby="shin-night-mode-description"
-                      aria-checked="false"
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="shin-night-mode-toggle-state">Off</span>
-                  </label>
-                </div>
-                <button class="action-button ghost" type="button" id="shin-enemy-trail-quality-button">Enemy Trail Quality · High</button>
-                <button class="action-button ghost" type="button" id="shin-bullet-trail-length-button">Bullet Trails · Long</button>
-                <div class="settings-toggle" id="shin-render-size-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="shin-render-size-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="shin-render-size-description"
-                      >Adjust the Shin spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="shin-render-size-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="shin-render-size-select"
-                      class="settings-select"
-                      aria-labelledby="shin-render-size-title"
-                      aria-describedby="shin-render-size-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
-              </div>
             </article>
           </section>
 
@@ -4058,6 +4110,74 @@
             <!-- Simulation card at top -->
             <article class="card kuf-card kuf-card--simulation" id="kuf-simulation-card">
               <div class="kuf-sim-viewport">
+                <!-- Corner spire options popover for the Kuf spire render. -->
+                <div class="spire-options-popover spire-options-popover--kuf">
+                  <button
+                    class="action-button spire-options-trigger spire-options-trigger--icon spire-options-trigger--square spire-options-trigger--corner"
+                    type="button"
+                    id="kuf-spire-options-toggle-button"
+                    aria-expanded="false"
+                    aria-controls="kuf-options-menu"
+                    aria-label="Open Kuf spire settings"
+                  >
+                    <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                  </button>
+                  <div
+                    class="spire-options-menu spire-options-menu--popover"
+                    id="kuf-options-menu"
+                    data-open="false"
+                    aria-hidden="true"
+                    hidden
+                  >
+                    <button class="action-button ghost" type="button" id="kuf-effects-level-button">Effects · Auto</button>
+                    <div class="settings-toggle" id="kuf-glow-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="kuf-glow-title">Glow Overlays</span>
+                        <span class="settings-toggle-description" id="kuf-glow-description"
+                          >Disable trail glows and bloom to improve performance on slower devices.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="kuf-glow-toggle">
+                        <input
+                          type="checkbox"
+                          id="kuf-glow-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="kuf-glow-title"
+                          aria-describedby="kuf-glow-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="kuf-glow-toggle-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="kuf-render-size-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="kuf-render-size-title">Render Size</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="kuf-render-size-description"
+                          >Adjust the Kuf spire render size.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="kuf-render-size-select">
+                        <span class="screen-reader-only">Render size</span>
+                        <select
+                          id="kuf-render-size-select"
+                          class="settings-select"
+                          aria-labelledby="kuf-render-size-title"
+                          aria-describedby="kuf-render-size-description"
+                        >
+                          <option value="0">Small</option>
+                          <option value="1" selected>Medium</option>
+                          <option value="2">Large</option>
+                        </select>
+                      </label>
+                    </div>
+                    <button class="action-button ghost spire-options-close" type="button">Close</button>
+                  </div>
+                </div>
                 <canvas
                   id="kuf-simulation-canvas"
                   width="600"
@@ -4307,7 +4427,7 @@
           <section class="panel-grid spire-options-grid" aria-label="Kuf Spire options">
             <article class="card spire-options-card">
               <button
-                class="action-button spire-options-trigger"
+                class="action-button spire-options-trigger spire-options-trigger--footer"
                 type="button"
                 id="kuf-options-toggle-button"
                 aria-expanded="false"
@@ -4316,61 +4436,6 @@
                 <span class="spire-options-glyph" aria-hidden="true">ק</span>
                 <span>Spire Options</span>
               </button>
-              <div
-                class="spire-options-menu"
-                id="kuf-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <button class="action-button ghost" type="button" id="kuf-effects-level-button">Effects · Auto</button>
-                <div class="settings-toggle" id="kuf-glow-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="kuf-glow-title">Glow Overlays</span>
-                    <span class="settings-toggle-description" id="kuf-glow-description"
-                      >Disable trail glows and bloom to improve performance on slower devices.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="kuf-glow-toggle">
-                    <input
-                      type="checkbox"
-                      id="kuf-glow-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="kuf-glow-title"
-                      aria-describedby="kuf-glow-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="kuf-glow-toggle-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="kuf-render-size-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="kuf-render-size-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="kuf-render-size-description"
-                      >Adjust the Kuf spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="kuf-render-size-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="kuf-render-size-select"
-                      class="settings-select"
-                      aria-labelledby="kuf-render-size-title"
-                      aria-describedby="kuf-render-size-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
-              </div>
             </article>
           </section>
 
@@ -4674,6 +4739,10 @@
                 <!-- Toggle between low and high graphics fidelity. -->
                 <button class="action-button ghost" type="button" id="graphics-mode-button">
                   Graphics · High
+                </button>
+                <!-- Toggle where spire option buttons appear (corner cog vs bottom button). -->
+                <button class="action-button ghost" type="button" id="spire-options-placement-button">
+                  Spire Options · Bottom
                 </button>
                 <!-- Toggle to reveal glyph equations inside tower upgrade cards. -->
                 <div class="settings-toggle" id="glyph-equation-toggle-row">

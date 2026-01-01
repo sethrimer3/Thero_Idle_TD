@@ -25,6 +25,8 @@ import {
 } from './autoSave.js';
 
 const TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY = 'towerLoadoutToggleSide';
+// Persist the preferred location for spire option buttons.
+const SPIRE_OPTIONS_PLACEMENT_STORAGE_KEY = 'spireOptionsPlacement';
 
 const GRAPHICS_MODES = Object.freeze({
   LOW: 'low',
@@ -100,6 +102,14 @@ const LOADOUT_TOGGLE_SIDES = Object.freeze({
 let towerLoadoutToggleSide = LOADOUT_TOGGLE_SIDES.LEFT;
 let towerLoadoutShell = null;
 let loadoutToggleSideButton = null;
+// Map spire options placement labels to storage-friendly values.
+const SPIRE_OPTIONS_PLACEMENTS = Object.freeze({
+  CORNER: 'corner',
+  FOOTER: 'footer',
+});
+// Track the active spire options placement so UI elements can toggle visibility.
+let spireOptionsPlacement = SPIRE_OPTIONS_PLACEMENTS.FOOTER;
+let spireOptionsPlacementButton = null;
 
 let powderSimulationGetter = () => null;
 let playfieldGetter = () => null;
@@ -1273,4 +1283,61 @@ export function bindTowerLoadoutToggleSideButton() {
   });
   updateTowerLoadoutToggleSideUi();
   applyTowerLoadoutToggleSideDom();
+}
+
+// Apply the active spire options placement to the document so CSS can react.
+function applySpireOptionsPlacementDom() {
+  if (!document.body) {
+    return;
+  }
+  document.body.dataset.spireOptionsPlacement = spireOptionsPlacement;
+}
+
+// Refresh the spire options placement toggle text to match the selected layout.
+function updateSpireOptionsPlacementUi() {
+  if (!spireOptionsPlacementButton) {
+    return;
+  }
+  const label = spireOptionsPlacement === SPIRE_OPTIONS_PLACEMENTS.CORNER ? 'Top Right' : 'Bottom';
+  spireOptionsPlacementButton.textContent = `Spire Options · ${label}`;
+  spireOptionsPlacementButton.setAttribute('aria-label', `Place spire options in the ${label.toLowerCase()} position`);
+}
+
+// Persist and apply the requested spire options placement so the UI can hide the unused button set.
+export function applySpireOptionsPlacementPreference(preference, { persist = true } = {}) {
+  const normalized = preference === SPIRE_OPTIONS_PLACEMENTS.CORNER
+    ? SPIRE_OPTIONS_PLACEMENTS.CORNER
+    : SPIRE_OPTIONS_PLACEMENTS.FOOTER;
+  spireOptionsPlacement = normalized;
+  updateSpireOptionsPlacementUi();
+  applySpireOptionsPlacementDom();
+  if (persist) {
+    writeStorage(SPIRE_OPTIONS_PLACEMENT_STORAGE_KEY, normalized);
+  }
+  return normalized;
+}
+
+// Initialize the spire options placement from storage without writing back.
+export function initializeSpireOptionsPlacementPreference() {
+  const stored = readStorage(SPIRE_OPTIONS_PLACEMENT_STORAGE_KEY);
+  const normalized = stored === SPIRE_OPTIONS_PLACEMENTS.CORNER
+    ? SPIRE_OPTIONS_PLACEMENTS.CORNER
+    : SPIRE_OPTIONS_PLACEMENTS.FOOTER;
+  return applySpireOptionsPlacementPreference(normalized, { persist: false });
+}
+
+// Wire the codex options toggle so players can swap between corner and bottom spire buttons.
+export function bindSpireOptionsPlacementButton() {
+  spireOptionsPlacementButton = document.getElementById('spire-options-placement-button');
+  if (!spireOptionsPlacementButton) {
+    return;
+  }
+  spireOptionsPlacementButton.addEventListener('click', () => {
+    const nextPlacement = spireOptionsPlacement === SPIRE_OPTIONS_PLACEMENTS.CORNER
+      ? SPIRE_OPTIONS_PLACEMENTS.FOOTER
+      : SPIRE_OPTIONS_PLACEMENTS.CORNER;
+    applySpireOptionsPlacementPreference(nextPlacement);
+  });
+  updateSpireOptionsPlacementUi();
+  applySpireOptionsPlacementDom();
 }
