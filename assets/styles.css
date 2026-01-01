@@ -12583,7 +12583,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 /* Center the battlefield viewport and let it scale toward desktop sizes. */
 .kuf-card--simulation {
-  padding-bottom: 0;
+  /* Remove the extra card padding so the render fills the spire frame. */
+  padding: 0;
   grid-column: 1 / -1;
   justify-self: center;
   width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 1.6));
@@ -12605,7 +12606,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 .kuf-sim-viewport {
   position: relative;
   /* Center the simulation canvas within its card for consistent alignment. */
-  margin: 1rem auto 0;
+  margin: 0 auto;
   border-radius: 16px;
   overflow: hidden;
   /* Match the shared spire frame color so Kuf aligns with the other renders. */
