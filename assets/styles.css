@@ -6811,6 +6811,17 @@ body.playfield-fullscreen .playfield canvas {
   text-align: center;
 }
 
+/* Remove the card frame so Aleph/Bet/Lamed/Tsadi spire renders match the Shin spire. */
+#powder-simulation-card,
+#bet-spire-simulation-card,
+#lamed-simulation-card,
+#tsadi-simulation-card {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
 .powder-basin {
   position: relative;
   flex: 1 1 auto;
