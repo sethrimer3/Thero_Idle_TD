@@ -6830,9 +6830,11 @@ body.playfield-fullscreen .playfield canvas {
   aspect-ratio: 3 / 4;
   min-height: 0;
   border-radius: 20px;
+  /* Add a thin golden frame so every spire render shares the same rim. */
+  border: 1px solid rgba(212, 175, 55, 0.45);
   overflow: hidden;
   background: #000;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), inset 0 -20px 40px rgba(8, 8, 12, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.35), inset 0 -20px 40px rgba(8, 8, 12, 0.6);
   --powder-crest: 0;
   touch-action: none;
 }
@@ -12525,7 +12527,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin: 1rem auto 0;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(120, 180, 255, 0.35);
+  /* Match the shared spire frame color so Kuf aligns with the other renders. */
+  border: 1px solid rgba(212, 175, 55, 0.45);
   box-shadow: inset 0 0 36px rgba(40, 100, 255, 0.35);
   background:
     linear-gradient(135deg, rgba(12, 16, 35, 0.9) 25%, rgba(10, 12, 28, 0.8) 50%, rgba(6, 8, 22, 0.95) 100%);
@@ -14781,10 +14784,4 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin-left: calc(-1 * var(--shin-size-inline-left, 0px));
   margin-right: calc(-1 * var(--shin-size-inline-right, 0px));
   margin-top: calc(-1 * var(--shin-size-top, 0px));
-}
-
-#kuf-canvas {
-  margin-left: calc(-1 * var(--kuf-size-inline-left, 0px));
-  margin-right: calc(-1 * var(--kuf-size-inline-right, 0px));
-  margin-top: calc(-1 * var(--kuf-size-top, 0px));
 }
