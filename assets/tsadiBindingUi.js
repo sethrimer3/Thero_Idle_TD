@@ -149,6 +149,9 @@ function renderMoleculeSketch(canvas, recipe = {}) {
 }
 
 const WAALS_UNLOCK_TIER = 5;
+const WAALS_TIER_2_UNLOCK = 11; // Tier 12 in player-facing terms
+const WAALS_TIER_3_UNLOCK = 15; // Tier 16 in player-facing terms
+const WAALS_AUTO_UNLOCK = 23; // Tier 24 in player-facing terms
 
 /**
  * UI controller for Tsadi binding agents and the Alchemy Codex.
@@ -180,6 +183,8 @@ export function createTsadiBindingUi({
   let holdTimeout = null;
   let holdTriggered = false;
   let codexOpen = false;
+  let automaticMode = false;
+  let handleLongPressTimeout = null;
 
   /**
    * Normalize stored molecule entries so legacy string saves still render.
@@ -280,6 +285,44 @@ export function createTsadiBindingUi({
   }
 
   /**
+   * Calculate the maximum number of simultaneous Waals particles based on highest tier reached.
+   * @returns {number} Maximum simultaneous Waals particles (1, 2, or 3)
+   */
+  function getMaxSimultaneousWaals() {
+    const tier = getHighestTierReached();
+    if (tier >= WAALS_TIER_3_UNLOCK) {
+      return 3;
+    }
+    if (tier >= WAALS_TIER_2_UNLOCK) {
+      return 2;
+    }
+    if (tier >= WAALS_UNLOCK_TIER) {
+      return 1;
+    }
+    return 0;
+  }
+
+  /**
+   * Check if automatic Waals placement mode is unlocked.
+   * @returns {boolean} True if player has reached Tier 24+
+   */
+  function isAutomaticModeUnlocked() {
+    return getHighestTierReached() >= WAALS_AUTO_UNLOCK;
+  }
+
+  /**
+   * Count the number of currently placed Waals particles.
+   * @returns {number} Number of binding agents currently on the field
+   */
+  function getPlacedWaalsCount() {
+    const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+    if (!simulation || !simulation.bindingAgents) {
+      return 0;
+    }
+    return simulation.bindingAgents.length;
+  }
+
+  /**
    * Sync the binding agent stock display and button visibility with live data.
    */
   function updateBindingAgentDisplay() {
@@ -291,6 +334,9 @@ export function createTsadiBindingUi({
       ? available.toFixed(1)
       : '∞';
     const waalsUnlocked = isWaalsUnlocked();
+    const maxSimultaneous = getMaxSimultaneousWaals();
+    const placedCount = getPlacedWaalsCount();
+    const automaticUnlocked = isAutomaticModeUnlocked();
 
     if (handleElement) {
       if (!waalsUnlocked) {
@@ -298,13 +344,19 @@ export function createTsadiBindingUi({
         handleElement.setAttribute('aria-hidden', 'true');
         handleElement.disabled = true;
         handleElement.classList.remove('tsadi-binding-handle--depleted');
+        handleElement.classList.remove('tsadi-binding-handle--automatic');
       } else {
-        const canPlace = (available >= 1) || !Number.isFinite(available);
-        // Hide the placement handle entirely when the reserve is empty to avoid implying placement is available.
-        handleElement.toggleAttribute('hidden', !canPlace);
-        handleElement.setAttribute('aria-hidden', canPlace ? 'false' : 'true');
-        handleElement.disabled = !canPlace;
-        handleElement.classList.toggle('tsadi-binding-handle--depleted', !canPlace);
+        // Show handle if we can place (either have stock or automatic mode ensures placement)
+        const canPlaceManually = placedCount < maxSimultaneous && ((available >= 1) || !Number.isFinite(available));
+        const showHandle = canPlaceManually || automaticUnlocked;
+        
+        handleElement.toggleAttribute('hidden', !showHandle);
+        handleElement.setAttribute('aria-hidden', showHandle ? 'false' : 'true');
+        handleElement.disabled = !showHandle;
+        handleElement.classList.toggle('tsadi-binding-handle--depleted', !showHandle);
+        
+        // Add glow effect when automatic mode is active
+        handleElement.classList.toggle('tsadi-binding-handle--automatic', automaticMode);
       }
     }
 
@@ -313,7 +365,20 @@ export function createTsadiBindingUi({
         bindingStat.textContent = `Reach Tier ${WAALS_UNLOCK_TIER + 1} to unlock Waals bonds.`;
       } else {
         const suffix = available === 1 ? 'Waal' : 'Waals';
-        bindingStat.textContent = `${displayValue} ${suffix}`;
+        let statusText = `${displayValue} ${suffix}`;
+        
+        // Show placement limit
+        if (automaticUnlocked) {
+          if (automaticMode) {
+            statusText += ` (Auto: ${placedCount}/${maxSimultaneous})`;
+          } else {
+            statusText += ` (${placedCount}/${maxSimultaneous}, Auto available)`;
+          }
+        } else {
+          statusText += ` (${placedCount}/${maxSimultaneous})`;
+        }
+        
+        bindingStat.textContent = statusText;
       }
     }
   }
@@ -424,6 +489,61 @@ export function createTsadiBindingUi({
   }
 
   /**
+   * Toggle automatic Waals placement mode (Tier 24+ only).
+   */
+  function toggleAutomaticMode() {
+    if (!isAutomaticModeUnlocked()) {
+      return;
+    }
+    
+    automaticMode = !automaticMode;
+    updateBindingAgentDisplay();
+    
+    // When enabling automatic mode, immediately try to fill to max
+    if (automaticMode) {
+      ensureMaxWaalsPlaced();
+    }
+  }
+
+  /**
+   * Ensure that the maximum number of Waals particles are placed when in automatic mode.
+   * This function is called periodically to maintain the desired count.
+   */
+  function ensureMaxWaalsPlaced() {
+    if (!automaticMode || !isAutomaticModeUnlocked()) {
+      return;
+    }
+    
+    const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+    if (!simulation || !simulation.placeBindingAgent) {
+      return;
+    }
+    
+    const maxSimultaneous = getMaxSimultaneousWaals();
+    const placedCount = getPlacedWaalsCount();
+    const available = simulation.getAvailableBindingAgents?.() || 0;
+    
+    // Try to place additional Waals particles up to the max
+    const neededCount = maxSimultaneous - placedCount;
+    for (let i = 0; i < neededCount && available > 0; i++) {
+      // Find a random valid position to place
+      if (!canvasElement) continue;
+      
+      const rect = canvasElement.getBoundingClientRect();
+      const margin = 30;
+      const x = margin + Math.random() * (rect.width - margin * 2);
+      const y = margin + Math.random() * (rect.height - margin * 2);
+      
+      const placed = simulation.placeBindingAgent({ x, y });
+      if (placed && typeof setBindingAgentBank === 'function') {
+        setBindingAgentBank(simulation.getAvailableBindingAgents());
+      }
+    }
+    
+    updateBindingAgentDisplay();
+  }
+
+  /**
    * Clear any in-progress long-press timers to avoid accidental disbands.
    */
   function clearHoldTimer() {
@@ -432,6 +552,16 @@ export function createTsadiBindingUi({
       holdTimeout = null;
     }
     holdTriggered = false;
+  }
+
+  /**
+   * Clear the long-press timer for the handle button.
+   */
+  function clearHandleLongPress() {
+    if (handleLongPressTimeout) {
+      clearTimeout(handleLongPressTimeout);
+      handleLongPressTimeout = null;
+    }
   }
 
   /**
@@ -520,10 +650,19 @@ export function createTsadiBindingUi({
 
     if (isPlacing && simulation?.placeBindingAgent) {
       const coords = toCanvasCoords(event);
-      const placed = simulation.placeBindingAgent(coords);
-      simulation.clearBindingAgentPreview?.();
-      if (placed && typeof setBindingAgentBank === 'function') {
-        setBindingAgentBank(simulation.getAvailableBindingAgents());
+      const placedCount = getPlacedWaalsCount();
+      const maxSimultaneous = getMaxSimultaneousWaals();
+      
+      // Check if we can place another Waals particle
+      if (placedCount < maxSimultaneous) {
+        const placed = simulation.placeBindingAgent(coords);
+        simulation.clearBindingAgentPreview?.();
+        if (placed && typeof setBindingAgentBank === 'function') {
+          setBindingAgentBank(simulation.getAvailableBindingAgents());
+        }
+      } else {
+        // At limit, just clear the preview
+        simulation.clearBindingAgentPreview?.();
       }
       updateBindingAgentDisplay();
     }
@@ -547,6 +686,15 @@ export function createTsadiBindingUi({
     if (!simulation || typeof simulation.setBindingAgentPreview !== 'function') {
       return;
     }
+    
+    const placedCount = getPlacedWaalsCount();
+    const maxSimultaneous = getMaxSimultaneousWaals();
+    
+    // Can't start placement if we're at the limit
+    if (placedCount >= maxSimultaneous) {
+      return;
+    }
+    
     if ((simulation.getAvailableBindingAgents?.() || 0) < 1) {
       return;
     }
@@ -564,7 +712,33 @@ export function createTsadiBindingUi({
   function bindPointerListeners() {
     if (handleElement) {
       handleElement.addEventListener('pointerdown', (event) => {
+        // If automatic mode is unlocked, start a long-press timer to toggle it
+        if (isAutomaticModeUnlocked()) {
+          clearHandleLongPress();
+          handleLongPressTimeout = setTimeout(() => {
+            toggleAutomaticMode();
+            // Prevent placement drag from starting after long press
+            isPlacing = false;
+            const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
+            simulation?.clearBindingAgentPreview?.();
+          }, 500); // 500ms long press
+        }
+        
+        // Start normal placement
         startPlacement(event);
+      });
+      
+      handleElement.addEventListener('pointermove', () => {
+        // Clear long-press if user moves while holding
+        clearHandleLongPress();
+      });
+      
+      handleElement.addEventListener('pointerup', () => {
+        clearHandleLongPress();
+      });
+      
+      handleElement.addEventListener('pointercancel', () => {
+        clearHandleLongPress();
       });
     }
 
@@ -624,6 +798,13 @@ export function createTsadiBindingUi({
         toggleCodex();
       });
     }
+
+    // Periodically check if we need to auto-place Waals particles when in automatic mode
+    setInterval(() => {
+      if (automaticMode) {
+        ensureMaxWaalsPlaced();
+      }
+    }, 2000); // Check every 2 seconds
 
     updateBindingAgentDisplay();
     refreshCodexList();

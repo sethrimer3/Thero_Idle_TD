@@ -11816,6 +11816,20 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   cursor: not-allowed;
 }
 
+.tsadi-binding-handle--automatic {
+  animation: tsadi-binding-glow 2s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(255, 215, 130, 0.8), 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes tsadi-binding-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 215, 130, 0.6), 0 6px 12px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 215, 130, 1), 0 6px 12px rgba(0, 0, 0, 0.35);
+  }
+}
+
 .tsadi-codex-card {
   display: flex;
   flex-direction: column;
