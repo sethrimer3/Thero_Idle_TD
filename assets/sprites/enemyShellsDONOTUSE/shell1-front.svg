@@ -1,5 +1,0 @@
-<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
-  <!-- Front shell: rendered in front of enemy -->
-  <path d="M 32 8 Q 48 16 52 32 Q 48 48 32 56 Q 16 48 12 32 Q 16 16 32 8 Z" fill="rgba(80, 100, 140, 0.4)" stroke="rgba(120, 140, 180, 0.7)" stroke-width="2"/>
-  <circle cx="24" cy="28" r="3" fill="rgba(200, 220, 255, 0.6)"/>
-</svg>
