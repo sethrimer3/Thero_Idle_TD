@@ -4,6 +4,22 @@
  */
 const dropdownRegistry = new Map();
 
+/**
+ * Determine if the menu should be displayed inline (at bottom of tab) vs as a popover (over render).
+ * Returns true if using footer placement and a footer button is being used.
+ */
+function shouldUseInlineDisplay(toggles, menu) {
+  const placementPreference = document.body?.dataset?.spireOptionsPlacement;
+  if (placementPreference !== 'footer') {
+    return false;
+  }
+  // Check if any of the toggles is a footer button
+  const hasFooterToggle = toggles.some((toggle) => 
+    toggle?.classList?.contains('spire-options-trigger--footer')
+  );
+  return hasFooterToggle;
+}
+
 function syncDropdownState({ menu, toggles, container }, open) {
   if (!menu || !toggles?.length) {
     return;
@@ -18,10 +34,11 @@ function syncDropdownState({ menu, toggles, container }, open) {
 
   if (open) {
     menu.hidden = false;
-    // Use a wider max width when the menu renders as a popover instead of inline.
-    menu.style.maxWidth = menu.classList.contains('spire-options-menu--popover')
-      ? 'min(320px, calc(100vw - 48px))'
-      : '100%';
+    // When using footer placement with footer button, display inline; otherwise use popover width
+    const useInline = shouldUseInlineDisplay(toggles, menu);
+    menu.style.maxWidth = useInline
+      ? '100%'
+      : 'min(320px, calc(100vw - 48px))';
     requestAnimationFrame(() => {
       menu.style.maxHeight = `${menu.scrollHeight + 32}px`;
     });
@@ -49,6 +66,46 @@ function syncDropdownState({ menu, toggles, container }, open) {
     },
     { once: true },
   );
+}
+
+/**
+ * Move the menu to the appropriate container based on which button was clicked and placement preference.
+ */
+function repositionMenuForContext(menu, clickedToggle, toggles) {
+  if (!menu || !clickedToggle) {
+    console.warn('repositionMenuForContext: missing menu or toggle');
+    return;
+  }
+  
+  const useInline = shouldUseInlineDisplay(toggles, menu);
+  const isCornerToggle = clickedToggle.classList.contains('spire-options-trigger--corner');
+  const isFooterToggle = clickedToggle.classList.contains('spire-options-trigger--footer');
+  
+  console.log('repositionMenuForContext:', { useInline, isCornerToggle, isFooterToggle, menuId: menu.id, toggleId: clickedToggle.id });
+  
+  // If using footer placement with a footer button, move menu to footer card
+  if (useInline && isFooterToggle) {
+    // Find the footer card that contains the clicked button
+    const footerCard = clickedToggle.closest('.spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper');
+    console.log('Footer card found:', footerCard?.className, 'contains menu:', footerCard?.contains(menu));
+    if (footerCard && !footerCard.contains(menu)) {
+      // Move the menu into the footer card
+      console.log('Moving menu to footer card');
+      footerCard.appendChild(menu);
+      // Remove popover class so it displays inline
+      menu.classList.remove('spire-options-menu--popover');
+    }
+  } else if (isCornerToggle) {
+    // If using corner toggle, ensure menu is in popover container
+    const popoverContainer = clickedToggle.closest('.spire-options-popover');
+    if (popoverContainer && !popoverContainer.contains(menu)) {
+      popoverContainer.appendChild(menu);
+      // Add popover class for absolute positioning
+      if (!menu.classList.contains('spire-options-menu--popover')) {
+        menu.classList.add('spire-options-menu--popover');
+      }
+    }
+  }
 }
 
 /**
@@ -80,6 +137,7 @@ export function bindSpireOptionsDropdown(config) {
   );
   const closeButton = menu.querySelector('.spire-options-close');
   let open = false;
+  let lastClickedToggle = null;
   syncDropdownState({ menu, toggles, container }, open);
   // Track outside clicks when the menu is configured to behave like a popover.
   const handleOutsideClick = (event) => {
@@ -94,13 +152,14 @@ export function bindSpireOptionsDropdown(config) {
     syncDropdownState({ menu, toggles, container }, open);
   };
 
-  const toggleHandler = () => {
-    open = !open;
-    syncDropdownState({ menu, toggles, container }, open);
-  };
-
   toggles.forEach((button) => {
-    button.addEventListener('click', toggleHandler);
+    button.addEventListener('click', (event) => {
+      lastClickedToggle = event.currentTarget;
+      // Reposition menu based on which button was clicked
+      repositionMenuForContext(menu, lastClickedToggle, toggles);
+      open = !open;
+      syncDropdownState({ menu, toggles, container }, open);
+    });
   });
   closeButton?.addEventListener('click', () => {
     if (!open) {
