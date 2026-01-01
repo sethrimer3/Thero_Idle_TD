@@ -4392,7 +4392,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       updateCognitiveRealmVisibility();
     }
   }
-  }
 
   function handleDocumentPointerDown(event) {
     // Allow level sets to remain open while the player scrolls; rely on the set trigger toggle to close them.
