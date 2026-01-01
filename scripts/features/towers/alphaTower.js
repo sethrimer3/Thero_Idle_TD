@@ -135,6 +135,9 @@ const ALPHA_PARTICLE_CONFIG = {
     charge: { base: 0.1, variance: 0.08 },
     dash: { base: 0.26, variance: 0.14 },
   },
+  // Link the sprite cache retrieval so the shared drawing logic can render α sprites.
+  spriteCacheResolver: () => alphaShotSpriteCache,
+  spriteSampleCount: ALPHA_SHOT_SPRITE_SAMPLE_COUNT,
 };
 
 // Ease helpers keep the spiral motion feeling fluid and controlled.
@@ -231,10 +234,12 @@ function createParticleCloud(playfield, tower, burst) {
   const maxCount = Number.isFinite(range.max) ? range.max : Math.max(minCount, 10);
   const particleCount = Math.max(1, randomInt(minCount, maxCount));
   // Ensure the tinted sprite cache is ready before assigning variants to new particles.
-  if (!alphaShotSpriteCache.length) {
+  const spriteCache = typeof config.spriteCacheResolver === 'function' ? config.spriteCacheResolver() : alphaShotSpriteCache;
+  if (!spriteCache.length) {
     refreshAlphaShotSpritePaletteCache();
   }
   const palette = resolveBurstPalette(playfield, tower, burst, config, particleCount);
+  const spriteSampleCount = Number.isFinite(config.spriteSampleCount) ? config.spriteSampleCount : ALPHA_SHOT_SPRITE_SAMPLE_COUNT;
   const particles = [];
   for (let index = 0; index < particleCount; index += 1) {
     const angle = Math.random() * Math.PI * 2;
@@ -258,13 +263,15 @@ function createParticleCloud(playfield, tower, burst) {
       fadeDuration: 0.18 + Math.random() * 0.12,
       color,
       // Lock a palette sample index so each particle keeps a stable tint.
-      spriteVariantIndex: Math.floor(Math.random() * ALPHA_SHOT_SPRITE_SAMPLE_COUNT),
+      spriteVariantIndex: Math.floor(Math.random() * spriteSampleCount),
       lineIndex: index,
       totalParticles: particleCount,
       position: {
         x: burst.origin.x + Math.cos(angle) * baseRadius,
         y: burst.origin.y + Math.sin(angle) * baseRadius,
       },
+      // Store the config so drawParticle can find the right sprite cache.
+      config,
     });
   }
   return particles;
@@ -876,15 +883,19 @@ function updateBurst(playfield, burst, delta) {
   return !burst.done;
 }
 
-// Resolve a cached, palette-tinted sprite for an α particle if available.
-function resolveAlphaShotSpriteVariant(particle) {
-  if (!alphaShotSpriteCache.length) {
+// Resolve a cached, palette-tinted sprite for a particle if available.
+function resolveShotSpriteVariant(particle) {
+  const config = particle?.config;
+  const spriteCache = typeof config?.spriteCacheResolver === 'function' 
+    ? config.spriteCacheResolver() 
+    : alphaShotSpriteCache;
+  if (!spriteCache.length) {
     return null;
   }
   const index = Number.isFinite(particle?.spriteVariantIndex)
     ? particle.spriteVariantIndex
-    : Math.floor(Math.random() * alphaShotSpriteCache.length);
-  return alphaShotSpriteCache[index % alphaShotSpriteCache.length] || null;
+    : Math.floor(Math.random() * spriteCache.length);
+  return spriteCache[index % spriteCache.length] || null;
 }
 
 // Paint an individual particle as a soft radial gradient with additive blending.
@@ -894,7 +905,7 @@ function drawParticle(ctx, particle) {
   }
   const size = Math.max(2, particle.renderSize || particle.size || 6);
   const { x, y } = particle.position;
-  const sprite = resolveAlphaShotSpriteVariant(particle);
+  const sprite = resolveShotSpriteVariant(particle);
   if (sprite) {
     // Draw the cached sprite variant with particle opacity for the new shot visuals.
     const drawSize = size * 2;

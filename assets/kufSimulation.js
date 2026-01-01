@@ -109,6 +109,7 @@ const KUF_SPRITE_PATHS = {
   CORE_SHIP: './assets/sprites/spires/kufSpire/playerShips/coreShipLevel2.png',
   SPLAYER: './assets/sprites/spires/kufSpire/playerShips/splayer.png',
   ENEMY_BOSS: './assets/sprites/spires/kufSpire/enemyShips/enemyBoss1.png',
+  BULLET: './assets/sprites/spires/kufSpire/bullets/bullet1.png',
 };
 // Cache Kuf spire sprite assets so repeated draws do not reload images.
 const KUF_SPRITE_CACHE = new Map();
@@ -2530,6 +2531,10 @@ export class KufBattlefieldSimulation {
   drawBullets() {
     const ctx = this.ctx;
     const glowsEnabled = this.glowOverlaysEnabled;
+    // Load the bullet sprite if available.
+    const bulletSprite = getKufSprite(KUF_SPRITE_PATHS.BULLET);
+    const useBulletSprite = bulletSprite && bulletSprite.loaded && !bulletSprite.error;
+    
     this.bullets.forEach((bullet) => {
       ctx.save();
       
@@ -2564,13 +2569,22 @@ export class KufBattlefieldSimulation {
         }
       }
       
-      const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
-      ctx.shadowBlur = bulletGlow;
-      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, size, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw sprite if available for marine bullets, otherwise draw circle.
+      if (useBulletSprite && bullet.owner === 'marine') {
+        const spriteSize = size * 2.5;
+        const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
+        ctx.shadowBlur = bulletGlow;
+        ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
+        ctx.drawImage(bulletSprite.image, bullet.x - spriteSize / 2, bullet.y - spriteSize / 2, spriteSize, spriteSize);
+      } else {
+        const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
+        ctx.shadowBlur = bulletGlow;
+        ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     });
   }
