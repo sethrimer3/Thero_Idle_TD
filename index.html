@@ -2160,6 +2160,312 @@
           <section class="fluid-grid" aria-label="Bet Spire Render">
             <article class="card powder-simulation" id="bet-spire-simulation-card">
               <div class="powder-basin" id="bet-spire-basin">
+                <!-- Bet spire settings popover trigger and menu. -->
+                <div class="spire-options-popover spire-options-popover--bet">
+                  <!-- Cog trigger for the Bet spire settings. -->
+                  <button
+                    class="action-button spire-options-trigger spire-options-trigger--icon"
+                    type="button"
+                    id="bet-spire-options-toggle-button"
+                    aria-expanded="false"
+                    aria-controls="bet-spire-options-menu"
+                    aria-label="Open Bet spire settings"
+                  >
+                    <span class="spire-options-icon" aria-hidden="true">⚙</span>
+                  </button>
+                  <!-- Bet spire settings menu. -->
+                  <div
+                    class="spire-options-menu spire-options-menu--popover"
+                    id="bet-spire-options-menu"
+                    data-open="false"
+                    aria-hidden="true"
+                    hidden
+                  >
+                    <!-- Close button anchored to the top-left of the popover. -->
+                    <button class="action-button ghost spire-options-close spire-options-close--corner" type="button">
+                      Close
+                    </button>
+                    <div class="settings-toggle" id="bet-particle-trails-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-particle-trails-title">Particle Trails</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-particle-trails-description"
+                          >Glowing trails behind moving particles for enhanced visual effect.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-particle-trails-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-particle-trails-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-particle-trails-title"
+                          aria-describedby="bet-particle-trails-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-particle-trails-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="bet-forge-glow-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-forge-glow-title">Forge & Generator Glow</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-forge-glow-description"
+                          >Soft glow effect on the central forge and particle generators.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-forge-glow-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-forge-glow-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-forge-glow-title"
+                          aria-describedby="bet-forge-glow-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="bet-smooth-rendering-toggle-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-smooth-rendering-title">Smooth Rendering</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-smooth-rendering-description"
+                          >Toggle between smooth (anti-aliased) and pixelated (crisp) rendering.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-smooth-rendering-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-smooth-rendering-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-smooth-rendering-title"
+                          aria-describedby="bet-smooth-rendering-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-smooth-rendering-state">On</span>
+                      </label>
+                    </div>
+                    
+                    <!-- Developer-only debug controls (hidden unless developer mode is active) -->
+                    <div class="settings-toggle" id="bet-particle-spawning-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-particle-spawning-title">🔧 Particle Spawning</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-particle-spawning-description"
+                          >Developer: Enable or disable particle spawning.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-particle-spawning-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-particle-spawning-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-particle-spawning-title"
+                          aria-describedby="bet-particle-spawning-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-particle-spawning-state">On</span>
+                      </label>
+                    </div>
+                    
+                    <div class="settings-toggle" id="bet-particle-merging-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-particle-merging-title">🔧 Particle Merging</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-particle-merging-description"
+                          >Developer: Enable or disable particle size merging (100 small → 1 medium).</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-particle-merging-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-particle-merging-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-particle-merging-title"
+                          aria-describedby="bet-particle-merging-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-particle-merging-state">On</span>
+                      </label>
+                    </div>
+                    
+                    <!-- Developer-only toggle for merge shockwave bursts. -->
+                    <div class="settings-toggle" id="bet-merge-shockwaves-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-merge-shockwaves-title">🔧 Merge Shockwaves</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-merge-shockwaves-description"
+                          >Developer: Enable or disable the burst shockwave when particles merge.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-merge-shockwaves-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-merge-shockwaves-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-merge-shockwaves-title"
+                          aria-describedby="bet-merge-shockwaves-description"
+                          aria-checked="false"
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-merge-shockwaves-state">Off</span>
+                      </label>
+                    </div>
+
+                    <!-- Developer-only toggle for subtle particle veer motion. -->
+                    <div class="settings-toggle" id="bet-particle-veer-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-particle-veer-title">🔧 Particle Veer</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-particle-veer-description"
+                          >Developer: Apply subtle randomized veering to particle motion.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-particle-veer-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-particle-veer-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-particle-veer-title"
+                          aria-describedby="bet-particle-veer-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-particle-veer-state">On</span>
+                      </label>
+                    </div>
+
+                    <!-- Developer-only toggle for gentle small-tier generator gravity. -->
+                    <div class="settings-toggle" id="bet-small-tier-generator-gravity-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-small-tier-generator-gravity-title"
+                          >🔧 Small Tier Generator Gravity</span
+                        >
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-small-tier-generator-gravity-description"
+                          >Developer: Apply an extra gentle pull that nudges small particles toward their generators.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-small-tier-generator-gravity-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-small-tier-generator-gravity-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-small-tier-generator-gravity-title"
+                          aria-describedby="bet-small-tier-generator-gravity-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-small-tier-generator-gravity-state">On</span>
+                      </label>
+                    </div>
+
+                    <!-- Developer-only toggle for weak medium-tier forge gravity. -->
+                    <div class="settings-toggle" id="bet-medium-tier-forge-gravity-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-medium-tier-forge-gravity-title"
+                          >🔧 Medium Tier Forge Gravity</span
+                        >
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-medium-tier-forge-gravity-description"
+                          >Developer: Apply an extra weak pull that guides medium particles toward the forge.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-medium-tier-forge-gravity-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-medium-tier-forge-gravity-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-medium-tier-forge-gravity-title"
+                          aria-describedby="bet-medium-tier-forge-gravity-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-medium-tier-forge-gravity-state">On</span>
+                      </label>
+                    </div>
+
+                    <div class="settings-toggle" id="bet-particle-promotion-toggle-row" hidden aria-hidden="true">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-particle-promotion-title">🔧 Particle Promotion</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-particle-promotion-description"
+                          >Developer: Enable or disable particle tier promotion at the forge (medium → next tier small).</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-particle-promotion-toggle">
+                        <input
+                          type="checkbox"
+                          id="bet-particle-promotion-toggle"
+                          class="settings-toggle-input"
+                          role="switch"
+                          aria-labelledby="bet-particle-promotion-title"
+                          aria-describedby="bet-particle-promotion-description"
+                          aria-checked="true"
+                          checked
+                        />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="bet-particle-promotion-state">On</span>
+                      </label>
+                    </div>
+                    
+                    <div class="settings-toggle" id="bet-render-size-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title" id="bet-render-size-title">Render Size</span>
+                        <span
+                          class="settings-toggle-description"
+                          id="bet-render-size-description"
+                          >Adjust the Bet spire render size.</span
+                        >
+                      </div>
+                      <label class="settings-toggle-control" for="bet-render-size-select">
+                        <span class="screen-reader-only">Render size</span>
+                        <select
+                          id="bet-render-size-select"
+                          class="settings-select"
+                          aria-labelledby="bet-render-size-title"
+                          aria-describedby="bet-render-size-description"
+                        >
+                          <option value="0">Small</option>
+                          <option value="1" selected>Medium</option>
+                          <option value="2">Large</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <canvas
                   id="bet-spire-canvas"
                   width="240"
@@ -2217,310 +2523,6 @@
               <!-- Generator List -->
               <div class="bet-generator-list">
                 <!-- Generator items will be populated by JavaScript -->
-              </div>
-            </article>
-          </section>
-          
-          <!-- Bet Spire Options -->
-          <section class="panel-grid spire-options-grid" aria-label="Bet Spire options">
-            <article class="card spire-options-card">
-              <button
-                class="action-button spire-options-trigger"
-                type="button"
-                id="bet-spire-options-toggle-button"
-                aria-expanded="false"
-                aria-controls="bet-spire-options-menu"
-              >
-                <span class="spire-options-glyph" aria-hidden="true">בּ</span>
-                <span>Spire Options</span>
-              </button>
-              <div
-                class="spire-options-menu"
-                id="bet-spire-options-menu"
-                data-open="false"
-                aria-hidden="true"
-                hidden
-              >
-                <div class="settings-toggle" id="bet-particle-trails-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-particle-trails-title">Particle Trails</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-particle-trails-description"
-                      >Glowing trails behind moving particles for enhanced visual effect.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-particle-trails-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-particle-trails-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-particle-trails-title"
-                      aria-describedby="bet-particle-trails-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-particle-trails-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="bet-forge-glow-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-forge-glow-title">Forge & Generator Glow</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-forge-glow-description"
-                      >Soft glow effect on the central forge and particle generators.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-forge-glow-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-forge-glow-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-forge-glow-title"
-                      aria-describedby="bet-forge-glow-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-forge-glow-state">On</span>
-                  </label>
-                </div>
-                <div class="settings-toggle" id="bet-smooth-rendering-toggle-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-smooth-rendering-title">Smooth Rendering</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-smooth-rendering-description"
-                      >Toggle between smooth (anti-aliased) and pixelated (crisp) rendering.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-smooth-rendering-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-smooth-rendering-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-smooth-rendering-title"
-                      aria-describedby="bet-smooth-rendering-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-smooth-rendering-state">On</span>
-                  </label>
-                </div>
-                
-                <!-- Developer-only debug controls (hidden unless developer mode is active) -->
-                <div class="settings-toggle" id="bet-particle-spawning-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-particle-spawning-title">🔧 Particle Spawning</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-particle-spawning-description"
-                      >Developer: Enable or disable particle spawning.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-particle-spawning-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-particle-spawning-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-particle-spawning-title"
-                      aria-describedby="bet-particle-spawning-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-particle-spawning-state">On</span>
-                  </label>
-                </div>
-                
-                <div class="settings-toggle" id="bet-particle-merging-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-particle-merging-title">🔧 Particle Merging</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-particle-merging-description"
-                      >Developer: Enable or disable particle size merging (100 small → 1 medium).</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-particle-merging-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-particle-merging-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-particle-merging-title"
-                      aria-describedby="bet-particle-merging-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-particle-merging-state">On</span>
-                  </label>
-                </div>
-                
-                <!-- Developer-only toggle for merge shockwave bursts. -->
-                <div class="settings-toggle" id="bet-merge-shockwaves-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-merge-shockwaves-title">🔧 Merge Shockwaves</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-merge-shockwaves-description"
-                      >Developer: Enable or disable the burst shockwave when particles merge.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-merge-shockwaves-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-merge-shockwaves-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-merge-shockwaves-title"
-                      aria-describedby="bet-merge-shockwaves-description"
-                      aria-checked="false"
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-merge-shockwaves-state">Off</span>
-                  </label>
-                </div>
-
-                <!-- Developer-only toggle for subtle particle veer motion. -->
-                <div class="settings-toggle" id="bet-particle-veer-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-particle-veer-title">🔧 Particle Veer</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-particle-veer-description"
-                      >Developer: Apply subtle randomized veering to particle motion.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-particle-veer-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-particle-veer-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-particle-veer-title"
-                      aria-describedby="bet-particle-veer-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-particle-veer-state">On</span>
-                  </label>
-                </div>
-
-                <!-- Developer-only toggle for gentle small-tier generator gravity. -->
-                <div class="settings-toggle" id="bet-small-tier-generator-gravity-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-small-tier-generator-gravity-title"
-                      >🔧 Small Tier Generator Gravity</span
-                    >
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-small-tier-generator-gravity-description"
-                      >Developer: Apply an extra gentle pull that nudges small particles toward their generators.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-small-tier-generator-gravity-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-small-tier-generator-gravity-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-small-tier-generator-gravity-title"
-                      aria-describedby="bet-small-tier-generator-gravity-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-small-tier-generator-gravity-state">On</span>
-                  </label>
-                </div>
-
-                <!-- Developer-only toggle for weak medium-tier forge gravity. -->
-                <div class="settings-toggle" id="bet-medium-tier-forge-gravity-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-medium-tier-forge-gravity-title"
-                      >🔧 Medium Tier Forge Gravity</span
-                    >
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-medium-tier-forge-gravity-description"
-                      >Developer: Apply an extra weak pull that guides medium particles toward the forge.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-medium-tier-forge-gravity-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-medium-tier-forge-gravity-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-medium-tier-forge-gravity-title"
-                      aria-describedby="bet-medium-tier-forge-gravity-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-medium-tier-forge-gravity-state">On</span>
-                  </label>
-                </div>
-
-                <div class="settings-toggle" id="bet-particle-promotion-toggle-row" hidden aria-hidden="true">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-particle-promotion-title">🔧 Particle Promotion</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-particle-promotion-description"
-                      >Developer: Enable or disable particle tier promotion at the forge (medium → next tier small).</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-particle-promotion-toggle">
-                    <input
-                      type="checkbox"
-                      id="bet-particle-promotion-toggle"
-                      class="settings-toggle-input"
-                      role="switch"
-                      aria-labelledby="bet-particle-promotion-title"
-                      aria-describedby="bet-particle-promotion-description"
-                      aria-checked="true"
-                      checked
-                    />
-                    <span class="settings-toggle-slider" aria-hidden="true"></span>
-                    <span class="settings-toggle-state" id="bet-particle-promotion-state">On</span>
-                  </label>
-                </div>
-                
-                <div class="settings-toggle" id="bet-render-size-row">
-                  <div class="settings-toggle-text">
-                    <span class="settings-toggle-title" id="bet-render-size-title">Render Size</span>
-                    <span
-                      class="settings-toggle-description"
-                      id="bet-render-size-description"
-                      >Adjust the Bet spire render size.</span
-                    >
-                  </div>
-                  <label class="settings-toggle-control" for="bet-render-size-select">
-                    <span class="screen-reader-only">Render size</span>
-                    <select
-                      id="bet-render-size-select"
-                      class="settings-select"
-                      aria-labelledby="bet-render-size-title"
-                      aria-describedby="bet-render-size-description"
-                    >
-                      <option value="0">Small</option>
-                      <option value="1" selected>Medium</option>
-                      <option value="2">Large</option>
-                    </select>
-                  </label>
-                </div>
-                <button class="action-button ghost spire-options-close" type="button">Close</button>
               </div>
             </article>
           </section>

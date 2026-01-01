@@ -16,7 +16,10 @@ function syncDropdownState({ menu, toggle, container }, open) {
 
   if (open) {
     menu.hidden = false;
-    menu.style.maxWidth = '100%';
+    // Use a wider max width when the menu renders as a popover instead of inline.
+    menu.style.maxWidth = menu.classList.contains('spire-options-menu--popover')
+      ? 'min(320px, calc(100vw - 48px))'
+      : '100%';
     requestAnimationFrame(() => {
       menu.style.maxHeight = `${menu.scrollHeight + 32}px`;
     });
@@ -48,21 +51,33 @@ function syncDropdownState({ menu, toggle, container }, open) {
 
 /**
  * Wire up a single spire option dropdown by identifiers.
- * @param {{ toggleId: string, menuId: string, spireId: string }} config - DOM ids and a registry key.
+ * @param {{ toggleId: string, menuId: string, spireId: string, closeOnOutside?: boolean }} config - DOM ids and a registry key.
  */
 export function bindSpireOptionsDropdown(config) {
-  const { toggleId, menuId, spireId } = config || {};
+  const { toggleId, menuId, spireId, closeOnOutside } = config || {};
   const toggle = document.getElementById(toggleId);
   const menu = document.getElementById(menuId);
   if (!toggle || !menu || !spireId) {
     return null;
   }
   const container = toggle.closest(
-    '.spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper',
+    '.spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper, .spire-options-popover',
   );
   const closeButton = menu.querySelector('.spire-options-close');
   let open = false;
   syncDropdownState({ menu, toggle, container }, open);
+  // Track outside clicks when the menu is configured to behave like a popover.
+  const handleOutsideClick = (event) => {
+    if (!open) {
+      return;
+    }
+    const target = event.target;
+    if (menu.contains(target) || toggle.contains(target)) {
+      return;
+    }
+    open = false;
+    syncDropdownState({ menu, toggle, container }, open);
+  };
 
   const toggleHandler = () => {
     open = !open;
@@ -77,6 +92,10 @@ export function bindSpireOptionsDropdown(config) {
     open = false;
     syncDropdownState({ menu, toggle, container }, open);
   });
+  if (closeOnOutside) {
+    // Close the popover when a click lands outside the menu or trigger.
+    document.addEventListener('click', handleOutsideClick);
+  }
   const controller = {
     close: () => {
       open = false;
