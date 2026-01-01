@@ -380,6 +380,17 @@ export class CrystallineMosaicManager {
     const threshold = 0.3;
     const lastWidth = this.lastViewBounds.maxX - this.lastViewBounds.minX;
     const lastHeight = this.lastViewBounds.maxY - this.lastViewBounds.minY;
+    const nextWidth = viewBounds.maxX - viewBounds.minX;
+    const nextHeight = viewBounds.maxY - viewBounds.minY;
+
+    // Regenerate when the viewport size changes so edge crystals stay aligned after resizes/fullscreen changes.
+    const sizeThreshold = 0.08;
+    if (
+      (lastWidth > 0 && Math.abs(nextWidth - lastWidth) > lastWidth * sizeThreshold) ||
+      (lastHeight > 0 && Math.abs(nextHeight - lastHeight) > lastHeight * sizeThreshold)
+    ) {
+      return true;
+    }
     
     const deltaX = Math.abs((viewBounds.minX + viewBounds.maxX) / 2 - 
                             (this.lastViewBounds.minX + this.lastViewBounds.maxX) / 2);

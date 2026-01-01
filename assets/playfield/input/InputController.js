@@ -25,6 +25,18 @@ function attachCanvasInteractions() {
   if (this.canvas) {
     this.canvas.addEventListener('wheel', this.wheelHandler, { passive: false });
   }
+  // Capture wheel gestures at the document level to prevent page scroll while zooming the playfield.
+  this.wheelBlockHandler = (event) => {
+    if (!this.container || !this.container.contains(event.target)) {
+      return;
+    }
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('wheel', this.wheelBlockHandler, { passive: false, capture: true });
+  }
 }
 
 function handleCanvasPointerMove(event) {
