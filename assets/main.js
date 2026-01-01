@@ -5183,6 +5183,30 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 unlockAchievementsTab();
               }
               
+              // Special unlock for chapter story levels: unlock corresponding Ladder chapter
+              const chapterStoryMatch = level.id.match(/^([1-6]) - Story$/);
+              if (chapterStoryMatch) {
+                const chapterNum = chapterStoryMatch[1];
+                // Unlock all Ladder levels for this chapter
+                for (let i = 1; i <= 5; i++) {
+                  const ladderLevelId = `Ladder - ${chapterNum} - ${i}`;
+                  if (isInteractiveLevel(ladderLevelId)) {
+                    unlockLevel(ladderLevelId);
+                  }
+                }
+                
+                // Special unlock for 6 - Story: unlock Trials/Challenges campaign
+                if (level.id === '6 - Story') {
+                  // Unlock all Challenges/Trials levels
+                  interactiveLevelOrder.forEach((levelId) => {
+                    const levelInfo = levelLookup.get(levelId);
+                    if (levelInfo && levelInfo.campaign === 'Challenges') {
+                      unlockLevel(levelId);
+                    }
+                  });
+                }
+              }
+              
               // Check if this completes tutorial
               checkTutorialCompletion(isLevelCompleted);
               updateTabLockStates(isTutorialCompleted());
