@@ -6195,6 +6195,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       toggleId: 'bet-spire-options-toggle-button',
       menuId: 'bet-spire-options-menu',
       spireId: 'bet',
+      // Sync the bottom spire button with the cog trigger.
+      extraToggleIds: ['bet-spire-options-toggle-button-footer'],
+      // Close the Bet spire popover when clicking outside the menu.
+      closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
       toggleId: 'tsadi-options-toggle-button',
