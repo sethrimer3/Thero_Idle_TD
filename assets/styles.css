@@ -6833,6 +6833,11 @@ body.playfield-fullscreen .playfield canvas {
   height: 100%;
 }
 
+/* Allow spire option popovers to position over render cards. */
+.powder-simulation--overlay {
+  position: relative;
+}
+
 .spire-gem-selector {
   position: absolute;
   top: 12px;
@@ -11532,10 +11537,10 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 
 /* Compact cog button styling for spire popovers. */
 .spire-options-trigger--icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 6px;
 }
 
 /* Keep the cog icon centered inside the button. */
@@ -11557,6 +11562,7 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  z-index: 2;
   overflow: auto;
 }
 
@@ -11567,6 +11573,12 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   left: 8px;
   width: auto;
   padding: 4px 10px;
+}
+
+/* Keep the bottom spire options button aligned with the render card. */
+.spire-options-trigger--footer {
+  margin-top: 12px;
+  width: 100%;
 }
 
 @media (max-width: 720px) {

@@ -4,14 +4,16 @@
  */
 const dropdownRegistry = new Map();
 
-function syncDropdownState({ menu, toggle, container }, open) {
-  if (!menu || !toggle) {
+function syncDropdownState({ menu, toggles, container }, open) {
+  if (!menu || !toggles?.length) {
     return;
   }
   const wasOpen = menu.getAttribute('data-open') === 'true';
   menu.setAttribute('data-open', open ? 'true' : 'false');
   menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  toggles.forEach((toggle) => {
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
   container?.classList.toggle('options-open', open);
 
   if (open) {
@@ -51,46 +53,61 @@ function syncDropdownState({ menu, toggle, container }, open) {
 
 /**
  * Wire up a single spire option dropdown by identifiers.
- * @param {{ toggleId: string, menuId: string, spireId: string, closeOnOutside?: boolean }} config - DOM ids and a registry key.
+ * @param {{ toggleId: string, menuId: string, spireId: string, closeOnOutside?: boolean, extraToggleIds?: string[] }} config - DOM ids and a registry key.
  */
 export function bindSpireOptionsDropdown(config) {
-  const { toggleId, menuId, spireId, closeOnOutside } = config || {};
+  const {
+    toggleId,
+    menuId,
+    spireId,
+    closeOnOutside,
+    extraToggleIds,
+  } = config || {};
   const toggle = document.getElementById(toggleId);
+  // Resolve optional secondary triggers so multiple buttons can open the same menu.
+  const extraToggles = (extraToggleIds || [])
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
   const menu = document.getElementById(menuId);
-  if (!toggle || !menu || !spireId) {
+  // Track every toggle so open/close state stays in sync for all controls.
+  const toggles = [toggle, ...extraToggles].filter(Boolean);
+  if (!toggles.length || !menu || !spireId) {
     return null;
   }
-  const container = toggle.closest(
-    '.spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper, .spire-options-popover',
+  // Use the menu container so overlays stay aligned even when a secondary toggle is used.
+  const container = menu.closest(
+    '.spire-options-popover, .spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper',
   );
   const closeButton = menu.querySelector('.spire-options-close');
   let open = false;
-  syncDropdownState({ menu, toggle, container }, open);
+  syncDropdownState({ menu, toggles, container }, open);
   // Track outside clicks when the menu is configured to behave like a popover.
   const handleOutsideClick = (event) => {
     if (!open) {
       return;
     }
     const target = event.target;
-    if (menu.contains(target) || toggle.contains(target)) {
+    if (menu.contains(target) || toggles.some((button) => button.contains(target))) {
       return;
     }
     open = false;
-    syncDropdownState({ menu, toggle, container }, open);
+    syncDropdownState({ menu, toggles, container }, open);
   };
 
   const toggleHandler = () => {
     open = !open;
-    syncDropdownState({ menu, toggle, container }, open);
+    syncDropdownState({ menu, toggles, container }, open);
   };
 
-  toggle.addEventListener('click', toggleHandler);
+  toggles.forEach((button) => {
+    button.addEventListener('click', toggleHandler);
+  });
   closeButton?.addEventListener('click', () => {
     if (!open) {
       return;
     }
     open = false;
-    syncDropdownState({ menu, toggle, container }, open);
+    syncDropdownState({ menu, toggles, container }, open);
   });
   if (closeOnOutside) {
     // Close the popover when a click lands outside the menu or trigger.
@@ -99,10 +116,10 @@ export function bindSpireOptionsDropdown(config) {
   const controller = {
     close: () => {
       open = false;
-      syncDropdownState({ menu, toggle, container }, open);
+      syncDropdownState({ menu, toggles, container }, open);
     },
     isOpen: () => open,
-    refresh: () => syncDropdownState({ menu, toggle, container }, open),
+    refresh: () => syncDropdownState({ menu, toggles, container }, open),
   };
   dropdownRegistry.set(spireId, controller);
   return controller;
