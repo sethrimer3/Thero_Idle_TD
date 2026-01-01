@@ -73,6 +73,7 @@ function syncDropdownState({ menu, toggles, container }, open) {
  */
 function repositionMenuForContext(menu, clickedToggle, toggles) {
   if (!menu || !clickedToggle) {
+    console.warn('repositionMenuForContext: missing menu or toggle');
     return;
   }
   
@@ -80,12 +81,16 @@ function repositionMenuForContext(menu, clickedToggle, toggles) {
   const isCornerToggle = clickedToggle.classList.contains('spire-options-trigger--corner');
   const isFooterToggle = clickedToggle.classList.contains('spire-options-trigger--footer');
   
+  console.log('repositionMenuForContext:', { useInline, isCornerToggle, isFooterToggle, menuId: menu.id, toggleId: clickedToggle.id });
+  
   // If using footer placement with a footer button, move menu to footer card
   if (useInline && isFooterToggle) {
     // Find the footer card that contains the clicked button
     const footerCard = clickedToggle.closest('.spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper');
+    console.log('Footer card found:', footerCard?.className, 'contains menu:', footerCard?.contains(menu));
     if (footerCard && !footerCard.contains(menu)) {
       // Move the menu into the footer card
+      console.log('Moving menu to footer card');
       footerCard.appendChild(menu);
       // Remove popover class so it displays inline
       menu.classList.remove('spire-options-menu--popover');
