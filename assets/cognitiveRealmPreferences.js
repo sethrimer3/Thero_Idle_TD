@@ -13,7 +13,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   glow: false,
   nodeDrift: false,
   randomizedLayout: true, // Scatter nodes to new starting positions on load
-  renderOverlapLevel: 1, // Default to Medium (overlap 1 margin)
+  renderOverlapLevel: 0, // Default to Small (overlap 0 margin)
 });
 
 // Clamp render size controls to 0-2 range (Small, Medium, Large).

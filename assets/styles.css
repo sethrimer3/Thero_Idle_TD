@@ -337,7 +337,12 @@ body.graphics-mode-low .control-button {
 .cognitive-realm-container {
   position: relative;
   width: 100%;
-  height: clamp(280px, 50vh, 440px);
+  /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
+  aspect-ratio: 3 / 4;
+  /* Expand until the viewport width or height limit is encountered. */
+  width: min(100%, calc(100vw - 48px));
+  max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
+  max-height: calc(var(--stable-vh) - 220px);
   background: #000000;
   border: 1px solid rgba(139, 247, 255, 0.2);
   border-radius: 12px;
@@ -358,13 +363,75 @@ body.graphics-mode-low .control-button {
   cursor: var(--cursor-grabbing);
 }
 
+/* Lock overlay for Cognitive Realm */
+.cognitive-realm-lock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 10, 20, 0.92);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.cognitive-realm-lock-overlay[hidden] {
+  display: none;
+}
+
+.cognitive-realm-lock-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 32px;
+}
+
+.cognitive-realm-lock-icon {
+  font-size: 64px;
+  opacity: 0.7;
+  filter: grayscale(100%);
+}
+
+.cognitive-realm-lock-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: rgba(247, 247, 245, 0.4);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.cognitive-realm-lock-hint {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  color: rgba(247, 247, 245, 0.5);
+  letter-spacing: 0.05em;
+  max-width: 280px;
+}
+
 @media (max-width: 640px) {
-  .cognitive-realm-container {
-    height: clamp(240px, 45vh, 360px);
-  }
+  /* cognitive-realm-container uses aspect-ratio, no height override needed */
   
   .cognitive-realm-hint {
     font-size: 0.7rem;
+  }
+  
+  .cognitive-realm-lock-icon {
+    font-size: 48px;
+  }
+  
+  .cognitive-realm-lock-text {
+    font-size: 24px;
+  }
+  
+  .cognitive-realm-lock-hint {
+    font-size: 14px;
   }
 }
 

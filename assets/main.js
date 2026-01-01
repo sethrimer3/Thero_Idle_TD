@@ -278,7 +278,9 @@ import {
 import {
   cognitiveRealmState,
   isCognitiveRealmUnlocked,
+  isCognitiveRealmLocked,
   unlockCognitiveRealm,
+  unlockCognitiveRealmRendering,
   updateTerritoriesForLevel,
   serializeCognitiveRealmState,
   deserializeCognitiveRealmState,
@@ -288,6 +290,7 @@ import {
   stopCognitiveRealmMap,
   showCognitiveRealmMap,
   hideCognitiveRealmMap,
+  updateCognitiveRealmLockState,
   resetCognitiveRealmView,
 } from './cognitiveRealmMap.js';
 import {
@@ -4099,6 +4102,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       updateTabLockStates(isTutorialCompleted());
       updateResourceRates();
       updatePowderLedger();
+      
+      // Unlock cognitive realm rendering when Chapter 3, level 5 is completed
+      if (levelId === '3 - 5' && isCognitiveRealmLocked()) {
+        unlockCognitiveRealmRendering();
+        updateCognitiveRealmLockState();
+      }
     } else {
       updateStatusDisplays();
       updatePowderLedger();
@@ -4375,6 +4384,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     updateCampaignExpandedHeight(element.getBoundingClientRect().height);
     expandedCampaign = element;
+    
+    // Unlock cognitive realm visibility when Story campaign is opened
+    const campaignName = element.dataset.campaign;
+    if (campaignName === 'Story' && !isCognitiveRealmUnlocked()) {
+      unlockCognitiveRealm();
+      updateCognitiveRealmVisibility();
+    }
+  }
   }
 
   function handleDocumentPointerDown(event) {
@@ -4482,13 +4499,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const unlocked = developerModeActive
         || index === 0
         || areSetNormalLevelsCompleted(previous?.levels);
-
-      // Check if we should unlock the cognitive realm (level set 3+ unlocked)
-      // Level set 3 is typically at index 3 (0=Hypothesis, 1=Conjecture, 2=Corollary, 3+=...)
-      if (unlocked && index >= 2 && !isCognitiveRealmUnlocked()) {
-        unlockCognitiveRealm();
-        updateCognitiveRealmVisibility();
-      }
 
       if (!unlocked && entry.element.classList.contains('expanded')) {
         collapseLevelSet(entry.element);

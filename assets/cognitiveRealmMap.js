@@ -10,6 +10,7 @@ import {
   TERRITORY_ENEMY,
   setOnTerritoriesChanged,
   setTerritoryOwner,
+  isCognitiveRealmLocked,
 } from './state/cognitiveRealmState.js';
 
 import { getCognitiveRealmVisualSettings } from './cognitiveRealmPreferences.js';
@@ -78,6 +79,7 @@ let draggedNode = null;
 let mapCanvas = null;
 let mapContext = null;
 let mapContainer = null;
+let lockOverlay = null;
 let backgroundWidth = 0;
 let backgroundHeight = 0;
 
@@ -440,6 +442,7 @@ function clampPanToBounds() {
 export function initializeCognitiveRealmMap(container, canvas, options = {}) {
   mapContainer = container;
   mapCanvas = canvas;
+  lockOverlay = document.getElementById('cognitive-realm-lock-overlay');
   
   // Store developer mode accessor
   if (options.getDeveloperModeActive) {
@@ -470,8 +473,11 @@ export function initializeCognitiveRealmMap(container, canvas, options = {}) {
   // Mark connections as dirty initially
   markConnectionsDirty();
 
-  // Start render loop only if the map is already visible to avoid background work when hidden.
-  if (!mapContainer.hidden) {
+  // Update lock overlay visibility based on lock state
+  updateLockOverlayVisibility();
+
+  // Start render loop only if the map is already visible and unlocked.
+  if (!mapContainer.hidden && !isCognitiveRealmLocked()) {
     startRenderLoop();
   }
 }
@@ -1392,6 +1398,45 @@ function updateTerritoryStatsDisplay() {
 }
 
 /**
+ * Update lock overlay visibility based on current lock state
+ */
+function updateLockOverlayVisibility() {
+  if (!lockOverlay) {
+    return;
+  }
+  
+  const isLocked = isCognitiveRealmLocked();
+  if (isLocked) {
+    lockOverlay.hidden = false;
+    lockOverlay.setAttribute('aria-hidden', 'false');
+    if (mapCanvas) {
+      mapCanvas.style.filter = 'grayscale(100%) brightness(0.6)';
+    }
+  } else {
+    lockOverlay.hidden = true;
+    lockOverlay.setAttribute('aria-hidden', 'true');
+    if (mapCanvas) {
+      mapCanvas.style.filter = '';
+    }
+  }
+}
+
+/**
+ * Update the lock state and refresh the UI
+ */
+export function updateCognitiveRealmLockState() {
+  updateLockOverlayVisibility();
+  
+  // Start or stop rendering based on lock state
+  const isLocked = isCognitiveRealmLocked();
+  if (isLocked) {
+    stopCognitiveRealmMap();
+  } else if (mapContainer && !mapContainer.hidden) {
+    startRenderLoop();
+  }
+}
+
+/**
  * Reset zoom and pan to default
  */
 export function resetCognitiveRealmView() {
@@ -1411,8 +1456,12 @@ export function showCognitiveRealmMap() {
     resizeCanvas();
   }
 
-  // Resume rendering only when the map is visible on the Defense tab.
-  startRenderLoop();
+  updateLockOverlayVisibility();
+
+  // Resume rendering only when the map is visible and unlocked.
+  if (!isCognitiveRealmLocked()) {
+    startRenderLoop();
+  }
 }
 
 /**

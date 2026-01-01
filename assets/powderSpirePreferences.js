@@ -13,7 +13,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   moteGlow: true,
   backgroundStars: true,
   moteTrails: true,
-  renderOverlapLevel: 1, // Default to Medium (overlap 1 margin)
+  renderOverlapLevel: 0, // Default to Small (overlap 0 margin)
 });
 
 // Clamp render size controls to 0-2 range (Small, Medium, Large).
