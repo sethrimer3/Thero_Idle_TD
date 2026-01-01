@@ -300,9 +300,58 @@ function syncAllToggles() {
 }
 
 /**
+ * Determine if the Lamed menu should display inline vs as a popover.
+ */
+function shouldLamedMenuUseInlineDisplay() {
+  const placementPreference = document.body?.dataset?.spireOptionsPlacement;
+  return placementPreference === 'footer';
+}
+
+/**
+ * Reposition the Lamed options menu based on which button is being used.
+ */
+function repositionLamedMenuForContext(clickedButton) {
+  if (!optionsMenu || !clickedButton) {
+    return;
+  }
+  
+  const useInline = shouldLamedMenuUseInlineDisplay();
+  const isCornerButton = clickedButton.classList.contains('spire-options-trigger--corner');
+  const isFooterButton = clickedButton.classList.contains('spire-options-trigger--footer') || clickedButton.classList.contains('lamed-spire-options-trigger');
+  
+  console.log('repositionLamedMenuForContext:', { useInline, isCornerButton, isFooterButton, buttonId: clickedButton.id });
+  
+  if (useInline && isFooterButton) {
+    // Move menu to footer card for inline display
+    const footerCard = clickedButton.closest('.card, .lamed-spire-options-card');
+    console.log('Footer card found:', footerCard?.className, 'contains menu:', footerCard?.contains(optionsMenu));
+    if (footerCard && !footerCard.contains(optionsMenu)) {
+      console.log('Moving Lamed menu to footer card');
+      footerCard.appendChild(optionsMenu);
+      optionsMenu.classList.remove('spire-options-menu--popover');
+    }
+  } else if (isCornerButton || !useInline) {
+    // Move menu back to popover container for absolute positioning
+    const popoverContainer = document.querySelector('.spire-options-popover--lamed');
+    if (popoverContainer && !popoverContainer.contains(optionsMenu)) {
+      console.log('Moving Lamed menu to popover container');
+      popoverContainer.appendChild(optionsMenu);
+      if (!optionsMenu.classList.contains('spire-options-menu--popover')) {
+        optionsMenu.classList.add('spire-options-menu--popover');
+      }
+    }
+  }
+}
+
+/**
  * Toggle the dropdown open/closed state with a smooth animation.
  */
-function toggleOptionsMenu() {
+function toggleOptionsMenu(event) {
+  // Reposition menu based on which button was clicked
+  if (event && event.currentTarget) {
+    repositionLamedMenuForContext(event.currentTarget);
+  }
+  
   optionsMenuOpen = !optionsMenuOpen;
   if (optionsMenu) {
     optionsMenu.setAttribute('data-open', optionsMenuOpen ? 'true' : 'false');
@@ -310,6 +359,12 @@ function toggleOptionsMenu() {
     optionsMenu.hidden = !optionsMenuOpen;
     // Dynamically set max-height so CSS transitions work smoothly.
     if (optionsMenuOpen) {
+      const useInline = shouldLamedMenuUseInlineDisplay();
+      if (useInline) {
+        optionsMenu.style.maxWidth = '100%';
+      } else {
+        optionsMenu.style.maxWidth = 'min(320px, calc(100vw - 48px))';
+      }
       optionsMenu.style.maxHeight = `${optionsMenu.scrollHeight + 40}px`;
     } else {
       optionsMenu.style.maxHeight = '0';

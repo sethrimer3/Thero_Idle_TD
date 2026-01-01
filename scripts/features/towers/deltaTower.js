@@ -9,6 +9,27 @@ import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { formatGameNumber } from '../../core/formatting.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
 
+// Δ ship sprite paths point at the white art that will be tinted by the active palette.
+const DELTA_SHIP_SPRITE_PATHS = [
+  '../../../assets/sprites/towers/delta/ship1.png',
+  '../../../assets/sprites/towers/delta/ship2.png',
+];
+
+// Cache 12 tinted variants per ship sprite so palette swaps only pay the recolor cost once.
+const DELTA_SHIP_SPRITE_SAMPLE_COUNT = 12;
+
+// Cache storage for palette-tinted Δ ship sprites (one cache array per ship variant).
+const deltaShipSpriteCaches = [];
+
+// Hold the base sprite images so they can be recolored when palettes change.
+const deltaShipSpriteImages = [];
+
+// Track when each base sprite has finished loading.
+const deltaShipSpritesReady = [];
+
+// Remember that a palette refresh is pending while sprites are still loading.
+let deltaShipSpritesNeedsRefresh = false;
+
 // Fallback gradient anchors Delta colors when palette metadata is unavailable.
 const DELTA_FALLBACK_GRADIENT = [
   { r: 139, g: 247, b: 255 },
@@ -57,6 +78,110 @@ function toRgba({ r, g, b }, alpha = 1) {
   const blue = clamp(Math.round(b), 0, 255);
   const safeAlpha = clamp(alpha, 0, 1);
   return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
+}
+
+// Normalize palette-derived colors to particle-friendly RGB objects.
+function normalizeParticleColor(color) {
+  if (!color || typeof color !== 'object') {
+    return null;
+  }
+  const { r, g, b } = color;
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
+    return null;
+  }
+  return {
+    r: Math.max(0, Math.min(255, Math.round(r))),
+    g: Math.max(0, Math.min(255, Math.round(g))),
+    b: Math.max(0, Math.min(255, Math.round(b))),
+  };
+}
+
+// Lazily load the base Δ ship sprites so cache generation can reuse the decoded images.
+function ensureDeltaShipSpriteImagesLoaded() {
+  if (typeof Image === 'undefined') {
+    return;
+  }
+  DELTA_SHIP_SPRITE_PATHS.forEach((path, index) => {
+    if (deltaShipSpriteImages[index]) {
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      // Mark the sprite ready and rebuild caches if a palette swap happened mid-load.
+      deltaShipSpritesReady[index] = true;
+      if (deltaShipSpritesNeedsRefresh) {
+        deltaShipSpritesNeedsRefresh = false;
+        refreshDeltaShipSpritePaletteCache();
+      }
+    };
+    // Begin loading the white sprite so tinting can happen when palettes change.
+    image.src = path;
+    deltaShipSpriteImages[index] = image;
+  });
+}
+
+// Build a set of palette-tinted canvases for each ship variant that can be reused for fast sprite drawing.
+function buildDeltaShipSpriteCache() {
+  ensureDeltaShipSpriteImagesLoaded();
+  if (typeof document === 'undefined') {
+    return;
+  }
+  DELTA_SHIP_SPRITE_PATHS.forEach((path, shipIndex) => {
+    const image = deltaShipSpriteImages[shipIndex];
+    if (!image || !deltaShipSpritesReady[shipIndex] || !image.naturalWidth || !image.naturalHeight) {
+      deltaShipSpritesNeedsRefresh = true;
+      return;
+    }
+    if (!deltaShipSpriteCaches[shipIndex]) {
+      deltaShipSpriteCaches[shipIndex] = [];
+    }
+    deltaShipSpriteCaches[shipIndex].length = 0;
+    for (let index = 0; index < DELTA_SHIP_SPRITE_SAMPLE_COUNT; index += 1) {
+      const ratio = DELTA_SHIP_SPRITE_SAMPLE_COUNT > 1
+        ? index / (DELTA_SHIP_SPRITE_SAMPLE_COUNT - 1)
+        : 0;
+      const color = normalizeParticleColor(samplePaletteGradient(ratio));
+      if (!color) {
+        continue;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        continue;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-over';
+      deltaShipSpriteCaches[shipIndex].push(canvas);
+    }
+  });
+}
+
+// Refresh the cached sprite variants when the active palette changes.
+export function refreshDeltaShipSpritePaletteCache() {
+  buildDeltaShipSpriteCache();
+}
+
+// Resolve a cached, palette-tinted sprite for a Δ soldier if available.
+function resolveDeltaShipSpriteVariant(soldier) {
+  // Use the ship variant index to pick which ship sprite (ship1 or ship2).
+  const shipVariantIndex = Number.isFinite(soldier?.shipVariantIndex) 
+    ? soldier.shipVariantIndex % DELTA_SHIP_SPRITE_PATHS.length
+    : 0;
+  const cache = deltaShipSpriteCaches[shipVariantIndex];
+  if (!cache || !cache.length) {
+    return null;
+  }
+  // Use the palette variant index to pick which color tint within the chosen ship.
+  const paletteIndex = Number.isFinite(soldier?.spriteVariantIndex)
+    ? soldier.spriteVariantIndex
+    : Math.floor(Math.random() * cache.length);
+  return cache[paletteIndex % cache.length] || null;
 }
 
 // Attach the cohort state to the tower so delta math can run independently of the playfield.
@@ -400,6 +525,10 @@ export function deployDeltaSoldier(playfield, tower, targetInfo = null) {
     swarmPhase: Math.random() * Math.PI * 2,
     swarmSpeedMultiplier: 0.85 + Math.random() * 0.35,
     swarmRadiusMultiplier: 0.8 + Math.random() * 0.6,
+    // Randomly pick which ship sprite variant (ship1 or ship2) this soldier uses.
+    shipVariantIndex: Math.floor(Math.random() * DELTA_SHIP_SPRITE_PATHS.length),
+    // Lock a palette sample index so each soldier keeps a stable tint.
+    spriteVariantIndex: Math.floor(Math.random() * DELTA_SHIP_SPRITE_SAMPLE_COUNT),
   };
 
   state.soldiers.push(soldier);
@@ -854,21 +983,33 @@ export function drawDeltaSoldiers(playfield) {
       ctx.save();
       ctx.translate(soldier.x, soldier.y);
       ctx.rotate(angle + Math.PI / 2);
-      ctx.beginPath();
-      ctx.moveTo(0, -size);
-      ctx.lineTo(-size * 0.6, size * 0.9);
-      ctx.lineTo(size * 0.6, size * 0.9);
-      ctx.closePath();
-      ctx.fillStyle = toRgba(color, 0.35 + healthRatio * 0.45);
-      ctx.strokeStyle = toRgba({ r: 12, g: 16, b: 26 }, 0.9);
-      ctx.lineWidth = Math.max(1.2, size * 0.12);
-      ctx.fill();
-      ctx.stroke();
+      
+      // Try to use the sprite if available, otherwise fall back to triangle.
+      const sprite = resolveDeltaShipSpriteVariant(soldier);
+      if (sprite) {
+        // Draw the cached sprite variant with soldier health-based opacity.
+        const spriteSize = size * 2.5;
+        const alpha = clamp(0.75 + healthRatio * 0.25, 0, 1);
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(sprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      } else {
+        // Fall back to drawing triangle if sprites aren't loaded yet.
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(-size * 0.6, size * 0.9);
+        ctx.lineTo(size * 0.6, size * 0.9);
+        ctx.closePath();
+        ctx.fillStyle = toRgba(color, 0.35 + healthRatio * 0.45);
+        ctx.strokeStyle = toRgba({ r: 12, g: 16, b: 26 }, 0.9);
+        ctx.lineWidth = Math.max(1.2, size * 0.12);
+        ctx.fill();
+        ctx.stroke();
 
-      ctx.beginPath();
-      ctx.fillStyle = toRgba({ r: 6, g: 8, b: 14 }, 0.65 + (1 - healthRatio) * 0.25);
-      ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.beginPath();
+        ctx.fillStyle = toRgba({ r: 6, g: 8, b: 14 }, 0.65 + (1 - healthRatio) * 0.25);
+        ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     });
   });
