@@ -27,9 +27,6 @@ const offlineOverlayElements = {
   tsadiRow: null,
   tsadiMultiplier: null,
   tsadiTotal: null,
-  waalsRow: null,
-  waalsMultiplier: null,
-  waalsTotal: null,
   shinRow: null,
   shinMultiplier: null,
   shinTotal: null,
@@ -205,7 +202,6 @@ async function showOfflineOverlay(summary = {}) {
   const happinessSummary = summary.happiness || {};
   const lamedSummary = summary.lamed || {};
   const tsadiSummary = summary.tsadi || {};
-  const waalsSummary = summary.bindingAgents || {};
   const shinSummary = summary.shin || {};
   const kufSummary = summary.kuf || {};
 
@@ -223,9 +219,6 @@ async function showOfflineOverlay(summary = {}) {
   const tsadiUnlocked = Boolean(tsadiSummary.unlocked);
   const tsadiMultiplierValue = Math.max(0, Number(tsadiSummary.multiplier) || 0);
   const tsadiTotalValue = Math.max(0, Number(tsadiSummary.total) || 0);
-  const waalsUnlocked = Boolean(waalsSummary.unlocked);
-  const waalsMultiplierValue = Math.max(0, Number(waalsSummary.multiplier) || 0);
-  const waalsTotalValue = Math.max(0, Number(waalsSummary.total) || 0);
   const shinUnlocked = Boolean(shinSummary.unlocked);
   const shinMultiplierValue = Math.max(0, Number(shinSummary.multiplier) || 0);
   const shinTotalValue = Math.max(0, Number(shinSummary.total) || 0);
@@ -251,7 +244,6 @@ async function showOfflineOverlay(summary = {}) {
   syncOfflineRowVisibility(happinessRow, happinessUnlocked);
   syncOfflineRowVisibility(lamedRow, lamedUnlocked);
   syncOfflineRowVisibility(tsadiRow, tsadiUnlocked);
-  syncOfflineRowVisibility(waalsRow, waalsUnlocked);
   syncOfflineRowVisibility(shinRow, shinUnlocked);
   syncOfflineRowVisibility(kufRow, kufUnlocked);
 
@@ -266,8 +258,6 @@ async function showOfflineOverlay(summary = {}) {
     lamedTotal,
     tsadiMultiplier,
     tsadiTotal,
-    waalsMultiplier,
-    waalsTotal,
     shinMultiplier,
     shinTotal,
     kufMultiplier,
@@ -292,9 +282,6 @@ async function showOfflineOverlay(summary = {}) {
     animateOfflineNumber(tsadiMultiplier, tsadiUnlocked ? tsadiMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
     }),
-    animateOfflineNumber(waalsMultiplier, waalsUnlocked ? waalsMultiplierValue : 0, {
-      format: dependencies.formatDecimal,
-    }),
     animateOfflineNumber(shinMultiplier, shinUnlocked ? shinMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
     }),
@@ -318,9 +305,6 @@ async function showOfflineOverlay(summary = {}) {
     }),
     animateOfflineNumber(tsadiTotal, tsadiUnlocked ? tsadiTotalValue : 0, {
       format: dependencies.formatGameNumber,
-    }),
-    animateOfflineNumber(waalsTotal, waalsUnlocked ? waalsTotalValue : 0, {
-      format: dependencies.formatDecimal,
     }),
     animateOfflineNumber(shinTotal, shinUnlocked ? shinTotalValue : 0, {
       format: dependencies.formatGameNumber,
@@ -390,9 +374,6 @@ export function bindOfflineOverlayElements() {
   offlineOverlayElements.tsadiRow = document.getElementById('offline-tsadi-row');
   offlineOverlayElements.tsadiMultiplier = document.getElementById('offline-tsadi-multiplier');
   offlineOverlayElements.tsadiTotal = document.getElementById('offline-tsadi-total');
-  offlineOverlayElements.waalsRow = document.getElementById('offline-waals-row');
-  offlineOverlayElements.waalsMultiplier = document.getElementById('offline-waals-multiplier');
-  offlineOverlayElements.waalsTotal = document.getElementById('offline-waals-total');
   offlineOverlayElements.shinRow = document.getElementById('offline-shin-row');
   offlineOverlayElements.shinMultiplier = document.getElementById('offline-shin-multiplier');
   offlineOverlayElements.shinTotal = document.getElementById('offline-shin-total');

@@ -568,16 +568,6 @@ export function createPowderDisplaySystem({
     const tsadiRate = 2.0 + tsadiIdleBonusPerSecond;
     const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
 
-    // Binding agents accrue slowly over idle time to emphasize their value as a crafting reagent.
-    const highestTsadiTier = Math.max(
-      0,
-      Math.floor(Number(spireResourceState.tsadi?.stats?.highestTier) || 0),
-    );
-    const bindingAgentUnlocked = tsadiUnlocked && highestTsadiTier >= WAALS_UNLOCK_TIER;
-    const waalsPerHour = Math.max(0, highestTsadiTier - (WAALS_UNLOCK_TIER - 1));
-    const bindingAgentRatePerMinute = bindingAgentUnlocked ? waalsPerHour / 60 : 0;
-    const bindingAgentTotal = bindingAgentUnlocked ? minutes * bindingAgentRatePerMinute : 0;
-
     // Respect the Shin unlock flag so idle summaries hide the branch until players reach it.
     const shinUnlocked = Boolean(spireResourceState.shin?.unlocked);
     const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
@@ -613,11 +603,6 @@ export function createPowderDisplaySystem({
       total: tsadiTotal,
       unlocked: tsadiUnlocked,
     };
-    summary.bindingAgents = {
-      multiplier: bindingAgentUnlocked ? bindingAgentRatePerMinute : 0,
-      total: bindingAgentTotal,
-      unlocked: bindingAgentUnlocked,
-    };
     summary.shin = {
       multiplier: shinUnlocked ? shinRate * 60 : 0,
       total: shinTotal,
@@ -652,14 +637,6 @@ export function createPowderDisplaySystem({
     }
     if (summary.tsadi.unlocked && summary.tsadi.total > 0) {
       setTsadiParticleBank(getTsadiParticleBank() + summary.tsadi.total);
-    }
-    if (summary.bindingAgents.unlocked && summary.bindingAgents.total > 0) {
-      const updatedBindingAgents = setTsadiBindingAgents(
-        getTsadiBindingAgents() + summary.bindingAgents.total,
-      );
-      if (typeof onTsadiBindingAgentsChange === 'function') {
-        onTsadiBindingAgentsChange(updatedBindingAgents);
-      }
     }
     if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
       addIterons(summary.shin.total);
