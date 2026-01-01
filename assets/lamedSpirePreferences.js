@@ -65,6 +65,8 @@ let optionsMenuOpen = false;
 
 // DOM element references cached after binding.
 let optionsToggleButton = null;
+// Secondary toggle for the corner cog button on the Lamed spire render.
+let optionsToggleButtonCorner = null;
 let optionsMenu = null;
 let graphicsLevelButton = null;
 let dustParticlesToggle = null;
@@ -316,6 +318,9 @@ function toggleOptionsMenu() {
   if (optionsToggleButton) {
     optionsToggleButton.setAttribute('aria-expanded', optionsMenuOpen ? 'true' : 'false');
   }
+  if (optionsToggleButtonCorner) {
+    optionsToggleButtonCorner.setAttribute('aria-expanded', optionsMenuOpen ? 'true' : 'false');
+  }
 }
 
 /**
@@ -379,6 +384,7 @@ function applyRenderSizeLayout() {
  */
 export function bindLamedSpireOptions() {
   optionsToggleButton = document.getElementById('lamed-options-toggle-button');
+  optionsToggleButtonCorner = document.getElementById('lamed-spire-options-toggle-button');
   optionsMenu = document.getElementById('lamed-options-menu');
   graphicsLevelButton = document.getElementById('lamed-graphics-level-button');
   dustParticlesToggle = document.getElementById('lamed-dust-toggle');
@@ -392,6 +398,10 @@ export function bindLamedSpireOptions() {
 
   if (optionsToggleButton) {
     optionsToggleButton.addEventListener('click', toggleOptionsMenu);
+  }
+  // Allow the corner cog button to open the same Lamed options menu.
+  if (optionsToggleButtonCorner) {
+    optionsToggleButtonCorner.addEventListener('click', toggleOptionsMenu);
   }
 
   if (graphicsLevelButton) {

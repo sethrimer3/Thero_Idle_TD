@@ -104,6 +104,8 @@ import {
   bindPlayfieldTrackTypeButton,
   bindTowerLoadoutToggleSideButton,
   initializeTowerLoadoutToggleSidePreference,
+  bindSpireOptionsPlacementButton,
+  initializeSpireOptionsPlacementPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
@@ -6170,6 +6172,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindPlayfieldTrackTypeButton();
     initializeTowerLoadoutToggleSidePreference();
     bindTowerLoadoutToggleSideButton();
+    // Sync the spire options placement toggle before binding render-specific buttons.
+    initializeSpireOptionsPlacementPreference();
+    bindSpireOptionsPlacementButton();
     initializePlayfieldPreferences();
     bindPlayfieldOptions();
 
@@ -6182,9 +6187,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     
     // Activate spire option dropdown toggles so every tab shares the same UX as Lamed.
     bindSpireOptionsDropdown({
-      toggleId: 'powder-options-toggle-button',
+      toggleId: 'powder-spire-options-toggle-button',
       menuId: 'powder-options-menu',
       spireId: 'powder',
+      // Sync the footer spire button with the corner cog.
+      extraToggleIds: ['powder-options-toggle-button'],
+      // Close the Aleph spire popover when clicking outside.
+      closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
       toggleId: 'fluid-options-toggle-button',
@@ -6201,19 +6210,31 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
-      toggleId: 'tsadi-options-toggle-button',
+      toggleId: 'tsadi-spire-options-toggle-button',
       menuId: 'tsadi-options-menu',
       spireId: 'tsadi',
+      // Sync the footer spire button with the corner cog.
+      extraToggleIds: ['tsadi-options-toggle-button'],
+      // Close the Tsadi spire popover when clicking outside.
+      closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
-      toggleId: 'shin-options-toggle-button',
+      toggleId: 'shin-spire-options-toggle-button',
       menuId: 'shin-options-menu',
       spireId: 'shin',
+      // Sync the footer spire button with the corner cog.
+      extraToggleIds: ['shin-options-toggle-button'],
+      // Close the Shin spire popover when clicking outside.
+      closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
-      toggleId: 'kuf-options-toggle-button',
+      toggleId: 'kuf-spire-options-toggle-button',
       menuId: 'kuf-options-menu',
       spireId: 'kuf',
+      // Sync the footer spire button with the corner cog.
+      extraToggleIds: ['kuf-options-toggle-button'],
+      // Close the Kuf spire popover when clicking outside.
+      closeOnOutside: true,
     });
     bindSpireOptionsDropdown({
       toggleId: 'cognitive-realm-options-toggle',
