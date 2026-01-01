@@ -603,6 +603,11 @@ export class KufBattlefieldSimulation {
 
   /**
    * Generate formation waypoints centered on the target with diameter gaps between units.
+   * 
+   * Units are arranged in a lattice grid where each unit is spaced 1 diameter apart (edge-to-edge).
+   * For example, if units are 1 meter in diameter, the center-to-center spacing will be 2 meters,
+   * resulting in 1 meter of clearance between unit edges so they never overlap.
+   * 
    * @param {Array<object>} units - Units that should be arranged into the formation.
    * @param {number} targetX - Formation center X coordinate.
    * @param {number} targetY - Formation center Y coordinate.
@@ -615,8 +620,10 @@ export class KufBattlefieldSimulation {
     }
     // Use the largest unit radius to guarantee enough spacing for mixed unit sizes.
     const maxRadius = Math.max(...units.map((unit) => unit.radius || MARINE_RADIUS));
-    // Keep units close while leaving roughly a diameter of space between them.
-    const spacing = Math.max(maxRadius * 4, 18);
+    // Spacing calculation: To keep units 1 diameter apart (edge-to-edge), the center-to-center
+    // distance must be 2 diameters = 4 radii. This ensures no unit will overlap during movement.
+    const diameter = maxRadius * 2;
+    const spacing = diameter * 2;  // Center-to-center distance = 2 diameters
     // Calculate a near-square grid for even distribution around the center.
     const columns = Math.ceil(Math.sqrt(units.length));
     const rows = Math.ceil(units.length / columns);
