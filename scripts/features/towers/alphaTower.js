@@ -2,6 +2,24 @@
 import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
+// α shot sprite path points at the white particle art that will be tinted by the active palette.
+const ALPHA_SHOT_SPRITE_PATH = '../../../assets/sprites/towers/alpha/shots/alphaShotParticle.png';
+
+// Cache 12 tinted variants so palette swaps only pay the recolor cost once.
+const ALPHA_SHOT_SPRITE_SAMPLE_COUNT = 12;
+
+// Cache storage for palette-tinted α shot sprites.
+const alphaShotSpriteCache = [];
+
+// Hold the base sprite image so it can be recolored when palettes change.
+let alphaShotSpriteImage = null;
+
+// Track when the base sprite has finished loading.
+let alphaShotSpriteReady = false;
+
+// Remember that a palette refresh is pending while the sprite is still loading.
+let alphaShotSpriteNeedsRefresh = false;
+
 // Soft energy palette alternates between magenta and cyan to keep α resonant.
 const ALPHA_PARTICLE_COLORS = [
   { r: 255, g: 138, b: 216 },
@@ -25,6 +43,70 @@ function normalizeParticleColor(color) {
     g: Math.max(0, Math.min(255, Math.round(g))),
     b: Math.max(0, Math.min(255, Math.round(b))),
   };
+}
+
+// Lazily load the base α sprite so cache generation can reuse the decoded image.
+function ensureAlphaShotSpriteImageLoaded() {
+  if (typeof Image === 'undefined') {
+    return null;
+  }
+  if (alphaShotSpriteImage) {
+    return alphaShotSpriteImage;
+  }
+  const image = new Image();
+  image.onload = () => {
+    // Mark the sprite ready and rebuild caches if a palette swap happened mid-load.
+    alphaShotSpriteReady = true;
+    if (alphaShotSpriteNeedsRefresh) {
+      alphaShotSpriteNeedsRefresh = false;
+      refreshAlphaShotSpritePaletteCache();
+    }
+  };
+  // Begin loading the white sprite so tinting can happen when palettes change.
+  image.src = ALPHA_SHOT_SPRITE_PATH;
+  alphaShotSpriteImage = image;
+  return image;
+}
+
+// Build a set of palette-tinted canvases that can be reused for fast sprite drawing.
+function buildAlphaShotSpriteCache() {
+  const image = ensureAlphaShotSpriteImageLoaded();
+  if (!image || !alphaShotSpriteReady || !image.naturalWidth || !image.naturalHeight) {
+    alphaShotSpriteNeedsRefresh = true;
+    return;
+  }
+  if (typeof document === 'undefined') {
+    return;
+  }
+  alphaShotSpriteCache.length = 0;
+  for (let index = 0; index < ALPHA_SHOT_SPRITE_SAMPLE_COUNT; index += 1) {
+    const ratio = ALPHA_SHOT_SPRITE_SAMPLE_COUNT > 1
+      ? index / (ALPHA_SHOT_SPRITE_SAMPLE_COUNT - 1)
+      : 0;
+    const color = normalizeParticleColor(samplePaletteGradient(ratio));
+    if (!color) {
+      continue;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      continue;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+    alphaShotSpriteCache.push(canvas);
+  }
+}
+
+// Refresh the cached sprite variants when the active palette changes.
+export function refreshAlphaShotSpritePaletteCache() {
+  buildAlphaShotSpriteCache();
 }
 
 // Pull two hues from the shared gradient so α motes echo the global palette while retaining a fallback.
@@ -148,6 +230,10 @@ function createParticleCloud(playfield, tower, burst) {
   const minCount = Number.isFinite(range.min) ? range.min : 5;
   const maxCount = Number.isFinite(range.max) ? range.max : Math.max(minCount, 10);
   const particleCount = Math.max(1, randomInt(minCount, maxCount));
+  // Ensure the tinted sprite cache is ready before assigning variants to new particles.
+  if (!alphaShotSpriteCache.length) {
+    refreshAlphaShotSpritePaletteCache();
+  }
   const palette = resolveBurstPalette(playfield, tower, burst, config, particleCount);
   const particles = [];
   for (let index = 0; index < particleCount; index += 1) {
@@ -171,6 +257,8 @@ function createParticleCloud(playfield, tower, burst) {
       bounceDuration: 0.32 + Math.random() * 0.18,
       fadeDuration: 0.18 + Math.random() * 0.12,
       color,
+      // Lock a palette sample index so each particle keeps a stable tint.
+      spriteVariantIndex: Math.floor(Math.random() * ALPHA_SHOT_SPRITE_SAMPLE_COUNT),
       lineIndex: index,
       totalParticles: particleCount,
       position: {
@@ -788,13 +876,38 @@ function updateBurst(playfield, burst, delta) {
   return !burst.done;
 }
 
+// Resolve a cached, palette-tinted sprite for an α particle if available.
+function resolveAlphaShotSpriteVariant(particle) {
+  if (!alphaShotSpriteCache.length) {
+    return null;
+  }
+  const index = Number.isFinite(particle?.spriteVariantIndex)
+    ? particle.spriteVariantIndex
+    : Math.floor(Math.random() * alphaShotSpriteCache.length);
+  return alphaShotSpriteCache[index % alphaShotSpriteCache.length] || null;
+}
+
 // Paint an individual particle as a soft radial gradient with additive blending.
 function drawParticle(ctx, particle) {
-  if (!particle.position || particle.opacity <= 0 || !particle.color) {
+  if (!particle.position || particle.opacity <= 0) {
     return;
   }
   const size = Math.max(2, particle.renderSize || particle.size || 6);
   const { x, y } = particle.position;
+  const sprite = resolveAlphaShotSpriteVariant(particle);
+  if (sprite) {
+    // Draw the cached sprite variant with particle opacity for the new shot visuals.
+    const drawSize = size * 2;
+    const alpha = clamp(particle.opacity, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprite, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
+    ctx.restore();
+    return;
+  }
+  if (!particle.color) {
+    return;
+  }
   const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
   const { r, g, b } = particle.color;
   const alpha = clamp(particle.opacity, 0, 1);
