@@ -184,6 +184,10 @@ import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsad
 import { createSpireResourceBanks } from './spireResourceBanks.js';
 // Alpha tower sprite tint cache builder for palette-synced shot particles.
 import { refreshAlphaShotSpritePaletteCache } from '../scripts/features/towers/alphaTower.js';
+// Beta tower sprite tint cache builder for palette-synced shot particles.
+import { refreshBetaShotSpritePaletteCache } from '../scripts/features/towers/betaTower.js';
+// Delta tower sprite tint cache builder for palette-synced ship sprites.
+import { refreshDeltaShipSpritePaletteCache } from '../scripts/features/towers/deltaTower.js';
 // Powder tower palette and simulation helpers.
 import {
   DEFAULT_MOTE_PALETTE,
@@ -3644,8 +3648,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       if (playfield) {
         playfield.draw();
       }
-      // Rebuild cached alpha shot sprites so palette swaps tint the new particles.
+      // Rebuild cached alpha, beta, and delta sprites so palette swaps tint the new particles.
       refreshAlphaShotSpritePaletteCache();
+      refreshBetaShotSpritePaletteCache();
+      refreshDeltaShipSpritePaletteCache();
       refreshTowerIconPalettes();
     },
   });
