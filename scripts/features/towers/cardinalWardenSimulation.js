@@ -5326,26 +5326,15 @@ export class CardinalWardenSimulation {
       const lifetimeCheck = bullet.lifetimeMultiplier || 1;
       const baseLifetime = 5000; // Base lifetime in milliseconds
       const adjustedLifetime = baseLifetime * lifetimeCheck;
+      const isOffscreen = bullet.isOffscreen(this.canvas.width, this.canvas.height);
       
-      // Check both offscreen and age-based removal
-      if (bullet.age > adjustedLifetime || bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
-        if (lifetimeCheck < 1) {
-          // Short lifetime: remove if age exceeds adjusted lifetime
-          if (bullet.age > adjustedLifetime) {
-            toRemove.push(i);
-          } else if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
-            toRemove.push(i);
-          }
-        } else if (lifetimeCheck > 1) {
-          // Long lifetime: only remove if offscreen AND age exceeds extended limit
-          if (bullet.age > adjustedLifetime && bullet.isOffscreen(this.canvas.width * 1.2, this.canvas.height * 1.2)) {
-            toRemove.push(i);
-          }
-        } else {
-          // Normal lifetime: standard offscreen check
-          if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
-            toRemove.push(i);
-          }
+      // Check age-based removal first, then offscreen
+      if (bullet.age > adjustedLifetime) {
+        toRemove.push(i);
+      } else if (isOffscreen) {
+        // Only for normal/extended lifetime, allow some offscreen time
+        if (lifetimeCheck <= 1 || bullet.age > adjustedLifetime * 0.8) {
+          toRemove.push(i);
         }
       }
     }
@@ -5404,9 +5393,9 @@ export class CardinalWardenSimulation {
           // Handle new grapheme effects on hit (O-Z)
           
           // Grapheme Q (index 16) - Split bullets
-          if (bullet.splitCount > 0 && !bulletsToRemove.has(bi)) {
+          if (bullet.splitCount > 1 && !bulletsToRemove.has(bi)) {
             const splitAngle = SPLIT_CONFIG.SPLIT_SPREAD_ANGLE;
-            const angleStep = splitAngle / (bullet.splitCount - 1);
+            const angleStep = bullet.splitCount > 1 ? splitAngle / (bullet.splitCount - 1) : 0;
             const startAngle = bullet.baseAngle - (splitAngle / 2);
             
             for (let s = 0; s < bullet.splitCount; s++) {
@@ -5427,12 +5416,12 @@ export class CardinalWardenSimulation {
           // Note: Initial enemy already received full damage above in normal collision
           // This chains ADDITIONAL damage to nearby enemies
           if (bullet.chainCount > 0) {
-            let currentChainDamage = bullet.damage; // Start with full damage for first chain target
+            let currentChainDamage = bullet.damage * CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER; // First chain gets reduced damage
             let currentTarget = enemy;
             const chainedTargets = new Set([ei]); // Track to avoid chaining to same target (includes initial hit)
             
             for (let c = 0; c < bullet.chainCount; c++) {
-              // Apply damage decay for subsequent chains (after first chain target)
+              // Apply additional damage decay for subsequent chains (after first chain target)
               if (c > 0) {
                 currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
               }
