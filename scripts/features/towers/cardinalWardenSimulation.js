@@ -87,6 +87,11 @@ import {
 
 // Configuration constants now imported from cardinalWardenConfig.js
 
+// Sprite assets for Shin spire bullet projectiles (levels 1-16).
+const SHIN_BULLET_SPRITE_URLS = Array.from({ length: 16 }, (_, index) => (
+  new URL(`../../../assets/sprites/spires/shinSpire/bullets/bulletLevel${index + 1}.png`, import.meta.url).href
+));
+
 /**
  * Lighten a hex color by blending it toward white.
  */
@@ -2386,6 +2391,13 @@ export class CardinalWardenSimulation {
     this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
     this.loadScriptSpriteSheet();
 
+    // Bullet sprite artwork for Shin spire projectiles.
+    this.bulletSprites = [];
+    // Track which bullet sprite images have finished loading.
+    this.bulletSpriteLoaded = [];
+    // Begin preloading bullet sprites so they can be drawn during render.
+    this.loadBulletSprites();
+
     // Game state
     this.running = false;
     this.paused = false;
@@ -2739,6 +2751,29 @@ export class CardinalWardenSimulation {
     };
     // Path is relative to the HTML page (index.html)
     this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
+  }
+
+  /**
+   * Load bullet sprites so Shin spire projectiles can render with the uploaded artwork.
+   */
+  loadBulletSprites() {
+    // Skip sprite loading on non-browser contexts.
+    if (typeof Image === 'undefined') {
+      return;
+    }
+    SHIN_BULLET_SPRITE_URLS.forEach((url, index) => {
+      // Initialize each sprite entry for fast lookup during render.
+      const sprite = new Image();
+      sprite.onload = () => {
+        // Record sprite readiness by 1-based bullet level index.
+        this.bulletSpriteLoaded[index + 1] = true;
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load Shin bullet sprite: ${url}`);
+      };
+      sprite.src = url;
+      this.bulletSprites[index + 1] = sprite;
+    });
   }
 
   /**
@@ -6609,10 +6644,29 @@ export class CardinalWardenSimulation {
       // ThoughtSpeak shape override - use if present
       const effectiveShape = bullet.thoughtSpeakShape !== null ? bullet.thoughtSpeakShape : bulletLevel;
       const hasShape = effectiveShape >= 3;
+      // Resolve the bullet heading once for sprite alignment and flare direction.
+      const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
+
+      // Render the Shin bullet sprite artwork when available.
+      if (this.bulletSprites[effectiveShape] && this.bulletSpriteLoaded[effectiveShape]) {
+        // Scale the sprite to match the bullet's size and rotate into travel direction.
+        ctx.save();
+        ctx.translate(bullet.x, bullet.y);
+        ctx.rotate(heading + Math.PI / 2);
+        ctx.globalAlpha = 0.9;
+        const spriteSize = bullet.size * 3.1;
+        ctx.drawImage(
+          this.bulletSprites[effectiveShape],
+          -spriteSize / 2,
+          -spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+        ctx.restore();
+      }
 
       // Directional flare to emphasize travel direction (only shown on level 2+ or when shape is present)
       if (bulletLevel >= 2 || hasShape) {
-        const heading = bullet.baseAngle !== undefined ? bullet.baseAngle : bullet.angle || -Math.PI / 2;
         const flareLength = bullet.size * 3.5;
         ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(0, 0, 0, 0.55)';
         ctx.lineWidth = Math.max(1.2, bullet.size * 0.45);
