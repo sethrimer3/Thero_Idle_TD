@@ -10,6 +10,7 @@ import { formatGameNumber } from '../../core/formatting.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
 
 // Δ ship sprite paths point at the white art that will be tinted by the active palette.
+// Note: Delta ship sprites are oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
 const DELTA_SHIP_SPRITE_PATHS = [
   '../../../assets/sprites/towers/delta/ship1.png',
   '../../../assets/sprites/towers/delta/ship2.png',
