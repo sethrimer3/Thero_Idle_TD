@@ -492,6 +492,11 @@ export class BetSpireRender {
       this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
     });
     
+    // Track generator fade-in animations (tierId -> {startTime, duration})
+    this.generatorFadeIns = new Map();
+    const GENERATOR_FADE_IN_DURATION = 2000; // 2 seconds fade-in
+    this.GENERATOR_FADE_IN_DURATION = GENERATOR_FADE_IN_DURATION;
+    
     // Particle Factor tracking for BET glyph awards - load from state or use defaults
     this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
       ? state.particleFactorMilestone 
@@ -552,10 +557,15 @@ export class BetSpireRender {
     this.forgeCrunchActive = false; // Whether crunch animation is active
     this.forgeCrunchProgress = 0; // Progress of crunch animation (0 to 1)
     this.forgeCrunchStartTime = null; // When crunch animation started
+    this.forgeCrunchEndTime = null; // When crunch animation ended
     const FORGE_CRUNCH_DURATION = 1000; // Duration of crunch animation in ms
     const FORGE_VALID_WAIT_TIME = 5000; // Wait 5 seconds before crunching
+    const FORGE_SPIN_UP_DURATION = 4000; // 4 seconds to spin up before crunch
+    const FORGE_SPIN_DOWN_DURATION = 3000; // 3 seconds to slow down after crunch
     this.FORGE_CRUNCH_DURATION = FORGE_CRUNCH_DURATION;
     this.FORGE_VALID_WAIT_TIME = FORGE_VALID_WAIT_TIME;
+    this.FORGE_SPIN_UP_DURATION = FORGE_SPIN_UP_DURATION;
+    this.FORGE_SPIN_DOWN_DURATION = FORGE_SPIN_DOWN_DURATION;
     
     // Track gems awarded from forge crunches for floating feedback display
     this.crunchGemAwards = []; // Array of {tierId, count, startTime}
@@ -619,6 +629,12 @@ export class BetSpireRender {
       if (!this.spawnerRotations.has(tierId)) {
         this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
       }
+      
+      // Start fade-in animation for the newly unlocked generator
+      this.generatorFadeIns.set(tierId, {
+        startTime: Date.now(),
+        duration: this.GENERATOR_FADE_IN_DURATION
+      });
     }
     
     this.updateInventory();
@@ -1066,14 +1082,47 @@ export class BetSpireRender {
     }
   }
 
-  // Scale the forge spin so crunches ramp up to triple speed, then ease back to baseline.
-  getForgeRotationSpeedMultiplier() {
-    if (!this.forgeCrunchActive) {
-      return 1;
+  // Scale the forge spin through three phases:
+  // 1. Spin up for 4 seconds before crunch (when valid particles are present)
+  // 2. Maximum speed during crunch (1 second)
+  // 3. Spin down for 3 seconds after crunch
+  getForgeRotationSpeedMultiplier(now) {
+    // Phase 3: Spin-down after crunch completes
+    if (this.forgeCrunchEndTime) {
+      const timeSinceEnd = now - this.forgeCrunchEndTime;
+      if (timeSinceEnd < this.FORGE_SPIN_DOWN_DURATION) {
+        // Ease out from 3x back to 1x over 3 seconds
+        const progress = timeSinceEnd / this.FORGE_SPIN_DOWN_DURATION;
+        const easeOut = 1 - Math.pow(1 - progress, 2); // Quadratic ease-out
+        return 3 - (2 * easeOut); // Goes from 3 to 1
+      } else {
+        // Spin-down complete
+        this.forgeCrunchEndTime = null;
+        return 1;
+      }
     }
 
-    const ramp = Math.sin(this.forgeCrunchProgress * Math.PI);
-    return 1 + 2 * ramp;
+    // Phase 2: During crunch - maintain maximum speed
+    if (this.forgeCrunchActive) {
+      return 3;
+    }
+
+    // Phase 1: Spin-up when valid particles are waiting
+    if (this.forgeValidParticlesTimer) {
+      const elapsed = now - this.forgeValidParticlesTimer;
+      // Start spinning up in the last 4 seconds before crunch
+      const timeUntilCrunch = this.FORGE_VALID_WAIT_TIME - elapsed;
+      if (timeUntilCrunch <= this.FORGE_SPIN_UP_DURATION) {
+        // Ease in from 1x to 3x over 4 seconds
+        const spinUpElapsed = this.FORGE_SPIN_UP_DURATION - timeUntilCrunch;
+        const progress = spinUpElapsed / this.FORGE_SPIN_UP_DURATION;
+        const easeIn = progress * progress; // Quadratic ease-in
+        return 1 + (2 * easeIn); // Goes from 1 to 3
+      }
+    }
+
+    // No special state - base speed
+    return 1;
   }
 
   // Complete the forge crunch and upgrade particles
@@ -1151,10 +1200,11 @@ export class BetSpireRender {
       });
     }
 
-    // Reset crunch state
+    // Reset crunch state and mark end time for spin-down
     this.forgeCrunchActive = false;
     this.forgeCrunchProgress = 0;
     this.forgeCrunchStartTime = null;
+    this.forgeCrunchEndTime = Date.now(); // Track when crunch ended for spin-down
   }
 
   // Draw the forge crunch effect (shrinking circle)
@@ -1439,6 +1489,12 @@ export class BetSpireRender {
           if (!this.spawnerRotations.has(merge.tierId)) {
             this.spawnerRotations.set(merge.tierId, Math.random() * Math.PI * 2);
           }
+          
+          // Start fade-in animation for the newly unlocked generator
+          this.generatorFadeIns.set(merge.tierId, {
+            startTime: Date.now(),
+            duration: this.GENERATOR_FADE_IN_DURATION
+          });
         }
         
         // Mark that a merge completed (defer inventory update until after all merges processed)
@@ -1730,7 +1786,7 @@ export class BetSpireRender {
     this.updateForgeCrunch(now);
 
     // Accelerate forge spin during crunches so the animation ramps up and down.
-    const forgeRotationMultiplier = this.getForgeRotationSpeedMultiplier();
+    const forgeRotationMultiplier = this.getForgeRotationSpeedMultiplier(now);
     this.forgeRotation += FORGE_ROTATION_SPEED * forgeRotationMultiplier * deltaFrameRatio;
     
     // Draw the forge (Star of David with counter-rotating triangles)
@@ -1955,8 +2011,27 @@ export class BetSpireRender {
     ctx.save();
     ctx.translate(this.forge.x, this.forge.y);
     
-    // Draw first triangle (pointing up, rotating clockwise)
-    ctx.rotate(this.forgeRotation);
+    // Draw second triangle first (pointing down, rotating counter-clockwise) - forge2.png renders in back
+    ctx.rotate(-this.forgeRotation);
+    if (forgeCounterSpriteReady) {
+      // Draw the counter-clockwise forge sprite once the image has finished loading.
+      ctx.globalAlpha = forgeSpriteOpacity;
+      ctx.drawImage(this.forgeSpriteCounterClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+      ctx.globalAlpha = 1;
+    } else {
+      // Fallback to vector triangles if the sprite has not loaded yet.
+      ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, forgeSize);
+      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+      ctx.closePath();
+      ctx.stroke();
+    }
+    
+    // Draw first triangle second (pointing up, rotating clockwise) - forge.png renders in front
+    ctx.rotate(this.forgeRotation * 2); // Reset and rotate to clockwise position
     if (forgeSpriteReady) {
       // Draw the clockwise forge sprite once the image has finished loading.
       ctx.globalAlpha = forgeSpriteOpacity;
@@ -1974,27 +2049,9 @@ export class BetSpireRender {
       ctx.stroke();
     }
     
-    // Draw second triangle (pointing down, rotating counter-clockwise)
-    ctx.rotate(-this.forgeRotation * 2); // Reset and rotate opposite direction
-    if (forgeCounterSpriteReady) {
-      // Draw the counter-clockwise forge sprite once the image has finished loading.
-      ctx.globalAlpha = forgeSpriteOpacity;
-      ctx.drawImage(this.forgeSpriteCounterClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
-      ctx.globalAlpha = 1;
-    } else {
-      // Fallback to vector triangles if the sprite has not loaded yet.
-      ctx.strokeStyle = 'rgba(200, 200, 255, 0.6)';
-      ctx.beginPath();
-      ctx.moveTo(0, forgeSize);
-      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
-      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
-      ctx.closePath();
-      ctx.stroke();
-    }
-    
     // Draw center glow (only if glow is enabled)
     if (this.forgeGlowEnabled) {
-      ctx.rotate(this.forgeRotation); // Rotate back to center
+      ctx.rotate(-this.forgeRotation); // Rotate back to center
       const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, forgeSize);
       gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
       gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
@@ -2022,6 +2079,7 @@ export class BetSpireRender {
 
   drawSpawners() {
     const ctx = this.ctx;
+    const now = Date.now();
     
     // Draw a mini forge for each unlocked particle tier
     // Each tier is positioned at its corresponding generator position
@@ -2035,8 +2093,24 @@ export class BetSpireRender {
       const position = SPAWNER_POSITIONS[tierIndex];
       const rotation = this.spawnerRotations.get(tierId) || 0;
       
+      // Calculate fade-in opacity
+      let opacity = 1;
+      const fadeIn = this.generatorFadeIns.get(tierId);
+      if (fadeIn) {
+        const elapsed = now - fadeIn.startTime;
+        if (elapsed < fadeIn.duration) {
+          // Ease-in fade from 0 to 1
+          opacity = elapsed / fadeIn.duration;
+          opacity = opacity * opacity; // Square for ease-in effect
+        } else {
+          // Animation complete, remove from tracking
+          this.generatorFadeIns.delete(tierId);
+        }
+      }
+      
       ctx.save();
       ctx.translate(position.x, position.y);
+      ctx.globalAlpha = opacity;
       
       // Create color string from tier color
       const color = tier.color;
