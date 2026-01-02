@@ -59,6 +59,8 @@ enemyParticleSprite.decoding = 'async';
 enemyParticleSprite.loading = 'eager';
 
 // Epsilon needle sprite provides the projectile silhouette that we tint with the active palette.
+// Note: Epsilon needle sprite is oriented with the needle pointing upward and does NOT rotate during flight.
+// See docs/TOWER_SPRITE_ORIENTATION.md for sprite orientation conventions.
 const EPSILON_NEEDLE_SPRITE_URL = 'assets/sprites/towers/epsilon/projectiles/epsilonProjectile.png';
 const epsilonNeedleSprite = new Image();
 epsilonNeedleSprite.src = EPSILON_NEEDLE_SPRITE_URL;
@@ -3232,7 +3234,8 @@ function drawProjectiles() {
       const tintedSprite = resolveEpsilonNeedleSprite(paletteRatio);
       ctx.save();
       ctx.translate(position.x, position.y);
-      ctx.rotate(heading);
+      // Note: Epsilon needle sprite does NOT rotate - it maintains upward orientation.
+      // The sprite is designed with the needle pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
       ctx.globalAlpha = alpha;
       if (tintedSprite) {
         // Scale the needle sprite to roughly match the legacy vector length.
@@ -3241,9 +3244,11 @@ function drawProjectiles() {
         const scale = targetLength / reference;
         const spriteWidth = (tintedSprite.width || reference) * scale;
         const spriteHeight = (tintedSprite.height || reference) * scale;
+        // Draw sprite without rotation - needle stays pointing upward
         ctx.drawImage(tintedSprite, -spriteWidth * 0.5, -spriteHeight * 0.5, spriteWidth, spriteHeight);
       } else {
-        // Fallback vector needle preserves visibility if the sprite has not loaded.
+        // Fallback vector needle uses heading for backward compatibility
+        ctx.rotate(heading);
         ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
         ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
         ctx.lineWidth = 0.9;
