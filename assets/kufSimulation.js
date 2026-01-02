@@ -231,6 +231,8 @@ export class KufBattlefieldSimulation {
     this.toolbarTapTimer = null;
     // Track which toolbar slot is pending a single-tap equip swap.
     this.pendingToolbarSlotIndex = null;
+    // Track which toolbar slot is currently glowing (single tap without double-tap).
+    this.glowingToolbarSlotIndex = null;
     // Cache the latest unit statlines for on-demand training spawns.
     this.unitStats = {
       worker: { ...DEFAULT_UNIT_STATS.MARINE },
@@ -533,6 +535,9 @@ export class KufBattlefieldSimulation {
    * @param {number} canvasY - Y coordinate within the canvas.
    */
   handleCommandTap(canvasX, canvasY) {
+    // Clear toolbar glow when clicking elsewhere in the battlefield.
+    this.clearToolbarGlow();
+    
     const { x: worldX, y: worldY } = this.canvasToWorld(canvasX, canvasY);
     const enemy = this.findEnemyAtPoint(worldX, worldY);
     if (enemy) {
@@ -923,6 +928,13 @@ export class KufBattlefieldSimulation {
   }
 
   /**
+   * Clear the glowing state for the toolbar slots.
+   */
+  clearToolbarGlow() {
+    this.glowingToolbarSlotIndex = null;
+  }
+
+  /**
    * Handle taps that land on the training toolbar.
    * @param {number} canvasX - X coordinate within the canvas.
    * @param {number} canvasY - Y coordinate within the canvas.
@@ -937,27 +949,22 @@ export class KufBattlefieldSimulation {
     const isDoubleTap = this.lastToolbarTap.slotIndex === slotIndex &&
       (now - this.lastToolbarTap.time) < this.doubleTapThreshold;
     if (isDoubleTap) {
-      // Clear pending single-tap equip swaps so double-tap starts training immediately.
+      // Clear pending single-tap actions so double-tap starts training immediately.
       if (this.toolbarTapTimer) {
         clearTimeout(this.toolbarTapTimer);
         this.toolbarTapTimer = null;
         this.pendingToolbarSlotIndex = null;
       }
+      // Clear the glow state when double-tapping to start training.
+      this.clearToolbarGlow();
       this.lastToolbarTap = { time: 0, slotIndex: null };
       this.tryStartTraining(slotIndex);
       return true;
     }
-    // Schedule a single-tap equip swap after the double-tap window closes.
+    // Single tap: just make the slot glow (indicate selection).
     this.lastToolbarTap = { time: now, slotIndex };
-    if (this.toolbarTapTimer) {
-      clearTimeout(this.toolbarTapTimer);
-    }
-    this.pendingToolbarSlotIndex = slotIndex;
-    this.toolbarTapTimer = setTimeout(() => {
-      this.cycleToolbarSlotUnit(this.pendingToolbarSlotIndex);
-      this.toolbarTapTimer = null;
-      this.pendingToolbarSlotIndex = null;
-    }, this.doubleTapThreshold);
+    this.glowingToolbarSlotIndex = slotIndex;
+    // No need to schedule anything - the glow is just visual feedback.
     return true;
   }
 
@@ -1103,6 +1110,8 @@ export class KufBattlefieldSimulation {
       this.toolbarTapTimer = null;
       this.pendingToolbarSlotIndex = null;
     }
+    // Clear the glowing toolbar slot state.
+    this.clearToolbarGlow();
     this.drawBackground(true);
   }
 
@@ -2257,6 +2266,8 @@ export class KufBattlefieldSimulation {
     
     // Draw waypoint marker if set
     this.drawWaypointMarker();
+    // Draw lines from units to their waypoints
+    this.drawUnitWaypointLines();
 
     ctx.restore();
 
@@ -2798,16 +2809,26 @@ export class KufBattlefieldSimulation {
    */
   drawTrainingToolbar(layout) {
     const ctx = this.ctx;
-    layout.slots.forEach(({ x, y, size, slot }) => {
+    layout.slots.forEach(({ x, y, size, slot }, index) => {
       ctx.save();
       // Pull the live spec for the currently equipped unit in this slot.
       const spec = this.getTrainingSpecForSlot(slot);
       const canAfford = this.goldEarned >= spec.cost;
+      const isGlowing = this.glowingToolbarSlotIndex === index;
+      
       ctx.fillStyle = 'rgba(10, 15, 35, 0.8)';
-      ctx.strokeStyle = 'rgba(160, 210, 255, 0.6)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isGlowing ? 'rgba(120, 255, 200, 0.9)' : 'rgba(160, 210, 255, 0.6)';
+      ctx.lineWidth = isGlowing ? 3 : 2;
       ctx.fillRect(x, y, size, size);
       ctx.strokeRect(x, y, size, size);
+      
+      // Add a subtle glow effect when the slot is selected
+      if (isGlowing) {
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = 'rgba(120, 255, 200, 0.6)';
+        ctx.strokeRect(x, y, size, size);
+        ctx.shadowBlur = 0;
+      }
 
       if (slot.isTraining) {
         // Darken the icon area while the unit is training.
@@ -2922,6 +2943,42 @@ export class KufBattlefieldSimulation {
     ctx.moveTo(wp.x, wp.y + 4);
     ctx.lineTo(wp.x, wp.y + 12);
     ctx.stroke();
+    
+    ctx.restore();
+  }
+
+  /**
+   * Draw lines from units to their individual waypoints to show queued movement.
+   */
+  drawUnitWaypointLines() {
+    const ctx = this.ctx;
+    ctx.save();
+    
+    // Get the units that should have waypoint lines
+    const unitsToShow = this.selectionMode === 'specific' ? this.selectedUnits : this.marines;
+    
+    unitsToShow.forEach((marine) => {
+      // Only draw lines for units that have a waypoint set
+      if (!marine.waypoint) {
+        return;
+      }
+      
+      const dx = marine.waypoint.x - marine.x;
+      const dy = marine.waypoint.y - marine.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only draw lines if the unit is not already at the waypoint
+      if (distance > 5) {
+        ctx.strokeStyle = 'rgba(100, 255, 100, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(marine.x, marine.y);
+        ctx.lineTo(marine.waypoint.x, marine.waypoint.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
     
     ctx.restore();
   }
