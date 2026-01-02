@@ -25,6 +25,11 @@ import {
   ADVANCED_MOLECULE_UNLOCK_TIER,
 } from './tsadiTowerData.js';
 
+// Sprite assets for the Tsadi spire particles and Waals binding agents.
+const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/particle.png', import.meta.url).href;
+// Sprite asset for Waals binding agents to match the new Tsadi spire art drop.
+const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/waalsParticle.png', import.meta.url).href;
+
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
  * @param {Array<number>} tiers - Raw tier list.
@@ -504,6 +509,32 @@ export class ParticleFusionSimulation {
     };
     // Cap the render resolution on high-DPI devices so the fusion viewport does not overdraw.
     this.maxDevicePixelRatio = Math.max(1, typeof options.maxDevicePixelRatio === 'number' ? options.maxDevicePixelRatio : 1.5);
+
+    // Optional sprite overlays for Tsadi particles and binding agents.
+    this.particleSprite = null;
+    // Track readiness for the Tsadi particle sprite overlay.
+    this.particleSpriteReady = false;
+    // Optional Waals binding agent sprite overlay.
+    this.bindingAgentSprite = null;
+    // Track readiness for the Waals binding agent sprite overlay.
+    this.bindingAgentSpriteReady = false;
+    // Load sprite assets when the browser Image API is available.
+    if (typeof Image !== 'undefined') {
+      // Prepare the Tsadi particle sprite overlay.
+      this.particleSprite = new Image();
+      this.particleSprite.addEventListener('load', () => {
+        // Flag the particle sprite as ready for render.
+        this.particleSpriteReady = true;
+      });
+      this.particleSprite.src = TSADI_PARTICLE_SPRITE_URL;
+      // Prepare the Waals binding agent sprite overlay.
+      this.bindingAgentSprite = new Image();
+      this.bindingAgentSprite.addEventListener('load', () => {
+        // Flag the binding agent sprite as ready for render.
+        this.bindingAgentSpriteReady = true;
+      });
+      this.bindingAgentSprite.src = TSADI_WAALS_SPRITE_URL;
+    }
 
     // Track when the simulation needs to scatter particles after a collapsed resize.
     this.pendingScatterFromCollapse = false;
@@ -2390,6 +2421,23 @@ export class ParticleFusionSimulation {
       ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
       ctx.fill();
 
+      // Overlay the Tsadi particle sprite to introduce the new sprite artwork.
+      if (this.particleSpriteReady && this.particleSprite) {
+        // Blend the sprite softly so tier colors remain dominant.
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.globalCompositeOperation = 'screen';
+        const spriteSize = particle.radius * 2.8;
+        ctx.drawImage(
+          this.particleSprite,
+          particle.x - spriteSize / 2,
+          particle.y - spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+        ctx.restore();
+      }
+
       // Render the tier glyph in the particle center to reinforce tier identity.
       if (particle.label) {
         const fontSize = Math.max(particle.radius * 1.1, 10);
@@ -2479,6 +2527,22 @@ export class ParticleFusionSimulation {
         ctx.stroke();
       });
       ctx.restore();
+
+      // Overlay the Waals sprite to incorporate the new binding agent artwork.
+      if (this.bindingAgentSpriteReady && this.bindingAgentSprite) {
+        // Fade the sprite slightly for preview placement states.
+        ctx.save();
+        ctx.globalAlpha = isPreview ? 0.35 : 0.75;
+        const spriteSize = radius * 2.6;
+        ctx.drawImage(
+          this.bindingAgentSprite,
+          agent.x - spriteSize / 2,
+          agent.y - spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+        ctx.restore();
+      }
     };
 
     // Preview indicator when the player drags a fresh binding agent.
