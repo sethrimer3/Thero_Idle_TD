@@ -1,15 +1,15 @@
 /**
  * Shin Grapheme Codex Data
  * 
- * Contains detailed descriptions of all graphemes (A-N) for the Cardinal Warden
+ * Contains detailed descriptions of all graphemes (A-Z) for the Cardinal Warden
  * weapon system. This data is used to populate the grapheme codex UI.
  */
 
 /**
  * Grapheme codex entries with detailed descriptions.
  * Each entry contains:
- * - index: The grapheme index (0-13)
- * - name: The English letter name (A-N)
+ * - index: The grapheme index (0-25)
+ * - name: The English letter name (A-Z)
  * - title: Display title for the grapheme
  * - summary: Brief one-line description
  * - effects: Detailed slot-by-slot effect descriptions
@@ -254,6 +254,210 @@ export const GRAPHEME_CODEX_ENTRIES = [
     ],
     specialMechanics: 'Ship count: (total graphemes) / 10, max 100 ships. Ships move at 100px/s within 80px swarm radius. Each ship fires green lasers (300px/s) at weapon attack speed / 10, dealing weapon damage / 10.',
   },
+  {
+    index: 14,
+    name: 'O',
+    title: 'Grapheme O — Ricochet Bullets',
+    summary: 'Bullets bounce off enemies and continue to other targets.',
+    effects: [
+      { slot: 0, description: '1 bounce, 90% damage per bounce' },
+      { slot: 1, description: '2 bounces, 90% damage per bounce' },
+      { slot: 2, description: '3 bounces, 90% damage per bounce' },
+      { slot: 3, description: '4 bounces, 90% damage per bounce' },
+      { slot: 4, description: '5 bounces, 90% damage per bounce' },
+      { slot: 5, description: '6 bounces, 90% damage per bounce' },
+      { slot: 6, description: '7 bounces, 90% damage per bounce' },
+      { slot: 7, description: '8 bounces, 90% damage per bounce' },
+    ],
+    specialMechanics: 'After hitting an enemy, bullet ricochets to nearest other enemy. Each bounce deals 90% of previous damage. Number of bounces increases with slot position.',
+  },
+  {
+    index: 15,
+    name: 'P',
+    title: 'Grapheme P — Homing Missiles',
+    summary: 'Bullets slowly curve toward nearest enemy.',
+    effects: [
+      { slot: 0, description: 'Weak homing (0.5 rad/s turn rate)' },
+      { slot: 1, description: 'Weak-moderate homing (0.75 rad/s)' },
+      { slot: 2, description: 'Moderate homing (1.0 rad/s)' },
+      { slot: 3, description: 'Moderate-strong homing (1.25 rad/s)' },
+      { slot: 4, description: 'Strong homing (1.5 rad/s)' },
+      { slot: 5, description: 'Very strong homing (1.75 rad/s)' },
+      { slot: 6, description: 'Extreme homing (2.0 rad/s)' },
+      { slot: 7, description: 'Ultimate homing (2.25 rad/s)' },
+    ],
+    specialMechanics: 'Bullets gradually curve toward the nearest enemy within 200px range. Turn rate increases with slot position, making tracking more aggressive.',
+  },
+  {
+    index: 16,
+    name: 'Q',
+    title: 'Grapheme Q — Split Bullets',
+    summary: 'Bullets split into multiple smaller bullets on impact.',
+    effects: [
+      { slot: 0, description: 'Splits into 2 bullets (50% damage each)' },
+      { slot: 1, description: 'Splits into 3 bullets (50% damage each)' },
+      { slot: 2, description: 'Splits into 4 bullets (50% damage each)' },
+      { slot: 3, description: 'Splits into 5 bullets (50% damage each)' },
+      { slot: 4, description: 'Splits into 6 bullets (50% damage each)' },
+      { slot: 5, description: 'Splits into 7 bullets (50% damage each)' },
+      { slot: 6, description: 'Splits into 8 bullets (50% damage each)' },
+      { slot: 7, description: 'Splits into 9 bullets (50% damage each)' },
+    ],
+    specialMechanics: 'On hitting an enemy, bullet splits into multiple projectiles that spread in a 60-degree cone. Each split bullet deals 50% of original damage.',
+  },
+  {
+    index: 17,
+    name: 'R',
+    title: 'Grapheme R — Chain Lightning',
+    summary: 'On hit, damage chains to nearby enemies.',
+    effects: [
+      { slot: 0, description: 'Chains to 1 enemy (20px range, 70% damage)' },
+      { slot: 1, description: 'Chains to 2 enemies (20px range, 70% damage)' },
+      { slot: 2, description: 'Chains to 3 enemies (20px range, 70% damage)' },
+      { slot: 3, description: 'Chains to 4 enemies (20px range, 70% damage)' },
+      { slot: 4, description: 'Chains to 5 enemies (30px range, 70% damage)' },
+      { slot: 5, description: 'Chains to 6 enemies (30px range, 70% damage)' },
+      { slot: 6, description: 'Chains to 7 enemies (30px range, 70% damage)' },
+      { slot: 7, description: 'Chains to 8 enemies (30px range, 70% damage)' },
+    ],
+    specialMechanics: 'After hitting an enemy, lightning arcs to nearby enemies. Each chain deals 70% of previous damage. Slots 0-3 have 20px range, slots 4-7 have 30px range.',
+  },
+  {
+    index: 18,
+    name: 'S',
+    title: 'Grapheme S — Bullet Size',
+    summary: 'Modifies bullet size and collision radius.',
+    effects: [
+      { slot: 0, description: '0.5× size, 1.3× speed (tiny)' },
+      { slot: 1, description: '0.6× size, 1.2× speed (small)' },
+      { slot: 2, description: '0.7× size, 1.1× speed (reduced)' },
+      { slot: 3, description: '0.8× size, 1.05× speed (slightly small)' },
+      { slot: 4, description: '1.2× size, 0.95× speed (slightly large)' },
+      { slot: 5, description: '1.4× size, 0.9× speed (large)' },
+      { slot: 6, description: '1.7× size, 0.85× speed (huge)' },
+      { slot: 7, description: '2.0× size, 0.8× speed (massive)' },
+    ],
+    specialMechanics: 'Slots 0-3 create smaller, faster bullets for precision. Slots 4-7 create larger, slower bullets for easier hits. Size affects collision detection.',
+  },
+  {
+    index: 19,
+    name: 'T',
+    title: 'Grapheme T — Orbital Bullets',
+    summary: 'Bullets orbit around the warden before launching.',
+    effects: [
+      { slot: 0, description: '1 orbit (40px radius)' },
+      { slot: 1, description: '2 orbits (45px radius)' },
+      { slot: 2, description: '3 orbits (50px radius)' },
+      { slot: 3, description: '4 orbits (55px radius)' },
+      { slot: 4, description: '5 orbits (60px radius)' },
+      { slot: 5, description: '6 orbits (65px radius)' },
+      { slot: 6, description: '7 orbits (70px radius)' },
+      { slot: 7, description: '8 orbits (75px radius)' },
+    ],
+    specialMechanics: 'Bullets orbit the warden at 2 rotations per second before launching toward target. Creates a defensive ring pattern. Orbit count and radius increase with slot.',
+  },
+  {
+    index: 20,
+    name: 'U',
+    title: 'Grapheme U — Pulse Waves',
+    summary: 'Bullets emit damage pulses while traveling.',
+    effects: [
+      { slot: 0, description: '1 pulse/sec (15px radius, 20% damage)' },
+      { slot: 1, description: '2 pulses/sec (18px radius, 20% damage)' },
+      { slot: 2, description: '3 pulses/sec (21px radius, 20% damage)' },
+      { slot: 3, description: '4 pulses/sec (24px radius, 20% damage)' },
+      { slot: 4, description: '5 pulses/sec (27px radius, 20% damage)' },
+      { slot: 5, description: '6 pulses/sec (30px radius, 20% damage)' },
+      { slot: 6, description: '7 pulses/sec (33px radius, 20% damage)' },
+      { slot: 7, description: '8 pulses/sec (36px radius, 20% damage)' },
+    ],
+    specialMechanics: 'Bullets continuously emit damage pulses in an area around them. Each pulse deals 20% of bullet damage. Pulse rate and radius increase with slot.',
+  },
+  {
+    index: 21,
+    name: 'V',
+    title: 'Grapheme V — Bullet Speed',
+    summary: 'Modifies bullet travel speed.',
+    effects: [
+      { slot: 0, description: '0.5× speed (very slow)' },
+      { slot: 1, description: '0.6× speed (slow)' },
+      { slot: 2, description: '0.7× speed (reduced)' },
+      { slot: 3, description: '0.8× speed (slightly slow)' },
+      { slot: 4, description: '1.5× speed (fast)' },
+      { slot: 5, description: '2.0× speed (very fast)' },
+      { slot: 6, description: '2.5× speed (extreme)' },
+      { slot: 7, description: '3.0× speed (blazing)' },
+    ],
+    specialMechanics: 'Slots 0-3 slow bullets for easier targeting of slow enemies. Slots 4-7 speed up bullets for faster coverage and harder-to-dodge attacks.',
+  },
+  {
+    index: 22,
+    name: 'W',
+    title: 'Grapheme W — Explosive Bullets',
+    summary: 'Bullets explode on impact, damaging nearby enemies.',
+    effects: [
+      { slot: 0, description: '20px explosion radius (50% damage)' },
+      { slot: 1, description: '30px explosion radius (50% damage)' },
+      { slot: 2, description: '40px explosion radius (50% damage)' },
+      { slot: 3, description: '50px explosion radius (50% damage)' },
+      { slot: 4, description: '60px explosion radius (50% damage)' },
+      { slot: 5, description: '75px explosion radius (50% damage)' },
+      { slot: 6, description: '95px explosion radius (50% damage)' },
+      { slot: 7, description: '110px explosion radius (50% damage)' },
+    ],
+    specialMechanics: 'On impact, bullets create an explosion that damages all enemies in the area. Explosion deals 50% of bullet damage. Radius increases significantly with slot.',
+  },
+  {
+    index: 23,
+    name: 'X',
+    title: 'Grapheme X — Bullet Lifetime',
+    summary: 'Modifies how long bullets persist before despawning.',
+    effects: [
+      { slot: 0, description: '0.5× lifetime (short range)' },
+      { slot: 1, description: '0.6× lifetime (reduced range)' },
+      { slot: 2, description: '0.7× lifetime (shorter range)' },
+      { slot: 3, description: '0.8× lifetime (slightly short)' },
+      { slot: 4, description: '1.5× lifetime (extended range)' },
+      { slot: 5, description: '2.0× lifetime (long range)' },
+      { slot: 6, description: '2.5× lifetime (very long range)' },
+      { slot: 7, description: '3.0× lifetime (extreme range)' },
+    ],
+    specialMechanics: 'Controls how long bullets exist before despawning. Slots 0-3 create shorter-range bullets. Slots 4-7 allow bullets to travel much farther.',
+  },
+  {
+    index: 24,
+    name: 'Y',
+    title: 'Grapheme Y — Vortex Bullets',
+    summary: 'Bullets pull enemies toward their path.',
+    effects: [
+      { slot: 0, description: '10px radius pull (20px/s force)' },
+      { slot: 1, description: '20px radius pull (30px/s force)' },
+      { slot: 2, description: '30px radius pull (40px/s force)' },
+      { slot: 3, description: '40px radius pull (50px/s force)' },
+      { slot: 4, description: '50px radius pull (60px/s force)' },
+      { slot: 5, description: '70px radius pull (70px/s force)' },
+      { slot: 6, description: '90px radius pull (80px/s force)' },
+      { slot: 7, description: '110px radius pull (90px/s force)' },
+    ],
+    specialMechanics: 'Bullets create a gravitational pull that draws enemies toward the bullet\'s path. Both radius and pull strength increase with slot. Useful for grouping enemies.',
+  },
+  {
+    index: 25,
+    name: 'Z',
+    title: 'Grapheme Z — Ultimate Chaos',
+    summary: 'Randomly applies multiple other grapheme effects to each bullet.',
+    effects: [
+      { slot: 0, description: '2 random effects per bullet' },
+      { slot: 1, description: '2 random effects per bullet' },
+      { slot: 2, description: '2 random effects per bullet' },
+      { slot: 3, description: '2 random effects per bullet' },
+      { slot: 4, description: '3 random effects per bullet' },
+      { slot: 5, description: '3 random effects per bullet' },
+      { slot: 6, description: '3 random effects per bullet' },
+      { slot: 7, description: '3 random effects per bullet' },
+    ],
+    specialMechanics: 'Each bullet receives random effects from unlocked graphemes (A, B, E, F, I, J, O, P, Q, R, S, U, V, W). Slots 0-3 apply 2 effects, slots 4-7 apply 3 effects. Creates unpredictable but powerful combinations.',
+  },
 ];
 
 /**
@@ -264,7 +468,7 @@ export function getGraphemeCodexEntry(index) {
 }
 
 /**
- * Get a grapheme codex entry by name (letter A-N).
+ * Get a grapheme codex entry by name (letter A-Z).
  */
 export function getGraphemeCodexEntryByName(name) {
   return GRAPHEME_CODEX_ENTRIES.find(entry => entry.name === name.toUpperCase()) || null;

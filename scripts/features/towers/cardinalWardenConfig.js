@@ -25,6 +25,18 @@ export const GRAPHEME_INDEX = {
   L: 11,           // Continuous beam, deactivates LEFT and RIGHT neighbors
   M: 12,           // Drifting mines that explode on contact
   N: 13,           // Swarm ships that fire green lasers at enemies
+  O: 14,           // Ricochet bullets that bounce off enemies
+  P: 15,           // Homing missiles that curve toward enemies
+  Q: 16,           // Split bullets that divide on impact
+  R: 17,           // Chain lightning that jumps between enemies
+  S: 18,           // Bullet size modifier (smaller/larger)
+  T: 19,           // Orbital bullets that circle before launching
+  U: 20,           // Pulse waves that emit damage while traveling
+  V: 21,           // Bullet speed modifier (slower/faster)
+  W: 22,           // Explosive bullets with area damage
+  X: 23,           // Bullet lifetime modifier (short/long range)
+  Y: 24,           // Vortex bullets that pull enemies
+  Z: 25,           // Ultimate chaos with random effects
 };
 
 /**
@@ -147,6 +159,119 @@ export const SWARM_CONFIG = {
   MOVE_SPEED: 100,                 // Movement speed toward target (pixels/sec)
   LASER_FIRE_RATE_DIVISOR: 10,     // Fire rate = weapon attack speed / 10
   LASER_DAMAGE_DIVISOR: 10,        // Laser damage = weapon damage / 10
+};
+
+/**
+ * Ricochet mechanics constants for grapheme O (index 14).
+ * Bullets bounce off enemies and continue to other targets.
+ */
+export const RICOCHET_CONFIG = {
+  BOUNCE_DAMAGE_MULTIPLIER: 0.9,   // Each bounce deals 90% of previous damage
+  SLOT_TO_BOUNCES: [1, 2, 3, 4, 5, 6, 7, 8], // Slot position maps to number of bounces
+};
+
+/**
+ * Homing mechanics constants for grapheme P (index 15).
+ * Bullets curve toward nearest enemy.
+ */
+export const HOMING_CONFIG = {
+  BASE_TURN_RATE: 0.5,             // Base turning rate in radians per second
+  SLOT_TO_TURN_MULTIPLIER: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5], // Slot affects turn rate
+  DETECTION_RADIUS: 200,           // Range to detect enemies (pixels)
+};
+
+/**
+ * Split bullet mechanics constants for grapheme Q (index 16).
+ * Bullets split into multiple smaller bullets on impact.
+ */
+export const SPLIT_CONFIG = {
+  SPLIT_DAMAGE_MULTIPLIER: 0.5,    // Each split bullet deals 50% damage
+  SLOT_TO_SPLIT_COUNT: [2, 3, 4, 5, 6, 7, 8, 9], // Slot maps to number of splits
+  SPLIT_SPREAD_ANGLE: Math.PI / 3, // 60 degree spread
+};
+
+/**
+ * Chain lightning mechanics constants for grapheme R (index 17).
+ * Damage chains to nearby enemies.
+ */
+export const CHAIN_CONFIG = {
+  CHAIN_DAMAGE_MULTIPLIER: 0.7,    // Each chain deals 70% of previous damage
+  SLOT_TO_CHAINS: [1, 2, 3, 4, 5, 6, 7, 8], // Slot maps to max chains
+  SLOT_TO_RANGE: [20, 20, 20, 20, 30, 30, 30, 30], // Chain range by slot (pixels)
+};
+
+/**
+ * Bullet size mechanics constants for grapheme S (index 18).
+ * Modifies bullet size and collision radius.
+ */
+export const SIZE_CONFIG = {
+  SLOT_TO_SIZE_MULT: [0.5, 0.6, 0.7, 0.8, 1.2, 1.4, 1.7, 2.0], // Size multiplier by slot
+  SLOT_TO_SPEED_MULT: [1.3, 1.2, 1.1, 1.05, 0.95, 0.9, 0.85, 0.8], // Speed mult (inverse)
+};
+
+/**
+ * Orbital bullet mechanics constants for grapheme T (index 19).
+ * Bullets orbit around warden before launching.
+ */
+export const ORBITAL_CONFIG = {
+  SLOT_TO_ORBITS: [1, 2, 3, 4, 5, 6, 7, 8], // Number of orbits by slot
+  ORBIT_RADIUS_BASE: 40,           // Base orbit radius (pixels)
+  ORBIT_RADIUS_INCREMENT: 5,       // Additional radius per orbit level
+  ORBIT_SPEED: 2,                  // Orbits per second
+};
+
+/**
+ * Pulse wave mechanics constants for grapheme U (index 20).
+ * Bullets emit damage pulses while traveling.
+ */
+export const PULSE_CONFIG = {
+  PULSE_DAMAGE_MULTIPLIER: 0.2,    // Pulse damage is 20% of bullet damage
+  SLOT_TO_PULSE_RATE: [1, 2, 3, 4, 5, 6, 7, 8], // Pulses per second by slot
+  SLOT_TO_PULSE_RADIUS: [15, 18, 21, 24, 27, 30, 33, 36], // Pulse radius by slot
+};
+
+/**
+ * Bullet speed mechanics constants for grapheme V (index 21).
+ * Modifies bullet travel speed.
+ */
+export const SPEED_CONFIG = {
+  SLOT_TO_SPEED_MULT: [0.5, 0.6, 0.7, 0.8, 1.5, 2.0, 2.5, 3.0], // Speed multiplier by slot
+};
+
+/**
+ * Explosive bullet mechanics constants for grapheme W (index 22).
+ * Bullets explode on impact.
+ */
+export const EXPLOSIVE_CONFIG = {
+  EXPLOSION_DAMAGE_MULTIPLIER: 0.5, // Explosion deals 50% of bullet damage
+  SLOT_TO_RADIUS: [20, 30, 40, 50, 60, 75, 95, 110], // Explosion radius by slot
+  EXPLOSION_DURATION: 0.3,         // Explosion visual duration (seconds)
+};
+
+/**
+ * Bullet lifetime mechanics constants for grapheme X (index 23).
+ * Modifies how long bullets persist.
+ */
+export const LIFETIME_CONFIG = {
+  SLOT_TO_LIFETIME_MULT: [0.5, 0.6, 0.7, 0.8, 1.5, 2.0, 2.5, 3.0], // Lifetime mult by slot
+};
+
+/**
+ * Vortex mechanics constants for grapheme Y (index 24).
+ * Bullets pull enemies toward their path.
+ */
+export const VORTEX_CONFIG = {
+  SLOT_TO_PULL_RADIUS: [10, 20, 30, 40, 50, 70, 90, 110], // Pull radius by slot
+  SLOT_TO_PULL_STRENGTH: [20, 30, 40, 50, 60, 70, 80, 90], // Pull force (pixels/sec)
+};
+
+/**
+ * Chaos mechanics constants for grapheme Z (index 25).
+ * Randomly applies other grapheme effects.
+ */
+export const CHAOS_CONFIG = {
+  SLOT_TO_EFFECT_COUNT: [2, 2, 2, 2, 3, 3, 3, 3], // Number of random effects by slot
+  ELIGIBLE_GRAPHEMES: [0, 1, 4, 5, 8, 9, 14, 15, 16, 17, 18, 20, 21, 22], // Graphemes Z can mimic
 };
 
 /**

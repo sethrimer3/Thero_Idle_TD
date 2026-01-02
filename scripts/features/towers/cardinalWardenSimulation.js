@@ -71,6 +71,18 @@ import {
   BEAM_CONFIG,
   MINE_CONFIG,
   SWARM_CONFIG,
+  RICOCHET_CONFIG,
+  HOMING_CONFIG,
+  SPLIT_CONFIG,
+  CHAIN_CONFIG,
+  SIZE_CONFIG,
+  ORBITAL_CONFIG,
+  PULSE_CONFIG,
+  SPEED_CONFIG,
+  EXPLOSIVE_CONFIG,
+  LIFETIME_CONFIG,
+  VORTEX_CONFIG,
+  CHAOS_CONFIG,
   GAME_CONFIG,
   BOSS_TYPES,
   WEAPON_SLOT_IDS,
@@ -2123,6 +2135,24 @@ class MathBullet {
     
     // Tenth grapheme (J - index 9) elemental effect
     this.elementalEffect = config.elementalEffect || null; // 'burning' or 'freezing'
+    
+    // New grapheme properties (O-Z)
+    this.ricochetBounces = config.ricochetBounces || 0; // Grapheme O - max bounces
+    this.ricochetCount = 0; // Track current bounce count
+    this.homingTurnRate = config.homingTurnRate || 0; // Grapheme P - turn rate (rad/s)
+    this.splitCount = config.splitCount || 0; // Grapheme Q - splits on hit
+    this.chainCount = config.chainCount || 0; // Grapheme R - chain targets
+    this.chainRange = config.chainRange || 0; // Grapheme R - chain range
+    this.orbitalCount = config.orbitalCount || 0; // Grapheme T - orbit count
+    this.orbitalProgress = 0; // Track orbit completion
+    this.pulseRate = config.pulseRate || 0; // Grapheme U - pulses per second
+    this.pulseRadius = config.pulseRadius || 0; // Grapheme U - pulse radius
+    this.pulseTimer = 0; // Track time for next pulse
+    this.explosionRadius = config.explosionRadius || 0; // Grapheme W - explosion radius
+    this.lifetimeMultiplier = config.lifetimeMultiplier || 1; // Grapheme X - lifetime mult
+    this.vortexRadius = config.vortexRadius || 0; // Grapheme Y - pull radius
+    this.vortexStrength = config.vortexStrength || 0; // Grapheme Y - pull strength
+    this.chaosEffectCount = config.chaosEffectCount || 0; // Grapheme Z - random effects
   }
   
   /**
@@ -2146,6 +2176,37 @@ class MathBullet {
     this.prevY = this.y;
     this.time += dt;
     this.age += deltaTime;
+    
+    // Grapheme P (index 15) - Homing missiles
+    if (this.homingTurnRate > 0 && Array.isArray(enemies) && enemies.length > 0) {
+      // Find nearest enemy within detection radius
+      let nearestEnemy = null;
+      let nearestDist = Infinity;
+      for (const enemy of enemies) {
+        const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+        if (dist < HOMING_CONFIG.DETECTION_RADIUS && dist < nearestDist) {
+          nearestDist = dist;
+          nearestEnemy = enemy;
+        }
+      }
+      
+      if (nearestEnemy) {
+        // Calculate desired angle to enemy
+        const desiredAngle = Math.atan2(nearestEnemy.y - this.y, nearestEnemy.x - this.x);
+        // Calculate angle difference
+        let angleDiff = desiredAngle - this.baseAngle;
+        // Normalize to [-π, π]
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+        // Turn toward enemy at turn rate
+        const maxTurn = this.homingTurnRate * dt;
+        if (Math.abs(angleDiff) <= maxTurn) {
+          this.baseAngle = desiredAngle;
+        } else {
+          this.baseAngle += Math.sign(angleDiff) * maxTurn;
+        }
+      }
+    }
 
     // Handle fifth grapheme (Epsilon) behaviors first
     if (this.epsilonBehavior === 'straight') {
@@ -3896,6 +3957,147 @@ export class CardinalWardenSimulation {
     // Note: Grapheme M (mines) spawning is handled separately in updateWeaponTimers()
     // Mines are spawned alongside bullets, not instead of them
     
+    // Check for grapheme O (index 14) - Ricochet bullets
+    let ricochetBounces = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.O) {
+        // Ricochet found! Bounces based on slot position (1-8 bounces)
+        ricochetBounces = RICOCHET_CONFIG.SLOT_TO_BOUNCES[slotIndex] || (slotIndex + 1);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme P (index 15) - Homing missiles
+    let homingTurnRate = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.P) {
+        // Homing found! Turn rate based on slot position
+        const turnMultiplier = HOMING_CONFIG.SLOT_TO_TURN_MULTIPLIER[slotIndex] || 1;
+        homingTurnRate = HOMING_CONFIG.BASE_TURN_RATE * turnMultiplier;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Q (index 16) - Split bullets
+    let splitCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Q) {
+        // Split found! Split count based on slot position (2-9 splits)
+        splitCount = SPLIT_CONFIG.SLOT_TO_SPLIT_COUNT[slotIndex] || (slotIndex + 2);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme R (index 17) - Chain lightning
+    let chainCount = 0;
+    let chainRange = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.R) {
+        // Chain found! Chains based on slot position
+        chainCount = CHAIN_CONFIG.SLOT_TO_CHAINS[slotIndex] || (slotIndex + 1);
+        chainRange = CHAIN_CONFIG.SLOT_TO_RANGE[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme S (index 18) - Bullet size
+    let sizeMultiplier = 1;
+    let sizeSpeedMult = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.S) {
+        // Size modifier found!
+        sizeMultiplier = SIZE_CONFIG.SLOT_TO_SIZE_MULT[slotIndex] || 1;
+        sizeSpeedMult = SIZE_CONFIG.SLOT_TO_SPEED_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme T (index 19) - Orbital bullets
+    let orbitalCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.T) {
+        // Orbital found! Orbit count based on slot position
+        orbitalCount = ORBITAL_CONFIG.SLOT_TO_ORBITS[slotIndex] || (slotIndex + 1);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme U (index 20) - Pulse waves
+    let pulseRate = 0;
+    let pulseRadius = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.U) {
+        // Pulse found! Rate and radius based on slot position
+        pulseRate = PULSE_CONFIG.SLOT_TO_PULSE_RATE[slotIndex] || (slotIndex + 1);
+        pulseRadius = PULSE_CONFIG.SLOT_TO_PULSE_RADIUS[slotIndex] || 15;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme V (index 21) - Bullet speed
+    let bulletSpeedMult = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.V) {
+        // Speed modifier found!
+        bulletSpeedMult = SPEED_CONFIG.SLOT_TO_SPEED_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme W (index 22) - Explosive bullets
+    let explosionRadius = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.W) {
+        // Explosive found! Radius based on slot position
+        explosionRadius = EXPLOSIVE_CONFIG.SLOT_TO_RADIUS[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme X (index 23) - Bullet lifetime
+    let lifetimeMultiplier = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.X) {
+        // Lifetime modifier found!
+        lifetimeMultiplier = LIFETIME_CONFIG.SLOT_TO_LIFETIME_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Y (index 24) - Vortex bullets
+    let vortexRadius = 0;
+    let vortexStrength = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Y) {
+        // Vortex found! Radius and strength based on slot position
+        vortexRadius = VORTEX_CONFIG.SLOT_TO_PULL_RADIUS[slotIndex] || 10;
+        vortexStrength = VORTEX_CONFIG.SLOT_TO_PULL_STRENGTH[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Z (index 25) - Chaos (random effects)
+    let chaosEffectCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Z) {
+        // Chaos found! Number of random effects based on slot position
+        chaosEffectCount = CHAOS_CONFIG.SLOT_TO_EFFECT_COUNT[slotIndex] || 2;
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3918,9 +4120,9 @@ export class CardinalWardenSimulation {
     const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
 
     const bulletConfig = {
-      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * this.upgrades.bulletSpeed,
+      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * bulletSpeedMult * sizeSpeedMult * this.upgrades.bulletSpeed,
       damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * weaponAttackMult * this.upgrades.bulletDamage,
-      size: 4,
+      size: 4 * sizeMultiplier,
       baseColor: weaponDef.color,
       color: resolvedColor,
       pattern: 'straight', // Simple straight pattern
@@ -3936,6 +4138,20 @@ export class CardinalWardenSimulation {
       hasWaveEffect: hasWaveEffect, // Seventh grapheme - spawn expanding wave on hit
       waveRadius: waveRadius, // Seventh grapheme - max radius of expanding wave
       elementalEffect: elementalEffect, // Tenth grapheme - burning or freezing effect
+      // New grapheme O-Z effects
+      ricochetBounces: ricochetBounces, // Grapheme O - number of bounces
+      homingTurnRate: homingTurnRate, // Grapheme P - homing turn rate
+      splitCount: splitCount, // Grapheme Q - number of splits
+      chainCount: chainCount, // Grapheme R - chain lightning count
+      chainRange: chainRange, // Grapheme R - chain range
+      orbitalCount: orbitalCount, // Grapheme T - number of orbits
+      pulseRate: pulseRate, // Grapheme U - pulses per second
+      pulseRadius: pulseRadius, // Grapheme U - pulse radius
+      explosionRadius: explosionRadius, // Grapheme W - explosion radius
+      lifetimeMultiplier: lifetimeMultiplier, // Grapheme X - lifetime multiplier
+      vortexRadius: vortexRadius, // Grapheme Y - vortex pull radius
+      vortexStrength: vortexStrength, // Grapheme Y - vortex pull strength
+      chaosEffectCount: chaosEffectCount, // Grapheme Z - number of random effects
     };
     
     // Apply massive bullet modifications if grapheme K is in slots 0-6
@@ -5044,10 +5260,82 @@ export class CardinalWardenSimulation {
       const bullet = this.bullets[i];
       bullet.update(deltaTime, this.canvas.width, this.canvas.height, this.enemies);
 
+      // Grapheme U (index 20) - Pulse waves
+      if (bullet.pulseRate > 0 && bullet.pulseRadius > 0) {
+        bullet.pulseTimer += deltaTime / 1000;
+        const pulseInterval = 1 / bullet.pulseRate;
+        
+        if (bullet.pulseTimer >= pulseInterval) {
+          bullet.pulseTimer = 0;
+          const pulseDamage = bullet.damage * PULSE_CONFIG.PULSE_DAMAGE_MULTIPLIER;
+          
+          // Damage all enemies in pulse radius
+          for (const enemy of this.enemies) {
+            const dist = Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y);
+            if (dist <= bullet.pulseRadius) {
+              this.spawnDamageNumber(enemy.x, enemy.y, pulseDamage);
+              enemy.takeDamage(pulseDamage);
+            }
+          }
+          
+          // Also damage bosses
+          for (const boss of this.bosses) {
+            const dist = Math.hypot(boss.x - bullet.x, boss.y - bullet.y);
+            if (dist <= bullet.pulseRadius) {
+              this.spawnDamageNumber(boss.x, boss.y, pulseDamage);
+              boss.takeDamage(pulseDamage);
+            }
+          }
+        }
+      }
+      
+      // Grapheme Y (index 24) - Vortex pull
+      if (bullet.vortexRadius > 0 && bullet.vortexStrength > 0) {
+        const dt = deltaTime / 1000;
+        
+        // Pull enemies toward bullet
+        for (const enemy of this.enemies) {
+          const dx = bullet.x - enemy.x;
+          const dy = bullet.y - enemy.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist <= bullet.vortexRadius && dist > 0) {
+            const pullForce = bullet.vortexStrength * dt;
+            enemy.x += (dx / dist) * pullForce;
+            enemy.y += (dy / dist) * pullForce;
+          }
+        }
+        
+        // Also pull bosses
+        for (const boss of this.bosses) {
+          const dx = bullet.x - boss.x;
+          const dy = bullet.y - boss.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist <= bullet.vortexRadius && dist > 0) {
+            const pullForce = bullet.vortexStrength * dt;
+            boss.x += (dx / dist) * pullForce;
+            boss.y += (dy / dist) * pullForce;
+          }
+        }
+      }
+
       this.tryBounceBulletOffTrails(bullet);
 
-      if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
+      // Grapheme X (index 23) - Lifetime modifier affects when bullets are removed
+      const lifetimeCheck = bullet.lifetimeMultiplier || 1;
+      const baseLifetime = 5000; // Base lifetime in milliseconds
+      const adjustedLifetime = baseLifetime * lifetimeCheck;
+      const isOffscreen = bullet.isOffscreen(this.canvas.width, this.canvas.height);
+      
+      // Check age-based removal first, then offscreen
+      if (bullet.age > adjustedLifetime) {
         toRemove.push(i);
+      } else if (isOffscreen) {
+        // Only for normal/extended lifetime, allow some offscreen time
+        if (lifetimeCheck <= 1 || bullet.age > adjustedLifetime * 0.8) {
+          toRemove.push(i);
+        }
       }
     }
 
@@ -5100,6 +5388,138 @@ export class CardinalWardenSimulation {
             enemy.applyBurning();
           } else if (bullet.elementalEffect === 'freezing') {
             enemy.applyFreeze();
+          }
+          
+          // Handle new grapheme effects on hit (O-Z)
+          
+          // Grapheme Q (index 16) - Split bullets
+          // Only split if we have 2 or more bullets to create
+          if (bullet.splitCount >= 2 && !bulletsToRemove.has(bi)) {
+            const splitAngle = SPLIT_CONFIG.SPLIT_SPREAD_ANGLE;
+            const angleStep = splitAngle / (bullet.splitCount - 1);
+            const startAngle = bullet.baseAngle - (splitAngle / 2);
+            
+            for (let s = 0; s < bullet.splitCount; s++) {
+              const angle = startAngle + (s * angleStep);
+              const splitBullet = new MathBullet(enemy.x, enemy.y, angle, {
+                speed: bullet.speed,
+                damage: bullet.damage * SPLIT_CONFIG.SPLIT_DAMAGE_MULTIPLIER,
+                size: bullet.size * 0.7,
+                color: bullet.color,
+                level: bullet.level,
+                maxTrailLength: bullet.maxTrailLength,
+              });
+              this.bullets.push(splitBullet);
+            }
+          }
+          
+          // Grapheme R (index 17) - Chain lightning
+          // Note: Initial enemy already received full damage above in normal collision
+          // This chains ADDITIONAL damage to nearby enemies
+          if (bullet.chainCount > 0) {
+            let currentChainDamage = bullet.damage * CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER; // First chain gets reduced damage
+            let currentTarget = enemy;
+            const chainedTargets = new Set([ei]); // Track to avoid chaining to same target (includes initial hit)
+            
+            for (let c = 0; c < bullet.chainCount; c++) {
+              // Apply additional damage decay for subsequent chains (after first chain target)
+              if (c > 0) {
+                currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+              }
+              
+              // Find nearest unchained enemy (excludes initial hit and previously chained)
+              let nearestEnemy = null;
+              let nearestDist = Infinity;
+              
+              for (let cei = 0; cei < this.enemies.length; cei++) {
+                if (chainedTargets.has(cei) || enemiesToRemove.has(cei)) continue;
+                const ce = this.enemies[cei];
+                const dist = Math.hypot(ce.x - currentTarget.x, ce.y - currentTarget.y);
+                if (dist < bullet.chainRange && dist < nearestDist) {
+                  nearestDist = dist;
+                  nearestEnemy = { enemy: ce, index: cei };
+                }
+              }
+              
+              if (nearestEnemy) {
+                // Chain to this enemy
+                this.spawnDamageNumber(nearestEnemy.enemy.x, nearestEnemy.enemy.y, currentChainDamage);
+                const chainKilled = nearestEnemy.enemy.takeDamage(currentChainDamage);
+                
+                if (chainKilled) {
+                  enemiesToRemove.add(nearestEnemy.index);
+                  this.addScore(nearestEnemy.enemy.scoreValue);
+                  this.spawnScorePopup(nearestEnemy.enemy.x, nearestEnemy.enemy.y, nearestEnemy.enemy.scoreValue);
+                  killedEnemyPositions.push({ x: nearestEnemy.enemy.x, y: nearestEnemy.enemy.y, isBoss: false });
+                }
+                
+                chainedTargets.add(nearestEnemy.index);
+                currentTarget = nearestEnemy.enemy;
+              } else {
+                break; // No more targets in range
+              }
+            }
+          }
+          
+          // Grapheme W (index 22) - Explosive bullets
+          if (bullet.explosionRadius > 0) {
+            const explosionDamage = bullet.damage * EXPLOSIVE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER;
+            
+            // Damage all enemies in explosion radius
+            for (let exi = 0; exi < this.enemies.length; exi++) {
+              if (enemiesToRemove.has(exi)) continue;
+              const exEnemy = this.enemies[exi];
+              const dist = Math.hypot(exEnemy.x - enemy.x, exEnemy.y - enemy.y);
+              
+              if (dist <= bullet.explosionRadius) {
+                this.spawnDamageNumber(exEnemy.x, exEnemy.y, explosionDamage);
+                const exKilled = exEnemy.takeDamage(explosionDamage);
+                
+                if (exKilled) {
+                  enemiesToRemove.add(exi);
+                  this.addScore(exEnemy.scoreValue);
+                  this.spawnScorePopup(exEnemy.x, exEnemy.y, exEnemy.scoreValue);
+                  killedEnemyPositions.push({ x: exEnemy.x, y: exEnemy.y, isBoss: false });
+                }
+              }
+            }
+          }
+          
+          // Grapheme O (index 14) - Ricochet
+          if (bullet.ricochetBounces > 0 && bullet.ricochetCount < bullet.ricochetBounces) {
+            // Find nearest unchained enemy for ricochet
+            let nearestEnemy = null;
+            let nearestDist = Infinity;
+            
+            for (let rei = 0; rei < this.enemies.length; rei++) {
+              if (rei === ei || enemiesToRemove.has(rei) || hitEnemies.has(rei)) continue;
+              const re = this.enemies[rei];
+              const dist = Math.hypot(re.x - enemy.x, re.y - enemy.y);
+              if (dist < nearestDist) {
+                nearestDist = dist;
+                nearestEnemy = re;
+              }
+            }
+            
+            if (nearestEnemy) {
+              // Redirect bullet to nearest enemy
+              bullet.ricochetCount++;
+              bullet.damage *= RICOCHET_CONFIG.BOUNCE_DAMAGE_MULTIPLIER;
+              const dx = nearestEnemy.x - bullet.x;
+              const dy = nearestEnemy.y - bullet.y;
+              bullet.baseAngle = Math.atan2(dy, dx);
+              // Mark current enemy as hit to prevent bouncing back
+              hitEnemies.add(ei);
+              // Don't mark for removal yet - let it ricochet
+            } else {
+              // No more targets to ricochet to, remove the bullet
+              if (!bulletsToRemove.has(bi)) {
+                bulletsToRemove.add(bi);
+              }
+            }
+          } else if (bullet.ricochetBounces === 0 || bullet.ricochetCount >= bullet.ricochetBounces) {
+            // Normal behavior: no ricochet or max bounces reached
+            // Piercing logic will handle bullet removal if needed
           }
 
           if (killed) {
