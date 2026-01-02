@@ -111,6 +111,8 @@ export const DEFAULT_AUDIO_MANIFEST = {
     noteG: { file: 'note_G.mp3', volume: 0.8, maxConcurrent: 3 },
     psi_merge: { file: 'psi_merge.mp3', volume: 0.65, maxConcurrent: 3 },
     psi_aoe: { file: 'psi_aoe.mp3', volume: 0.7, maxConcurrent: 4 },
+    // Delta ship impact sound (glass clinking).
+    deltaShipImpact: { file: 'raw/crystal-bowl-f3.mp3', volume: 0.4, maxConcurrent: 6 },
   },
 };
 
