@@ -242,6 +242,8 @@ import {
   getCardinalHighestWave,
   getCardinalHighScore,
 } from './cardinalWardenUI.js';
+// Shin Grapheme Codex UI for displaying grapheme information.
+import { initializeShinGraphemeCodex } from './shinGraphemeCodexUI.js';
 import {
   initializeKufState,
   getKufStateSnapshot,
@@ -6796,6 +6798,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               setShinSimulationGetter(getCardinalSimulation);
               initializeShinSpirePreferences();
               bindShinSpireOptions();
+              // Initialize the grapheme codex UI
+              initializeShinGraphemeCodex();
               cardinalWardenInitialized = true;
             } catch (error) {
               console.error('Failed to initialize Cardinal Warden UI:', error);
