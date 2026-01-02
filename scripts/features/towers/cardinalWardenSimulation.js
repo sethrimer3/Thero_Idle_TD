@@ -5325,16 +5325,19 @@ export class CardinalWardenSimulation {
       // Grapheme X (index 23) - Lifetime modifier affects when bullets are removed
       const lifetimeCheck = bullet.lifetimeMultiplier || 1;
       if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
-        // For short lifetime, remove bullets earlier
-        if (lifetimeCheck < 1 && bullet.age > 3000 * lifetimeCheck) {
-          toRemove.push(i);
-        } else if (lifetimeCheck >= 1) {
+        if (lifetimeCheck < 1) {
+          // For short lifetime, remove bullets earlier
+          if (bullet.age > 3000 * lifetimeCheck) {
+            toRemove.push(i);
+          }
+        } else if (lifetimeCheck > 1) {
           // For long lifetime, keep bullets longer
-          // Only remove if truly offscreen AND age exceeds normal limit
+          // Only remove if truly offscreen AND age exceeds extended limit
           if (bullet.age > 10000 || (bullet.age > 5000 && bullet.isOffscreen(this.canvas.width * 1.5, this.canvas.height * 1.5))) {
             toRemove.push(i);
           }
         } else {
+          // Normal lifetime (multiplier == 1)
           toRemove.push(i);
         }
       }
@@ -5415,11 +5418,16 @@ export class CardinalWardenSimulation {
           
           // Grapheme R (index 17) - Chain lightning
           if (bullet.chainCount > 0) {
-            let currentChainDamage = bullet.damage * CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+            let currentChainDamage = bullet.damage; // Start with full damage
             let currentTarget = enemy;
             const chainedTargets = new Set([ei]); // Track to avoid chaining to same target
             
             for (let c = 0; c < bullet.chainCount; c++) {
+              // Apply damage decay for subsequent chains (not the initial hit)
+              if (c > 0) {
+                currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+              }
+              
               // Find nearest unchained enemy
               let nearestEnemy = null;
               let nearestDist = Infinity;
@@ -5448,7 +5456,6 @@ export class CardinalWardenSimulation {
                 
                 chainedTargets.add(nearestEnemy.index);
                 currentTarget = nearestEnemy.enemy;
-                currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER; // Decay for next chain
               } else {
                 break; // No more targets in range
               }
@@ -5502,6 +5509,8 @@ export class CardinalWardenSimulation {
               const dx = nearestEnemy.x - bullet.x;
               const dy = nearestEnemy.y - bullet.y;
               bullet.baseAngle = Math.atan2(dy, dx);
+              // Mark current enemy as hit to prevent bouncing back
+              hitEnemies.add(ei);
               // Don't mark for removal, let it continue
             }
           }
