@@ -2176,6 +2176,37 @@ class MathBullet {
     this.prevY = this.y;
     this.time += dt;
     this.age += deltaTime;
+    
+    // Grapheme P (index 15) - Homing missiles
+    if (this.homingTurnRate > 0 && Array.isArray(enemies) && enemies.length > 0) {
+      // Find nearest enemy within detection radius
+      let nearestEnemy = null;
+      let nearestDist = Infinity;
+      for (const enemy of enemies) {
+        const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+        if (dist < HOMING_CONFIG.DETECTION_RADIUS && dist < nearestDist) {
+          nearestDist = dist;
+          nearestEnemy = enemy;
+        }
+      }
+      
+      if (nearestEnemy) {
+        // Calculate desired angle to enemy
+        const desiredAngle = Math.atan2(nearestEnemy.y - this.y, nearestEnemy.x - this.x);
+        // Calculate angle difference
+        let angleDiff = desiredAngle - this.baseAngle;
+        // Normalize to [-π, π]
+        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+        // Turn toward enemy at turn rate
+        const maxTurn = this.homingTurnRate * dt;
+        if (Math.abs(angleDiff) <= maxTurn) {
+          this.baseAngle = desiredAngle;
+        } else {
+          this.baseAngle += Math.sign(angleDiff) * maxTurn;
+        }
+      }
+    }
 
     // Handle fifth grapheme (Epsilon) behaviors first
     if (this.epsilonBehavior === 'straight') {
@@ -5229,10 +5260,83 @@ export class CardinalWardenSimulation {
       const bullet = this.bullets[i];
       bullet.update(deltaTime, this.canvas.width, this.canvas.height, this.enemies);
 
+      // Grapheme U (index 20) - Pulse waves
+      if (bullet.pulseRate > 0 && bullet.pulseRadius > 0) {
+        bullet.pulseTimer += deltaTime / 1000;
+        const pulseInterval = 1 / bullet.pulseRate;
+        
+        if (bullet.pulseTimer >= pulseInterval) {
+          bullet.pulseTimer = 0;
+          const pulseDamage = bullet.damage * PULSE_CONFIG.PULSE_DAMAGE_MULTIPLIER;
+          
+          // Damage all enemies in pulse radius
+          for (const enemy of this.enemies) {
+            const dist = Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y);
+            if (dist <= bullet.pulseRadius) {
+              this.spawnDamageNumber(enemy.x, enemy.y, pulseDamage);
+              enemy.takeDamage(pulseDamage);
+            }
+          }
+          
+          // Also damage bosses
+          for (const boss of this.bosses) {
+            const dist = Math.hypot(boss.x - bullet.x, boss.y - bullet.y);
+            if (dist <= bullet.pulseRadius) {
+              this.spawnDamageNumber(boss.x, boss.y, pulseDamage);
+              boss.takeDamage(pulseDamage);
+            }
+          }
+        }
+      }
+      
+      // Grapheme Y (index 24) - Vortex pull
+      if (bullet.vortexRadius > 0 && bullet.vortexStrength > 0) {
+        const dt = deltaTime / 1000;
+        
+        // Pull enemies toward bullet
+        for (const enemy of this.enemies) {
+          const dx = bullet.x - enemy.x;
+          const dy = bullet.y - enemy.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist <= bullet.vortexRadius && dist > 0) {
+            const pullForce = bullet.vortexStrength * dt;
+            enemy.x += (dx / dist) * pullForce;
+            enemy.y += (dy / dist) * pullForce;
+          }
+        }
+        
+        // Also pull bosses
+        for (const boss of this.bosses) {
+          const dx = bullet.x - boss.x;
+          const dy = bullet.y - boss.y;
+          const dist = Math.hypot(dx, dy);
+          
+          if (dist <= bullet.vortexRadius && dist > 0) {
+            const pullForce = bullet.vortexStrength * dt;
+            boss.x += (dx / dist) * pullForce;
+            boss.y += (dy / dist) * pullForce;
+          }
+        }
+      }
+
       this.tryBounceBulletOffTrails(bullet);
 
+      // Grapheme X (index 23) - Lifetime modifier affects when bullets are removed
+      const lifetimeCheck = bullet.lifetimeMultiplier || 1;
       if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
-        toRemove.push(i);
+        // For short lifetime, remove bullets earlier
+        if (lifetimeCheck < 1 && bullet.age > 3000 * lifetimeCheck) {
+          toRemove.push(i);
+        } else if (lifetimeCheck >= 1) {
+          // For long lifetime, keep bullets longer
+          // Only remove if truly offscreen AND age exceeds normal limit
+          if (bullet.age > 10000 || (bullet.age > 5000 && bullet.isOffscreen(this.canvas.width * 1.5, this.canvas.height * 1.5))) {
+            toRemove.push(i);
+          }
+        } else {
+          toRemove.push(i);
+        }
       }
     }
 
@@ -5285,6 +5389,121 @@ export class CardinalWardenSimulation {
             enemy.applyBurning();
           } else if (bullet.elementalEffect === 'freezing') {
             enemy.applyFreeze();
+          }
+          
+          // Handle new grapheme effects on hit (O-Z)
+          
+          // Grapheme Q (index 16) - Split bullets
+          if (bullet.splitCount > 0 && !bulletsToRemove.has(bi)) {
+            const splitAngle = SPLIT_CONFIG.SPLIT_SPREAD_ANGLE;
+            const angleStep = splitAngle / (bullet.splitCount - 1);
+            const startAngle = bullet.baseAngle - (splitAngle / 2);
+            
+            for (let s = 0; s < bullet.splitCount; s++) {
+              const angle = startAngle + (s * angleStep);
+              const splitBullet = new MathBullet(enemy.x, enemy.y, angle, {
+                speed: bullet.speed,
+                damage: bullet.damage * SPLIT_CONFIG.SPLIT_DAMAGE_MULTIPLIER,
+                size: bullet.size * 0.7,
+                color: bullet.color,
+                level: bullet.level,
+                maxTrailLength: bullet.maxTrailLength,
+              });
+              this.bullets.push(splitBullet);
+            }
+          }
+          
+          // Grapheme R (index 17) - Chain lightning
+          if (bullet.chainCount > 0) {
+            let currentChainDamage = bullet.damage * CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+            let currentTarget = enemy;
+            const chainedTargets = new Set([ei]); // Track to avoid chaining to same target
+            
+            for (let c = 0; c < bullet.chainCount; c++) {
+              // Find nearest unchained enemy
+              let nearestEnemy = null;
+              let nearestDist = Infinity;
+              
+              for (let cei = 0; cei < this.enemies.length; cei++) {
+                if (chainedTargets.has(cei) || enemiesToRemove.has(cei)) continue;
+                const ce = this.enemies[cei];
+                const dist = Math.hypot(ce.x - currentTarget.x, ce.y - currentTarget.y);
+                if (dist < bullet.chainRange && dist < nearestDist) {
+                  nearestDist = dist;
+                  nearestEnemy = { enemy: ce, index: cei };
+                }
+              }
+              
+              if (nearestEnemy) {
+                // Chain to this enemy
+                this.spawnDamageNumber(nearestEnemy.enemy.x, nearestEnemy.enemy.y, currentChainDamage);
+                const chainKilled = nearestEnemy.enemy.takeDamage(currentChainDamage);
+                
+                if (chainKilled) {
+                  enemiesToRemove.add(nearestEnemy.index);
+                  this.addScore(nearestEnemy.enemy.scoreValue);
+                  this.spawnScorePopup(nearestEnemy.enemy.x, nearestEnemy.enemy.y, nearestEnemy.enemy.scoreValue);
+                  killedEnemyPositions.push({ x: nearestEnemy.enemy.x, y: nearestEnemy.enemy.y, isBoss: false });
+                }
+                
+                chainedTargets.add(nearestEnemy.index);
+                currentTarget = nearestEnemy.enemy;
+                currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER; // Decay for next chain
+              } else {
+                break; // No more targets in range
+              }
+            }
+          }
+          
+          // Grapheme W (index 22) - Explosive bullets
+          if (bullet.explosionRadius > 0) {
+            const explosionDamage = bullet.damage * EXPLOSIVE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER;
+            
+            // Damage all enemies in explosion radius
+            for (let exi = 0; exi < this.enemies.length; exi++) {
+              if (enemiesToRemove.has(exi)) continue;
+              const exEnemy = this.enemies[exi];
+              const dist = Math.hypot(exEnemy.x - enemy.x, exEnemy.y - enemy.y);
+              
+              if (dist <= bullet.explosionRadius) {
+                this.spawnDamageNumber(exEnemy.x, exEnemy.y, explosionDamage);
+                const exKilled = exEnemy.takeDamage(explosionDamage);
+                
+                if (exKilled) {
+                  enemiesToRemove.add(exi);
+                  this.addScore(exEnemy.scoreValue);
+                  this.spawnScorePopup(exEnemy.x, exEnemy.y, exEnemy.scoreValue);
+                  killedEnemyPositions.push({ x: exEnemy.x, y: exEnemy.y, isBoss: false });
+                }
+              }
+            }
+          }
+          
+          // Grapheme O (index 14) - Ricochet
+          if (bullet.ricochetBounces > 0 && bullet.ricochetCount < bullet.ricochetBounces) {
+            // Find nearest unchained enemy for ricochet
+            let nearestEnemy = null;
+            let nearestDist = Infinity;
+            
+            for (let rei = 0; rei < this.enemies.length; rei++) {
+              if (rei === ei || enemiesToRemove.has(rei) || hitEnemies.has(rei)) continue;
+              const re = this.enemies[rei];
+              const dist = Math.hypot(re.x - enemy.x, re.y - enemy.y);
+              if (dist < nearestDist) {
+                nearestDist = dist;
+                nearestEnemy = re;
+              }
+            }
+            
+            if (nearestEnemy) {
+              // Redirect bullet to nearest enemy
+              bullet.ricochetCount++;
+              bullet.damage *= RICOCHET_CONFIG.BOUNCE_DAMAGE_MULTIPLIER;
+              const dx = nearestEnemy.x - bullet.x;
+              const dy = nearestEnemy.y - bullet.y;
+              bullet.baseAngle = Math.atan2(dy, dx);
+              // Don't mark for removal, let it continue
+            }
           }
 
           if (killed) {
