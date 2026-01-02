@@ -16,6 +16,16 @@ const MIN_BEAM_THICKNESS = 3.5;
 const MAX_BEAM_THICKNESS = 9.5;
 const MIN_WAVE_SAMPLES = 32;
 const MAX_WAVE_SAMPLES = 160;
+// Weighted note keys for lambda audio cues, ordered from lowest to highest pitch.
+const LAMBDA_NOTE_SFX_KEYS = [
+  'lambdaNoteA1',
+  'lambdaNoteD2',
+  'lambdaNoteF2',
+  'lambdaNoteA2',
+  'lambdaNoteD3',
+];
+// Controls how strongly higher enemy counts bias lambda toward higher notes.
+const LAMBDA_NOTE_BIAS_STRENGTH = 1.35;
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -158,6 +168,28 @@ function computeSpectrumColor(effectiveCount) {
     g: Math.round(lerp(base.g, 255, normalized)),
     b: Math.round(lerp(base.b, 255, normalized)),
   };
+}
+
+// Pick a lambda note with higher notes favored as combat density rises.
+function selectLambdaNoteKey(normalizedEffect) {
+  const keys = Array.isArray(LAMBDA_NOTE_SFX_KEYS) ? LAMBDA_NOTE_SFX_KEYS : [];
+  if (!keys.length) {
+    return null;
+  }
+  const bias = clamp(normalizedEffect, 0, 1);
+  const weights = keys.map((_, index) => 1 + bias * LAMBDA_NOTE_BIAS_STRENGTH * index);
+  const totalWeight = weights.reduce((total, weight) => total + weight, 0);
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+    return keys[Math.floor(Math.random() * keys.length)];
+  }
+  let roll = Math.random() * totalWeight;
+  for (let index = 0; index < weights.length; index += 1) {
+    roll -= weights[index];
+    if (roll <= 0) {
+      return keys[index];
+    }
+  }
+  return keys[keys.length - 1];
 }
 
 function distancePointToSegmentSquared(point, start, end) {
@@ -452,6 +484,14 @@ function updateLambdaTower(playfield, tower, delta) {
   if (laser) {
     laser.maxAmplitude = maxAmplitude;
     laser.hitCount = hits.length;
+  }
+
+  // Trigger a lambda note with bias toward higher pitches as enemy density rises.
+  if (playfield.audio && typeof playfield.audio.playSfx === 'function') {
+    const noteKey = selectLambdaNoteKey(normalizedEffect);
+    if (noteKey) {
+      playfield.audio.playSfx(noteKey);
+    }
   }
 }
 
