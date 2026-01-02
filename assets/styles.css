@@ -13498,6 +13498,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   width: 100%;
   height: 100%;
   background: #ffffff;
+  touch-action: none; /* Enable pointer events on mobile */
+  user-select: none; /* Prevent text selection */
 }
 
 /* Start screen overlay */
