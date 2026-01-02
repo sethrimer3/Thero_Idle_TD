@@ -79,6 +79,13 @@ export const DEFAULT_AUDIO_MANIFEST = {
     gammaTowerFire2: { file: 'towers/gammaTower/tower_shot_kalimba_C4.m4a', volume: 0.35, maxConcurrent: 5 },
     gammaTowerFire3: { file: 'towers/gammaTower/tower_shot_kalimba_D4.m4a', volume: 0.35, maxConcurrent: 5 },
     gammaTowerFire4: { file: 'towers/gammaTower/tower_shot_kalimba_E4.m4a', volume: 0.35, maxConcurrent: 5 },
+    // Epsilon tower firing notes (echo lead variations).
+    epsilonTowerNoteA3: { file: 'towers/epsilon/EchoLead_A3.m4a', volume: 0.45, maxConcurrent: 4 },
+    epsilonTowerNoteC4: { file: 'towers/epsilon/EchoLead_C4.m4a', volume: 0.45, maxConcurrent: 4 },
+    epsilonTowerNoteD4: { file: 'towers/epsilon/EchoLead_D4.m4a', volume: 0.45, maxConcurrent: 4 },
+    epsilonTowerNoteE4: { file: 'towers/epsilon/EchoLead_E4.m4a', volume: 0.45, maxConcurrent: 4 },
+    epsilonTowerNoteF4: { file: 'towers/epsilon/EchoLead_F4.m4a', volume: 0.45, maxConcurrent: 4 },
+    epsilonTowerNoteA4: { file: 'towers/epsilon/EchoLead_A4.m4a', volume: 0.45, maxConcurrent: 4 },
     // Lambda tower firing notes (pluck variations).
     lambdaNoteA1: { file: 'towers/lambda/pluck A1.m4a', volume: 0.7, maxConcurrent: 4 },
     lambdaNoteD2: { file: 'towers/lambda/pluck D2.m4a', volume: 0.7, maxConcurrent: 4 },
@@ -952,6 +959,15 @@ export const TOWER_FIRING_SOUNDS = {
   alpha: ['alphaTowerFire1', 'alphaTowerFire2', 'alphaTowerFire3', 'alphaTowerFire4'],
   beta: ['betaTowerFire1', 'betaTowerFire2', 'betaTowerFire3', 'betaTowerFire4'],
   gamma: ['gammaTowerFire1', 'gammaTowerFire2', 'gammaTowerFire3', 'gammaTowerFire4'],
+  // Epsilon uses a randomized echo lead note palette.
+  epsilon: [
+    'epsilonTowerNoteA3',
+    'epsilonTowerNoteC4',
+    'epsilonTowerNoteD4',
+    'epsilonTowerNoteE4',
+    'epsilonTowerNoteF4',
+    'epsilonTowerNoteA4',
+  ],
 };
 
 /**
