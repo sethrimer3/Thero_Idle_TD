@@ -3949,9 +3949,17 @@ export class CardinalWardenSimulation {
       // hasWaveEffect and elementalEffect are preserved from other graphemes
     }
 
-    // Calculate angle toward aim target (or straight up if no target)
+    // Calculate angle toward target
+    // Priority: grapheme H target > aim target > straight up
     let baseAngle = -Math.PI / 2; // Default: straight up
-    if (this.aimTarget) {
+    
+    // If grapheme H is active and has a valid target, aim at that target
+    if (targetedEnemy && targetedEnemy.x !== undefined && targetedEnemy.y !== undefined) {
+      const dx = targetedEnemy.x - cx;
+      const dy = targetedEnemy.y - (cy - 20); // Account for bullet spawn offset
+      baseAngle = Math.atan2(dy, dx);
+    } else if (this.aimTarget) {
+      // Otherwise use player's aim target
       const dx = this.aimTarget.x - cx;
       const dy = this.aimTarget.y - (cy - 20); // Account for bullet spawn offset
       baseAngle = Math.atan2(dy, dx);

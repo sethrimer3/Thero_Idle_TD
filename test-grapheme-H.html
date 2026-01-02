@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test 8th Grapheme (H) - Cardinal Warden</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f1116;
+      color: #e6e6ea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      border: 2px solid #e6e6ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      background: rgba(230, 230, 234, 0.05);
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: 2px solid #e6e6ea;
+      background: rgba(230, 230, 234, 0.1);
+      color: #e6e6ea;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(230, 230, 234, 0.2);
+    }
+
+    .info {
+      padding: 10px;
+      background: rgba(162, 227, 245, 0.1);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .status {
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 10px;
+      background: rgba(230, 230, 234, 0.1);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>8th Grapheme (H) Test</h1>
+  <p class="subtitle">Testing weapon targeting mechanics</p>
+  
+  <div class="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="info">
+      <strong>Grapheme H - Weapon Targeting</strong>
+      <ul>
+        <li>Slots 0-3: Target lowest enemy (closest to bottom)</li>
+        <li>Slots 4-7: Target lowest boss-class enemy</li>
+        <li>Visual indicator shows targeted enemy</li>
+        <li>Bullets automatically aim at targeted enemy</li>
+      </ul>
+    </div>
+
+    <button id="testSlot0">Test Slot 0 (Target Lowest Enemy)</button>
+    <button id="testSlot4">Test Slot 4 (Target Lowest Boss)</button>
+    <button id="testNoGrapheme">Test Without Grapheme H</button>
+    <button id="reset">Reset Test</button>
+
+    <div class="status" id="status">Ready to test</div>
+  </div>
+
+  <script type="module">
+    import { CardinalWardenSimulation } from './scripts/features/towers/cardinalWardenSimulation.js';
+    import { GRAPHEME_INDEX } from './scripts/features/towers/cardinalWardenConfig.js';
+
+    const canvas = document.getElementById('gameCanvas');
+    const statusDiv = document.getElementById('status');
+
+    // Initialize simulation
+    const simulation = new CardinalWardenSimulation(canvas);
+
+    // Helper to reset and setup test
+    function setupTest(slotIndex = null) {
+      // Reset simulation
+      simulation.reset();
+      
+      // Clear weapon grapheme assignments
+      simulation.weaponGraphemeAssignments = {
+        slot1: [],
+        slot2: [],
+        slot3: []
+      };
+
+      // Give player grapheme H inventory
+      simulation.graphemeInventoryCounts[GRAPHEME_INDEX.H] = 1;
+
+      // Assign grapheme H to weapon slot 1 if slotIndex provided
+      if (slotIndex !== null) {
+        simulation.weaponGraphemeAssignments.slot1 = [
+          { index: GRAPHEME_INDEX.H, slotIndex: slotIndex }
+        ];
+        statusDiv.textContent = `Testing Grapheme H in Slot ${slotIndex + 1}`;
+      } else {
+        statusDiv.textContent = 'Testing without Grapheme H';
+      }
+
+      // Spawn multiple enemies (they will appear at random positions)
+      for (let i = 0; i < 5; i++) {
+        simulation.spawnEnemy();
+      }
+
+      // Spawn a boss for boss targeting tests
+      simulation.spawnBoss();
+
+      // Start the simulation
+      simulation.start();
+    }
+
+    // Button event listeners
+    document.getElementById('testSlot0').addEventListener('click', () => {
+      setupTest(0); // Slot 0 = target lowest enemy
+    });
+
+    document.getElementById('testSlot4').addEventListener('click', () => {
+      setupTest(4); // Slot 4 = target lowest boss
+    });
+
+    document.getElementById('testNoGrapheme').addEventListener('click', () => {
+      setupTest(null); // No grapheme H
+    });
+
+    document.getElementById('reset').addEventListener('click', () => {
+      simulation.reset();
+      simulation.weaponGraphemeAssignments = {
+        slot1: [],
+        slot2: [],
+        slot3: []
+      };
+      statusDiv.textContent = 'Reset - Ready to test';
+    });
+
+    // Initial setup
+    setupTest(0);
+  </script>
+</body>
+</html>
