@@ -12616,9 +12616,9 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
     linear-gradient(135deg, rgba(12, 16, 35, 0.9) 25%, rgba(10, 12, 28, 0.8) 50%, rgba(6, 8, 22, 0.95) 100%);
   /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
   aspect-ratio: 3 / 4;
-  /* Expand until the viewport width or height limit is encountered. */
-  width: min(100%, calc(100vw - 48px));
-  max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
+  /* Expand to fill the card so the render has no left/right gutter. */
+  width: 100%;
+  max-width: 100%;
   max-height: calc(var(--stable-vh) - 220px);
 }
 
