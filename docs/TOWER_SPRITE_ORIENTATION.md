@@ -31,7 +31,7 @@ This means:
    - File: `assets/sprites/towers/epsilon/projectiles/epsilonProjectile.png`
    - Type: Homing needle
    - Base orientation: Pointing upward (needle tip faces up)
-   - **Special note:** The needle sprite should NOT rotate during flight. It maintains its upward orientation regardless of velocity direction.
+   - Rotation: Applied based on trajectory angle to point in direction of travel
 
 ### Ship Sprites (Upward Orientation)
 
@@ -54,13 +54,9 @@ const heading = Math.atan2(vy, vx);
 ctx.rotate(heading + Math.PI / 2);
 ```
 
-### Non-Rotating Sprites
+### Non-Rotating Sprites (None Currently)
 
-For sprites that should maintain upward orientation (like epsilon needles):
-```javascript
-// No rotation applied - sprite stays upward-facing
-ctx.drawImage(sprite, -width/2, -height/2, width, height);
-```
+Previously, epsilon needles were designed to maintain upward orientation, but this has been changed so they now rotate to point in their direction of travel for better visual feedback.
 
 ### Delta Ship Example
 

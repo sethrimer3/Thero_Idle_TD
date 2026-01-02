@@ -59,7 +59,8 @@ enemyParticleSprite.decoding = 'async';
 enemyParticleSprite.loading = 'eager';
 
 // Epsilon needle sprite provides the projectile silhouette that we tint with the active palette.
-// Note: Epsilon needle sprite is oriented with the needle pointing upward and does NOT rotate during flight.
+// Note: Epsilon needle sprite is oriented with the needle pointing upward (base orientation).
+// During flight, the sprite rotates to point in the direction of travel.
 // See docs/TOWER_SPRITE_ORIENTATION.md for sprite orientation conventions.
 const EPSILON_NEEDLE_SPRITE_URL = 'assets/sprites/towers/epsilon/projectiles/epsilonProjectile.png';
 const epsilonNeedleSprite = new Image();
@@ -3234,8 +3235,9 @@ function drawProjectiles() {
       const tintedSprite = resolveEpsilonNeedleSprite(paletteRatio);
       ctx.save();
       ctx.translate(position.x, position.y);
-      // Note: Epsilon needle sprite does NOT rotate - it maintains upward orientation.
-      // The sprite is designed with the needle pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
+      // Rotate the sprite to point in the direction of travel
+      // Since sprite is oriented upward, add π/2 to align with heading
+      ctx.rotate(heading + Math.PI / 2);
       ctx.globalAlpha = alpha;
       if (tintedSprite) {
         // Scale the needle sprite to roughly match the legacy vector length.
@@ -3244,11 +3246,12 @@ function drawProjectiles() {
         const scale = targetLength / reference;
         const spriteWidth = (tintedSprite.width || reference) * scale;
         const spriteHeight = (tintedSprite.height || reference) * scale;
-        // Draw sprite without rotation - needle stays pointing upward
+        // Draw sprite rotated to match trajectory
         ctx.drawImage(tintedSprite, -spriteWidth * 0.5, -spriteHeight * 0.5, spriteWidth, spriteHeight);
       } else {
-        // Fallback vector needle uses heading for backward compatibility
-        ctx.rotate(heading);
+        // Fallback vector needle (already rotated by the ctx.rotate above)
+        // Adjust rotation to point along x-axis before ctx.rotate applied the heading
+        ctx.rotate(-Math.PI / 2);
         ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
         ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
         ctx.lineWidth = 0.9;

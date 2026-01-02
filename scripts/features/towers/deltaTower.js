@@ -12,8 +12,8 @@ import { metersToPixels } from '../../../assets/gameUnits.js';
 // Δ ship sprite paths point at the white art that will be tinted by the active palette.
 // Note: Delta ship sprites are oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
 const DELTA_SHIP_SPRITE_PATHS = [
-  '../../../assets/sprites/towers/delta/ship1.png',
-  '../../../assets/sprites/towers/delta/ship2.png',
+  'assets/sprites/towers/delta/ship1.png',
+  'assets/sprites/towers/delta/ship2.png',
 ];
 
 // Cache 12 tinted variants per ship sprite so palette swaps only pay the recolor cost once.
@@ -772,6 +772,12 @@ function updateDeltaSoldier(playfield, tower, soldier, delta, state) {
         target.hp = Math.max(0, enemyHp - inflicted);
         const loss = Math.max(0, inflicted - (state.defense || 0));
         soldier.health = Math.max(0, soldier.health - loss);
+        
+        // Play glass clinking sound on impact
+        if (playfield?.audio && inflicted > 0) {
+          playfield.audio.playSfx('deltaShipImpact');
+        }
+        
         if (target.hp <= 0) {
           playfield.processEnemyDefeat(target);
           soldier.targetId = null;
