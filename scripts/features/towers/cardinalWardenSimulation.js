@@ -71,6 +71,18 @@ import {
   BEAM_CONFIG,
   MINE_CONFIG,
   SWARM_CONFIG,
+  RICOCHET_CONFIG,
+  HOMING_CONFIG,
+  SPLIT_CONFIG,
+  CHAIN_CONFIG,
+  SIZE_CONFIG,
+  ORBITAL_CONFIG,
+  PULSE_CONFIG,
+  SPEED_CONFIG,
+  EXPLOSIVE_CONFIG,
+  LIFETIME_CONFIG,
+  VORTEX_CONFIG,
+  CHAOS_CONFIG,
   GAME_CONFIG,
   BOSS_TYPES,
   WEAPON_SLOT_IDS,
@@ -2123,6 +2135,24 @@ class MathBullet {
     
     // Tenth grapheme (J - index 9) elemental effect
     this.elementalEffect = config.elementalEffect || null; // 'burning' or 'freezing'
+    
+    // New grapheme properties (O-Z)
+    this.ricochetBounces = config.ricochetBounces || 0; // Grapheme O - max bounces
+    this.ricochetCount = 0; // Track current bounce count
+    this.homingTurnRate = config.homingTurnRate || 0; // Grapheme P - turn rate (rad/s)
+    this.splitCount = config.splitCount || 0; // Grapheme Q - splits on hit
+    this.chainCount = config.chainCount || 0; // Grapheme R - chain targets
+    this.chainRange = config.chainRange || 0; // Grapheme R - chain range
+    this.orbitalCount = config.orbitalCount || 0; // Grapheme T - orbit count
+    this.orbitalProgress = 0; // Track orbit completion
+    this.pulseRate = config.pulseRate || 0; // Grapheme U - pulses per second
+    this.pulseRadius = config.pulseRadius || 0; // Grapheme U - pulse radius
+    this.pulseTimer = 0; // Track time for next pulse
+    this.explosionRadius = config.explosionRadius || 0; // Grapheme W - explosion radius
+    this.lifetimeMultiplier = config.lifetimeMultiplier || 1; // Grapheme X - lifetime mult
+    this.vortexRadius = config.vortexRadius || 0; // Grapheme Y - pull radius
+    this.vortexStrength = config.vortexStrength || 0; // Grapheme Y - pull strength
+    this.chaosEffectCount = config.chaosEffectCount || 0; // Grapheme Z - random effects
   }
   
   /**
@@ -3896,6 +3926,147 @@ export class CardinalWardenSimulation {
     // Note: Grapheme M (mines) spawning is handled separately in updateWeaponTimers()
     // Mines are spawned alongside bullets, not instead of them
     
+    // Check for grapheme O (index 14) - Ricochet bullets
+    let ricochetBounces = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.O) {
+        // Ricochet found! Bounces based on slot position (1-8 bounces)
+        ricochetBounces = RICOCHET_CONFIG.SLOT_TO_BOUNCES[slotIndex] || (slotIndex + 1);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme P (index 15) - Homing missiles
+    let homingTurnRate = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.P) {
+        // Homing found! Turn rate based on slot position
+        const turnMultiplier = HOMING_CONFIG.SLOT_TO_TURN_MULTIPLIER[slotIndex] || 1;
+        homingTurnRate = HOMING_CONFIG.BASE_TURN_RATE * turnMultiplier;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Q (index 16) - Split bullets
+    let splitCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Q) {
+        // Split found! Split count based on slot position (2-9 splits)
+        splitCount = SPLIT_CONFIG.SLOT_TO_SPLIT_COUNT[slotIndex] || (slotIndex + 2);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme R (index 17) - Chain lightning
+    let chainCount = 0;
+    let chainRange = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.R) {
+        // Chain found! Chains based on slot position
+        chainCount = CHAIN_CONFIG.SLOT_TO_CHAINS[slotIndex] || (slotIndex + 1);
+        chainRange = CHAIN_CONFIG.SLOT_TO_RANGE[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme S (index 18) - Bullet size
+    let sizeMultiplier = 1;
+    let sizeSpeedMult = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.S) {
+        // Size modifier found!
+        sizeMultiplier = SIZE_CONFIG.SLOT_TO_SIZE_MULT[slotIndex] || 1;
+        sizeSpeedMult = SIZE_CONFIG.SLOT_TO_SPEED_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme T (index 19) - Orbital bullets
+    let orbitalCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.T) {
+        // Orbital found! Orbit count based on slot position
+        orbitalCount = ORBITAL_CONFIG.SLOT_TO_ORBITS[slotIndex] || (slotIndex + 1);
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme U (index 20) - Pulse waves
+    let pulseRate = 0;
+    let pulseRadius = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.U) {
+        // Pulse found! Rate and radius based on slot position
+        pulseRate = PULSE_CONFIG.SLOT_TO_PULSE_RATE[slotIndex] || (slotIndex + 1);
+        pulseRadius = PULSE_CONFIG.SLOT_TO_PULSE_RADIUS[slotIndex] || 15;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme V (index 21) - Bullet speed
+    let bulletSpeedMult = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.V) {
+        // Speed modifier found!
+        bulletSpeedMult = SPEED_CONFIG.SLOT_TO_SPEED_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme W (index 22) - Explosive bullets
+    let explosionRadius = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.W) {
+        // Explosive found! Radius based on slot position
+        explosionRadius = EXPLOSIVE_CONFIG.SLOT_TO_RADIUS[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme X (index 23) - Bullet lifetime
+    let lifetimeMultiplier = 1;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.X) {
+        // Lifetime modifier found!
+        lifetimeMultiplier = LIFETIME_CONFIG.SLOT_TO_LIFETIME_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Y (index 24) - Vortex bullets
+    let vortexRadius = 0;
+    let vortexStrength = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Y) {
+        // Vortex found! Radius and strength based on slot position
+        vortexRadius = VORTEX_CONFIG.SLOT_TO_PULL_RADIUS[slotIndex] || 10;
+        vortexStrength = VORTEX_CONFIG.SLOT_TO_PULL_STRENGTH[slotIndex] || 20;
+        break; // Only apply the first occurrence
+      }
+    }
+    
+    // Check for grapheme Z (index 25) - Chaos (random effects)
+    let chaosEffectCount = 0;
+    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
+      const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.Z) {
+        // Chaos found! Number of random effects based on slot position
+        chaosEffectCount = CHAOS_CONFIG.SLOT_TO_EFFECT_COUNT[slotIndex] || 2;
+        break; // Only apply the first occurrence
+      }
+    }
+    
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
       if (assignment && assignment.index === 0) {
@@ -3918,9 +4089,9 @@ export class CardinalWardenSimulation {
     const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
 
     const bulletConfig = {
-      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * this.upgrades.bulletSpeed,
+      speed: weaponDef.baseSpeed * speedMultiplier * weaponSpeedMult * bulletSpeedMult * sizeSpeedMult * this.upgrades.bulletSpeed,
       damage: (weaponDef.baseDamage + excessGraphemeBonus) * damageMultiplier * weaponAttackMult * this.upgrades.bulletDamage,
-      size: 4,
+      size: 4 * sizeMultiplier,
       baseColor: weaponDef.color,
       color: resolvedColor,
       pattern: 'straight', // Simple straight pattern
@@ -3936,6 +4107,20 @@ export class CardinalWardenSimulation {
       hasWaveEffect: hasWaveEffect, // Seventh grapheme - spawn expanding wave on hit
       waveRadius: waveRadius, // Seventh grapheme - max radius of expanding wave
       elementalEffect: elementalEffect, // Tenth grapheme - burning or freezing effect
+      // New grapheme O-Z effects
+      ricochetBounces: ricochetBounces, // Grapheme O - number of bounces
+      homingTurnRate: homingTurnRate, // Grapheme P - homing turn rate
+      splitCount: splitCount, // Grapheme Q - number of splits
+      chainCount: chainCount, // Grapheme R - chain lightning count
+      chainRange: chainRange, // Grapheme R - chain range
+      orbitalCount: orbitalCount, // Grapheme T - number of orbits
+      pulseRate: pulseRate, // Grapheme U - pulses per second
+      pulseRadius: pulseRadius, // Grapheme U - pulse radius
+      explosionRadius: explosionRadius, // Grapheme W - explosion radius
+      lifetimeMultiplier: lifetimeMultiplier, // Grapheme X - lifetime multiplier
+      vortexRadius: vortexRadius, // Grapheme Y - vortex pull radius
+      vortexStrength: vortexStrength, // Grapheme Y - vortex pull strength
+      chaosEffectCount: chaosEffectCount, // Grapheme Z - number of random effects
     };
     
     // Apply massive bullet modifications if grapheme K is in slots 0-6
