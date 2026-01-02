@@ -35,6 +35,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   enemyTrailQuality: TRAIL_QUALITY_OPTIONS.HIGH,
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
   renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
+  legacyWardenGraphics: false, // New sprites by default
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -48,6 +49,8 @@ let enemyTrailQualityButton = null;
 let bulletTrailLengthButton = null;
 let renderSizeSelect = null;
 let renderSizeRow = null;
+let legacyWardenToggle = null;
+let legacyWardenToggleState = null;
 
 /**
  * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
@@ -156,6 +159,11 @@ function applySettingsToSimulation() {
   // Control bullet trail length for the danmaku renderer.
   if (typeof simulation.setBulletTrailLength === 'function') {
     simulation.setBulletTrailLength(settings.bulletTrailLength);
+  }
+  
+  // Control legacy warden graphics mode.
+  if (typeof simulation.setLegacyWardenGraphics === 'function') {
+    simulation.setLegacyWardenGraphics(settings.legacyWardenGraphics);
   }
 }
 
@@ -304,6 +312,7 @@ function syncToggleState(input, stateLabel, enabled) {
  */
 function syncAllToggles() {
   syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
+  syncToggleState(legacyWardenToggle, legacyWardenToggleState, settings.legacyWardenGraphics);
   
   if (renderSizeSelect) {
     renderSizeSelect.value = String(normalizeRenderSizeLevel(settings.renderSizeLevel));
@@ -407,6 +416,16 @@ export function bindShinSpireOptions() {
       persistSettings();
       syncAllToggles();
       applyRenderSizeLayout();
+    });
+  }
+  
+  legacyWardenToggle = document.getElementById('shin-legacy-warden-toggle');
+  legacyWardenToggleState = document.getElementById('shin-legacy-warden-toggle-state');
+  
+  if (legacyWardenToggle) {
+    legacyWardenToggle.addEventListener('change', (event) => {
+      applySetting('legacyWardenGraphics', event.target.checked);
+      syncToggleState(legacyWardenToggle, legacyWardenToggleState, settings.legacyWardenGraphics);
     });
   }
 

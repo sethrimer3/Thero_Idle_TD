@@ -2458,6 +2458,14 @@ export class CardinalWardenSimulation {
     this.bulletSpriteLoaded = [];
     // Begin preloading bullet sprites so they can be drawn during render.
     this.loadBulletSprites();
+    
+    // Warden sprite artwork for new visual style
+    this.wardenCoreSprite = null;
+    this.wardenCoreLoaded = false;
+    this.wardenShardSprites = []; // Array of 37 shard sprites
+    this.wardenShardsLoaded = []; // Track loading state of each shard
+    this.legacyWardenGraphics = false; // Toggle between sprite and canvas rendering
+    this.loadWardenSprites();
 
     // Game state
     this.running = false;
@@ -2836,6 +2844,39 @@ export class CardinalWardenSimulation {
       this.bulletSprites[index + 1] = sprite;
     });
   }
+  
+  /**
+   * Load warden sprite artwork (core and rotating shards).
+   */
+  loadWardenSprites() {
+    // Skip sprite loading on non-browser contexts.
+    if (typeof Image === 'undefined') {
+      return;
+    }
+    
+    // Load the warden core sprite
+    this.wardenCoreSprite = new Image();
+    this.wardenCoreSprite.onload = () => {
+      this.wardenCoreLoaded = true;
+    };
+    this.wardenCoreSprite.onerror = () => {
+      console.warn('Failed to load warden core sprite');
+    };
+    this.wardenCoreSprite.src = './assets/sprites/spires/shinSpire/warden/wardenCore.png';
+    
+    // Load all 37 warden shard sprites
+    for (let i = 1; i <= 37; i++) {
+      const sprite = new Image();
+      sprite.onload = () => {
+        this.wardenShardsLoaded[i - 1] = true;
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load warden shard sprite ${i}`);
+      };
+      sprite.src = `./assets/sprites/spires/shinSpire/warden/wardenShard (${i}).png`;
+      this.wardenShardSprites[i - 1] = sprite;
+    }
+  }
 
   /**
    * Render a character from the script sprite sheet.
@@ -3084,6 +3125,14 @@ export class CardinalWardenSimulation {
   setBulletTrailLength(length) {
     const validLengths = ['none', 'short', 'medium', 'long'];
     this.bulletTrailLength = validLengths.includes(length) ? length : 'long';
+  }
+  
+  /**
+   * Set legacy warden graphics mode.
+   * @param {boolean} enabled - True to use old canvas rendering, false for new sprites
+   */
+  setLegacyWardenGraphics(enabled) {
+    this.legacyWardenGraphics = Boolean(enabled);
   }
 
   /**
@@ -6243,45 +6292,128 @@ export class CardinalWardenSimulation {
     const ctx = this.ctx;
     const warden = this.warden;
 
-    // Draw ring squares first (behind everything else)
+    // Draw ring squares first (behind everything else) - always drawn regardless of mode
     for (const ring of warden.ringSquares) {
       ring.render(ctx, warden.x, warden.y);
     }
 
-    // Draw orbital squares
-    ctx.save();
-    if (this.nightMode) {
-      ctx.shadowColor = this.wardenCoreColor;
-      ctx.shadowBlur = 18;
-    }
-
-    ctx.fillStyle = this.wardenSquareColor;
-    for (const square of warden.orbitalSquares) {
-      const pos = square.getPosition(warden.x, warden.y);
-
+    // Choose rendering mode based on legacyWardenGraphics setting
+    if (this.legacyWardenGraphics) {
+      // Legacy mode: Use original canvas rendering
+      // Draw orbital squares
       ctx.save();
-      ctx.translate(pos.x, pos.y);
-      ctx.rotate(square.selfRotation);
+      if (this.nightMode) {
+        ctx.shadowColor = this.wardenCoreColor;
+        ctx.shadowBlur = 18;
+      }
 
-      const halfSize = square.size / 2;
-      ctx.fillRect(-halfSize, -halfSize, square.size, square.size);
+      ctx.fillStyle = this.wardenSquareColor;
+      for (const square of warden.orbitalSquares) {
+        const pos = square.getPosition(warden.x, warden.y);
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(square.selfRotation);
+
+        const halfSize = square.size / 2;
+        ctx.fillRect(-halfSize, -halfSize, square.size, square.size);
+
+        ctx.restore();
+      }
+
+      // Draw core orb
+      ctx.beginPath();
+      ctx.arc(warden.x, warden.y, warden.coreRadius, 0, Math.PI * 2);
+      ctx.fillStyle = this.wardenCoreColor;
+      ctx.fill();
+
+      // Draw inner highlight
+      ctx.beginPath();
+      ctx.arc(warden.x - 4, warden.y - 4, warden.coreRadius * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fill();
 
       ctx.restore();
+    } else {
+      // New mode: Use sprite-based rendering
+      ctx.save();
+      
+      // Draw orbital shards using sprites (if loaded), otherwise fallback to canvas rendering
+      for (let i = 0; i < warden.orbitalSquares.length; i++) {
+        const square = warden.orbitalSquares[i];
+        const pos = square.getPosition(warden.x, warden.y);
+        
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(square.selfRotation);
+        
+        // Try to use sprites if available
+        const shardIndex = this.wardenShardSprites.length > 0 ? i % this.wardenShardSprites.length : -1;
+        
+        if (shardIndex >= 0 && this.wardenShardsLoaded[shardIndex]) {
+          // Apply glow effect in night mode
+          if (this.nightMode) {
+            ctx.shadowColor = this.wardenCoreColor;
+            ctx.shadowBlur = 15;
+          }
+          
+          // Scale sprite to match the square size
+          const spriteSize = square.size * 3.5; // Make sprites larger for visual impact
+          ctx.drawImage(
+            this.wardenShardSprites[shardIndex],
+            -spriteSize / 2,
+            -spriteSize / 2,
+            spriteSize,
+            spriteSize
+          );
+        } else {
+          // Fallback to canvas rendering if sprites not loaded
+          if (this.nightMode) {
+            ctx.shadowColor = this.wardenCoreColor;
+            ctx.shadowBlur = 15;
+          }
+          
+          ctx.fillStyle = this.wardenSquareColor;
+          const halfSize = square.size / 2;
+          ctx.fillRect(-halfSize, -halfSize, square.size, square.size);
+        }
+        
+        ctx.restore();
+      }
+      
+      // Draw core sprite (if loaded)
+      if (this.wardenCoreLoaded) {
+        ctx.save();
+        
+        // Apply glow effect in night mode
+        if (this.nightMode) {
+          ctx.shadowColor = this.wardenCoreColor;
+          ctx.shadowBlur = 25;
+        }
+        
+        // Scale core sprite to match the core radius
+        const coreSize = warden.coreRadius * 5; // Make core sprite larger
+        ctx.drawImage(
+          this.wardenCoreSprite,
+          warden.x - coreSize / 2,
+          warden.y - coreSize / 2,
+          coreSize,
+          coreSize
+        );
+        
+        ctx.restore();
+      } else {
+        // Fallback to drawing a circle if sprite not loaded
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(warden.x, warden.y, warden.coreRadius, 0, Math.PI * 2);
+        ctx.fillStyle = this.wardenCoreColor;
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      ctx.restore();
     }
-
-    // Draw core orb
-    ctx.beginPath();
-    ctx.arc(warden.x, warden.y, warden.coreRadius, 0, Math.PI * 2);
-    ctx.fillStyle = this.wardenCoreColor;
-    ctx.fill();
-
-    // Draw inner highlight
-    ctx.beginPath();
-    ctx.arc(warden.x - 4, warden.y - 4, warden.coreRadius * 0.4, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.fill();
-
-    ctx.restore();
 
     // Render the warden's name in script font below
     this.renderWardenName();
