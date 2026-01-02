@@ -1530,50 +1530,47 @@ export class KufBattlefieldSimulation {
       const hasWaypoint = marine.waypoint && 
         (Math.abs(marine.x - marine.waypoint.x) > 5 || Math.abs(marine.y - marine.waypoint.y) > 5);
       
-      // Stop and fire if enemy in range, otherwise move forward or toward waypoint
-      if (target) {
-        // Decelerate to a stop before firing.
-        this.decelerateUnit(marine, delta);
-        
-        // Fire at target
-        if (marine.cooldown <= 0) {
-          if (marine.type === 'splayer') {
-            // Launch a randomized ring of homing rockets toward the focused or nearest enemy.
-            const rocketCount = 8;
-            const rocketDamage = marine.attack * 0.25;
-            for (let i = 0; i < rocketCount; i++) {
-              const launchAngle = Math.random() * Math.PI * 2;
-              this.spawnBullet({
-                owner: 'marine',
-                type: 'splayer',
-                x: marine.x,
-                y: marine.y - marine.radius,
-                target,
-                speed: SPLAYER_ROCKET_SPEED,
-                damage: rocketDamage,
-                homing: true,
-                angle: launchAngle,
-              });
-            }
-            // Boost splayer spin rate briefly after firing.
-            marine.rotationBoostTimer = SPLAYER_SPIN_BOOST_DURATION;
-          } else {
-            // Fire a single projectile for non-splayer units.
+      // Fire at target if in range
+      if (target && marine.cooldown <= 0) {
+        if (marine.type === 'splayer') {
+          // Launch a randomized ring of homing rockets toward the focused or nearest enemy.
+          const rocketCount = 8;
+          const rocketDamage = marine.attack * 0.25;
+          for (let i = 0; i < rocketCount; i++) {
+            const launchAngle = Math.random() * Math.PI * 2;
             this.spawnBullet({
               owner: 'marine',
-              type: marine.type,
+              type: 'splayer',
               x: marine.x,
               y: marine.y - marine.radius,
               target,
-              speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : MARINE_BULLET_SPEED,
-              damage: marine.attack,
-              homing: false,
+              speed: SPLAYER_ROCKET_SPEED,
+              damage: rocketDamage,
+              homing: true,
+              angle: launchAngle,
             });
           }
-
-          marine.cooldown = 1 / marine.attackSpeed;
+          // Boost splayer spin rate briefly after firing.
+          marine.rotationBoostTimer = SPLAYER_SPIN_BOOST_DURATION;
+        } else {
+          // Fire a single projectile for non-splayer units.
+          this.spawnBullet({
+            owner: 'marine',
+            type: marine.type,
+            x: marine.x,
+            y: marine.y - marine.radius,
+            target,
+            speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : MARINE_BULLET_SPEED,
+            damage: marine.attack,
+            homing: false,
+          });
         }
-      } else if (focusedEnemy) {
+
+        marine.cooldown = 1 / marine.attackSpeed;
+      }
+      
+      // Handle movement independently of firing
+      if (focusedEnemy && !hasWaypoint) {
         // Move toward the focused enemy while holding at max firing distance.
         const dx = focusedEnemy.x - marine.x;
         const dy = focusedEnemy.y - marine.y;
@@ -1591,7 +1588,7 @@ export class KufBattlefieldSimulation {
           this.decelerateUnit(marine, delta);
         }
       } else if (hasWaypoint) {
-        // Move toward waypoint (attack-move behavior).
+        // Move toward waypoint (attack-move behavior) - continue even if firing.
         const reached = this.steerUnitToward(marine, marine.waypoint.x, marine.waypoint.y, delta);
         if (reached) {
           // Reached waypoint - clear it and stop.
