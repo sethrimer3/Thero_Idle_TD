@@ -5324,21 +5324,28 @@ export class CardinalWardenSimulation {
 
       // Grapheme X (index 23) - Lifetime modifier affects when bullets are removed
       const lifetimeCheck = bullet.lifetimeMultiplier || 1;
-      if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
+      const baseLifetime = 5000; // Base lifetime in milliseconds
+      const adjustedLifetime = baseLifetime * lifetimeCheck;
+      
+      // Check both offscreen and age-based removal
+      if (bullet.age > adjustedLifetime || bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
         if (lifetimeCheck < 1) {
-          // For short lifetime, remove bullets earlier
-          if (bullet.age > 3000 * lifetimeCheck) {
+          // Short lifetime: remove if age exceeds adjusted lifetime
+          if (bullet.age > adjustedLifetime) {
+            toRemove.push(i);
+          } else if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
             toRemove.push(i);
           }
         } else if (lifetimeCheck > 1) {
-          // For long lifetime, keep bullets longer
-          // Only remove if truly offscreen AND age exceeds extended limit
-          if (bullet.age > 10000 || (bullet.age > 5000 && bullet.isOffscreen(this.canvas.width * 1.5, this.canvas.height * 1.5))) {
+          // Long lifetime: only remove if offscreen AND age exceeds extended limit
+          if (bullet.age > adjustedLifetime && bullet.isOffscreen(this.canvas.width * 1.2, this.canvas.height * 1.2)) {
             toRemove.push(i);
           }
         } else {
-          // Normal lifetime (multiplier == 1)
-          toRemove.push(i);
+          // Normal lifetime: standard offscreen check
+          if (bullet.isOffscreen(this.canvas.width, this.canvas.height)) {
+            toRemove.push(i);
+          }
         }
       }
     }
@@ -5417,18 +5424,20 @@ export class CardinalWardenSimulation {
           }
           
           // Grapheme R (index 17) - Chain lightning
+          // Note: Initial enemy already received full damage above in normal collision
+          // This chains ADDITIONAL damage to nearby enemies
           if (bullet.chainCount > 0) {
-            let currentChainDamage = bullet.damage; // Start with full damage
+            let currentChainDamage = bullet.damage; // Start with full damage for first chain target
             let currentTarget = enemy;
-            const chainedTargets = new Set([ei]); // Track to avoid chaining to same target
+            const chainedTargets = new Set([ei]); // Track to avoid chaining to same target (includes initial hit)
             
             for (let c = 0; c < bullet.chainCount; c++) {
-              // Apply damage decay for subsequent chains (not the initial hit)
+              // Apply damage decay for subsequent chains (after first chain target)
               if (c > 0) {
                 currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
               }
               
-              // Find nearest unchained enemy
+              // Find nearest unchained enemy (excludes initial hit and previously chained)
               let nearestEnemy = null;
               let nearestDist = Infinity;
               
@@ -5511,8 +5520,16 @@ export class CardinalWardenSimulation {
               bullet.baseAngle = Math.atan2(dy, dx);
               // Mark current enemy as hit to prevent bouncing back
               hitEnemies.add(ei);
-              // Don't mark for removal, let it continue
+              // Don't mark for removal yet - let it ricochet
+            } else {
+              // No more targets to ricochet to, remove the bullet
+              if (!bulletsToRemove.has(bi)) {
+                bulletsToRemove.add(bi);
+              }
             }
+          } else if (bullet.ricochetBounces === 0 || bullet.ricochetCount >= bullet.ricochetBounces) {
+            // Normal behavior: no ricochet or max bounces reached
+            // Piercing logic will handle bullet removal if needed
           }
 
           if (killed) {
