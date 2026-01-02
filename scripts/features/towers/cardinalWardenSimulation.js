@@ -5393,9 +5393,10 @@ export class CardinalWardenSimulation {
           // Handle new grapheme effects on hit (O-Z)
           
           // Grapheme Q (index 16) - Split bullets
-          if (bullet.splitCount > 1 && !bulletsToRemove.has(bi)) {
+          // Only split if we have 2 or more bullets to create
+          if (bullet.splitCount >= 2 && !bulletsToRemove.has(bi)) {
             const splitAngle = SPLIT_CONFIG.SPLIT_SPREAD_ANGLE;
-            const angleStep = bullet.splitCount > 1 ? splitAngle / (bullet.splitCount - 1) : 0;
+            const angleStep = splitAngle / (bullet.splitCount - 1);
             const startAngle = bullet.baseAngle - (splitAngle / 2);
             
             for (let s = 0; s < bullet.splitCount; s++) {
