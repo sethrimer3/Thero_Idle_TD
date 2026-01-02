@@ -17,6 +17,28 @@ const SYNC_INTERVAL = 0.25;
 const RECALC_INTERVAL = 0.5;
 const FLASH_DURATION = 0.35;
 const BASE_WAVE_FREQUENCY = 2.4;
+// Ordered note keys for kappa hum loops, lowest to highest pitch.
+const KAPPA_HUM_SFX_KEYS = [
+  'kappaHumA1',
+  'kappaHumD2',
+  'kappaHumF2',
+  'kappaHumA2',
+  'kappaHumD3',
+];
+// Ordered note keys for kappa pluck impacts, lowest to highest pitch.
+const KAPPA_PLUCK_SFX_KEYS = [
+  'kappaPluckA1',
+  'kappaPluckD2',
+  'kappaPluckF2',
+  'kappaPluckA2',
+  'kappaPluckD3',
+];
+// The maximum number of humming notes that may play at once.
+const KAPPA_MAX_HUM_NOTES = KAPPA_HUM_SFX_KEYS.length;
+// Fade speed (per second) used to crossfade humming notes.
+const KAPPA_HUM_FADE_RATE = 3.2;
+// Minimum audible volume before stopping a humming loop.
+const KAPPA_HUM_MIN_VOLUME = 0.01;
 
 function resolveKappaColor() {
   const paletteColor = samplePaletteGradient(0.7);
@@ -72,6 +94,67 @@ function resolveKappaParameters(playfield) {
     waveFrequency: BASE_WAVE_FREQUENCY,
     flashDuration: FLASH_DURATION,
   };
+}
+
+// Resolve kappa hum targets by ordering connections and assigning notes from low to high.
+function resolveKappaHumTargets(tripwires) {
+  const entries = Array.from(tripwires.entries());
+  entries.sort(([aId], [bId]) => String(aId).localeCompare(String(bId)));
+  return entries.slice(0, KAPPA_MAX_HUM_NOTES).map(([targetId, entry], index) => ({
+    targetId,
+    noteKey: KAPPA_HUM_SFX_KEYS[index],
+    charge: Math.max(0, Math.min(1, entry?.charge ?? 0)),
+  }));
+}
+
+// Resolve the manifest volume for a kappa hum note so charge scaling respects base mix.
+function resolveKappaHumBaseVolume(audio, noteKey) {
+  const base = audio?.sfxDefinitions?.[noteKey]?.volume;
+  return Number.isFinite(base) ? base : 1;
+}
+
+// Smoothly update humming loop volumes and stop inactive notes to create crossfades.
+function updateKappaHumAudio(playfield, state, delta) {
+  const audio = playfield?.audio;
+  if (!audio || typeof audio.playSfx !== 'function' || typeof audio.stopSfx !== 'function') {
+    return;
+  }
+  const humVolumes = state.humVolumes instanceof Map ? state.humVolumes : new Map();
+  state.humVolumes = humVolumes;
+  const tripwires = state.tripwires instanceof Map ? state.tripwires : new Map();
+  const targets = resolveKappaHumTargets(tripwires);
+  const targetsByKey = new Map(targets.map(target => [target.noteKey, target]));
+  const fadeStep = Math.max(0, KAPPA_HUM_FADE_RATE * delta);
+
+  KAPPA_HUM_SFX_KEYS.forEach((noteKey) => {
+    const target = targetsByKey.get(noteKey);
+    const baseVolume = resolveKappaHumBaseVolume(audio, noteKey);
+    const targetVolume = target ? baseVolume * target.charge : 0;
+    const currentVolume = humVolumes.get(noteKey) ?? 0;
+    const nextVolume = targetVolume > currentVolume
+      ? Math.min(targetVolume, currentVolume + fadeStep)
+      : Math.max(targetVolume, currentVolume - fadeStep);
+
+    if (nextVolume > KAPPA_HUM_MIN_VOLUME) {
+      audio.playSfx(noteKey, { loop: true, restart: false, volume: nextVolume });
+    } else {
+      audio.stopSfx(noteKey, { reset: false });
+    }
+    humVolumes.set(noteKey, nextVolume);
+  });
+}
+
+// Play a kappa pluck note based on the number of active tripwire connections.
+function playKappaPluckSound(playfield, connectionCount) {
+  const audio = playfield?.audio;
+  if (!audio || typeof audio.playSfx !== 'function') {
+    return;
+  }
+  const available = KAPPA_PLUCK_SFX_KEYS.slice(0, Math.max(1, Math.min(KAPPA_MAX_HUM_NOTES, connectionCount)));
+  const noteKey = available[Math.floor(Math.random() * available.length)];
+  if (noteKey) {
+    audio.playSfx(noteKey);
+  }
 }
 
 function refreshKappaParameters(playfield, tower, state) {
@@ -134,6 +217,8 @@ function ensureKappaStateInternal(playfield, tower) {
       color: resolveKappaColor(),
       syncTimer: 0,
       recalcTimer: 0,
+      // Track current humming volumes so crossfades feel smooth.
+      humVolumes: new Map(),
     };
   }
   const state = tower.kappaState;
@@ -167,6 +252,12 @@ export function teardownKappaTower(playfield, tower) {
     return;
   }
   tower.kappaState.tripwires?.clear?.();
+  // Stop any humming loops tied to this kappa tower.
+  KAPPA_HUM_SFX_KEYS.forEach((noteKey) => {
+    if (playfield?.audio && typeof playfield.audio.stopSfx === 'function') {
+      playfield.audio.stopSfx(noteKey, { reset: false });
+    }
+  });
   tower.kappaState = null;
 }
 
@@ -199,6 +290,8 @@ export function updateKappaTower(playfield, tower, delta) {
 
   const tripwires = state.tripwires instanceof Map ? state.tripwires : new Map();
   if (!tripwires.size) {
+    // Fade out any humming notes when no connections are active.
+    updateKappaHumAudio(playfield, state, delta);
     return;
   }
 
@@ -289,11 +382,16 @@ export function updateKappaTower(playfield, tower, delta) {
     if (hitPosition) {
       playfield.emitTowerAttackVisuals(tower, { enemy: hitEnemy, position: hitPosition });
     }
+    // Play a pluck note on tripwire impact, biased by active connection count.
+    playKappaPluckSound(playfield, tripwires.size);
 
     entry.charge = 0;
     entry.phase = 0;
     entry.flashTimer = flashDuration;
   });
+
+  // Keep the humming notes in sync with tripwire charge and count.
+  updateKappaHumAudio(playfield, state, delta);
 }
 
 function colorToRgbaString(color, alpha) {
@@ -371,4 +469,3 @@ export function drawKappaTripwires(playfield, tower) {
 
   ctx.restore();
 }
-
