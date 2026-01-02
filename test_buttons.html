@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campaign Buttons Test</title>
+    <link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+    <div style="padding: 40px; background: #0b0b0f; min-height: 100vh;">
+        <div style="max-width: 800px; margin: 0 auto;">
+            <h1 style="color: #fff; text-align: center; margin-bottom: 40px;">Campaign Button Positioning Test</h1>
+            
+            <div class="campaign-row" style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; gap: 0; position: relative; --campaign-overlap: 0px;">
+                
+                <!-- Story Campaign -->
+                <div class="campaign-button" data-campaign="Story" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                    <button class="campaign-button-trigger">
+                        <span class="campaign-button-content">
+                            <span class="campaign-button-glyph campaign-button-glyph--svg">
+                                <img class="campaign-button-glyph__image" src="assets/images/campaign-story.svg" alt="">
+                            </span>
+                            <span class="campaign-button-title">Story</span>
+                            <span class="campaign-button-count">7 sets</span>
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- Ladder Campaign -->
+                <div class="campaign-button" data-campaign="Ladder" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                    <button class="campaign-button-trigger">
+                        <span class="campaign-button-content">
+                            <span class="campaign-button-glyph campaign-button-glyph--svg">
+                                <img class="campaign-button-glyph__image" src="assets/images/campaign-ladder.svg" alt="">
+                            </span>
+                            <span class="campaign-button-title">Ladder</span>
+                            <span class="campaign-button-count">7 sets</span>
+                        </span>
+                    </button>
+                </div>
+                
+                <!-- Trials Campaign -->
+                <div class="campaign-button" data-campaign="Challenges" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+                    <button class="campaign-button-trigger">
+                        <span class="campaign-button-content">
+                            <span class="campaign-button-glyph">α²+β²≠γ²</span>
+                            <span class="campaign-button-title">Trials</span>
+                            <span class="campaign-button-count">3 sets</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            
+            <div style="margin-top: 60px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                <h2 style="color: #fff; margin-top: 0;">Expected Positions:</h2>
+                <ul style="color: #fff; line-height: 1.8;">
+                    <li><strong>Story:</strong> margin-top: -50px (moved up 50px from baseline)</li>
+                    <li><strong>Ladder:</strong> margin-top: 57px (moved up 40px from original ~97px)</li>
+                    <li><strong>Trials:</strong> margin-top: 162px (moved up 30px from original ~192px)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
