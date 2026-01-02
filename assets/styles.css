@@ -2750,11 +2750,11 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .campaign-button[data-campaign='Ladder'] {
-  margin-top: 57px;
+  margin-top: calc(var(--level-node-size) * 0.75 + 4px - 40px);
 }
 
 .campaign-button[data-campaign='Challenges'] {
-  margin-top: 162px;
+  margin-top: calc(var(--level-node-size) * 1.5 + 6px - 30px);
 }
 
 .campaign-button.expanded {
