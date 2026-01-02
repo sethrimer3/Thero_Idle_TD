@@ -5568,12 +5568,11 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .fluid-simulation-card {
-  /* Prevent the Bet Spire basin from shrinking so the simulation viewport stays consistent. */
-  width: 340px;
+  /* Grow Bet Spire basin to fill screen width on mobile while maintaining 3:4 aspect ratio. */
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   max-width: 100%;
   min-width: 240px;
   flex: 0 0 auto;
-  min-height: clamp(240px, 46vh, 400px);
   backdrop-filter: blur(4px);
   box-shadow: inset 0 0 0 1px rgba(120, 190, 255, 0.2), 0 16px 48px rgba(4, 15, 28, 0.4);
 }
@@ -11477,8 +11476,9 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 }
 
 .lamed-simulation-card .powder-simulation {
-  width: 100%;
-  max-width: 100%;
+  /* Grow Lamed Spire basin to fill screen width on mobile while maintaining 3:4 aspect ratio. */
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 /* Lamed Spire Options Dropdown Card */
@@ -11715,6 +11715,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 }
 
 .tsadi-simulation-card {
+  /* Tsadi Spire already has correct mobile sizing - grow to fill screen while maintaining 3:4 ratio. */
   height: auto;
   width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
@@ -12591,7 +12592,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   padding: 0;
   grid-column: 1 / -1;
   justify-self: center;
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 1.6));
+  /* Grow Kuf Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .kuf-sim-header {
@@ -13490,10 +13492,10 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   background: #ffffff;
   /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
   aspect-ratio: 3 / 4;
-  /* Expand until the viewport width or height limit is encountered. */
-  width: min(100%, calc(100vw - 48px));
+  /* Grow Shin Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
-  max-width: min(720px, calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   max-height: calc(var(--stable-vh) - 220px);
 }
 
