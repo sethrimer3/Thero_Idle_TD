@@ -15047,10 +15047,10 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   letter-spacing: 0.05em;
 }
 
-/* Clamp the BET spire simulation width so its aspect ratio never exceeds the viewport height. */
+/* Expand the BET spire simulation card to match other spires' responsive sizing. */
 #bet-spire-simulation-card {
-  width: var(--powder-simulation-width);
-  max-width: var(--powder-simulation-max-width);
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 /* Expand simulation renders to full available width like powder-stage does */
