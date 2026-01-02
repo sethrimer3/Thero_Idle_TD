@@ -6338,18 +6338,19 @@ export class CardinalWardenSimulation {
       // New mode: Use sprite-based rendering
       ctx.save();
       
-      // Draw orbital shards using sprites (if loaded)
+      // Draw orbital shards using sprites (if loaded), otherwise fallback to canvas rendering
       for (let i = 0; i < warden.orbitalSquares.length; i++) {
         const square = warden.orbitalSquares[i];
-        const shardIndex = i % this.wardenShardSprites.length;
+        const pos = square.getPosition(warden.x, warden.y);
         
-        if (this.wardenShardsLoaded[shardIndex]) {
-          const pos = square.getPosition(warden.x, warden.y);
-          
-          ctx.save();
-          ctx.translate(pos.x, pos.y);
-          ctx.rotate(square.selfRotation);
-          
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.rotate(square.selfRotation);
+        
+        // Try to use sprites if available
+        const shardIndex = this.wardenShardSprites.length > 0 ? i % this.wardenShardSprites.length : -1;
+        
+        if (shardIndex >= 0 && this.wardenShardsLoaded[shardIndex]) {
           // Apply glow effect in night mode
           if (this.nightMode) {
             ctx.shadowColor = this.wardenCoreColor;
@@ -6365,9 +6366,19 @@ export class CardinalWardenSimulation {
             spriteSize,
             spriteSize
           );
+        } else {
+          // Fallback to canvas rendering if sprites not loaded
+          if (this.nightMode) {
+            ctx.shadowColor = this.wardenCoreColor;
+            ctx.shadowBlur = 15;
+          }
           
-          ctx.restore();
+          ctx.fillStyle = this.wardenSquareColor;
+          const halfSize = square.size / 2;
+          ctx.fillRect(-halfSize, -halfSize, square.size, square.size);
         }
+        
+        ctx.restore();
       }
       
       // Draw core sprite (if loaded)
