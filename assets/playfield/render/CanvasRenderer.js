@@ -58,6 +58,17 @@ enemyParticleSprite.src = ENEMY_PARTICLE_SPRITE_URL;
 enemyParticleSprite.decoding = 'async';
 enemyParticleSprite.loading = 'eager';
 
+// Epsilon needle sprite provides the projectile silhouette that we tint with the active palette.
+const EPSILON_NEEDLE_SPRITE_URL = 'assets/sprites/towers/epsilon/projectiles/epsilonProjectile.png';
+const epsilonNeedleSprite = new Image();
+epsilonNeedleSprite.src = EPSILON_NEEDLE_SPRITE_URL;
+epsilonNeedleSprite.decoding = 'async';
+epsilonNeedleSprite.loading = 'eager';
+// Cached, palette-tinted variants along the gradient to keep rendering lightweight.
+const epsilonNeedleSpriteCache = new Map();
+// Gradient stops ensure epsilon needles cycle through the player's palette.
+const EPSILON_NEEDLE_GRADIENT_STOPS = [0.12, 0.38, 0.62, 0.88];
+
 // Load small sketch sprites for random background decoration
 const sketchSprites = [
   'assets/sprites/sketches/sketch_small_1.png',
@@ -229,6 +240,55 @@ function clamp(value, min, max) {
     return max;
   }
   return value;
+}
+
+function resolveEpsilonNeedleSprite(paletteRatio = 0.5) {
+  // Bail out when the base sprite is not ready or when we lack a canvas context.
+  if (!epsilonNeedleSprite?.complete || epsilonNeedleSprite.naturalWidth <= 0) {
+    return null;
+  }
+  const ratio = clamp(paletteRatio, 0, 1);
+  let closestStop = EPSILON_NEEDLE_GRADIENT_STOPS[0];
+  let closestIndex = 0;
+  let closestDistance = Infinity;
+  EPSILON_NEEDLE_GRADIENT_STOPS.forEach((stop, index) => {
+    const distance = Math.abs(stop - ratio);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestStop = stop;
+      closestIndex = index;
+    }
+  });
+  const paletteColor = samplePaletteGradient(closestStop) || { r: 139, g: 247, b: 255 };
+  const colorKey = `${paletteColor.r},${paletteColor.g},${paletteColor.b}`;
+  const cacheKey = `${closestIndex}:${colorKey}`;
+  if (epsilonNeedleSpriteCache.has(cacheKey)) {
+    return epsilonNeedleSpriteCache.get(cacheKey);
+  }
+  // Create a tinted canvas sprite that preserves the epsilon needle silhouette.
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(epsilonNeedleSprite.width, epsilonNeedleSprite.height)
+      : typeof document !== 'undefined'
+      ? document.createElement('canvas')
+      : null;
+  if (!canvas) {
+    return null;
+  }
+  canvas.width = epsilonNeedleSprite.width;
+  canvas.height = epsilonNeedleSprite.height;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(epsilonNeedleSprite, 0, 0);
+  context.globalCompositeOperation = 'source-in';
+  context.fillStyle = `rgb(${paletteColor.r}, ${paletteColor.g}, ${paletteColor.b})`;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.globalCompositeOperation = 'source-over';
+  epsilonNeedleSpriteCache.set(cacheKey, canvas);
+  return canvas;
 }
 
 function randomBetween(min, max) {
@@ -3167,19 +3227,34 @@ function drawProjectiles() {
       const width = 1.2;
       // Fade embedded thorns by honoring the projectile alpha computed in the simulation.
       const alpha = Number.isFinite(projectile.alpha) ? Math.max(0, Math.min(1, projectile.alpha)) : 1;
+      // Prefer palette-tinted sprite needles when available, otherwise draw the vector fallback.
+      const paletteRatio = Number.isFinite(projectile.paletteRatio) ? projectile.paletteRatio : 0.5;
+      const tintedSprite = resolveEpsilonNeedleSprite(paletteRatio);
       ctx.save();
       ctx.translate(position.x, position.y);
       ctx.rotate(heading);
-      ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
-      ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
-      ctx.lineWidth = 0.9;
-      ctx.beginPath();
-      ctx.moveTo(length, 0);
-      ctx.lineTo(-length * 0.6, width);
-      ctx.lineTo(-length * 0.6, -width);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.globalAlpha = alpha;
+      if (tintedSprite) {
+        // Scale the needle sprite to roughly match the legacy vector length.
+        const reference = Math.max(1, Math.max(tintedSprite.width || 1, tintedSprite.height || 1));
+        const targetLength = length * 2.1;
+        const scale = targetLength / reference;
+        const spriteWidth = (tintedSprite.width || reference) * scale;
+        const spriteHeight = (tintedSprite.height || reference) * scale;
+        ctx.drawImage(tintedSprite, -spriteWidth * 0.5, -spriteHeight * 0.5, spriteWidth, spriteHeight);
+      } else {
+        // Fallback vector needle preserves visibility if the sprite has not loaded.
+        ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
+        ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(length, 0);
+        ctx.lineTo(-length * 0.6, width);
+        ctx.lineTo(-length * 0.6, -width);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }

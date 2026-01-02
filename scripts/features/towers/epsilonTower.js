@@ -1,5 +1,6 @@
 // ε tower: fires a continuous volley of homing needles that ramp damage per target.
 import { getTowerDefinition, computeTowerVariableValue } from '../../../assets/towersTab.js';
+import { playTowerFireSound } from '../../../assets/audioSystem.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
 
 export function ensureEpsilonState(playfield, tower) {
@@ -27,6 +28,8 @@ export function ensureEpsilonState(playfield, tower) {
       rangePixels,
       spreadDegrees,
       fireCooldown: 0,
+      // Sound limiter ensures epsilon notes never exceed 4 plays per second.
+      soundCooldown: 0,
       stacks: new Map(), // enemyId -> consecutive hit count
     };
   } else {
@@ -44,6 +47,8 @@ export function updateEpsilonTower(playfield, tower, delta) {
   }
 
   state.fireCooldown = Math.max(0, (state.fireCooldown || 0) - Math.max(0, delta || 0));
+  // Count down the epsilon firing note limiter alongside the firing cooldown.
+  state.soundCooldown = Math.max(0, (state.soundCooldown || 0) - Math.max(0, delta || 0));
   if (state.fireCooldown > 0) {
     return;
   }
@@ -85,8 +90,16 @@ export function updateEpsilonTower(playfield, tower, delta) {
     turnRate: Math.PI * 2.2, // radians per second steering
     hitRadius,
     stickDuration: 5 + Math.random() * 5, // linger between 5-10s when embedded
+    // Pick a gradient position so the needle can be tinted with the active palette.
+    paletteRatio: Math.random(),
     alpha: 1,
   });
+
+  if (playfield?.audio && state.soundCooldown <= 0) {
+    // Play a randomized epsilon note while keeping playback under 4 Hz.
+    playTowerFireSound(playfield.audio, 'epsilon');
+    state.soundCooldown = 0.25;
+  }
 
   const shotsPerSecond = Math.max(0.2, state.rate);
   state.fireCooldown = 1 / shotsPerSecond;
@@ -102,5 +115,4 @@ export function applyEpsilonHit(playfield, tower, enemyId) {
   state.stacks.set(enemyId, next);
   return next;
 }
-
 
