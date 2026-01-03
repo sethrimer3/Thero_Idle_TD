@@ -2305,7 +2305,7 @@ export class KufBattlefieldSimulation {
   }
 
   /**
-   * Find the closest player-controlled target, including the core ship hull.
+   * Find the closest player-controlled target, including marines, drones, and the core ship hull.
    * @param {number} x - X coordinate in world space.
    * @param {number} y - Y coordinate in world space.
    * @param {number} range - Targeting range in pixels.
@@ -2314,6 +2314,19 @@ export class KufBattlefieldSimulation {
   findClosestPlayerTarget(x, y, range) {
     let closest = this.findClosestMarine(x, y, range);
     let bestDist = closest ? ((closest.x - x) ** 2 + (closest.y - y) ** 2) : range * range;
+    
+    // Check drones
+    this.drones.forEach((drone) => {
+      const dx = drone.x - x;
+      const dy = drone.y - y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= bestDist) {
+        closest = drone;
+        bestDist = distSq;
+      }
+    });
+    
+    // Check core ship
     if (this.coreShip && this.coreShip.health > 0) {
       const dx = this.coreShip.x - x;
       const dy = this.coreShip.y - y;

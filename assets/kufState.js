@@ -673,12 +673,10 @@ export function calculateKufCoreShipStats() {
   // Core ship hull integrity scales linearly: base health + (health shards × per-shard bonus).
   const health = CORE_SHIP_BASE_HEALTH + upgrades.health * CORE_SHIP_HEALTH_PER_SHARD;
   
-  // Calculate number of cannons based on level and upgrades
-  // Level 3 starts with 1 cannon, level 4 adds 2nd cannon, level 5 adds 2 more (total 4)
-  let maxCannons = 0;
-  if (level >= 3) maxCannons = 1;
-  if (level >= 4) maxCannons = 2;
-  if (level >= 5) maxCannons = 4;
+  // Calculate maximum number of cannons based on level
+  // Level 3: 1 cannon, Level 4: 2 cannons, Level 5: 4 cannons
+  const maxCannonsByLevel = [0, 0, 0, 1, 2, 4]; // Index is level
+  const maxCannons = maxCannonsByLevel[level] || 0;
   const cannons = Math.min(upgrades.cannons, maxCannons);
   
   // Hull repair regeneration (HP per second)

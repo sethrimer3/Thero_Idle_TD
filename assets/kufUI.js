@@ -593,7 +593,7 @@ function updateMapDetails() {
 function updateUpgradeDisplay() {
   const upgrades = getKufUpgrades();
   const currentLevel = getCoreShipLevel();
-  const availableUpgrades = getAvailableCoreShipUpgrades();
+  const availableUpgrades = new Set(getAvailableCoreShipUpgrades());
   
   // Update level display
   if (kufElements.coreShipLevel) {
@@ -630,7 +630,7 @@ function updateUpgradeDisplay() {
           if (unitType === 'coreShip') {
             const upgradeRow = element.closest('.kuf-upgrade-option');
             if (upgradeRow) {
-              const isUnlocked = availableUpgrades.includes(stat);
+              const isUnlocked = availableUpgrades.has(stat);
               upgradeRow.hidden = !isUnlocked;
               
               // Disable buttons for locked upgrades
@@ -651,7 +651,7 @@ function updateUpgradeDisplay() {
       Object.entries(stats).forEach(([stat, value]) => {
         // For core ship, only count unlocked upgrades
         if (unitType === 'coreShip') {
-          if (availableUpgrades.includes(stat)) {
+          if (availableUpgrades.has(stat)) {
             total += value || 0;
           }
         } else {
