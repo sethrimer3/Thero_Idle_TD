@@ -13062,7 +13062,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   font-weight: 600;
 }
 
-.kuf-unit-upgrade-btn {
+/* Dropdown toggle arrow for Kuf unit upgrade menus. */
+.kuf-unit-dropdown-toggle {
   padding: 0.4rem 0.75rem;
   border-radius: 6px;
   border: 1px solid rgba(140, 100, 220, 0.4);
@@ -13073,11 +13074,24 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   cursor: var(--cursor-pointer);
   transition: all 0.2s ease;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.kuf-unit-upgrade-btn:hover {
+.kuf-unit-dropdown-toggle:hover {
   background: rgba(70, 50, 110, 0.7);
   border-color: rgba(160, 140, 240, 0.6);
+}
+
+/* Rotate the dropdown icon subtly when the menu is open. */
+.kuf-unit-dropdown-toggle[aria-expanded='true'] .kuf-unit-dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.kuf-unit-dropdown-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
 }
 
 .kuf-unit-upgrade-count {
@@ -13259,7 +13273,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
   .kuf-sim-unit-count-controls,
   .kuf-sim-unit-cost,
-  .kuf-unit-upgrade-btn {
+  .kuf-unit-dropdown-toggle {
     justify-self: start;
   }
 

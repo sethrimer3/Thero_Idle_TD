@@ -7,11 +7,14 @@
 
 const DEFAULT_TOTAL_SHARDS = 24; // Total shards available for allocation.
 const DEFAULT_ALLOCATIONS = Object.freeze({ health: 0, attack: 0, attackSpeed: 0 });
-const DEFAULT_UNITS = Object.freeze({ marines: 0, snipers: 0, splayers: 0 });
+// Default Kuf unit roster, including the piercing laser unit.
+const DEFAULT_UNITS = Object.freeze({ marines: 0, snipers: 0, splayers: 0, lasers: 0 });
 const DEFAULT_UPGRADES = Object.freeze({
   marines: { health: 0, attack: 0, attackSpeed: 0 },
   snipers: { health: 0, attack: 0, attackSpeed: 0 },
   splayers: { health: 0, attack: 0, attackSpeed: 0 },
+  // Track piercing laser upgrades alongside the existing unit roster.
+  lasers: { health: 0, attack: 0, attackSpeed: 0 },
   // Track core ship upgrades for hull integrity and attached cannon mounts.
   coreShip: { health: 0, cannons: 0, hullRepair: 0, healingAura: 0, shield: 0, droneRate: 0, droneHealth: 0, droneDamage: 0 },
 });
@@ -44,6 +47,8 @@ const UNIT_COSTS = Object.freeze({
   marines: 5,
   snipers: 15,
   splayers: 30,
+  // Piercing laser units require a higher shard investment.
+  lasers: 24,
 });
 
 // Base Marine statistics before shard modifiers are applied.
@@ -65,6 +70,13 @@ const SPLAYER_BASE_STATS = Object.freeze({
   health: 12,
   attack: 0.8,
   attackSpeed: 0.7,
+});
+
+// Base piercing laser statistics.
+const LASER_BASE_STATS = Object.freeze({
+  health: 9,
+  attack: 1.4,
+  attackSpeed: 0.9,
 });
 
 // Base core ship hull integrity before shard upgrades are applied.
@@ -97,6 +109,8 @@ const kufState = {
     marines: { ...DEFAULT_UPGRADES.marines },
     snipers: { ...DEFAULT_UPGRADES.snipers },
     splayers: { ...DEFAULT_UPGRADES.splayers },
+    // Persist laser upgrade counts alongside the existing Kuf units.
+    lasers: { ...DEFAULT_UPGRADES.lasers },
     // Persist core ship upgrade counts alongside unit upgrades.
     coreShip: { ...DEFAULT_UPGRADES.coreShip },
   },
@@ -176,6 +190,7 @@ function normalizeUnits(rawUnits) {
     normalized.marines = 0;
     normalized.snipers = 0;
     normalized.splayers = 0;
+    normalized.lasers = 0;
   }
   return normalized;
 }
@@ -185,11 +200,12 @@ function normalizeUpgrades(rawUpgrades) {
     marines: { ...DEFAULT_UPGRADES.marines },
     snipers: { ...DEFAULT_UPGRADES.snipers },
     splayers: { ...DEFAULT_UPGRADES.splayers },
+    lasers: { ...DEFAULT_UPGRADES.lasers },
     // Always normalize core ship upgrades for hull integrity and cannon mounts.
     coreShip: { ...DEFAULT_UPGRADES.coreShip },
   };
   if (rawUpgrades && typeof rawUpgrades === 'object') {
-    ['marines', 'snipers', 'splayers'].forEach((unitType) => {
+    ['marines', 'snipers', 'splayers', 'lasers'].forEach((unitType) => {
       if (rawUpgrades[unitType] && typeof rawUpgrades[unitType] === 'object') {
         normalized[unitType].health = sanitizeInteger(rawUpgrades[unitType].health, 0);
         normalized[unitType].attack = sanitizeInteger(rawUpgrades[unitType].attack, 0);
@@ -499,7 +515,7 @@ export function getKufLastResult() {
 
 /**
  * Get current unit counts.
- * @returns {{ marines: number, snipers: number, splayers: number }}
+ * @returns {{ marines: number, snipers: number, splayers: number, lasers: number }}
  */
 export function getKufUnits() {
   return { ...kufState.units };
@@ -513,7 +529,8 @@ export function getKufShardsSpentOnUnits() {
   return (
     kufState.units.marines * UNIT_COSTS.marines +
     kufState.units.snipers * UNIT_COSTS.snipers +
-    kufState.units.splayers * UNIT_COSTS.splayers
+    kufState.units.splayers * UNIT_COSTS.splayers +
+    kufState.units.lasers * UNIT_COSTS.lasers
   );
 }
 
@@ -531,7 +548,7 @@ export function getKufShardsAvailableForUnits() {
 
 /**
  * Purchase a unit with shards.
- * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit to purchase.
+ * @param {'marines'|'snipers'|'splayers'|'lasers'} unitType - The type of unit to purchase.
  * @returns {{ success: boolean, count: number, shardsRemaining: number }}
  */
 export function purchaseKufUnit(unitType) {
@@ -545,7 +562,7 @@ export function purchaseKufUnit(unitType) {
 
 /**
  * Sell a unit to refund shards.
- * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit to sell.
+ * @param {'marines'|'snipers'|'splayers'|'lasers'} unitType - The type of unit to sell.
  * @returns {{ success: boolean, count: number, shardsRemaining: number }}
  */
 export function sellKufUnit(unitType) {
@@ -566,6 +583,7 @@ export function getKufUpgrades() {
     marines: { ...kufState.upgrades.marines },
     snipers: { ...kufState.upgrades.snipers },
     splayers: { ...kufState.upgrades.splayers },
+    lasers: { ...kufState.upgrades.lasers },
     // Surface core ship upgrades for the Kuf upgrade menu.
     coreShip: { ...kufState.upgrades.coreShip },
   };
@@ -590,7 +608,7 @@ export function getKufShardsSpentOnUpgrades() {
 
 /**
  * Allocate a shard to a unit upgrade.
- * @param {'marines'|'snipers'|'splayers'|'coreShip'} unitType - The type of unit or core ship.
+ * @param {'marines'|'snipers'|'splayers'|'lasers'|'coreShip'} unitType - The type of unit or core ship.
  * @param {'health'|'attack'|'attackSpeed'|'cannons'} stat - The stat to upgrade.
  * @returns {{ success: boolean, value: number, shardsRemaining: number }}
  */
@@ -616,7 +634,7 @@ export function allocateKufUpgrade(unitType, stat) {
 
 /**
  * Deallocate a shard from a unit upgrade.
- * @param {'marines'|'snipers'|'splayers'|'coreShip'} unitType - The type of unit or core ship.
+ * @param {'marines'|'snipers'|'splayers'|'lasers'|'coreShip'} unitType - The type of unit or core ship.
  * @param {'health'|'attack'|'attackSpeed'|'cannons'} stat - The stat to downgrade.
  * @returns {{ success: boolean, value: number, shardsRemaining: number }}
  */
@@ -641,7 +659,7 @@ export function deallocateKufUpgrade(unitType, stat) {
 
 /**
  * Calculate unit stats including base stats and upgrades.
- * @param {'marines'|'snipers'|'splayers'} unitType - The type of unit.
+ * @param {'marines'|'snipers'|'splayers'|'lasers'} unitType - The type of unit.
  * @returns {{ health: number, attack: number, attackSpeed: number }}
  */
 export function calculateKufUnitStats(unitType) {
@@ -655,6 +673,9 @@ export function calculateKufUnitStats(unitType) {
       break;
     case 'splayers':
       baseStats = SPLAYER_BASE_STATS;
+      break;
+    case 'lasers':
+      baseStats = LASER_BASE_STATS;
       break;
     default:
       return { health: 0, attack: 0, attackSpeed: 0 };
@@ -788,6 +809,8 @@ export function upgradeCoreShipLevel() {
 export const KUF_MARINE_BASE_STATS = MARINE_BASE_STATS;
 export const KUF_SNIPER_BASE_STATS = SNIPER_BASE_STATS;
 export const KUF_SPLAYER_BASE_STATS = SPLAYER_BASE_STATS;
+// Export piercing laser base stats for external Kuf UI tooling.
+export const KUF_LASER_BASE_STATS = LASER_BASE_STATS;
 export const KUF_MARINE_STAT_INCREMENTS = MARINE_STAT_INCREMENTS;
 export const KUF_DEFAULT_TOTAL_SHARDS = DEFAULT_TOTAL_SHARDS;
 export const KUF_UNIT_COSTS = UNIT_COSTS;

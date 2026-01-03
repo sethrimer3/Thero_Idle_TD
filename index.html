@@ -3871,8 +3871,8 @@
                             <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
                               <span id="kuf-core-ship-level">Level 1</span> · Hull: <span id="kuf-core-ship-health">120 HP</span>
                             </div>
-                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
-                              Upgrades
+                            <button class="kuf-unit-dropdown-toggle" type="button" data-unit="coreShip" aria-expanded="false" aria-label="Toggle core ship upgrades">
+                              <span class="kuf-unit-dropdown-icon" aria-hidden="true">▾</span>
                               <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
                             </button>
                           </div>
@@ -3953,6 +3953,7 @@
                   <!-- Expanded Units content -->
                   <section class="kuf-expanded-view" id="kuf-units-view" hidden>
                       <div class="kuf-sim-menu-units">
+                        <!-- Piercing laser unit row for the new Kuf roster entry. -->
                         <div class="kuf-sim-unit">
                           <div class="kuf-sim-unit-header">
                             <span class="kuf-sim-unit-name">Marine</span>
@@ -3961,11 +3962,8 @@
                               <span class="kuf-sim-unit-count" id="kuf-marines-count">0</span>
                               <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="marines" data-action="plus">+</button>
                             </div>
-                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                              Trained from the core ship
-                            </div>
-                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="marines">
-                              Upgrades
+                            <button class="kuf-unit-dropdown-toggle" type="button" data-unit="marines" aria-expanded="false" aria-label="Toggle Marine upgrades">
+                              <span class="kuf-unit-dropdown-icon" aria-hidden="true">▾</span>
                               <span class="kuf-unit-upgrade-count" id="kuf-marines-upgrade-count">0</span>
                             </button>
                           </div>
@@ -4005,11 +4003,8 @@
                               <span class="kuf-sim-unit-count" id="kuf-snipers-count">0</span>
                               <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="snipers" data-action="plus">+</button>
                             </div>
-                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                              Trained from the core ship
-                            </div>
-                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="snipers">
-                              Upgrades
+                            <button class="kuf-unit-dropdown-toggle" type="button" data-unit="snipers" aria-expanded="false" aria-label="Toggle Sniper upgrades">
+                              <span class="kuf-unit-dropdown-icon" aria-hidden="true">▾</span>
                               <span class="kuf-unit-upgrade-count" id="kuf-snipers-upgrade-count">0</span>
                             </button>
                           </div>
@@ -4049,11 +4044,8 @@
                               <span class="kuf-sim-unit-count" id="kuf-splayers-count">0</span>
                               <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="splayers" data-action="plus">+</button>
                             </div>
-                            <div class="kuf-sim-unit-cost kuf-sim-unit-cost--training">
-                              Trained from the core ship
-                            </div>
-                            <button class="kuf-unit-upgrade-btn" type="button" data-unit="splayers">
-                              Upgrades
+                            <button class="kuf-unit-dropdown-toggle" type="button" data-unit="splayers" aria-expanded="false" aria-label="Toggle Splayer upgrades">
+                              <span class="kuf-unit-dropdown-icon" aria-hidden="true">▾</span>
                               <span class="kuf-unit-upgrade-count" id="kuf-splayers-upgrade-count">0</span>
                             </button>
                           </div>
@@ -4080,6 +4072,47 @@
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="splayers" data-stat="attackSpeed">−</button>
                                 <span class="kuf-upgrade-value" id="kuf-splayers-speed-upgrade">0</span>
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="splayers" data-stat="attackSpeed">+</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="kuf-sim-unit">
+                          <div class="kuf-sim-unit-header">
+                            <span class="kuf-sim-unit-name">Piercing Laser</span>
+                            <div class="kuf-sim-unit-count-controls">
+                              <button class="kuf-unit-btn kuf-unit-btn-minus" type="button" data-unit="lasers" data-action="minus">−</button>
+                              <span class="kuf-sim-unit-count" id="kuf-lasers-count">0</span>
+                              <button class="kuf-unit-btn kuf-unit-btn-plus" type="button" data-unit="lasers" data-action="plus">+</button>
+                            </div>
+                            <button class="kuf-unit-dropdown-toggle" type="button" data-unit="lasers" aria-expanded="false" aria-label="Toggle Piercing Laser upgrades">
+                              <span class="kuf-unit-dropdown-icon" aria-hidden="true">▾</span>
+                              <span class="kuf-unit-upgrade-count" id="kuf-lasers-upgrade-count">0</span>
+                            </button>
+                          </div>
+                          <div class="kuf-sim-unit-upgrades" id="kuf-lasers-upgrades" hidden>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="lasers" data-stat="health">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-lasers-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="lasers" data-stat="health">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="lasers" data-stat="attack">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-lasers-attack-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="lasers" data-stat="attack">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option">
+                              <span class="kuf-upgrade-name">Attack Speed</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="lasers" data-stat="attackSpeed">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-lasers-speed-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="lasers" data-stat="attackSpeed">+</button>
                               </div>
                             </div>
                           </div>

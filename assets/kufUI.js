@@ -158,6 +158,8 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-count'),
       snipers: document.getElementById('kuf-snipers-count'),
       splayers: document.getElementById('kuf-splayers-count'),
+      // Cache piercing laser unit counts for the expanded units view.
+      lasers: document.getElementById('kuf-lasers-count'),
     },
     
     // Unit total costs
@@ -165,6 +167,7 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-total-cost'),
       snipers: document.getElementById('kuf-snipers-total-cost'),
       splayers: document.getElementById('kuf-splayers-total-cost'),
+      lasers: document.getElementById('kuf-lasers-total-cost'),
     },
     
     // Unit upgrade panels
@@ -172,6 +175,8 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-upgrades'),
       snipers: document.getElementById('kuf-snipers-upgrades'),
       splayers: document.getElementById('kuf-splayers-upgrades'),
+      // Store laser upgrade dropdowns alongside existing Kuf units.
+      lasers: document.getElementById('kuf-lasers-upgrades'),
       // Core ship upgrades are rendered in the same dropdown system as units.
       coreShip: document.getElementById('kuf-core-ship-upgrades'),
     },
@@ -181,6 +186,7 @@ function cacheElements() {
       marines: document.getElementById('kuf-marines-upgrade-count'),
       snipers: document.getElementById('kuf-snipers-upgrade-count'),
       splayers: document.getElementById('kuf-splayers-upgrade-count'),
+      lasers: document.getElementById('kuf-lasers-upgrade-count'),
       // Track core ship upgrade counts for badge display.
       coreShip: document.getElementById('kuf-core-ship-upgrade-count'),
     },
@@ -201,6 +207,11 @@ function cacheElements() {
         health: document.getElementById('kuf-splayers-health-upgrade'),
         attack: document.getElementById('kuf-splayers-attack-upgrade'),
         attackSpeed: document.getElementById('kuf-splayers-speed-upgrade'),
+      },
+      lasers: {
+        health: document.getElementById('kuf-lasers-health-upgrade'),
+        attack: document.getElementById('kuf-lasers-attack-upgrade'),
+        attackSpeed: document.getElementById('kuf-lasers-speed-upgrade'),
       },
       // Core ship upgrades for hull integrity and cannon mounts.
       coreShip: {
@@ -364,9 +375,9 @@ function bindButtons() {
     }
   });
   
-  // Upgrade buttons (toggle dropdown)
+  // Upgrade dropdown toggles
   document.addEventListener('click', (e) => {
-    const button = e.target.closest('.kuf-unit-upgrade-btn');
+    const button = e.target.closest('.kuf-unit-dropdown-toggle');
     if (!button) return;
     
     const unitType = button.dataset.unit;
@@ -415,18 +426,28 @@ function bindButtons() {
 function toggleUpgradeDropdown(unitType) {
   const panel = kufElements.unitUpgradePanels[unitType];
   if (!panel) return;
-  
+
   // Close currently open dropdown if different
   if (currentOpenDropdown && currentOpenDropdown !== unitType) {
     const oldPanel = kufElements.unitUpgradePanels[currentOpenDropdown];
     if (oldPanel) {
       oldPanel.hidden = true;
     }
+    // Reset the arrow indicator for the previously opened unit.
+    const oldToggle = document.querySelector(`.kuf-unit-dropdown-toggle[data-unit="${currentOpenDropdown}"]`);
+    if (oldToggle) {
+      oldToggle.setAttribute('aria-expanded', 'false');
+    }
   }
   
   // Toggle the clicked dropdown
   panel.hidden = !panel.hidden;
   currentOpenDropdown = panel.hidden ? null : unitType;
+  // Sync the toggle arrow state for accessibility.
+  const toggle = document.querySelector(`.kuf-unit-dropdown-toggle[data-unit="${unitType}"]`);
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+  }
 }
 
 function ensureSimulationInstance() {
@@ -462,14 +483,16 @@ function startSimulation() {
   const marineStats = calculateKufUnitStats('marines');
   const sniperStats = calculateKufUnitStats('snipers');
   const splayerStats = calculateKufUnitStats('splayers');
+  // Calculate piercing laser stats for the new Kuf unit.
+  const laserStats = calculateKufUnitStats('lasers');
   // Core ship stats define hull integrity and the number of attached cannons.
   const coreShipStats = calculateKufCoreShipStats();
 
   // Force zero starting units so all forces are trained during the encounter.
-  const units = { marines: 0, snipers: 0, splayers: 0 };
+  const units = { marines: 0, snipers: 0, splayers: 0, lasers: 0 };
   const mapId = ensureSelectedMapId();
 
-  simulation.start({ marineStats, sniperStats, splayerStats, coreShipStats, units, mapId });
+  simulation.start({ marineStats, sniperStats, splayerStats, laserStats, coreShipStats, units, mapId });
 }
 
 function handleSimulationComplete(result) {
