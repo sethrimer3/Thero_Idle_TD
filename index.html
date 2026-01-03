@@ -3958,28 +3958,81 @@
                           <div class="kuf-sim-unit-header">
                             <span class="kuf-sim-unit-name">Core Ship</span>
                             <div class="kuf-sim-unit-cost kuf-sim-unit-core-health">
-                              Hull: <span id="kuf-core-ship-health">120 HP</span>
+                              <span id="kuf-core-ship-level">Level 1</span> · Hull: <span id="kuf-core-ship-health">120 HP</span>
                             </div>
                             <button class="kuf-unit-upgrade-btn" type="button" data-unit="coreShip">
                               Upgrades
                               <span class="kuf-unit-upgrade-count" id="kuf-core-ship-upgrade-count">0</span>
                             </button>
                           </div>
+                          <div class="kuf-sim-unit-level-up" style="margin-top: 8px;">
+                            <button id="kuf-core-ship-level-up" class="kuf-level-up-btn" type="button">
+                              Upgrade to Next Level (<span id="kuf-core-ship-level-up-cost">100</span> shards)
+                            </button>
+                          </div>
                           <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
                             <div class="kuf-upgrade-option">
-                              <span class="kuf-upgrade-name">Hull</span>
+                              <span class="kuf-upgrade-name">Hull Integrity</span>
                               <div class="kuf-upgrade-controls">
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="health">−</button>
                                 <span class="kuf-upgrade-value" id="kuf-core-ship-health-upgrade">0</span>
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="health">+</button>
                               </div>
                             </div>
-                            <div class="kuf-upgrade-option">
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Hull Repair (HP/s)</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="hullRepair">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-hull-repair-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="hullRepair">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Healing Aura</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="healingAura">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-healing-aura-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="healingAura">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
                               <span class="kuf-upgrade-name">Cannons</span>
                               <div class="kuf-upgrade-controls">
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="cannons">−</button>
                                 <span class="kuf-upgrade-value" id="kuf-core-ship-cannon-upgrade">0</span>
                                 <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="cannons">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Shield Capacity</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="shield">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-shield-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="shield">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Drone Spawn Rate</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="droneRate">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-drone-rate-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="droneRate">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Drone Health</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="droneHealth">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-drone-health-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="droneHealth">+</button>
+                              </div>
+                            </div>
+                            <div class="kuf-upgrade-option" hidden>
+                              <span class="kuf-upgrade-name">Drone Damage</span>
+                              <div class="kuf-upgrade-controls">
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-minus" type="button" data-unit="coreShip" data-stat="droneDamage">−</button>
+                                <span class="kuf-upgrade-value" id="kuf-core-ship-drone-damage-upgrade">0</span>
+                                <button class="kuf-upgrade-btn kuf-upgrade-btn-plus" type="button" data-unit="coreShip" data-stat="droneDamage">+</button>
                               </div>
                             </div>
                           </div>

@@ -1046,7 +1046,7 @@ export class KufBattlefieldSimulation {
 
   /**
    * Initialize the core ship hull integrity and cannon mounts for a new simulation.
-   * @param {{ health: number, cannons: number }} coreShipStats - Derived core ship stats.
+   * @param {{ health: number, cannons: number, hullRepair: number, healingAura: number, shield: number, droneRate: number, droneHealth: number, droneDamage: number, level: number, scale: number }} coreShipStats - Derived core ship stats.
    */
   initializeCoreShip(coreShipStats) {
     const { baseRadius } = this.getHudLayout();
@@ -1055,12 +1055,36 @@ export class KufBattlefieldSimulation {
     this.coreShip = {
       x: basePosition.x,
       y: basePosition.y,
-      radius: baseRadius * KUF_CORE_SHIP_COMBAT.CORE_COLLISION_SCALE,
+      radius: baseRadius * KUF_CORE_SHIP_COMBAT.CORE_COLLISION_SCALE * (coreShipStats.scale || 1.0),
       health: Math.max(1, coreShipStats.health),
       maxHealth: Math.max(1, coreShipStats.health),
       cannons: Math.max(0, Math.floor(coreShipStats.cannons || 0)),
       cannonCooldown: 0,
+      // Hull repair regeneration (HP per second)
+      hullRepair: coreShipStats.hullRepair || 0,
+      hullRepairCooldown: 0,
+      // Healing aura
+      healingAura: coreShipStats.healingAura || 0,
+      healingAuraRadius: 150, // Radius for healing aura
+      healingAuraCooldown: 0,
+      // Shield system
+      maxShield: coreShipStats.shield > 0 ? coreShipStats.shield * 50 : 0, // 50 HP per upgrade
+      shield: 0, // Starts at 0, needs to regenerate
+      shieldRegenRate: coreShipStats.shield > 0 ? 5 + coreShipStats.shield * 2 : 0, // 5 + 2 per upgrade
+      shieldRegenDelay: 3, // Delay after taking damage
+      shieldRegenTimer: 0,
+      shieldBroken: false,
+      // Drone spawning
+      droneSpawnRate: coreShipStats.droneRate > 0 ? Math.max(0.5, 5 - coreShipStats.droneRate * 0.5) : 0, // Spawn every N seconds
+      droneSpawnTimer: 0,
+      droneHealth: 10 + coreShipStats.droneHealth * 5, // 10 base + 5 per upgrade
+      droneDamage: 1 + coreShipStats.droneDamage * 0.5, // 1 base + 0.5 per upgrade
+      // Level and visual scale
+      level: coreShipStats.level || 1,
+      scale: coreShipStats.scale || 1.0,
     };
+    // Track spawned drones separately
+    this.drones = [];
   }
 
   /**
@@ -1091,6 +1115,7 @@ export class KufBattlefieldSimulation {
     this.turrets = [];
     this.bullets = [];
     this.explosions = [];
+    this.drones = [];
     this.goldEarned = 0;
     this.destroyedTurrets = 0;
     // Reset worker count and income per kill when resetting the simulation.
@@ -1632,6 +1657,85 @@ export class KufBattlefieldSimulation {
     const basePosition = this.getBaseWorldPosition();
     this.coreShip.x = basePosition.x;
     this.coreShip.y = basePosition.y;
+    
+    // Hull repair regeneration (level 2+)
+    if (this.coreShip.hullRepair > 0 && this.coreShip.health < this.coreShip.maxHealth) {
+      this.coreShip.hullRepairCooldown = Math.max(0, this.coreShip.hullRepairCooldown - delta);
+      if (this.coreShip.hullRepairCooldown <= 0) {
+        const repairAmount = this.coreShip.hullRepair * delta; // HP per second
+        this.coreShip.health = Math.min(this.coreShip.maxHealth, this.coreShip.health + repairAmount);
+        this.coreShip.hullRepairCooldown = 0.1; // Check every 0.1 seconds
+      }
+    }
+    
+    // Healing aura (level 3+)
+    if (this.coreShip.healingAura > 0) {
+      this.coreShip.healingAuraCooldown = Math.max(0, this.coreShip.healingAuraCooldown - delta);
+      if (this.coreShip.healingAuraCooldown <= 0) {
+        const healAmount = this.coreShip.healingAura * 0.1; // HP per tick
+        this.marines.forEach((marine) => {
+          const dx = marine.x - this.coreShip.x;
+          const dy = marine.y - this.coreShip.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= this.coreShip.healingAuraRadius && marine.health < marine.maxHealth) {
+            marine.health = Math.min(marine.maxHealth, marine.health + healAmount);
+          }
+        });
+        this.coreShip.healingAuraCooldown = 0.1; // Heal every 0.1 seconds
+      }
+    }
+    
+    // Shield regeneration (level 4+)
+    if (this.coreShip.maxShield > 0) {
+      if (this.coreShip.shieldBroken) {
+        // Shield needs to fully regenerate before coming back online
+        this.coreShip.shieldRegenTimer += delta;
+        if (this.coreShip.shieldRegenTimer >= this.coreShip.shieldRegenDelay) {
+          this.coreShip.shield = Math.min(this.coreShip.maxShield, this.coreShip.shield + this.coreShip.shieldRegenRate * delta);
+          if (this.coreShip.shield >= this.coreShip.maxShield) {
+            this.coreShip.shield = this.coreShip.maxShield;
+            this.coreShip.shieldBroken = false;
+          }
+        }
+      } else if (this.coreShip.shield < this.coreShip.maxShield) {
+        // Shield regenerates when not broken
+        this.coreShip.shieldRegenTimer += delta;
+        if (this.coreShip.shieldRegenTimer >= this.coreShip.shieldRegenDelay) {
+          this.coreShip.shield = Math.min(this.coreShip.maxShield, this.coreShip.shield + this.coreShip.shieldRegenRate * delta);
+        }
+      }
+    }
+    
+    // Drone spawning (level 5+)
+    if (this.coreShip.droneSpawnRate > 0) {
+      this.coreShip.droneSpawnTimer += delta;
+      if (this.coreShip.droneSpawnTimer >= this.coreShip.droneSpawnRate) {
+        this.coreShip.droneSpawnTimer = 0;
+        // Spawn a drone near the core ship
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDist = this.coreShip.radius + 15;
+        const droneX = this.coreShip.x + Math.cos(angle) * spawnDist;
+        const droneY = this.coreShip.y + Math.sin(angle) * spawnDist;
+        this.drones.push({
+          x: droneX,
+          y: droneY,
+          vx: 0,
+          vy: 0,
+          radius: 4,
+          health: this.coreShip.droneHealth,
+          maxHealth: this.coreShip.droneHealth,
+          attack: this.coreShip.droneDamage,
+          attackSpeed: 1.5,
+          cooldown: 0,
+          moveSpeed: 80,
+          range: 120,
+        });
+      }
+    }
+    
+    // Update drones
+    this.updateDrones(delta);
+    
     if (this.coreShip.health <= 0) {
       return;
     }
@@ -1669,6 +1773,51 @@ export class KufBattlefieldSimulation {
       });
     }
     this.coreShip.cannonCooldown = 1 / KUF_CORE_SHIP_COMBAT.CANNON_ATTACK_SPEED;
+  }
+  
+  /**
+   * Update drone AI and combat behavior.
+   * @param {number} delta - Delta time in seconds.
+   */
+  updateDrones(delta) {
+    this.drones.forEach((drone) => {
+      drone.cooldown = Math.max(0, drone.cooldown - delta);
+      
+      // Find closest enemy
+      const target = this.findClosestTurret(drone.x, drone.y, Infinity);
+      if (!target) {
+        return;
+      }
+      
+      const dx = target.x - drone.x;
+      const dy = target.y - drone.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > drone.range) {
+        // Move toward enemy
+        const moveX = (dx / dist) * drone.moveSpeed * delta;
+        const moveY = (dy / dist) * drone.moveSpeed * delta;
+        drone.x += moveX;
+        drone.y += moveY;
+      } else {
+        // In range - attack
+        if (drone.cooldown <= 0) {
+          this.spawnBullet({
+            owner: 'marine',
+            type: 'drone',
+            x: drone.x,
+            y: drone.y,
+            target,
+            speed: MARINE_BULLET_SPEED,
+            damage: drone.attack,
+          });
+          drone.cooldown = 1 / drone.attackSpeed;
+        }
+      }
+    });
+    
+    // Remove dead drones
+    this.drones = this.drones.filter((drone) => drone.health > 0);
   }
 
   updateTurrets(delta) {
@@ -1849,14 +1998,33 @@ export class KufBattlefieldSimulation {
             this.applyBulletEffects(hit, bullet.effects);
           }
           bullet.life = 0;
-        } else if (this.coreShip && this.coreShip.health > 0) {
-          // Allow enemy projectiles to damage the core ship hull when marines are absent.
-          const dx = this.coreShip.x - bullet.x;
-          const dy = this.coreShip.y - bullet.y;
-          const radius = this.coreShip.radius || MARINE_RADIUS;
-          if (dx * dx + dy * dy <= radius * radius) {
-            this.coreShip.health -= bullet.damage;
+        } else {
+          // Check for drone hits
+          const droneHit = this.findHit(this.drones, bullet);
+          if (droneHit && droneHit.health > 0) {
+            droneHit.health -= bullet.damage;
             bullet.life = 0;
+          } else if (this.coreShip && this.coreShip.health > 0) {
+            // Allow enemy projectiles to damage the core ship hull when marines are absent.
+            const dx = this.coreShip.x - bullet.x;
+            const dy = this.coreShip.y - bullet.y;
+            const radius = this.coreShip.radius || MARINE_RADIUS;
+            if (dx * dx + dy * dy <= radius * radius) {
+              // Check for shield first
+              if (this.coreShip.shield > 0 && !this.coreShip.shieldBroken) {
+                this.coreShip.shield -= bullet.damage;
+                if (this.coreShip.shield <= 0) {
+                  this.coreShip.shield = 0;
+                  this.coreShip.shieldBroken = true;
+                  this.coreShip.shieldRegenTimer = 0;
+                }
+              } else {
+                this.coreShip.health -= bullet.damage;
+              }
+              // Reset shield regen timer on hit
+              this.coreShip.shieldRegenTimer = 0;
+              bullet.life = 0;
+            }
           }
         }
       }
@@ -2137,7 +2305,7 @@ export class KufBattlefieldSimulation {
   }
 
   /**
-   * Find the closest player-controlled target, including the core ship hull.
+   * Find the closest player-controlled target, including marines, drones, and the core ship hull.
    * @param {number} x - X coordinate in world space.
    * @param {number} y - Y coordinate in world space.
    * @param {number} range - Targeting range in pixels.
@@ -2146,6 +2314,19 @@ export class KufBattlefieldSimulation {
   findClosestPlayerTarget(x, y, range) {
     let closest = this.findClosestMarine(x, y, range);
     let bestDist = closest ? ((closest.x - x) ** 2 + (closest.y - y) ** 2) : range * range;
+    
+    // Check drones
+    this.drones.forEach((drone) => {
+      const dx = drone.x - x;
+      const dy = drone.y - y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= bestDist) {
+        closest = drone;
+        bestDist = distSq;
+      }
+    });
+    
+    // Check core ship
     if (this.coreShip && this.coreShip.health > 0) {
       const dx = this.coreShip.x - x;
       const dy = this.coreShip.y - y;
@@ -2252,6 +2433,7 @@ export class KufBattlefieldSimulation {
 
     this.drawTurrets();
     this.drawMarines();
+    this.drawDrones();
     this.drawBullets();
     this.drawExplosions();
     const skipOverlays = this.shouldSkipOverlays();
@@ -2361,6 +2543,32 @@ export class KufBattlefieldSimulation {
       ctx.beginPath();
       ctx.arc(marine.x, marine.y, marine.radius * 0.5, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  drawDrones() {
+    const ctx = this.ctx;
+    const glowsEnabled = this.glowOverlaysEnabled;
+    this.drones.forEach((drone) => {
+      const healthRatio = drone.health / drone.maxHealth;
+      ctx.save();
+      
+      // Drones use a teal/cyan glow to distinguish them from other units
+      const mainColor = 'rgba(100, 220, 255, 0.9)';
+      const shadowColor = 'rgba(80, 200, 240, 0.8)';
+      
+      const droneGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
+      ctx.shadowBlur = droneGlow;
+      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
+      ctx.fillStyle = mainColor;
+      ctx.beginPath();
+      ctx.arc(drone.x, drone.y, drone.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = this.renderProfile === 'light' ? 1.5 : 2;
+      ctx.strokeStyle = `rgba(${80 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.85)`;
+      ctx.stroke();
       ctx.restore();
     });
   }
@@ -2740,12 +2948,16 @@ export class KufBattlefieldSimulation {
     const coreShipHealthRatio = this.coreShip
       ? Math.max(0, Math.min(1, this.coreShip.health / this.coreShip.maxHealth))
       : 1;
+    
+    // Scale the sprite based on level
+    const scale = this.coreShip ? this.coreShip.scale : 1.0;
+    
     ctx.save();
-    const glowRadius = KUF_HUD_LAYOUT.BASE_GLOW_RADIUS;
+    const glowRadius = KUF_HUD_LAYOUT.BASE_GLOW_RADIUS * scale;
     const gradient = ctx.createRadialGradient(
       baseCenter.x,
       baseCenter.y,
-      baseRadius * 0.2,
+      baseRadius * 0.2 * scale,
       baseCenter.x,
       baseCenter.y,
       glowRadius
@@ -2757,10 +2969,30 @@ export class KufBattlefieldSimulation {
     ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw the core ship sprite (circle sprite removed as per requirement).
+    // Draw healing aura if active (level 3+)
+    if (this.coreShip && this.coreShip.healingAura > 0) {
+      ctx.save();
+      const healingGradient = ctx.createRadialGradient(
+        baseCenter.x,
+        baseCenter.y,
+        0,
+        baseCenter.x,
+        baseCenter.y,
+        this.coreShip.healingAuraRadius
+      );
+      healingGradient.addColorStop(0, 'rgba(100, 255, 150, 0.15)');
+      healingGradient.addColorStop(1, 'rgba(100, 255, 150, 0)');
+      ctx.fillStyle = healingGradient;
+      ctx.beginPath();
+      ctx.arc(baseCenter.x, baseCenter.y, this.coreShip.healingAuraRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Draw the core ship sprite scaled by level (20% per level).
     const coreSprite = getKufSprite(KUF_SPRITE_PATHS.CORE_SHIP);
     if (coreSprite && coreSprite.loaded) {
-      const spriteSize = baseRadius * 2.2;
+      const spriteSize = baseRadius * 2.2 * scale;
       ctx.drawImage(
         coreSprite.image,
         baseCenter.x - spriteSize / 2,
@@ -2768,6 +3000,22 @@ export class KufBattlefieldSimulation {
         spriteSize,
         spriteSize
       );
+    }
+    
+    // Draw shield if active (level 4+)
+    if (this.coreShip && this.coreShip.maxShield > 0 && this.coreShip.shield > 0 && !this.coreShip.shieldBroken) {
+      const shieldRatio = this.coreShip.shield / this.coreShip.maxShield;
+      ctx.strokeStyle = `rgba(100, 200, 255, ${0.5 + shieldRatio * 0.3})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(
+        baseCenter.x,
+        baseCenter.y,
+        (baseRadius + 10) * scale,
+        0,
+        Math.PI * 2
+      );
+      ctx.stroke();
     }
 
     // Draw the core ship hull integrity arc to reflect remaining health.
@@ -2777,7 +3025,7 @@ export class KufBattlefieldSimulation {
     ctx.arc(
       baseCenter.x,
       baseCenter.y,
-      baseRadius + 3,
+      (baseRadius + 3) * scale,
       -Math.PI / 2,
       -Math.PI / 2 + Math.PI * 2 * coreShipHealthRatio
     );
@@ -2786,7 +3034,7 @@ export class KufBattlefieldSimulation {
     // Render attached cannons around the core ring to visualize cannon upgrades.
     if (this.coreShip && this.coreShip.cannons > 0) {
       const cannonCount = this.coreShip.cannons;
-      const orbitRadius = baseRadius + 6;
+      const orbitRadius = (baseRadius + 6) * scale;
       for (let i = 0; i < cannonCount; i++) {
         const angle = (Math.PI * 2 * i) / cannonCount - Math.PI / 2;
         const cannonX = baseCenter.x + Math.cos(angle) * orbitRadius;
