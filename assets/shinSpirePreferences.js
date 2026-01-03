@@ -322,11 +322,6 @@ function applySetting(key, value) {
   applySettingsToSimulation();
 }
 
-// Normalize the render size level (fixed to small).
-function normalizeRenderSizeLevel(value) {
-  return 0; // Always small
-}
-
 // Apply the Shin render size settings (fixed to small).
 function applyRenderSizeLayout() {
   const shinStage = document.getElementById('shin-cardinal-canvas');

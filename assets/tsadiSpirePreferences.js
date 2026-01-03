@@ -125,11 +125,6 @@ function syncAllToggles() {
   syncToggleState(smoothRenderingToggle, smoothRenderingStateLabel, settings.smoothRendering);
 }
 
-// Normalize the render size level (fixed to small).
-function normalizeRenderSizeLevel(value) {
-  return 0; // Always small
-}
-
 // Apply the Tsadi render size settings (fixed to small).
 function applyRenderSizeLayout() {
   const tsadiStage = document.getElementById('tsadi-canvas');

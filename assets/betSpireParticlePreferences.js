@@ -103,11 +103,6 @@ function syncAllToggles() {
   );
 }
 
-// Normalize the render size level (fixed to small).
-function normalizeRenderSizeLevel(value) {
-  return 0; // Always small
-}
-
 // Apply the Bet render size settings (fixed to small).
 function applyRenderSizeLayout() {
   const betBasin = document.getElementById('bet-spire-basin');
