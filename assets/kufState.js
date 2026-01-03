@@ -95,6 +95,7 @@ const kufState = {
     coreShip: { ...DEFAULT_UPGRADES.coreShip },
   },
   coreShipLevel: 1, // Current core ship level (1-5)
+  coreShipLevelShardsSpent: 0, // Total shards spent on level upgrades
   glyphs: 0,
   highScore: 0,
   lastResult: null,
@@ -227,6 +228,7 @@ export function initializeKufState(savedState = {}) {
   kufState.units = normalizeUnits(savedState.units);
   kufState.upgrades = normalizeUpgrades(savedState.upgrades);
   kufState.coreShipLevel = Math.max(1, Math.min(5, sanitizeInteger(savedState.coreShipLevel, 1)));
+  kufState.coreShipLevelShardsSpent = sanitizeInteger(savedState.coreShipLevelShardsSpent, 0);
   kufState.highScore = sanitizeInteger(savedState.highScore, 0);
   kufState.mapHighScores = normalizeMapHighScores(savedState.mapHighScores);
   // Seed legacy saves with the global high score so map buttons surface a real value immediately.
@@ -274,6 +276,7 @@ export function getKufStateSnapshot() {
       coreShip: { ...kufState.upgrades.coreShip },
     },
     coreShipLevel: kufState.coreShipLevel,
+    coreShipLevelShardsSpent: kufState.coreShipLevelShardsSpent,
     glyphs: kufState.glyphs,
     highScore: kufState.highScore,
     lastResult: kufState.lastResult ? { ...kufState.lastResult } : null,
@@ -516,7 +519,8 @@ export function getKufShardsAvailableForUnits() {
   const allocatedShards = kufState.allocations.health + kufState.allocations.attack + kufState.allocations.attackSpeed;
   const unitShards = getKufShardsSpentOnUnits();
   const upgradeShards = getKufShardsSpentOnUpgrades();
-  return Math.max(0, kufState.totalShards - allocatedShards - unitShards - upgradeShards);
+  const levelShards = kufState.coreShipLevelShardsSpent;
+  return Math.max(0, kufState.totalShards - allocatedShards - unitShards - upgradeShards - levelShards);
 }
 
 /**
@@ -765,14 +769,8 @@ export function upgradeCoreShipLevel() {
     return { success: false, level: currentLevel, shardsRemaining: available };
   }
   
-  // We don't actually spend the shards from the pool - this is a permanent upgrade
-  // Instead, we just check if they have enough total shards available
-  // For now, let's assume we need to "spend" them by allocating to a special slot
-  // Actually, re-reading the requirement - it says "costs 100 shards" - this should deduct from available
-  // But there's no shard spending mechanism in the current system beyond upgrades
-  // Let me check if there's a way to deduct shards...
-  
-  // For now, let's just upgrade if they have enough shards available
+  // Spend the shards by tracking them separately
+  kufState.coreShipLevelShardsSpent += cost;
   kufState.coreShipLevel = currentLevel + 1;
   emitChange('coreShipLevel', { level: kufState.coreShipLevel });
   

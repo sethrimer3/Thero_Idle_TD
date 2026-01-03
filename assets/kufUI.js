@@ -410,17 +410,6 @@ function bindButtons() {
       }
     });
   }
-    
-    if (unitType && stat) {
-      if (isPlus) {
-        allocateKufUpgrade(unitType, stat);
-      } else {
-        deallocateKufUpgrade(unitType, stat);
-      }
-      updateUpgradeDisplay();
-      updateCodexDisplay();
-    }
-  });
 }
 
 function toggleUpgradeDropdown(unitType) {
@@ -676,7 +665,7 @@ function updateUpgradeDisplay() {
   // Update the core ship hull value in the deployment menu.
   if (kufElements.coreShipHealth) {
     const coreShipStats = calculateKufCoreShipStats();
-    kufElements.coreShipHealth.textContent = `${coreShipStats.health.toFixed(0)} HP · Level ${coreShipStats.level}`;
+    kufElements.coreShipHealth.textContent = `${coreShipStats.health.toFixed(0)} HP`;
   }
   
   renderLedger();
