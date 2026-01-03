@@ -36,6 +36,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   bulletTrailLength: TRAIL_LENGTH_OPTIONS.LONG,
   renderSizeLevel: 0, // Fixed to Small
   legacyWardenGraphics: false, // New sprites by default
+  showWeaponChargeBars: false, // Hidden by default
 });
 
 let settings = { ...DEFAULT_SETTINGS };
@@ -49,6 +50,8 @@ let enemyTrailQualityButton = null;
 let bulletTrailLengthButton = null;
 let legacyWardenToggle = null;
 let legacyWardenToggleState = null;
+let weaponChargeToggle = null;
+let weaponChargeToggleState = null;
 
 /**
  * Prefer a saner default graphics tier on mobile/high-DPI devices to reduce render cost out of the box.
@@ -311,6 +314,7 @@ function syncToggleState(input, stateLabel, enabled) {
 function syncAllToggles() {
   syncToggleState(nightModeToggle, nightModeToggleState, settings.nightMode);
   syncToggleState(legacyWardenToggle, legacyWardenToggleState, settings.legacyWardenGraphics);
+  syncToggleState(weaponChargeToggle, weaponChargeToggleState, settings.showWeaponChargeBars);
 }
 
 /**
@@ -378,6 +382,16 @@ export function bindShinSpireOptions() {
     legacyWardenToggle.addEventListener('change', (event) => {
       applySetting('legacyWardenGraphics', event.target.checked);
       syncToggleState(legacyWardenToggle, legacyWardenToggleState, settings.legacyWardenGraphics);
+    });
+  }
+  
+  weaponChargeToggle = document.getElementById('shin-weapon-charge-toggle');
+  weaponChargeToggleState = document.getElementById('shin-weapon-charge-toggle-state');
+  
+  if (weaponChargeToggle) {
+    weaponChargeToggle.addEventListener('change', (event) => {
+      applySetting('showWeaponChargeBars', event.target.checked);
+      syncToggleState(weaponChargeToggle, weaponChargeToggleState, settings.showWeaponChargeBars);
     });
   }
 

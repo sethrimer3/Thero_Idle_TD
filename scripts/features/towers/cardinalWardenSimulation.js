@@ -2550,12 +2550,12 @@ export class CardinalWardenSimulation {
       patterns: ['radial'], // Unlocked patterns
     };
 
-    // Simplified weapon system - all 3 weapons are always active
+    // Simplified weapon system - slot1 starts purchased, slots 2 and 3 must be purchased
     this.weapons = {
-      // All 3 weapons are always equipped (no purchase needed)
-      purchased: { slot1: true, slot2: true, slot3: true },
+      // Only slot1 is purchased by default, others must be unlocked
+      purchased: { slot1: true, slot2: false, slot3: false },
       levels: { slot1: 1, slot2: 1, slot3: 1 }, // Level tracking for future lexeme upgrades
-      equipped: ['slot1', 'slot2', 'slot3'], // All 3 weapons always active
+      equipped: ['slot1', 'slot2', 'slot3'], // All 3 weapons always equipped when purchased
     };
     
     // Weapon-specific upgrades (attack and speed levels per weapon)
@@ -3421,7 +3421,7 @@ export class CardinalWardenSimulation {
     if (this.waveTimer >= this.waveDuration) {
       this.waveTimer = 0;
       this.wave++;
-      this.difficultyLevel = Math.floor(this.wave / 3);
+      this.difficultyLevel = Math.floor(this.wave / 6);
       
       // Track highest wave reached
       if (this.wave > this.highestWave) {
@@ -7591,12 +7591,18 @@ export class CardinalWardenSimulation {
     const weapons = [];
     for (const weaponId of Object.keys(WEAPON_SLOT_DEFINITIONS)) {
       const def = WEAPON_SLOT_DEFINITIONS[weaponId];
-      const isPurchased = true; // All slots are always active
+      const isPurchased = this.weapons.purchased[weaponId] || false;
       const level = this.weapons.levels[weaponId] || 1;
       const isEquipped = true; // All slots are always equipped
       const glowIntensity = this.weaponGlowState?.[weaponId] || 0;
       const cooldownProgress = this.weaponTimers?.[weaponId] || 0;
-      const cooldownTotal = def.baseFireRate;
+      
+      // Calculate actual fire interval considering graphemes and speed upgrades
+      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
+      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
+      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
+      const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
+      const cooldownTotal = def.baseFireRate / (fireRateMultiplier * weaponSpeedMult);
       
       weapons.push({
         id: weaponId,
@@ -7755,11 +7761,6 @@ export class CardinalWardenSimulation {
       this.weapons.purchased = { ...this.weapons.purchased, ...state.purchased };
     }
     
-    // Ensure all 3 weapon slots are always marked as purchased (they are always active)
-    for (const weaponId of WEAPON_SLOT_IDS) {
-      this.weapons.purchased[weaponId] = true;
-    }
-    
     if (state?.levels) {
       this.weapons.levels = { ...this.weapons.levels, ...state.levels };
     }
@@ -7767,10 +7768,10 @@ export class CardinalWardenSimulation {
       this.weapons.activeWeaponId = state.activeWeaponId;
     }
     
-    // All 3 weapons must always be equipped (no conditional logic needed)
+    // All 3 weapons are in the equipped list, but only fire if purchased
     this.weapons.equipped = [...WEAPON_SLOT_IDS];
     
-    // Initialize timers for all weapons (all weapons are always purchased)
+    // Initialize timers for all equipped weapons
     for (const weaponId of WEAPON_SLOT_IDS) {
       if (!this.weaponTimers[weaponId]) {
         this.weaponTimers[weaponId] = 0;
