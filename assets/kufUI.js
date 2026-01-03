@@ -28,6 +28,11 @@ import {
   allocateKufUpgrade,
   deallocateKufUpgrade,
   getKufShardsSpentOnUpgrades,
+  getCoreShipLevel,
+  getCoreShipNextLevelCost,
+  isCoreShipUpgradeUnlocked,
+  getAvailableCoreShipUpgrades,
+  upgradeCoreShipLevel,
   KUF_MARINE_BASE_STATS,
   KUF_SNIPER_BASE_STATS,
   KUF_SPLAYER_BASE_STATS,
@@ -201,8 +206,18 @@ function cacheElements() {
       coreShip: {
         health: document.getElementById('kuf-core-ship-health-upgrade'),
         cannons: document.getElementById('kuf-core-ship-cannon-upgrade'),
+        hullRepair: document.getElementById('kuf-core-ship-hull-repair-upgrade'),
+        healingAura: document.getElementById('kuf-core-ship-healing-aura-upgrade'),
+        shield: document.getElementById('kuf-core-ship-shield-upgrade'),
+        droneRate: document.getElementById('kuf-core-ship-drone-rate-upgrade'),
+        droneHealth: document.getElementById('kuf-core-ship-drone-health-upgrade'),
+        droneDamage: document.getElementById('kuf-core-ship-drone-damage-upgrade'),
       },
     },
+    // Core ship level elements
+    coreShipLevel: document.getElementById('kuf-core-ship-level'),
+    coreShipLevelUpButton: document.getElementById('kuf-core-ship-level-up'),
+    coreShipLevelUpCost: document.getElementById('kuf-core-ship-level-up-cost'),
   };
 }
 
@@ -368,6 +383,33 @@ function bindButtons() {
     const unitType = button.dataset.unit;
     const stat = button.dataset.stat;
     const isPlus = button.classList.contains('kuf-upgrade-btn-plus');
+    
+    if (unitType && stat) {
+      // Check if upgrade is unlocked for core ship
+      if (unitType === 'coreShip' && !isCoreShipUpgradeUnlocked(stat)) {
+        return; // Upgrade not unlocked yet
+      }
+      
+      if (isPlus) {
+        allocateKufUpgrade(unitType, stat);
+      } else {
+        deallocateKufUpgrade(unitType, stat);
+      }
+      updateUpgradeDisplay();
+      updateCodexDisplay();
+    }
+  });
+  
+  // Core ship level up button
+  if (kufElements.coreShipLevelUpButton) {
+    kufElements.coreShipLevelUpButton.addEventListener('click', () => {
+      const result = upgradeCoreShipLevel();
+      if (result.success) {
+        updateUpgradeDisplay();
+        updateCodexDisplay();
+      }
+    });
+  }
     
     if (unitType && stat) {
       if (isPlus) {
@@ -561,6 +603,31 @@ function updateMapDetails() {
 
 function updateUpgradeDisplay() {
   const upgrades = getKufUpgrades();
+  const currentLevel = getCoreShipLevel();
+  const availableUpgrades = getAvailableCoreShipUpgrades();
+  
+  // Update level display
+  if (kufElements.coreShipLevel) {
+    kufElements.coreShipLevel.textContent = `Level ${currentLevel}`;
+  }
+  
+  // Update level-up button and cost
+  const nextLevelCost = getCoreShipNextLevelCost();
+  if (kufElements.coreShipLevelUpButton && kufElements.coreShipLevelUpCost) {
+    if (nextLevelCost !== null) {
+      kufElements.coreShipLevelUpButton.disabled = false;
+      kufElements.coreShipLevelUpButton.hidden = false;
+      kufElements.coreShipLevelUpCost.textContent = nextLevelCost.toLocaleString();
+      
+      // Check if player can afford
+      const available = getKufShardsAvailableForUnits();
+      kufElements.coreShipLevelUpButton.disabled = available < nextLevelCost;
+    } else {
+      // Max level reached
+      kufElements.coreShipLevelUpButton.disabled = true;
+      kufElements.coreShipLevelUpButton.hidden = true;
+    }
+  }
   
   // Update upgrade values
   Object.entries(upgrades).forEach(([unitType, stats]) => {
@@ -569,14 +636,39 @@ function updateUpgradeDisplay() {
         const element = kufElements.upgradeValues[unitType][stat];
         if (element) {
           element.textContent = String(value);
+          
+          // For core ship, hide/show upgrade rows based on level
+          if (unitType === 'coreShip') {
+            const upgradeRow = element.closest('.kuf-upgrade-option');
+            if (upgradeRow) {
+              const isUnlocked = availableUpgrades.includes(stat);
+              upgradeRow.hidden = !isUnlocked;
+              
+              // Disable buttons for locked upgrades
+              const buttons = upgradeRow.querySelectorAll('.kuf-upgrade-btn');
+              buttons.forEach(btn => {
+                btn.disabled = !isUnlocked;
+              });
+            }
+          }
         }
       });
     }
     
     // Update upgrade count badge
     if (kufElements.unitUpgradeCounts[unitType]) {
-      // Sum only the defined upgrade slots so core ship cannons contribute correctly.
-      const total = (stats.health || 0) + (stats.attack || 0) + (stats.attackSpeed || 0) + (stats.cannons || 0);
+      // Sum only the available upgrade slots for the badge count
+      let total = 0;
+      Object.entries(stats).forEach(([stat, value]) => {
+        // For core ship, only count unlocked upgrades
+        if (unitType === 'coreShip') {
+          if (availableUpgrades.includes(stat)) {
+            total += value || 0;
+          }
+        } else {
+          total += value || 0;
+        }
+      });
       kufElements.unitUpgradeCounts[unitType].textContent = String(total);
     }
   });
@@ -584,7 +676,7 @@ function updateUpgradeDisplay() {
   // Update the core ship hull value in the deployment menu.
   if (kufElements.coreShipHealth) {
     const coreShipStats = calculateKufCoreShipStats();
-    kufElements.coreShipHealth.textContent = `${coreShipStats.health.toFixed(0)} HP`;
+    kufElements.coreShipHealth.textContent = `${coreShipStats.health.toFixed(0)} HP · Level ${coreShipStats.level}`;
   }
   
   renderLedger();
