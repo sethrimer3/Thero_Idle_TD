@@ -41,6 +41,15 @@ export const SPLAYER_CONFIG = {
 };
 
 /**
+ * Piercing laser unit configuration.
+ */
+export const LASER_CONFIG = {
+  RADIUS: 3.4,           // Compact radius to differentiate the laser chassis
+  RANGE: 230,            // Longer range to emphasize precision fire
+  BULLET_SPEED: 520,     // Faster beam pulses to feel laser-like
+};
+
+/**
  * Turret configuration.
  */
 export const TURRET_CONFIG = {
@@ -139,6 +148,8 @@ export const DEFAULT_UNIT_STATS = {
   MARINE: { health: 10, attack: 1, attackSpeed: 1 },
   SNIPER: { health: 8, attack: 2, attackSpeed: 0.5 },
   SPLAYER: { health: 12, attack: 0.8, attackSpeed: 0.7 },
+  // Baseline piercing laser stats emphasize steady, precise fire.
+  LASER: { health: 9, attack: 1.4, attackSpeed: 0.9 },
 };
 
 /**
@@ -148,4 +159,6 @@ export const DEFAULT_UNIT_COUNTS = {
   marines: 0,
   snipers: 0,
   splayers: 0,
+  // Default laser unit count starts at zero like other Kuf units.
+  lasers: 0,
 };

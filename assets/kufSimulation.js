@@ -5,6 +5,7 @@ import {
   MARINE_CONFIG,
   SNIPER_CONFIG,
   SPLAYER_CONFIG,
+  LASER_CONFIG,
   TURRET_CONFIG,
   BIG_TURRET_CONFIG,
   MELEE_UNIT_CONFIG,
@@ -50,6 +51,13 @@ const SNIPER_BULLET_SPEED = SNIPER_CONFIG.BULLET_SPEED;
 const SPLAYER_RADIUS = SPLAYER_CONFIG.RADIUS;
 const SPLAYER_RANGE = SPLAYER_CONFIG.RANGE;
 const SPLAYER_ROCKET_SPEED = SPLAYER_CONFIG.ROCKET_SPEED;
+
+// Define the piercing laser unit's silhouette and engagement range.
+const LASER_RADIUS = LASER_CONFIG.RADIUS;
+const LASER_RANGE = LASER_CONFIG.RANGE;
+const LASER_BULLET_SPEED = LASER_CONFIG.BULLET_SPEED;
+// Define how many total hits a piercing laser beam can register before dissipating.
+const LASER_PIERCE_COUNT = 3;
 
 const TURRET_RADIUS = TURRET_CONFIG.RADIUS;
 const TURRET_RANGE = TURRET_CONFIG.RANGE;
@@ -152,23 +160,29 @@ const KUF_TRAINING_CATALOG = {
   marine: { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
   sniper: { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
   splayer: { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
+  // Add the piercing laser unit to the training catalog.
+  laser: { id: 'laser', label: 'Piercing Laser', icon: 'Λ', cost: 16, duration: 3.1 },
 };
 // Worker cost escalation constants for the economic training system.
 const WORKER_BASE_COST = 2; // First worker costs 2 gold
 const WORKER_COST_INCREMENT = 2; // Each subsequent worker costs 2 more gold
 // Define the equipable unit rotation for the customizable toolbar slots.
-const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer'];
+// Extend the equippable roster to include the piercing laser unit.
+const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer', 'laser'];
 // Define the fixed and customizable training slots displayed along the base toolbar.
 const KUF_TRAINING_SLOTS = [
   { slotId: 'worker', unitId: 'worker', equipable: false },
   { slotId: 'slot-1', unitId: 'marine', equipable: true },
   { slotId: 'slot-2', unitId: 'sniper', equipable: true },
   { slotId: 'slot-3', unitId: 'splayer', equipable: true },
+  // Add a fourth equipable slot for the new laser unit.
+  { slotId: 'slot-4', unitId: 'laser', equipable: true },
 ];
 
 /**
  * @typedef {Object} KufSimulationConfig
  * @property {{ health: number, attack: number, attackSpeed: number }} marineStats - Calculated statline.
+ * @property {{ health: number, attack: number, attackSpeed: number }} [laserStats] - Piercing laser statline.
  */
 
 export class KufBattlefieldSimulation {
@@ -239,6 +253,8 @@ export class KufBattlefieldSimulation {
       marine: { ...DEFAULT_UNIT_STATS.MARINE },
       sniper: { ...DEFAULT_UNIT_STATS.SNIPER },
       splayer: { ...DEFAULT_UNIT_STATS.SPLAYER },
+      // Cache piercing laser statlines for training spawns.
+      laser: { ...DEFAULT_UNIT_STATS.LASER },
     };
     // Protect the canvas resolution from running wild on high-DPI displays.
     this.maxDevicePixelRatio = this.renderProfile === 'light' ? 1.1 : 1.5;
@@ -742,14 +758,30 @@ export class KufBattlefieldSimulation {
    * @param {number} y - Spawn Y coordinate in world space.
    */
   createPlayerUnit(type, stats, x, y) {
-    // Align unit sizing and movement presets to the existing marine/sniper/splayer profiles.
-    const radius = type === 'sniper' ? SNIPER_RADIUS : type === 'splayer' ? SPLAYER_RADIUS : MARINE_RADIUS;
-    const moveSpeed = type === 'sniper' ? MARINE_MOVE_SPEED * 0.8 : type === 'splayer' ? MARINE_MOVE_SPEED * 0.9 : MARINE_MOVE_SPEED;
-    const range = type === 'sniper' ? SNIPER_RANGE : type === 'splayer' ? SPLAYER_RANGE : MARINE_RANGE;
+    // Align unit sizing and movement presets to the unit archetype configuration.
+    let radius = MARINE_RADIUS;
+    let moveSpeed = MARINE_MOVE_SPEED;
+    let range = MARINE_RANGE;
     // Seed splayer rotation so each ship animates with a unique idle orientation.
-    const rotation = type === 'splayer' ? Math.random() * Math.PI * 2 : 0;
+    let rotation = 0;
     // Assign the baseline spin rate only to splayer units.
-    const rotationSpeed = type === 'splayer' ? SPLAYER_BASE_SPIN_SPEED : 0;
+    let rotationSpeed = 0;
+    if (type === 'sniper') {
+      radius = SNIPER_RADIUS;
+      moveSpeed = MARINE_MOVE_SPEED * 0.8;
+      range = SNIPER_RANGE;
+    } else if (type === 'splayer') {
+      radius = SPLAYER_RADIUS;
+      moveSpeed = MARINE_MOVE_SPEED * 0.9;
+      range = SPLAYER_RANGE;
+      rotation = Math.random() * Math.PI * 2;
+      rotationSpeed = SPLAYER_BASE_SPIN_SPEED;
+    } else if (type === 'laser') {
+      // Tune piercing lasers to sit between marines and snipers.
+      radius = LASER_RADIUS;
+      moveSpeed = MARINE_MOVE_SPEED * 0.85;
+      range = LASER_RANGE;
+    }
     this.marines.push({
       type,
       x,
@@ -785,6 +817,8 @@ export class KufBattlefieldSimulation {
     const marineStats = config?.marineStats || DEFAULT_UNIT_STATS.MARINE;
     const sniperStats = config?.sniperStats || DEFAULT_UNIT_STATS.SNIPER;
     const splayerStats = config?.splayerStats || DEFAULT_UNIT_STATS.SPLAYER;
+    // Resolve piercing laser stats for the new Kuf unit.
+    const laserStats = config?.laserStats || DEFAULT_UNIT_STATS.LASER;
     // Resolve core ship stats so hull integrity and cannons stay in sync with shard upgrades.
     const coreShipStats = config?.coreShipStats || { health: 120, cannons: 0 };
     const units = config?.units || DEFAULT_UNIT_COUNTS;
@@ -798,6 +832,8 @@ export class KufBattlefieldSimulation {
       marine: { ...marineStats },
       sniper: { ...sniperStats },
       splayer: { ...splayerStats },
+      // Keep laser statlines available for training spawns.
+      laser: { ...laserStats },
     };
     // Initialize the core ship anchor so turrets can target its hull integrity.
     this.initializeCoreShip(coreShipStats);
@@ -827,6 +863,13 @@ export class KufBattlefieldSimulation {
       const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
       const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
       this.createPlayerUnit('splayer', splayerStats, randomX, randomY);
+    }
+
+    // Spawn all purchased piercing lasers at random positions in bottom half.
+    for (let i = 0; i < units.lasers; i++) {
+      const randomX = spawnXMin + Math.random() * (spawnXMax - spawnXMin);
+      const randomY = spawnYMin + Math.random() * (spawnYMax - spawnYMin);
+      this.createPlayerUnit('laser', laserStats, randomX, randomY);
     }
     
     this.buildTurrets();
@@ -1577,6 +1620,19 @@ export class KufBattlefieldSimulation {
           }
           // Boost splayer spin rate briefly after firing.
           marine.rotationBoostTimer = SPLAYER_SPIN_BOOST_DURATION;
+        } else if (marine.type === 'laser') {
+          // Fire a piercing laser bolt that can slice through multiple turrets.
+          this.spawnBullet({
+            owner: 'marine',
+            type: 'laser',
+            x: marine.x,
+            y: marine.y - marine.radius,
+            target,
+            speed: LASER_BULLET_SPEED,
+            damage: marine.attack,
+            homing: false,
+            pierce: LASER_PIERCE_COUNT,
+          });
         } else {
           // Fire a single projectile for non-splayer units.
           this.spawnBullet({
@@ -1981,7 +2037,19 @@ export class KufBattlefieldSimulation {
         const hit = this.findHit(this.turrets, bullet);
         if (hit && hit.health > 0) {
           hit.health -= bullet.damage;
-          bullet.life = 0;
+          // Track the hit so piercing rounds do not repeatedly strike the same target.
+          if (bullet.hitTargets) {
+            bullet.hitTargets.add(hit);
+          }
+          // Remove non-piercing bullets immediately, otherwise decrement remaining pierces.
+          if (bullet.pierce > 0) {
+            bullet.pierce -= 1;
+            if (bullet.pierce <= 0) {
+              bullet.life = 0;
+            }
+          } else {
+            bullet.life = 0;
+          }
           if (hit.health <= 0) {
             // Base reward from enemy's configured value, plus income per kill bonus (1 + workers).
             const enemyGoldValue = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
@@ -2033,10 +2101,12 @@ export class KufBattlefieldSimulation {
     this.turrets = this.turrets.filter((turret) => turret.health > 0);
   }
 
-  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false, angle = null, effects = null }) {
+  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false, angle = null, effects = null, pierce = 0 }) {
     const heading = angle !== null ? angle : Math.atan2(target.y - y, target.x - x);
     const vx = Math.cos(heading) * speed;
     const vy = Math.sin(heading) * speed;
+    // Initialize hit tracking when bullets are allowed to pierce through multiple targets.
+    const hitTargets = pierce > 0 ? new Set() : null;
     this.bullets.push({
       owner,
       type: type || 'marine',
@@ -2050,6 +2120,9 @@ export class KufBattlefieldSimulation {
       target: homing ? target : null,
       speed,
       effects,
+      // Store remaining pierce count so lasers can keep traveling after impacts.
+      pierce,
+      hitTargets,
     });
   }
 
@@ -2341,6 +2414,9 @@ export class KufBattlefieldSimulation {
 
   findHit(targets, bullet) {
     return targets.find((target) => {
+      if (bullet.hitTargets && bullet.hitTargets.has(target)) {
+        return false;
+      }
       const dx = target.x - bullet.x;
       const dy = target.y - bullet.y;
       const radius = target.radius || MARINE_RADIUS;
@@ -2516,6 +2592,10 @@ export class KufBattlefieldSimulation {
       if (marine.type === 'sniper') {
         mainColor = 'rgba(255, 200, 100, 0.9)';
         shadowColor = 'rgba(255, 180, 66, 0.8)';
+      } else if (marine.type === 'laser') {
+        // Piercing lasers glow with sharp teal highlights.
+        mainColor = 'rgba(120, 255, 210, 0.9)';
+        shadowColor = 'rgba(80, 230, 190, 0.8)';
       } else if (marine.type === 'splayer') {
         mainColor = 'rgba(255, 100, 200, 0.9)';
         shadowColor = 'rgba(255, 66, 180, 0.8)';
@@ -2767,6 +2847,11 @@ export class KufBattlefieldSimulation {
           color = 'rgba(255, 220, 120, 0.95)';
           shadowColor = 'rgba(255, 200, 80, 0.9)';
           size = 6;
+        } else if (bullet.type === 'laser') {
+          // Tint piercing lasers with a sharp cyan highlight.
+          color = 'rgba(120, 255, 220, 0.95)';
+          shadowColor = 'rgba(80, 240, 200, 0.9)';
+          size = 5;
         } else if (bullet.type === 'splayer') {
           color = 'rgba(255, 120, 200, 0.95)';
           shadowColor = 'rgba(255, 80, 180, 0.9)';
