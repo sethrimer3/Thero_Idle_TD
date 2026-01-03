@@ -103,15 +103,6 @@ function syncAllToggles() {
   );
 }
 
-// Normalize the render size level to a safe 0-2 range.
-function normalizeRenderSizeLevel(value) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
-    return 1; // Default to Medium if invalid
-  }
-  return Math.min(2, Math.max(0, parsed));
-}
-
 // Normalize the render size level (fixed to small).
 function normalizeRenderSizeLevel(value) {
   return 0; // Always small
