@@ -982,7 +982,9 @@ body.graphics-mode-low .control-button {
 .panel {
   display: none;
   flex-direction: column;
-  padding: clamp(20px, 4vw, 48px);
+  /* Use a shared custom property so spire render overrides can reference panel padding. */
+  --panel-padding: clamp(20px, 4vw, 48px);
+  padding: var(--panel-padding);
   gap: 24px;
   height: 100%;
   min-height: 0;
@@ -15066,6 +15068,57 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 .kuf-grid .kuf-card--simulation {
   width: 100%;
   max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  /* Remove the empty spire headers so mobile renders can sit at the top edge. */
+  #panel-fluid .panel-header,
+  #panel-lamed .panel-header,
+  #panel-tsadi .panel-header,
+  #panel-shin .panel-header,
+  #panel-kuf .panel-header {
+    display: none;
+  }
+
+  /* Pull the advanced spire panels to the top so the render starts at the viewport edge. */
+  #panel-fluid,
+  #panel-lamed,
+  #panel-tsadi,
+  #panel-shin,
+  #panel-kuf {
+    padding-top: 0;
+  }
+
+  /* Trim grid padding on mobile so render slots can reach the screen edges. */
+  .fluid-grid,
+  .lamed-grid,
+  .tsadi-grid {
+    padding: 0;
+  }
+
+  /* Remove mobile padding from the Shin render wrapper to match Aleph's full-bleed placement. */
+  .shin-game-content {
+    padding: 0;
+  }
+
+  /* Let spire render sections bleed to the viewport edges on mobile. */
+  #panel-fluid .fluid-grid:first-of-type,
+  .lamed-simulation-slot,
+  .tsadi-simulation-slot,
+  .shin-game-content,
+  .kuf-card--simulation {
+    margin-inline: calc(-1 * var(--panel-padding));
+  }
+
+  /* Align spire renders with the top of the screen while keeping the 3:4 ratio. */
+  #bet-spire-simulation-card,
+  .lamed-simulation-card,
+  .tsadi-simulation-card,
+  .shin-cardinal-viewport,
+  .kuf-card--simulation {
+    width: min(100%, calc((var(--stable-vh) - 220px) * 0.75));
+    max-width: 100%;
+  }
 }
 
 .bet-generator-list {
