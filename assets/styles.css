@@ -15195,6 +15195,9 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 /* Render size adjustments for spire canvases */
 /* These allow the canvas to expand beyond panel padding when size is set to Large */
+/* REMOVED: Margin rules were causing uneven spacing (more margin above than on sides) */
+/* Commenting out to match the balanced spacing of the aleph spire render */
+/*
 #bet-spire-basin {
   margin-left: calc(-1 * var(--bet-size-inline-left, 0px));
   margin-right: calc(-1 * var(--bet-size-inline-right, 0px));
@@ -15218,3 +15221,4 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin-right: calc(-1 * var(--shin-size-inline-right, 0px));
   margin-top: calc(-1 * var(--shin-size-top, 0px));
 }
+*/
