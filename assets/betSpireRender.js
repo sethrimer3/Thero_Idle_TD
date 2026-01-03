@@ -11,7 +11,7 @@ const CANVAS_HEIGHT = 320;
 const TRAIL_FADE = 0.15; // Lower = longer trails
 const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
-const MIN_VELOCITY = 0.24; // Minimum speed to keep particles swirling (20% slower: 0.3 * 0.8 = 0.24)
+const MIN_VELOCITY = 0.312; // Minimum speed to keep particles swirling (30% faster: 0.24 * 1.3 = 0.312)
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
 const FORGE_RADIUS = 21; // Radius for forge attraction (30% smaller to tighten the forge well)
