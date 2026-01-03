@@ -16,7 +16,13 @@ const DEFAULT_UPGRADES = Object.freeze({
   coreShip: { health: 0, cannons: 0, hullRepair: 0, healingAura: 0, shield: 0, droneRate: 0, droneHealth: 0, droneDamage: 0 },
 });
 
-// Core ship level costs in shards (level 2: 100, level 3: 10,000, level 4: 1,000,000, level 5: 100,000,000)
+// Core ship level costs in shards
+// Index represents the cost to upgrade FROM that level TO the next level:
+// [0]: not used (can't upgrade from level 0)
+// [1]: cost to upgrade from level 1 to level 2 = 100
+// [2]: cost to upgrade from level 2 to level 3 = 10,000
+// [3]: cost to upgrade from level 3 to level 4 = 1,000,000
+// [4]: cost to upgrade from level 4 to level 5 = 100,000,000
 const CORE_SHIP_LEVEL_COSTS = Object.freeze([0, 100, 10000, 1000000, 100000000]);
 
 // Define which upgrades are available at each level
