@@ -4330,6 +4330,9 @@ export class CardinalWardenSimulation {
     let weaponDamage = 1; // Track weapon damage for friendly ships
     
     for (const weaponId of this.weapons.equipped) {
+      // Only process grapheme effects for purchased weapons
+      if (!this.weapons.purchased[weaponId]) continue;
+      
       const assignments = this.weaponGraphemeAssignments[weaponId] || [];
       const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
       const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
@@ -4505,6 +4508,9 @@ export class CardinalWardenSimulation {
     let weaponFireRate = 500; // Default fire rate in milliseconds
     
     for (const weaponId of this.weapons.equipped) {
+      // Only process grapheme effects for purchased weapons
+      if (!this.weapons.purchased[weaponId]) continue;
+      
       const assignments = this.weaponGraphemeAssignments[weaponId] || [];
       const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
       const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];

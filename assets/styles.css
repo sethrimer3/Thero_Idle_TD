@@ -314,6 +314,9 @@ body.graphics-mode-low .control-button {
 .cognitive-realm-section {
   margin-top: clamp(24px, 5vw, 36px);
   margin-bottom: clamp(24px, 5vw, 36px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .subsection-title--cognitive-realm {
@@ -336,7 +339,6 @@ body.graphics-mode-low .control-button {
 
 .cognitive-realm-container {
   position: relative;
-  width: 100%;
   /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
   aspect-ratio: 3 / 4;
   /* Expand until the viewport width or height limit is encountered. */
@@ -348,6 +350,7 @@ body.graphics-mode-low .control-button {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.6), var(--shadow);
+  margin: 0 auto;
 }
 
 .cognitive-realm-canvas {
