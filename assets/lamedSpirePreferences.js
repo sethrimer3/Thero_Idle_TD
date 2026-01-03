@@ -25,7 +25,7 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
-  renderSizeLevel: 2, // Default to Large (0=Small, 1=Medium, 2=Large)
+  renderSizeLevel: 0, // Fixed to Small
 });
 
 /**
@@ -75,8 +75,6 @@ let sunDetailToggle = null;
 let sunSplashesToggle = null;
 let shootingStarTrailsToggle = null;
 let spawnFlashesToggle = null;
-let renderSizeSelect = null;
-let renderSizeRow = null;
 
 /**
  * Retrieve the current graphics level label for the UI.
@@ -223,7 +221,7 @@ function loadPersistedSettings() {
     if (stored) {
       const parsed = JSON.parse(stored);
       lamedSettings = { ...createDefaultLamedSettings(), ...parsed };
-      lamedSettings.renderSizeLevel = normalizeRenderSizeLevel(parsed.renderSizeLevel);
+      lamedSettings.renderSizeLevel = 0; // Always small
     }
   } catch (error) {
     console.warn('Failed to load Lamed visual settings; using defaults:', error);
@@ -293,10 +291,6 @@ function syncAllToggles() {
     document.getElementById('lamed-flashes-toggle-state'),
     lamedSettings.spawnFlashes,
   );
-  
-  if (renderSizeSelect) {
-    renderSizeSelect.value = String(normalizeRenderSizeLevel(lamedSettings.renderSizeLevel));
-  }
 }
 
 /**
@@ -387,51 +381,20 @@ function applySetting(key, value) {
   applySettingsToSimulation();
 }
 
-/**
- * Normalize the render size level to a safe 0-2 range.
- */
-function normalizeRenderSizeLevel(value) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed)) {
-    return 1; // Default to Medium if invalid
-  }
-  return Math.min(2, Math.max(0, parsed));
-}
-
-/**
- * Apply the Lamed render size settings by offsetting the spire container.
- */
+// Apply the Lamed render size settings (fixed to small).
 function applyRenderSizeLayout() {
   const lamedStage = document.getElementById('lamed-canvas');
   if (!lamedStage) {
     return;
   }
 
-  const sizeLevel = normalizeRenderSizeLevel(lamedSettings.renderSizeLevel);
-  const panel = lamedStage.closest('.panel');
-
-  const readPadding = (element) => {
-    if (!element || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
-      return { top: 0, left: 0, right: 0 };
-    }
-    const styles = window.getComputedStyle(element);
-    return {
-      top: Number.parseFloat(styles.paddingTop) || 0,
-      left: Number.parseFloat(styles.paddingLeft) || 0,
-      right: Number.parseFloat(styles.paddingRight) || 0,
-    };
-  };
-
-  const panelPadding = readPadding(panel);
-  // Medium and Large should expand past panel padding to keep the spire centered.
-  const inlineLeft = sizeLevel >= 1 ? panelPadding.left : 0;
-  const inlineRight = sizeLevel >= 1 ? panelPadding.right : 0;
-  const topOffset = sizeLevel >= 1 ? panelPadding.top : 0;
+  // Size level is always 0 (Small): no offset
+  const sizeLevel = 0;
 
   lamedStage.dataset.sizeLevel = String(sizeLevel);
-  lamedStage.style.setProperty('--lamed-size-inline-left', `${inlineLeft}px`);
-  lamedStage.style.setProperty('--lamed-size-inline-right', `${inlineRight}px`);
-  lamedStage.style.setProperty('--lamed-size-top', `${topOffset}px`);
+  lamedStage.style.setProperty('--lamed-size-inline-left', '0px');
+  lamedStage.style.setProperty('--lamed-size-inline-right', '0px');
+  lamedStage.style.setProperty('--lamed-size-top', '0px');
 }
 
 /**
@@ -448,8 +411,6 @@ export function bindLamedSpireOptions() {
   sunSplashesToggle = document.getElementById('lamed-splashes-toggle');
   shootingStarTrailsToggle = document.getElementById('lamed-shooting-trails-toggle');
   spawnFlashesToggle = document.getElementById('lamed-flashes-toggle');
-  renderSizeSelect = document.getElementById('lamed-render-size-select');
-  renderSizeRow = document.getElementById('lamed-render-size-row');
 
   if (optionsToggleButton) {
     optionsToggleButton.addEventListener('click', toggleOptionsMenu);
@@ -509,15 +470,6 @@ export function bindLamedSpireOptions() {
     });
   }
 
-  if (renderSizeSelect) {
-    renderSizeSelect.addEventListener('change', (event) => {
-      lamedSettings.renderSizeLevel = normalizeRenderSizeLevel(event.target.value);
-      persistSettings();
-      syncAllToggles();
-      applyRenderSizeLayout();
-    });
-  }
-
   // Sync UI with persisted settings.
   updateGraphicsLevelButton();
   syncAllToggles();
@@ -560,10 +512,3 @@ export function applyLamedVisualSettings(settings, { persist = true } = {}) {
 }
 
 export { LAMED_GRAPHICS_LEVELS };
-
-// Recalculate size offsets on viewport changes to keep the render aligned.
-if (typeof window !== 'undefined') {
-  window.addEventListener('resize', () => {
-    applyRenderSizeLayout();
-  });
-}
