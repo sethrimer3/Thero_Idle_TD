@@ -1314,6 +1314,7 @@ function createWeaponElement(weapon) {
 
   return { 
     container, 
+    cooldownContainer,
     cooldownFill, 
     cooldownText, 
     graphemeSlots, 
