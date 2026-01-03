@@ -498,14 +498,21 @@ function buildVariableCraftingRecipes(variableList) {
     return [];
   }
 
-  return variableList.map((variable) => {
+  // Filter to only include life, recovery (regeneration), atk, spd, and m (range)
+  const allowedVariableKeys = ['life', 'recovery', 'atk', 'spd', 'm'];
+  const filteredVariables = variableList.filter((variable) => {
+    const key = variable.key || variable.libraryKey;
+    return allowedVariableKeys.includes(key);
+  });
+
+  return filteredVariables.map((variable) => {
     // Derive the display label for the crafting item so variable glyphs stay recognizable.
     const symbol = variable.symbol || variable.name || variable.id;
     const variableName = variable.name || symbol || 'Variable';
     const maxBonus = VARIABLE_TIER_BLUEPRINTS[VARIABLE_TIER_BLUEPRINTS.length - 1]?.bonusPercent || 0;
     return {
       id: `variable-${variable.id}`,
-      name: `${symbol} Resonance`,
+      name: `${symbol} Lens`,
       type: variableName,
       description: '',
       tiers: VARIABLE_TIER_BLUEPRINTS.map((tier) => ({

@@ -10,9 +10,9 @@
  */
 export const DEFAULT_MOTE_PALETTE = {
   stops: [
-    { r: 255, g: 215, b: 100 },
-    { r: 255, g: 235, b: 140 },
-    { r: 255, g: 200, b: 80 },
+    { r: 247, g: 213, b: 101 },
+    { r: 247, g: 213, b: 101 },
+    { r: 247, g: 213, b: 101 },
   ],
   restAlpha: 0.9,
   freefallAlpha: 0.6,
