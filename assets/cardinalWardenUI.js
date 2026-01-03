@@ -1380,6 +1380,10 @@ function updateWeaponElement(elements, weapon, assignments) {
   }
   elements.name.textContent = weapon.name;
 
+  // Show/hide cooldown bars based on preference
+  const showChargeBars = getShinVisualSettings().showWeaponChargeBars;
+  elements.cooldownContainer.style.display = showChargeBars ? 'flex' : 'none';
+
   elements.cooldownFill.style.width = `${Math.max(0, Math.min(100, cooldownPercent))}%`;
   elements.cooldownText.textContent = `${(weapon.cooldownProgress / 1000).toFixed(1)}s / ${(weapon.cooldownTotal / 1000).toFixed(1)}s`;
 
