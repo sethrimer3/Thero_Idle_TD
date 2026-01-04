@@ -78,17 +78,6 @@ export function createPowderUiDomHelpers(options = {}) {
     // Reuse the high-fidelity terrain SVG for collision sampling so silhouettes match visuals.
     fluidElements.terrainCollisionSprite =
       document.getElementById('fluid-terrarium-foreground-collision') || fluidElements.terrainSprite;
-    fluidElements.happinessTotal = document.getElementById('fluid-happiness-total');
-    fluidElements.happinessRate = document.getElementById('fluid-happiness-rate');
-    fluidElements.happinessList = document.getElementById('fluid-happiness-list');
-    fluidElements.happinessEmpty = document.getElementById('fluid-happiness-empty');
-    // Track progress toward the next Bet glyph unlock.
-    fluidElements.happinessProgressBar = document.getElementById('fluid-happiness-progress');
-    fluidElements.happinessProgressFill = document.getElementById('fluid-happiness-progress-fill');
-    fluidElements.happinessProgressLabel = document.getElementById('fluid-happiness-progress-label');
-    fluidElements.happinessProgressPrevious = document.getElementById('fluid-happiness-progress-previous');
-    fluidElements.happinessProgressNext = document.getElementById('fluid-happiness-progress-next');
-    fluidElements.happinessProgressCurrent = document.getElementById('fluid-happiness-progress-current');
     // Terrarium items dropdown for managing and upgrading items.
     fluidElements.terrariumItemsToggle = document.getElementById('fluid-terrarium-items-toggle');
     fluidElements.terrariumItemsDropdown = document.getElementById('fluid-terrarium-items-dropdown');
