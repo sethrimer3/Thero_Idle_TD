@@ -12674,7 +12674,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   grid-column: 1 / -1;
   justify-self: center;
   /* Grow Kuf Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
 }
 
 .kuf-sim-header {
@@ -13570,8 +13570,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 .shin-cardinal-card {
   /* Match the responsive spire sizing used by Bet so the Shin render fills the same margins. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
   padding: 0;
   background: transparent;
   border: none;
