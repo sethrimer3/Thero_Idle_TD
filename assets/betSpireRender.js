@@ -500,7 +500,7 @@ export class BetSpireRender {
     // Particle Factor tracking for BET glyph awards - load from state or use defaults
     this.particleFactorMilestone = Number.isFinite(state.particleFactorMilestone) 
       ? state.particleFactorMilestone 
-      : 10; // Start at 10, then 100, 1000, etc.
+      : 100; // Start at 100, then 10,000, 1,000,000, etc.
     this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
       ? state.betGlyphsAwarded
       : 0;
@@ -2210,11 +2210,11 @@ export class BetSpireRender {
     const currentFactor = this.calculateParticleFactor();
     let glyphsAwarded = 0;
     
-    // Award glyphs for each 10x milestone reached
+    // Award glyphs for each 100x milestone reached
     while (currentFactor >= this.particleFactorMilestone) {
       glyphsAwarded++;
       this.betGlyphsAwarded++;
-      this.particleFactorMilestone *= 10; // Next milestone is 10x higher
+      this.particleFactorMilestone *= 100; // Next milestone is 100x higher
     }
     
     // Persist state changes

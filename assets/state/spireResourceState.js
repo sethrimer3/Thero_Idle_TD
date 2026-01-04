@@ -39,7 +39,7 @@ const DEFAULT_FLUID_STATE = {
   unlocked: false,
   storySeen: false,
   generators: {}, // Particle generators for BET spire upgrade menu
-  particleFactorMilestone: 10, // Next milestone for BET glyph awards
+  particleFactorMilestone: 100, // Next milestone for BET glyph awards
   betGlyphsAwarded: 0, // Total BET glyphs awarded from particle factor
 };
 

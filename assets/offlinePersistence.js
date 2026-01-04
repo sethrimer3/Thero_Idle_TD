@@ -18,9 +18,6 @@ const offlineOverlayElements = {
   betRow: null,
   betMultiplier: null,
   betTotal: null,
-  happinessRow: null,
-  happinessMultiplier: null,
-  happinessTotal: null,
   lamedRow: null,
   lamedMultiplier: null,
   lamedTotal: null,
@@ -170,9 +167,6 @@ async function showOfflineOverlay(summary = {}) {
     betRow,
     betMultiplier,
     betTotal,
-    happinessRow,
-    happinessMultiplier,
-    happinessTotal,
     lamedRow,
     lamedMultiplier,
     lamedTotal,
@@ -199,7 +193,6 @@ async function showOfflineOverlay(summary = {}) {
   }
   const alephSummary = summary.aleph || {};
   const betSummary = summary.bet || {};
-  const happinessSummary = summary.happiness || {};
   const lamedSummary = summary.lamed || {};
   const tsadiSummary = summary.tsadi || {};
   const shinSummary = summary.shin || {};
@@ -210,9 +203,6 @@ async function showOfflineOverlay(summary = {}) {
   const betUnlocked = Boolean(betSummary.unlocked);
   const betMultiplierValue = Math.max(0, Number(betSummary.multiplier) || 0);
   const betTotalValue = Math.max(0, Number(betSummary.total) || 0);
-  const happinessUnlocked = Boolean(happinessSummary.unlocked);
-  const happinessMultiplierValue = Math.max(0, Number(happinessSummary.multiplier) || 0);
-  const happinessTotalValue = Math.max(0, Number(happinessSummary.total) || 0);
   const lamedUnlocked = Boolean(lamedSummary.unlocked);
   const lamedMultiplierValue = Math.max(0, Number(lamedSummary.multiplier) || 0);
   const lamedTotalValue = Math.max(0, Number(lamedSummary.total) || 0);
@@ -241,7 +231,6 @@ async function showOfflineOverlay(summary = {}) {
   };
 
   syncOfflineRowVisibility(betRow, betUnlocked);
-  syncOfflineRowVisibility(happinessRow, happinessUnlocked);
   syncOfflineRowVisibility(lamedRow, lamedUnlocked);
   syncOfflineRowVisibility(tsadiRow, tsadiUnlocked);
   syncOfflineRowVisibility(shinRow, shinUnlocked);
@@ -252,8 +241,6 @@ async function showOfflineOverlay(summary = {}) {
     alephTotal,
     betMultiplier,
     betTotal,
-    happinessMultiplier,
-    happinessTotal,
     lamedMultiplier,
     lamedTotal,
     tsadiMultiplier,
@@ -272,9 +259,6 @@ async function showOfflineOverlay(summary = {}) {
     animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
     animateOfflineNumber(betMultiplier, betUnlocked ? betMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
-    }),
-    animateOfflineNumber(happinessMultiplier, happinessUnlocked ? happinessMultiplierValue : 0, {
-      format: dependencies.formatDecimal,
     }),
     animateOfflineNumber(lamedMultiplier, lamedUnlocked ? lamedMultiplierValue : 0, {
       format: dependencies.formatWholeNumber,
@@ -296,9 +280,6 @@ async function showOfflineOverlay(summary = {}) {
     }),
     animateOfflineNumber(betTotal, betUnlocked ? betTotalValue : 0, {
       format: dependencies.formatGameNumber,
-    }),
-    animateOfflineNumber(happinessTotal, happinessUnlocked ? happinessTotalValue : 0, {
-      format: dependencies.formatDecimal,
     }),
     animateOfflineNumber(lamedTotal, lamedUnlocked ? lamedTotalValue : 0, {
       format: dependencies.formatGameNumber,
@@ -365,9 +346,6 @@ export function bindOfflineOverlayElements() {
   offlineOverlayElements.betRow = document.getElementById('offline-bet-row');
   offlineOverlayElements.betMultiplier = document.getElementById('offline-bet-multiplier');
   offlineOverlayElements.betTotal = document.getElementById('offline-bet-total');
-  offlineOverlayElements.happinessRow = document.getElementById('offline-happiness-row');
-  offlineOverlayElements.happinessMultiplier = document.getElementById('offline-happiness-multiplier');
-  offlineOverlayElements.happinessTotal = document.getElementById('offline-happiness-total');
   offlineOverlayElements.lamedRow = document.getElementById('offline-lamed-row');
   offlineOverlayElements.lamedMultiplier = document.getElementById('offline-lamed-multiplier');
   offlineOverlayElements.lamedTotal = document.getElementById('offline-lamed-total');
@@ -481,9 +459,6 @@ export function recordPowderEvent(type, context = {}) {
       const betUnlocked = Boolean(idleSummary?.bet?.unlocked);
       const betMultiplier = idleSummary?.bet?.multiplier;
       const betTotal = idleSummary?.bet?.total;
-      const happinessUnlocked = Boolean(idleSummary?.happiness?.unlocked);
-      const happinessMultiplier = idleSummary?.happiness?.multiplier;
-      const happinessTotal = idleSummary?.happiness?.total;
 
       const safeAlephMultiplier = Number.isFinite(alephMultiplier) ? Math.max(0, alephMultiplier) : 0;
       const safeAlephTotal = Number.isFinite(alephTotal) ? Math.max(0, alephTotal) : 0;
@@ -499,16 +474,6 @@ export function recordPowderEvent(type, context = {}) {
         betPieces.push(`בּ × ${betRateLabel} = +${betGainLabel} Sand`);
       }
 
-      const happinessPieces = [];
-      if (happinessUnlocked) {
-        const safeHappinessMultiplier = Number.isFinite(happinessMultiplier)
-          ? Math.max(0, happinessMultiplier)
-          : 0;
-        const safeHappinessTotal = Number.isFinite(happinessTotal) ? Math.max(0, happinessTotal) : 0;
-        const happinessRateLabel = dependencies.formatDecimal(safeHappinessMultiplier * 60, 2);
-        const happinessGainLabel = dependencies.formatDecimal(safeHappinessTotal, 2);
-        happinessPieces.push(`☺ × ${happinessRateLabel}/hr = +${happinessGainLabel} happiness`);
-      }
 
       const powderLabel = dependencies.formatGameNumber(Math.max(0, powder));
       const fragments = [
@@ -516,9 +481,6 @@ export function recordPowderEvent(type, context = {}) {
       ];
       if (betPieces.length) {
         fragments.push(...betPieces);
-      }
-      if (happinessPieces.length) {
-        fragments.push(...happinessPieces);
       }
       fragments.push(`${powderLabel} Powder recaptured`);
 
@@ -622,7 +584,6 @@ export function checkOfflineRewards() {
       minutes: minutesAway,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: false },
-      happiness: { multiplier: 0, total: 0, unlocked: false },
       lamed: { multiplier: 0, total: 0, unlocked: false },
       tsadi: { multiplier: 0, total: 0, unlocked: false },
       bindingAgents: { multiplier: 0, total: 0, unlocked: false },
@@ -640,7 +601,6 @@ export function checkOfflineRewards() {
     minutes: minutesAway,
     aleph: idleSummary.aleph,
     bet: idleSummary.bet,
-    happiness: idleSummary.happiness,
     lamed: idleSummary.lamed,
     tsadi: idleSummary.tsadi,
     bindingAgents: idleSummary.bindingAgents,

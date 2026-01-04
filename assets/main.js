@@ -155,7 +155,7 @@ import { FluidTerrariumBirds } from './fluidTerrariumBirds.js';
 // Brownian forest crystal growth pinned to the Bet cavern walls.
 import { FluidTerrariumCrystal } from './fluidTerrariumCrystal.js';
 // Fractal trees anchored by the Bet terrarium placement masks.
-import { FluidTerrariumTrees, resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
+import { FluidTerrariumTrees } from './fluidTerrariumTrees.js';
 // Procedural grass that sprouts from the terrarium silhouettes.
 import { FluidTerrariumGrass } from './fluidTerrariumGrass.js';
 // Water layer tinted with Bet cyan and a gentle ripple.
@@ -166,8 +166,6 @@ import { FluidTerrariumSkyCycle } from './fluidTerrariumSkyCycle.js';
 import { FluidTerrariumCelestialBodies } from './fluidTerrariumCelestialBodies.js';
 // Phi and Psi shrooms for the Bet terrarium cave zones.
 import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
-// Bet Spire happiness production tracker fed by Scintillae purchases.
-import { createBetHappinessSystem } from './betHappiness.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
 import { createResourceHud } from './resourceHud.js';
@@ -1088,7 +1086,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderState,
   });
 
-  let betHappinessSystem = null;
   // Animate Delta slimes once the fluid viewport is bound.
   let fluidTerrariumCreatures = null;
   // Animate flying gamma birds in the Bet terrarium.
@@ -1120,6 +1117,20 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let achievementsTerrariumSkyCycle = null;
   let achievementsTerrariumCelestialBodies = null;
   let achievementsTerrariumShrooms = null;
+
+  // Read the persisted Bet terrarium creature counts so visuals survive reloads.
+  const getBetTerrariumCreatureCount = (key) => {
+    const value = powderState.betTerrarium?.[key];
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  };
+
+  // Persist Bet terrarium creature counts whenever the store spawns new residents.
+  const setBetTerrariumCreatureCount = (key, value) => {
+    if (!powderState.betTerrarium) {
+      powderState.betTerrarium = {};
+    }
+    powderState.betTerrarium[key] = Math.max(0, Math.floor(value));
+  };
 
   // Expose Bet terrarium overlays to the visual settings module so the new options menu can pause heavy effects.
   setFluidTerrariumGetters({
@@ -1240,7 +1251,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     // Start with 0 slimes by default - players purchase them through the store.
-    const slimeCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('slime') : 0);
+    const slimeCount = getBetTerrariumCreatureCount('slimeCount');
     // Skip creating the creatures layer if no slimes are owned yet.
     if (slimeCount <= 0) {
       return;
@@ -1253,9 +1264,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       creatureCount: slimeCount,
       spawnZones: BET_CAVE_SPAWN_ZONES,
     });
-    if (betHappinessSystem) {
-      betHappinessSystem.setProducerCount('slime', slimeCount);
-    }
     fluidTerrariumCreatures.start();
   }
 
@@ -1268,7 +1276,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     // Start with 0 birds by default - players purchase them through the store.
-    const birdCount = Math.max(0, betHappinessSystem ? betHappinessSystem.getProducerCount('bird') : 0);
+    const birdCount = getBetTerrariumCreatureCount('birdCount');
     // Skip creating the bird layer if no birds are owned yet.
     if (birdCount <= 0) {
       return;
@@ -1280,9 +1288,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       floatingIslandCollisionElement: fluidElements.floatingIslandCollisionSprite,
       birdCount: birdCount,
     });
-    if (betHappinessSystem) {
-      betHappinessSystem.setProducerCount('bird', birdCount);
-    }
     fluidTerrariumBirds.start();
   }
 
@@ -1339,30 +1344,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     });
   }
 
-  function updateTerrariumTreeHappiness(trees = {}) {
-    if (!betHappinessSystem) {
-      return;
-    }
-    let largeLevels = 0;
-    let smallLevels = 0;
-    Object.entries(trees || {}).forEach(([treeId, treeState]) => {
-      const allocated = Number.isFinite(treeState?.allocated) ? treeState.allocated : 0;
-      const { level } = resolveTerrariumTreeLevel(allocated);
-      if (!level) {
-        return;
-      }
-      const treeKey = typeof treeId === 'string' ? treeId : '';
-      if (treeKey.startsWith('large-')) {
-        largeLevels += level;
-      } else if (treeKey.startsWith('small-')) {
-        smallLevels += level;
-      }
-    });
-    betHappinessSystem.setProducerCount('betTreeLarge', largeLevels);
-    betHappinessSystem.setProducerCount('betTreeSmall', smallLevels);
-    betHappinessSystem.updateDisplay();
-  }
-
   // Plant animated fractal trees on the Bet terrarium using the placement masks.
   function ensureFluidTerrariumTrees() {
     if (!FLUID_STUDY_ENABLED) {
@@ -1397,8 +1378,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           buttonMenuOpen: Boolean(state?.buttonMenuOpen),
           cameraMode: Boolean(state?.cameraMode),
           celestialBodiesEnabled: Boolean(powderState.betTerrarium?.celestialBodiesEnabled),
+          slimeCount: getBetTerrariumCreatureCount('slimeCount'),
+          birdCount: getBetTerrariumCreatureCount('birdCount'),
         };
-        updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
         schedulePowderBasinSave();
         setFluidCameraMode(powderState.betTerrarium.cameraMode, {
           skipTransformReset: true,
@@ -1488,14 +1470,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
    * @param {number} count - Number to add
    */
   function addTerrariumCreature(creatureType, count = 1) {
-    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+    if (!FLUID_STUDY_ENABLED) {
       return;
     }
     
     if (creatureType === 'slime') {
-      const currentCount = betHappinessSystem.getProducerCount('slime');
+      const currentCount = getBetTerrariumCreatureCount('slimeCount');
       const newCount = currentCount + count;
-      betHappinessSystem.setProducerCount('slime', newCount);
+      setBetTerrariumCreatureCount('slimeCount', newCount);
       
       // Recreate creatures with new count
       if (fluidTerrariumCreatures) {
@@ -1506,9 +1488,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       
       schedulePowderBasinSave();
     } else if (creatureType === 'bird') {
-      const currentCount = betHappinessSystem.getProducerCount('bird');
+      const currentCount = getBetTerrariumCreatureCount('birdCount');
       const newCount = currentCount + count;
-      betHappinessSystem.setProducerCount('bird', newCount);
+      setBetTerrariumCreatureCount('birdCount', newCount);
       
       // Recreate birds with new count
       if (fluidTerrariumBirds) {
@@ -1528,13 +1510,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
    * @param {number} count - Number/level to add
    */
   function addTerrariumItem(itemType, count = 1) {
-    if (!FLUID_STUDY_ENABLED || !betHappinessSystem) {
+    if (!FLUID_STUDY_ENABLED) {
       return;
     }
-    
-    const currentCount = betHappinessSystem.getProducerCount(itemType);
-    const newCount = currentCount + count;
-    betHappinessSystem.setProducerCount(itemType, newCount);
     
     // Refresh terrarium visuals based on item type
     if (itemType.includes('Tree')) {
@@ -1561,15 +1539,26 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         fluidTerrariumTrees.destroy();
         fluidTerrariumTrees = null;
       }
-      updateTerrariumTreeHappiness(powderState.betTerrarium.trees);
       ensureFluidTerrariumTrees();
     } else if (itemType.includes('Shroom')) {
       // Shrooms are rendered via the shrooms system
-      if (fluidTerrariumShrooms) {
-        fluidTerrariumShrooms.destroy();
-        fluidTerrariumShrooms = null;
+      if (!fluidTerrariumShrooms) {
+        ensureFluidTerrariumShrooms();
       }
-      ensureFluidTerrariumShrooms();
+      if (fluidTerrariumShrooms) {
+        const targetCount = Math.max(1, count);
+        // Place shrooms to mirror achievement rewards in the terrarium.
+        for (let i = 0; i < targetCount; i += 1) {
+          if (itemType === 'psiShroom') {
+            handleShroomPlacement({ type: 'psi' });
+          } else {
+            handleShroomPlacement({
+              type: 'phi',
+              colorVariant: itemType.replace('phiShroom', '').toLowerCase() || 'yellow',
+            });
+          }
+        }
+      }
     }
     
     schedulePowderBasinSave();
@@ -1648,46 +1637,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       spawnZones: BET_CAVE_SPAWN_ZONES,
       onStateChange: (state) => {
         powderState.betShrooms = state;
-        updateShroomHappiness();
       },
     });
     fluidTerrariumShrooms.start();
-  }
-
-  // Update happiness system with shroom levels.
-  function updateShroomHappiness() {
-    if (!betHappinessSystem || !fluidTerrariumShrooms) {
-      return;
-    }
-    const shrooms = fluidTerrariumShrooms.getShrooms();
-    let phiYellowLevels = 0;
-    let phiGreenLevels = 0;
-    let phiBlueLevels = 0;
-    let psiLevels = 0;
-    for (const shroom of shrooms) {
-      if (shroom.type === 'phi') {
-        switch (shroom.colorVariant) {
-          case 'yellow':
-            phiYellowLevels += shroom.level;
-            break;
-          case 'green':
-            phiGreenLevels += shroom.level;
-            break;
-          case 'blue':
-            phiBlueLevels += shroom.level;
-            break;
-          default:
-            break;
-        }
-      } else if (shroom.type === 'psi') {
-        psiLevels += shroom.level;
-      }
-    }
-    betHappinessSystem.setProducerCount('phiShroomYellow', phiYellowLevels);
-    betHappinessSystem.setProducerCount('phiShroomGreen', phiGreenLevels);
-    betHappinessSystem.setProducerCount('phiShroomBlue', phiBlueLevels);
-    betHappinessSystem.setProducerCount('psiShroom', psiLevels);
-    betHappinessSystem.updateDisplay();
   }
 
   // Handle shroom placement from the terrarium store.
@@ -1702,7 +1654,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         level: 1,
       });
       if (shroom) {
-        updateShroomHappiness();
         return true;
       }
     } else if (type === 'psi') {
@@ -1710,7 +1661,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         level: 1,
       });
       if (shroom) {
-        updateShroomHappiness();
         return true;
       }
     }
@@ -1719,13 +1669,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   // Handle slime placement from the terrarium store by increasing slime count and re-initializing creatures.
   function handleSlimePlacement() {
-    if (!betHappinessSystem) {
-      return false;
-    }
-    // Increment the slime count in the happiness system
-    const currentCount = betHappinessSystem.getProducerCount('slime');
+    const currentCount = getBetTerrariumCreatureCount('slimeCount');
     const newCount = currentCount + 1;
-    betHappinessSystem.setProducerCount('slime', newCount);
+    setBetTerrariumCreatureCount('slimeCount', newCount);
     
     // Re-initialize the creatures system with the new count
     if (fluidTerrariumCreatures) {
@@ -1746,11 +1692,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluidTerrariumCreatures.start();
     }
     
-    // Update happiness display
-    if (betHappinessSystem.updateDisplay) {
-      betHappinessSystem.updateDisplay();
-    }
-    
     // Schedule save to persist the slime count
     schedulePowderBasinSave();
     
@@ -1759,13 +1700,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   // Handle bird placement from the terrarium store by increasing bird count and re-initializing bird system.
   function handleBirdPlacement() {
-    if (!betHappinessSystem) {
-      return false;
-    }
-    // Increment the bird count in the happiness system
-    const currentCount = betHappinessSystem.getProducerCount('bird') || 0;
+    const currentCount = getBetTerrariumCreatureCount('birdCount');
     const newCount = currentCount + 1;
-    betHappinessSystem.setProducerCount('bird', newCount);
+    setBetTerrariumCreatureCount('birdCount', newCount);
     
     // Re-initialize the bird system with the new count
     if (fluidTerrariumBirds) {
@@ -1783,11 +1720,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         birdCount: newCount,
       });
       fluidTerrariumBirds.start();
-    }
-    
-    // Update happiness display
-    if (betHappinessSystem.updateDisplay) {
-      betHappinessSystem.updateDisplay();
     }
     
     // Schedule save to persist the bird count
@@ -1824,17 +1756,32 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         return cost;
       },
       getProducerCount: (id) => {
-        if (!betHappinessSystem) {
-          return 0;
+        if (id === 'slime') {
+          return getBetTerrariumCreatureCount('slimeCount');
         }
-        return betHappinessSystem.getProducerCount(id);
+        if (id === 'bird') {
+          return getBetTerrariumCreatureCount('birdCount');
+        }
+        return 0;
       },
       setProducerCount: (id, count) => {
-        if (!betHappinessSystem) {
-          return;
+        if (id === 'slime') {
+          // Rebuild slime overlays when the store upgrades the count.
+          setBetTerrariumCreatureCount('slimeCount', count);
+          if (fluidTerrariumCreatures) {
+            fluidTerrariumCreatures.destroy();
+            fluidTerrariumCreatures = null;
+          }
+          ensureFluidTerrariumCreatures();
+        } else if (id === 'bird') {
+          // Rebuild bird overlays when the store upgrades the count.
+          setBetTerrariumCreatureCount('birdCount', count);
+          if (fluidTerrariumBirds) {
+            fluidTerrariumBirds.destroy();
+            fluidTerrariumBirds = null;
+          }
+          ensureFluidTerrariumBirds();
         }
-        betHappinessSystem.setProducerCount(id, count);
-        betHappinessSystem.updateDisplay();
         schedulePowderBasinSave();
       },
       getTreesState: () => {
@@ -1854,16 +1801,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           fluidTerrariumTrees.treeState[treeKey] = { allocated: newAllocation };
           fluidTerrariumTrees.updateSimulationTarget(tree);
           fluidTerrariumTrees.updateTreeBadge(tree);
-          updateTreeHappiness();
           fluidTerrariumTrees.emitState();
         }
         schedulePowderBasinSave();
       },
       onUpgrade: () => {
-        // Refresh happiness display after any upgrade
-        if (betHappinessSystem) {
-          betHappinessSystem.updateDisplay();
-        }
         updatePowderDisplay();
       },
     });
@@ -1980,13 +1922,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   setTrackedShinGlyphs(getShinGlyphs());
   setTrackedKufGlyphs(getKufGlyphs());
 
-  betHappinessSystem = createBetHappinessSystem({
-    state: powderState.betHappiness,
-    formatGameNumber,
-    formatDecimal,
-  });
-  updateTerrariumTreeHappiness(powderState.betTerrarium?.trees);
-
   const {
     bindFluidControls,
     bindAchievementsTerrariumControls,
@@ -2044,7 +1979,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const getPowderBasinSnapshot = powderPersistence.getPowderBasinSnapshot;
   const applyPowderBasinSnapshot = (snapshot) => {
     powderPersistence.applyPowderBasinSnapshot(snapshot);
-    updateTerrariumTreeHappiness(powderState.betTerrarium?.trees);
   };
 
   const SIGIL_LADDER_IS_STUB = true;
@@ -2199,7 +2133,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getCompletedInteractiveLevelCount,
     getIteronBank,
     getIterationRate,
-    betHappinessSystem,
     onTsadiBindingAgentsChange: syncTsadiBindingAgents,
   });
 
@@ -3329,7 +3262,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         unlocked: Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked),
         storySeen: Boolean(fluidStoryState.storySeen),
         generators: fluidStoryState.generators || {},
-        particleFactorMilestone: fluidStoryState.particleFactorMilestone || 10,
+        particleFactorMilestone: fluidStoryState.particleFactorMilestone || 100,
         betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
         particlesByTierAndSize: getBetSpireRenderInstance()?.getParticleStateSnapshot(),
       },
@@ -3396,7 +3329,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
     fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
     fluidStoryState.generators = fluidBranch.generators || fluidStoryState.generators || {};
-    fluidStoryState.particleFactorMilestone = fluidBranch.particleFactorMilestone || fluidStoryState.particleFactorMilestone || 10;
+    fluidStoryState.particleFactorMilestone = fluidBranch.particleFactorMilestone || fluidStoryState.particleFactorMilestone || 100;
     fluidStoryState.betGlyphsAwarded = fluidBranch.betGlyphsAwarded || fluidStoryState.betGlyphsAwarded || 0;
     fluidStoryState.particlesByTierAndSize = fluidBranch.particlesByTierAndSize || fluidStoryState.particlesByTierAndSize || null;
     spireResourceState.fluid = fluidStoryState;
@@ -5854,8 +5787,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       const { glyphsLit } = glyphMetrics;
 
       // The wall gap (visual effect showing basin capacity) scales with glyphsLit (water height thresholds).
-      // Note: Bet glyph currency is now earned based on happiness levels (see betHappinessSystem below),
-      // not water height. This section only handles the visual wall gap animation.
       const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, glyphsLit) : 0;
       const previousWallTarget = Number.isFinite(powderState.wallGapTarget)
         ? powderState.wallGapTarget
@@ -5928,22 +5859,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluidElements.statusNote.textContent = message;
     }
 
-    if (betHappinessSystem) {
-      betHappinessSystem.updateDisplay(fluidElements);
-
-      // Calculate Bet glyphs based on happiness level (1 glyph per happiness level)
-      const happinessLevel = betHappinessSystem.getHappinessLevel();
-      const previousBetGlyphsAwarded = Number.isFinite(powderState.fluidGlyphsAwarded)
-        ? Math.max(0, powderState.fluidGlyphsAwarded)
-        : 0;
-
-      if (happinessLevel > previousBetGlyphsAwarded) {
-        const newlyEarned = happinessLevel - previousBetGlyphsAwarded;
-        awardBetGlyphs(newlyEarned);
-        powderState.fluidGlyphsAwarded = happinessLevel;
-        checkAndUnlockSpires();
-      }
-    }
     } finally {
       isUpdatingFluidDisplay = false;
     }
@@ -7271,10 +7186,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeSpireGemMenus();
     bindFluidCameraModeToggle();
     syncFluidCameraModeUi();
-    if (betHappinessSystem) {
-      betHappinessSystem.bindDisplayElements(fluidElements);
-      betHappinessSystem.updateDisplay(fluidElements);
-    }
     await ensureTerrariumSurfacesReady();
     ensureFluidTerrariumWater();
     ensureFluidTerrariumCreatures();

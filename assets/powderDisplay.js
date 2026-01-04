@@ -43,7 +43,6 @@ export function createPowderDisplaySystem({
   getCompletedInteractiveLevelCount,
   getIteronBank,
   getIterationRate,
-  betHappinessSystem,
   onTsadiBindingAgentsChange,
 }) {
   let powderCurrency = 0;
@@ -512,7 +511,6 @@ export function createPowderDisplaySystem({
       minutes: 0,
       aleph: { multiplier: 0, total: 0, unlocked: true },
       bet: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
-      happiness: { multiplier: 0, total: 0, unlocked: Boolean(powderState.fluidUnlocked) },
       lamed: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.lamed?.unlocked) },
       tsadi: { multiplier: 0, total: 0, unlocked: Boolean(spireResourceState.tsadi?.unlocked) },
       bindingAgents: {
@@ -541,11 +539,6 @@ export function createPowderDisplaySystem({
     const alephTotal = minutes * achievementsUnlocked;
     const betUnlocked = Boolean(powderState.fluidUnlocked);
     const betTotal = betUnlocked ? minutes * levelsBeat : 0;
-
-    const happinessUnlocked = betUnlocked;
-    const happinessRatePerHour = betHappinessSystem ? betHappinessSystem.getTotalRatePerHour() : 0;
-    const happinessRatePerMinute = happinessRatePerHour / 60;
-    const happinessTotal = happinessUnlocked ? minutes * happinessRatePerMinute : 0;
 
     const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
     const lamedRate = 1.0;
@@ -587,11 +580,6 @@ export function createPowderDisplaySystem({
       multiplier: betUnlocked ? levelsBeat : 0,
       total: betTotal,
       unlocked: betUnlocked,
-    };
-    summary.happiness = {
-      multiplier: happinessUnlocked ? happinessRatePerMinute : 0,
-      total: happinessTotal,
-      unlocked: happinessUnlocked,
     };
     summary.lamed = {
       multiplier: lamedUnlocked ? lamedRate * 60 : 0,
@@ -641,12 +629,6 @@ export function createPowderDisplaySystem({
     if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
       addIterons(summary.shin.total);
     }
-    if (summary.happiness?.unlocked && summary.happiness.total > 0 && betHappinessSystem) {
-      betHappinessSystem.addHappiness(summary.happiness.total);
-      betHappinessSystem.updateDisplay();
-      schedulePowderSave();
-    }
-
     evaluateAchievements();
 
     return summary;

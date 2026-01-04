@@ -12,8 +12,8 @@ import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoi
 
 /**
  * Convert stored serendipity allocations into a terrarium tree level, remaining progress,
- * and the cost of the next level. Shared by the fractal overlay and happiness hooks so
- * both systems agree on level math.
+ * and the cost of the next level. Shared by the fractal overlay so the UI and simulation
+ * stay aligned on level math.
  * @param {number} allocated
  * @returns {{ level: number, progress: number, nextCost: number }}
  */
@@ -56,7 +56,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-delta-slime-1',
     label: 'Delta Slime',
-    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    description: 'A bouncy Δ creature that hops around the basin.',
     icon: 'Δ',
     itemType: 'slime',
     cost: 10,
@@ -68,7 +68,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-delta-slime-2',
     label: 'Delta Slime',
-    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    description: 'A bouncy Δ creature that hops around the basin.',
     icon: 'Δ',
     itemType: 'slime',
     cost: 10,
@@ -80,7 +80,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-delta-slime-3',
     label: 'Delta Slime',
-    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    description: 'A bouncy Δ creature that hops around the basin.',
     icon: 'Δ',
     itemType: 'slime',
     cost: 10,
@@ -92,7 +92,7 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
   {
     id: 'bet-store-delta-slime-4',
     label: 'Delta Slime',
-    description: 'A bouncy Δ creature that hops around the basin. Generates 0.5 hp/hr.',
+    description: 'A bouncy Δ creature that hops around the basin.',
     icon: 'Δ',
     itemType: 'slime',
     cost: 10,
@@ -1753,7 +1753,7 @@ export class FluidTerrariumTrees {
         storeItem,
       });
       if (shroomPlaced) {
-        this.setStoreStatus(`${storeItem.label} planted. Generates happiness in the cave.`);
+        this.setStoreStatus(`${storeItem.label} planted inside the cave.`);
         this.updatePlacementPreview(point, true, storeItem);
         this.consumeStoreItem(storeItem.id);
         this.clearStoreSelection();
@@ -1770,7 +1770,7 @@ export class FluidTerrariumTrees {
         storeItem,
       });
       if (slimePlaced) {
-        this.setStoreStatus(`${storeItem.label} released into the basin. Generates 0.5 hp/hr.`);
+        this.setStoreStatus(`${storeItem.label} released into the basin.`);
         this.updatePlacementPreview(point, true, storeItem);
         this.consumeStoreItem(storeItem.id);
         this.clearStoreSelection();

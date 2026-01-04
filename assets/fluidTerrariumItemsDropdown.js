@@ -3,15 +3,13 @@
 import { resolveTerrariumTreeLevel } from './fluidTerrariumTrees.js';
 
 /**
- * Producer definitions for happiness generation rates (per hour per level).
- * Matches the BET_HAPPINESS_PRODUCERS configuration in betHappiness.js.
+ * Terrarium item definitions for list rendering and upgrades.
  */
 const PRODUCER_DEFINITIONS = {
   slime: {
     id: 'slime',
     label: 'Delta Slime',
     icon: 'Δ',
-    ratePerHour: 0.5,
     countLabel: '',
     levelBased: false, // Slimes count as quantity, not levels
   },
@@ -19,57 +17,8 @@ const PRODUCER_DEFINITIONS = {
     id: 'bird',
     label: 'Gamma Bird',
     icon: 'γ',
-    ratePerHour: 0,
     countLabel: '',
     levelBased: false, // Birds count as quantity, not levels
-  },
-  betTreeLarge: {
-    id: 'betTreeLarge',
-    label: 'Ancient Tree',
-    icon: '🌳',
-    ratePerHour: 10,
-    countLabel: 'Lv',
-    levelBased: true,
-  },
-  betTreeSmall: {
-    id: 'betTreeSmall',
-    label: 'Bonsai Tree',
-    icon: '🌱',
-    ratePerHour: 5,
-    countLabel: 'Lv',
-    levelBased: true,
-  },
-  phiShroomYellow: {
-    id: 'phiShroomYellow',
-    label: 'Yellow Φ Shroom',
-    icon: 'φ',
-    ratePerHour: 36000,
-    countLabel: 'Lv',
-    levelBased: true,
-  },
-  phiShroomGreen: {
-    id: 'phiShroomGreen',
-    label: 'Green Φ Shroom',
-    icon: 'φ',
-    ratePerHour: 36000,
-    countLabel: 'Lv',
-    levelBased: true,
-  },
-  phiShroomBlue: {
-    id: 'phiShroomBlue',
-    label: 'Blue Φ Shroom',
-    icon: 'φ',
-    ratePerHour: 36000,
-    countLabel: 'Lv',
-    levelBased: true,
-  },
-  psiShroom: {
-    id: 'psiShroom',
-    label: 'Ψ Shroom',
-    icon: 'ψ',
-    ratePerHour: 126000,
-    countLabel: 'Lv',
-    levelBased: true,
   },
 };
 
@@ -207,7 +156,7 @@ export class FluidTerrariumItemsDropdown {
 
   /**
    * Collect all terrarium items with their current state.
-   * @returns {Array<{id: string, label: string, icon: string, level: number, ratePerHour: number, totalRate: number, progress: number, nextCost: number, levelBased: boolean, treeKey?: string}>}
+   * @returns {Array<{id: string, label: string, icon: string, level: number, progress: number, nextCost: number, levelBased: boolean, treeKey?: string}>}
    */
   collectItems() {
     const items = [];
@@ -216,14 +165,11 @@ export class FluidTerrariumItemsDropdown {
     Object.values(PRODUCER_DEFINITIONS).forEach((producer) => {
       const count = this.getProducerCount(producer.id);
       if (count > 0) {
-        const totalRate = producer.ratePerHour * count;
         items.push({
           id: producer.id,
           label: producer.label,
           icon: producer.icon || '',
           level: count,
-          ratePerHour: producer.ratePerHour,
-          totalRate,
           progress: 0,
           nextCost: this.calculateUpgradeCost(producer.id, count),
           levelBased: producer.levelBased,
@@ -245,15 +191,11 @@ export class FluidTerrariumItemsDropdown {
         // Determine tree type from key
         let label = 'Fractal Tree';
         let icon = '🌳';
-        let ratePerHour = 10; // Default rate
-        
         if (isLarge) {
           label = 'Ancient Tree';
-          ratePerHour = 10;
         } else if (isSmall) {
           label = 'Bonsai Tree';
           icon = '🌱';
-          ratePerHour = 5;
         }
 
         const progressRatio = levelInfo.nextCost > 0
@@ -266,8 +208,6 @@ export class FluidTerrariumItemsDropdown {
           label,
           icon,
           level: levelInfo.level,
-          ratePerHour,
-          totalRate: ratePerHour * levelInfo.level,
           progress: progressRatio,
           progressRemaining: levelInfo.nextCost - levelInfo.progress,
           nextCost: levelInfo.nextCost - levelInfo.progress,
@@ -322,13 +262,6 @@ export class FluidTerrariumItemsDropdown {
 
     li.appendChild(header);
 
-    // Stats row
-    const stats = document.createElement('div');
-    stats.className = 'fluid-terrarium-items-list__stats';
-    const formattedRate = this.formatRate(item.totalRate);
-    stats.textContent = `Produces ${formattedRate} hp/hr`;
-    li.appendChild(stats);
-
     // Progress bar (for level-based items)
     if (item.levelBased) {
       const progressContainer = document.createElement('div');
@@ -365,21 +298,6 @@ export class FluidTerrariumItemsDropdown {
     li.appendChild(upgradeBtn);
 
     return li;
-  }
-
-  /**
-   * Format a rate value for display.
-   * @param {number} rate
-   * @returns {string}
-   */
-  formatRate(rate) {
-    if (rate >= 10000) {
-      return `${(rate / 1000).toFixed(1)}k`;
-    }
-    if (rate >= 100) {
-      return rate.toFixed(0);
-    }
-    return rate.toFixed(2);
   }
 
   /**

@@ -5,7 +5,7 @@
  * - Three variants: bright yellow, bright green, bright blue
  * - Emit a soft, flickering glow
  * - Can only be placed inside caves
- * - Generate 10 happiness/second per level (max level 10)
+ * - Grow brighter at higher levels (max level 10)
  * 
  * Psi Shrooms (ψ):
  * - Dark blue with thin white outline
@@ -13,7 +13,7 @@
  * - Quick shrink/stretch vertical animation
  * - Pulse bright pink randomly every 20-60 seconds
  * - When pulsing, emit spores that fly erratically and seek other shrooms
- * - Generate 35 happiness/second per level (max level 5)
+ * - Spore counts scale with level (max level 5)
  * - Level determines spore count: L1=0, L2=0-1, L3=0-2, L4=0-3, L5=0-4
  */
 
@@ -68,16 +68,14 @@ const PSI_SHROOM_STYLE = {
   pulseGlow: 'rgba(255, 102, 204, 0.9)',
 };
 
-// Shroom configuration for happiness generation and leveling
+// Shroom configuration for growth and leveling
 const SHROOM_CONFIG = {
   phi: {
-    happinessPerSecond: 10,
     maxLevel: 10,
     baseCost: 50,
     costMultiplier: 10,
   },
   psi: {
-    happinessPerSecond: 35,
     maxLevel: 5,
     baseCost: 200,
     costMultiplier: 10,
@@ -952,7 +950,7 @@ export class FluidTerrariumShrooms {
   }
 
   /**
-   * Get all shrooms for happiness calculation.
+   * Get all active shrooms for external systems.
    */
   getShrooms() {
     return this.shrooms.filter((s) => !s.dead);
@@ -969,22 +967,6 @@ export class FluidTerrariumShrooms {
       }
     }
     return byColor;
-  }
-
-  /**
-   * Get total happiness generation rate per second.
-   */
-  getTotalHappinessPerSecond() {
-    let total = 0;
-    for (const shroom of this.shrooms) {
-      if (shroom.dead) continue;
-      if (shroom.type === 'phi') {
-        total += SHROOM_CONFIG.phi.happinessPerSecond * shroom.level;
-      } else if (shroom.type === 'psi') {
-        total += SHROOM_CONFIG.psi.happinessPerSecond * shroom.level;
-      }
-    }
-    return total;
   }
 
   /**

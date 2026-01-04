@@ -57,17 +57,14 @@ export function createPowderStateContext() {
     // Track whether initial page load restoration has been completed (once per session)
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
-    // Persist Bet Spire happiness generation tied to Scintillae purchases.
-    betHappiness: {
-      bank: 0,
-      producers: { slime: 0 },
-    },
     // Track Bet terrarium fractal leveling progress.
     betTerrarium: {
       levelingMode: false,
       trees: {},
       buttonMenuOpen: false, // Track when button menus are open
       cameraMode: true, // Camera mode always enabled for achievements terrarium
+      slimeCount: 0, // Persist terrarium creature counts for Bet spire visuals.
+      birdCount: 0, // Persist terrarium creature counts for Bet spire visuals.
     },
   };
 
@@ -104,18 +101,6 @@ export function createPowderStateContext() {
     cameraModeHint: null,
     terrainSprite: null,
     terrainCollisionSprite: null, // Offscreen collision silhouette for the Bet terrarium ground.
-    // Happiness ledger values mirrored in the Bet Spire HUD.
-    happinessTotal: null,
-    happinessRate: null,
-    happinessList: null,
-    happinessEmpty: null,
-    // Progress bar elements that communicate the next Bet glyph unlock.
-    happinessProgressBar: null,
-    happinessProgressFill: null,
-    happinessProgressLabel: null,
-    happinessProgressPrevious: null,
-    happinessProgressNext: null,
-    happinessProgressCurrent: null,
     wallGlyphColumns: [],
     // Terrarium items dropdown for managing and upgrading items.
     terrariumItemsToggle: null,

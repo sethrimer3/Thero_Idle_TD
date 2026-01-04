@@ -170,24 +170,15 @@ export function createPowderPersistence({
       modeSwitchPending: Boolean(powderState.modeSwitchPending),
       fluidProfileLabel: typeof powderState.fluidProfileLabel === 'string' ? powderState.fluidProfileLabel : 'Bet Spire',
       fluidUnlocked: Boolean(powderState.fluidUnlocked),
-      betHappiness: {
-        bank: Math.max(0, clampFiniteNumber(powderState.betHappiness?.bank, 0)),
-        producers: {
-          slime: Math.max(
-            0,
-            clampFiniteInteger(
-              powderState.betHappiness?.producers?.slime ?? powderState.betHappiness?.producers?.grasshopper,
-              0,
-            ),
-          ),
-        },
-      },
       // Persist Bet terrarium leveling progress for fractal trees.
       betTerrarium: {
         levelingMode: Boolean(powderState.betTerrarium?.levelingMode),
         celestialBodiesEnabled: Boolean(powderState.betTerrarium?.celestialBodiesEnabled),
         sunEnabled: Boolean(powderState.betTerrarium?.sunEnabled),
         moonEnabled: Boolean(powderState.betTerrarium?.moonEnabled),
+        // Keep terrarium creature counts in sync with the store purchases.
+        slimeCount: Math.max(0, clampFiniteInteger(powderState.betTerrarium?.slimeCount, 0)),
+        birdCount: Math.max(0, clampFiniteInteger(powderState.betTerrarium?.birdCount, 0)),
         trees: Object.entries(powderState.betTerrarium?.trees || {}).reduce((result, [key, tree]) => {
           const allocated = clampFiniteInteger(tree?.allocated, 0);
           if (allocated >= 0) {
@@ -288,23 +279,6 @@ export function createPowderPersistence({
         powderState.wallGapTarget = Math.max(1, Math.round(base.wallGapTarget));
       }
       powderState.fluidUnlocked = !!base.fluidUnlocked;
-      const incomingHappiness = base.betHappiness || {};
-      const happinessState = powderState.betHappiness || { bank: 0, producers: { slime: 0 } };
-      happinessState.bank = Math.max(
-        0,
-        Number.isFinite(incomingHappiness.bank) ? incomingHappiness.bank : happinessState.bank || 0,
-      );
-      const storedSlimes = incomingHappiness.producers?.slime;
-      const legacyGrasshoppers = incomingHappiness.producers?.grasshopper;
-      const normalizedSlimes = Number.isFinite(storedSlimes)
-        ? Math.max(0, Math.floor(storedSlimes))
-        : Number.isFinite(legacyGrasshoppers)
-          ? Math.max(0, Math.floor(legacyGrasshoppers))
-          : Number.isFinite(happinessState.producers?.slime)
-            ? Math.max(0, Math.floor(happinessState.producers.slime))
-            : 0;
-      happinessState.producers = { ...happinessState.producers, slime: normalizedSlimes };
-      powderState.betHappiness = happinessState;
       // Restore Bet terrarium leveling progress for fractal trees.
       const storedTerrarium = base.betTerrarium || {};
       const storedTrees = storedTerrarium.trees && typeof storedTerrarium.trees === 'object' ? storedTerrarium.trees : {};
@@ -313,6 +287,9 @@ export function createPowderPersistence({
         celestialBodiesEnabled: Boolean(storedTerrarium.celestialBodiesEnabled),
         sunEnabled: Boolean(storedTerrarium.sunEnabled),
         moonEnabled: Boolean(storedTerrarium.moonEnabled),
+        // Restore purchased terrarium creatures so overlays match saved state.
+        slimeCount: Math.max(0, Math.floor(Number(storedTerrarium.slimeCount) || 0)),
+        birdCount: Math.max(0, Math.floor(Number(storedTerrarium.birdCount) || 0)),
         trees: Object.entries(storedTrees).reduce((result, [key, value]) => {
           const allocated = Number.isFinite(value?.allocated) ? Math.max(0, Math.floor(value.allocated)) : 0;
           result[key] = { allocated };
