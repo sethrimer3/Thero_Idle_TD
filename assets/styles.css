@@ -13493,8 +13493,9 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 }
 
 .shin-cardinal-card {
-  width: 100%;
-  max-width: 600px;
+  /* Match the responsive spire sizing used by Bet so the Shin render fills the same margins. */
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   padding: 0;
   background: transparent;
   border: none;
@@ -13511,10 +13512,10 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   background: #ffffff;
   /* Maintain the shared 3:4 portrait ratio used by other spire renders. */
   aspect-ratio: 3 / 4;
-  /* Grow Shin Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  /* Let the viewport inherit the card sizing so the canvas fills the full width. */
+  width: 100%;
   /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: 100%;
   max-height: calc(var(--stable-vh) - 220px);
 }
 
@@ -15131,7 +15132,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   #bet-spire-simulation-card,
   .lamed-simulation-card,
   .tsadi-simulation-card,
-  .shin-cardinal-viewport,
+  .shin-cardinal-card,
   .kuf-card--simulation {
     width: min(100%, calc((var(--stable-vh) - 220px) * 0.75));
     max-width: 100%;
