@@ -303,6 +303,8 @@ export const GAME_CONFIG = {
   // Visual effects
   BACKGROUND_COLOR: '#ffffff',     // Pure white background
   WARDEN_ORB_COLOR: '#ffcc00',     // Golden color for center orb
+  // Weapon locking
+  LOCKED_WEAPON_FIRE_INTERVAL: 3600000, // Fire interval for locked weapons (60 minutes in ms)
 };
 
 /**
