@@ -427,6 +427,7 @@ import {
   applyPowderVisualSettings,
   bindPowderSpireOptions,
   initializePowderSpirePreferences,
+  setPowderCameraModeHandler,
   setPowderSimulationGetter,
 } from './powderSpirePreferences.js';
 import {
@@ -2345,6 +2346,45 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderConfig,
     schedulePowderBasinSave,
     isDeveloperModeActive: () => developerModeActive,
+  });
+
+  function resetPowderCameraTransform() {
+    if (!powderSimulation || powderSimulation === fluidSimulationInstance) {
+      return;
+    }
+    // Restore the Aleph spire camera to its default framing when controls are disabled.
+    if (typeof powderSimulation.setZoom === 'function') {
+      powderSimulation.setZoom(1);
+    } else if (typeof powderSimulation.applyZoomFactor === 'function') {
+      const currentScale = powderSimulation.getViewTransform?.()?.scale || 1;
+      if (Math.abs(currentScale - 1) > 0.0001) {
+        powderSimulation.applyZoomFactor(1 / currentScale);
+      }
+    }
+    if (typeof powderSimulation.setViewCenterNormalized === 'function') {
+      powderSimulation.setViewCenterNormalized({ x: 0.5, y: 0.5 });
+    }
+    handlePowderViewTransformChange(powderSimulation.getViewTransform());
+  }
+
+  // Toggle Aleph spire camera controls and optionally reset the view transform.
+  function setPowderCameraMode(enabled, options = {}) {
+    const nextState = Boolean(enabled);
+    const skipTransformReset = Boolean(options.skipTransformReset);
+    powderState.alephCameraMode = nextState;
+    if (!nextState && !skipTransformReset) {
+      if (powderSimulation) {
+        resetPowderCameraTransform();
+      } else {
+        // Cache a default transform so future sessions start centered when camera controls are off.
+        powderState.viewTransform = { scale: 1, normalizedCenter: { x: 0.5, y: 0.5 } };
+      }
+    }
+  }
+
+  // Hook the Aleph spire settings toggle into the camera control handler.
+  setPowderCameraModeHandler((enabled) => {
+    setPowderCameraMode(enabled);
   });
 
   function resetFluidCameraTransform() {

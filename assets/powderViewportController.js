@@ -294,10 +294,10 @@ export function createPowderViewportController({
       return isFluidSimulation() && Boolean(powderState.betTerrarium?.buttonMenuOpen);
     };
 
-    // Allow camera gestures only when camera mode is explicitly enabled for the Bet terrarium.
+    // Allow camera gestures only when camera mode is explicitly enabled for the current spire.
     const isCameraModeActive = () => {
       if (!isFluidSimulation()) {
-        return true;
+        return Boolean(powderState?.alephCameraMode);
       }
       return Boolean(powderState?.betTerrarium?.cameraMode);
     };
@@ -442,7 +442,8 @@ export function createPowderViewportController({
     };
 
     const handlePointerMove = (event) => {
-      if (isFluidSimulation() && !isCameraModeActive()) {
+      // Skip all pan/zoom gestures when camera controls are disabled for this spire.
+      if (!isCameraModeActive()) {
         removePointerFromCache(event);
         resetPinchState();
         return;

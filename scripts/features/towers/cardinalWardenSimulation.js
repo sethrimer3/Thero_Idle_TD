@@ -3750,8 +3750,6 @@ export class CardinalWardenSimulation {
     }
     
     for (const weaponId of equippedWeapons) {
-      if (!this.weapons.purchased[weaponId]) continue;
-      
       const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
       if (!weaponDef) continue;
       
@@ -3769,8 +3767,13 @@ export class CardinalWardenSimulation {
       // Apply weapon-specific speed upgrade multiplier
       const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
       
+      // For weapons that aren't purchased, set fire rate to 60 minutes
+      // This effectively prevents them from firing while locked
+      const isPurchased = this.weapons.purchased[weaponId];
+      const baseFireInterval = isPurchased ? weaponDef.baseFireRate : GAME_CONFIG.LOCKED_WEAPON_FIRE_INTERVAL;
+      
       // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
-      const fireInterval = weaponDef.baseFireRate / (fireRateMultiplier * weaponSpeedMult);
+      const fireInterval = baseFireInterval / (fireRateMultiplier * weaponSpeedMult);
       
       this.weaponTimers[weaponId] += deltaTime;
       
