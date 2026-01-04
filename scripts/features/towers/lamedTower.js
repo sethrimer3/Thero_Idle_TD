@@ -81,6 +81,17 @@ export class GravitySimulation {
     this.onStarMassChange = typeof options.onStarMassChange === 'function' ? options.onStarMassChange : null;
     this.samplePaletteGradient = typeof options.samplePaletteGradient === 'function' ? options.samplePaletteGradient : null;
     
+    // Load sprites
+    this.sprites = {
+      star: null,
+      starNoGlow: null,
+      asteroids: [],
+      sunPhases: [],
+      spaceDust: null,
+    };
+    this.spritesLoaded = false;
+    this.loadSprites();
+    
     // Dimensions
     this.width = 0;
     this.height = 0;
@@ -118,6 +129,13 @@ export class GravitySimulation {
       MAX_TRAIL_STARS,
     );
     this.trailEnabledStarCount = 0; // Track how many active orbiting stars should render trails.
+    
+    // Asteroid management - always 5 asteroids that orbit the sun
+    this.asteroids = [];
+    this.initializeAsteroids();
+    
+    // Click position for spawning stars near click location
+    this.lastClickPosition = null;
     
     // Spawn parameters for ring spawner
     this.spawnRadiusMin = 60; // Minimum spawn radius (pixels)
@@ -469,6 +487,113 @@ export class GravitySimulation {
       // Reset transforms so repeated resize calls do not accumulate DPR scaling.
       this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.scale(dpr, dpr);
+    }
+    
+    // Reinitialize asteroids with new dimensions
+    if (this.asteroids.length === 0) {
+      this.initializeAsteroids();
+    }
+  }
+  
+  /**
+   * Load all sprite images for the lamed spire.
+   */
+  loadSprites() {
+    const basePath = './assets/sprites/spires/lamedSpire/';
+    
+    // Load star sprite
+    this.sprites.star = new Image();
+    this.sprites.star.src = `${basePath}stars/star1.png`;
+    
+    // Load star sprite without glow (for shooting stars)
+    this.sprites.starNoGlow = new Image();
+    this.sprites.starNoGlow.src = `${basePath}stars/star1NoGlow.png`;
+    
+    // Load 5 asteroid sprites (including the one named "5.png")
+    const asteroidFiles = ['asteroid1.png', 'asteroid2.png', 'asteroid3.png', 'asteroid4.png', '5.png'];
+    for (const filename of asteroidFiles) {
+      const img = new Image();
+      img.src = `${basePath}asteroids/${filename}`;
+      this.sprites.asteroids.push(img);
+    }
+    
+    // Load 8 sun phase sprites
+    for (let i = 1; i <= 8; i++) {
+      const img = new Image();
+      img.src = `${basePath}sunPhases/sunPhase${i}.png`;
+      this.sprites.sunPhases.push(img);
+    }
+    
+    // Load space dust sprite
+    this.sprites.spaceDust = new Image();
+    this.sprites.spaceDust.src = `${basePath}dust/spaceDust.png`;
+    
+    // Mark sprites as loaded once all images are loaded
+    const allSprites = [
+      this.sprites.star,
+      this.sprites.starNoGlow,
+      ...this.sprites.asteroids,
+      ...this.sprites.sunPhases,
+      this.sprites.spaceDust,
+    ];
+    
+    let loadedCount = 0;
+    allSprites.forEach(sprite => {
+      sprite.onload = () => {
+        loadedCount++;
+        if (loadedCount === allSprites.length) {
+          this.spritesLoaded = true;
+        }
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load sprite: ${sprite.src}`);
+        loadedCount++;
+        if (loadedCount === allSprites.length) {
+          this.spritesLoaded = true;
+        }
+      };
+    });
+  }
+  
+  /**
+   * Initialize 5 asteroids at random orbital distances.
+   * Asteroids face upward in their sprites and should rotate to face the sun.
+   */
+  initializeAsteroids() {
+    this.asteroids = [];
+    const dpr = this.getEffectiveDevicePixelRatio();
+    
+    // Calculate safe orbital range for asteroids
+    const starVisualRadius = this.calculateCoreRadius();
+    const maxR = this.calculateMaxSpawnRadiusCss();
+    
+    // Asteroids orbit between 2.5x sun radius and 0.8x max radius (not too close, not at edge)
+    const minR = Math.min(maxR * 0.3, starVisualRadius * 2.5);
+    const maxAsteroidR = maxR * 0.8;
+    
+    for (let i = 0; i < 5; i++) {
+      const orbitRadiusCss = this.rng.range(minR, maxAsteroidR);
+      const orbitRadiusDevice = orbitRadiusCss * dpr;
+      const angle = this.rng.next() * Math.PI * 2;
+      
+      const x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
+      const y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+      
+      // Calculate circular orbital velocity for stable orbit
+      const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
+      
+      // Tangential velocity (perpendicular to radius)
+      const vx = -Math.sin(angle) * circularSpeed;
+      const vy = Math.cos(angle) * circularSpeed;
+      
+      this.asteroids.push({
+        x,
+        y,
+        vx,
+        vy,
+        spriteIndex: i % this.sprites.asteroids.length,
+        size: this.rng.range(20, 40), // Random size for variety
+      });
     }
   }
   
@@ -1083,7 +1208,8 @@ export class GravitySimulation {
   }
 
   /**
-   * Spawn a new star randomly between the central body edge and simulation edge.
+   * Spawn a new star near the click/tap position with slight variation.
+   * If no click position is available, spawn randomly as fallback.
    * Uses near-circular orbital velocity.
    */
   spawnStar(options = {}) {
@@ -1100,20 +1226,46 @@ export class GravitySimulation {
     // Use the shared radius helper so trail generation respects the current star size.
     const starVisualRadius = this.calculateCoreRadius();
 
-    // Calculate maximum spawn radius using the diagonal distance to the viewport corners.
-    const maxR = this.calculateMaxSpawnRadiusCss();
+    let x, y, orbitRadiusDevice;
+    
+    // If we have a click position, spawn near it with slight variation
+    if (this.lastClickPosition) {
+      const clickX = this.lastClickPosition.x * dpr;
+      const clickY = this.lastClickPosition.y * dpr;
+      
+      // Add slight random variation (±20 pixels)
+      const variation = 20 * dpr;
+      x = clickX + this.rng.range(-variation, variation);
+      y = clickY + this.rng.range(-variation, variation);
+      
+      // Calculate distance from center
+      const dx = x - this.centerX;
+      const dy = y - this.centerY;
+      orbitRadiusDevice = Math.sqrt(dx * dx + dy * dy);
+      
+      // Ensure minimum distance from sun
+      const minR = starVisualRadius * 2;
+      if (orbitRadiusDevice < minR) {
+        const angle = Math.atan2(dy, dx);
+        orbitRadiusDevice = minR;
+        x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
+        y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+      }
+    } else {
+      // Fallback to random spawning if no click position
+      const maxR = this.calculateMaxSpawnRadiusCss();
+      const minR = Math.min(maxR, starVisualRadius * 2);
+      const orbitRadiusCss = this.rng.range(minR, maxR);
+      orbitRadiusDevice = orbitRadiusCss * dpr;
+      const angle = this.rng.next() * Math.PI * 2;
+      x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
+      y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+    }
 
-    // Enforce a minimum orbit of twice the sun's radius so new stars never crowd the surface
-    const minR = Math.min(maxR, starVisualRadius * 2);
-
-    // Spawn at random distance between the enforced minimum and the simulation edge
-    const orbitRadiusCss = this.rng.range(minR, maxR);
-    const orbitRadiusDevice = orbitRadiusCss * dpr;
-    const angle = this.rng.next() * Math.PI * 2;
-
-    // Position relative to center (in DPR-scaled coordinates)
-    const x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
-    const y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+    // Calculate angle from center for velocity calculation
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const angle = Math.atan2(dy, dx);
 
     // Calculate circular orbital velocity: v = sqrt(G*M/r)
     const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
@@ -1645,6 +1797,79 @@ export class GravitySimulation {
   }
   
   /**
+   * Update asteroids - they orbit the sun and collide with stars.
+   */
+  updateAsteroids(deltaTime) {
+    const dt = deltaTime / 1000; // Convert to seconds
+    const dpr = this.getEffectiveDevicePixelRatio();
+    
+    for (const asteroid of this.asteroids) {
+      // Calculate distance to center
+      const dx = this.centerX - asteroid.x;
+      const dy = this.centerY - asteroid.y;
+      const distSq = Math.max(dx * dx + dy * dy, this.epsilon * this.epsilon);
+      const dist = Math.sqrt(distSq);
+      
+      // Calculate gravitational acceleration
+      const forceMagnitude = (this.G * this.starMass) / distSq;
+      const ax = (dx / dist) * forceMagnitude;
+      const ay = (dy / dist) * forceMagnitude;
+      
+      // Update velocity
+      asteroid.vx += ax * dt;
+      asteroid.vy += ay * dt;
+      
+      // Update position
+      asteroid.x += asteroid.vx * dt;
+      asteroid.y += asteroid.vy * dt;
+      
+      // Check collision with stars
+      for (let i = this.stars.length - 1; i >= 0; i--) {
+        const star = this.stars[i];
+        const starDx = star.x - asteroid.x;
+        const starDy = star.y - asteroid.y;
+        const starDist = Math.sqrt(starDx * starDx + starDy * starDy);
+        
+        // Collision radius (asteroid size + star size)
+        const asteroidRadius = asteroid.size * dpr / 2;
+        const starVisualRadius = this.calculateCoreRadius();
+        const starRadius = this.calculateStarRadiusCss(star.mass, starVisualRadius) * dpr;
+        const collisionDist = asteroidRadius + starRadius;
+        
+        if (starDist < collisionDist) {
+          // Bounce star off asteroid
+          // Calculate collision normal
+          const nx = starDx / starDist;
+          const ny = starDy / starDist;
+          
+          // Relative velocity
+          const relVx = star.vx - asteroid.vx;
+          const relVy = star.vy - asteroid.vy;
+          
+          // Velocity along collision normal
+          const velAlongNormal = relVx * nx + relVy * ny;
+          
+          // Only bounce if moving towards each other
+          if (velAlongNormal < 0) {
+            // Elastic collision with restitution coefficient
+            const restitution = 0.8;
+            const impulse = -(1 + restitution) * velAlongNormal;
+            
+            // Apply impulse to star (asteroid is much more massive, so it doesn't move much)
+            star.vx += impulse * nx * 0.9;
+            star.vy += impulse * ny * 0.9;
+            
+            // Separate the objects to prevent overlap
+            const overlap = collisionDist - starDist;
+            star.x += nx * overlap;
+            star.y += ny * overlap;
+          }
+        }
+      }
+    }
+  }
+  
+  /**
    * Update visual effects (shock rings, flash effects).
    */
   updateEffects(deltaTime) {
@@ -1820,8 +2045,10 @@ export class GravitySimulation {
     // Derive the rendered core radius up front so blur passes and texture placement reference the same scale.
     const coreRadius = starVisualRadius * pulseScale;
 
-    // Rebuild the cached procedural texture before any blitting occurs.
-    this.rebuildSunSurfaceTexture(tierColor, luminosity, absorptionGlowBoost);
+    // Rebuild the cached procedural texture before any blitting occurs (only if sprites not loaded).
+    if (!this.spritesLoaded) {
+      this.rebuildSunSurfaceTexture(tierColor, luminosity, absorptionGlowBoost);
+    }
 
     // Draw gravitational lensing effect (fake refraction)
     if (tier.name === 'Black Hole') {
@@ -1847,8 +2074,29 @@ export class GravitySimulation {
     }
     ctx.restore();
 
-    // Draw the procedural surface texture with animated sunspots and convection.
-    if (this.surfaceCanvas) {
+    // Draw the sun using sprite or procedural texture
+    // Map tier index to sun phase sprite (with pre-Main sequence at index 0)
+    // sunPhase1.png = pre-Main sequence (Proto-star)
+    // sunPhase2.png = Main Sequence
+    // sunPhase3-8.png = subsequent phases
+    if (this.spritesLoaded && this.sprites.sunPhases.length > 0) {
+      const sunPhaseIndex = Math.min(tier.tierIndex, this.sprites.sunPhases.length - 1);
+      const sunSprite = this.sprites.sunPhases[sunPhaseIndex];
+      
+      if (sunSprite && sunSprite.complete) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, luminosity / 2); // Apply luminosity as alpha
+        ctx.drawImage(
+          sunSprite,
+          centerXScaled - coreRadius,
+          centerYScaled - coreRadius,
+          coreRadius * 2,
+          coreRadius * 2
+        );
+        ctx.restore();
+      }
+    } else if (this.surfaceCanvas) {
+      // Fallback to procedural texture
       ctx.save();
       ctx.beginPath();
       ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
@@ -1862,30 +2110,86 @@ export class GravitySimulation {
       );
       ctx.restore();
     } else {
+      // Final fallback to solid color
       ctx.fillStyle = tier.color;
       ctx.beginPath();
       ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Draw dust particles (accretion disk) with color palette gradient
-    for (const dust of this.dustParticles) {
-      const dustX = dust.x / dpr;
-      const dustY = dust.y / dpr;
-      const dustAlpha = dust.life * 0.3;
-
-      if (dust.color) {
-        ctx.fillStyle = `rgba(${dust.color.r}, ${dust.color.g}, ${dust.color.b}, ${dustAlpha})`;
-      } else {
-        ctx.fillStyle = `rgba(200, 200, 220, ${dustAlpha})`;
+    // Draw dust particles (accretion disk) using sprite or fallback
+    if (this.spritesLoaded && this.sprites.spaceDust && this.sprites.spaceDust.complete) {
+      const dustSprite = this.sprites.spaceDust;
+      const spriteSize = 4; // Size to draw each dust particle
+      
+      for (const dust of this.dustParticles) {
+        const dustX = dust.x / dpr;
+        const dustY = dust.y / dpr;
+        const dustAlpha = dust.life * 0.5;
+        
+        ctx.save();
+        ctx.globalAlpha = dustAlpha;
+        ctx.drawImage(
+          dustSprite,
+          dustX - spriteSize / 2,
+          dustY - spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+        ctx.restore();
       }
-      ctx.beginPath();
-      ctx.arc(dustX, dustY, 1, 0, Math.PI * 2);
-      ctx.fill();
+    } else {
+      // Fallback to procedural dust
+      for (const dust of this.dustParticles) {
+        const dustX = dust.x / dpr;
+        const dustY = dust.y / dpr;
+        const dustAlpha = dust.life * 0.3;
+
+        if (dust.color) {
+          ctx.fillStyle = `rgba(${dust.color.r}, ${dust.color.g}, ${dust.color.b}, ${dustAlpha})`;
+        } else {
+          ctx.fillStyle = `rgba(200, 200, 220, ${dustAlpha})`;
+        }
+        ctx.beginPath();
+        ctx.arc(dustX, dustY, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // Render geyser particles before orbiting stars so the burst overlays the accretion disk but sits behind sparks.
     this.renderGeyserParticles(ctx, centerXScaled, centerYScaled, coreRadius);
+    
+    // Draw asteroids (always facing the sun)
+    if (this.spritesLoaded && this.sprites.asteroids.length > 0) {
+      for (const asteroid of this.asteroids) {
+        const asteroidX = asteroid.x / dpr;
+        const asteroidY = asteroid.y / dpr;
+        const asteroidSprite = this.sprites.asteroids[asteroid.spriteIndex];
+        
+        if (asteroidSprite && asteroidSprite.complete) {
+          ctx.save();
+          ctx.translate(asteroidX, asteroidY);
+          
+          // Calculate angle to face the sun
+          const dx = centerXScaled - asteroidX;
+          const dy = centerYScaled - asteroidY;
+          const angle = Math.atan2(dy, dx);
+          
+          // Rotate to face sun (sprite faces upward, so add 90 degrees)
+          ctx.rotate(angle + Math.PI / 2);
+          
+          const size = asteroid.size;
+          ctx.drawImage(
+            asteroidSprite,
+            -size / 2,
+            -size / 2,
+            size,
+            size
+          );
+          ctx.restore();
+        }
+      }
+    }
 
     // Draw shooting stars with luminous trails.
     for (const shard of this.shootingStars) {
@@ -1914,13 +2218,30 @@ export class GravitySimulation {
 
       const shardX = shard.x / dpr;
       const shardY = shard.y / dpr;
-      ctx.save();
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.9)`;
-      ctx.beginPath();
-      ctx.arc(shardX, shardY, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      
+      // Use star sprite for shooting stars
+      if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
+        const shootingStarSize = 8; // Size for shooting stars
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(
+          this.sprites.star,
+          shardX - shootingStarSize / 2,
+          shardY - shootingStarSize / 2,
+          shootingStarSize,
+          shootingStarSize
+        );
+        ctx.restore();
+      } else {
+        // Fallback to procedural circle
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(${shard.color.r}, ${shard.color.g}, ${shard.color.b}, 0.9)`;
+        ctx.beginPath();
+        ctx.arc(shardX, shardY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     // Draw orbiting stars with trails
@@ -1974,35 +2295,50 @@ export class GravitySimulation {
         }
       }
       
-      // Draw star with size based on mass ratio to central body
+      // Draw star using sprite or procedural fallback
       const starX = star.x / dpr;
       const starY = star.y / dpr;
       const starSize = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       
-      // Glow effect
-      const baseStarColor = star.color || { r: 255, g: 255, b: 255 };
-      const glowColor = star.color || { r: 200, g: 220, b: 255 };
-      const starGradient = ctx.createRadialGradient(
-        starX, starY, 0,
-        starX, starY, starSize * 2
-      );
-      starGradient.addColorStop(0, `rgba(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b}, 1)`);
-      starGradient.addColorStop(
-        0.5,
-        `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0.6)`,
-      );
-      starGradient.addColorStop(1, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0)`);
+      if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
+        // Use star sprite
+        const spriteSize = starSize * 2.5; // Make sprite slightly larger for visibility
+        ctx.save();
+        ctx.globalAlpha = star.life || 1.0;
+        ctx.drawImage(
+          this.sprites.star,
+          starX - spriteSize / 2,
+          starY - spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+        ctx.restore();
+      } else {
+        // Fallback to procedural star rendering
+        const baseStarColor = star.color || { r: 255, g: 255, b: 255 };
+        const glowColor = star.color || { r: 200, g: 220, b: 255 };
+        const starGradient = ctx.createRadialGradient(
+          starX, starY, 0,
+          starX, starY, starSize * 2
+        );
+        starGradient.addColorStop(0, `rgba(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b}, 1)`);
+        starGradient.addColorStop(
+          0.5,
+          `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0.6)`,
+        );
+        starGradient.addColorStop(1, `rgba(${glowColor.r}, ${glowColor.g}, ${glowColor.b}, 0)`);
 
-      ctx.fillStyle = starGradient;
-      ctx.beginPath();
-      ctx.arc(starX, starY, starSize * 2, 0, Math.PI * 2);
-      ctx.fill();
+        ctx.fillStyle = starGradient;
+        ctx.beginPath();
+        ctx.arc(starX, starY, starSize * 2, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Core star
-      ctx.fillStyle = `rgb(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b})`;
-      ctx.beginPath();
-      ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
-      ctx.fill();
+        // Core star
+        ctx.fillStyle = `rgb(${baseStarColor.r}, ${baseStarColor.g}, ${baseStarColor.b})`;
+        ctx.beginPath();
+        ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     
     // Draw spawn flash effects
@@ -2049,6 +2385,7 @@ export class GravitySimulation {
     // Update all simulation components
     this.updateShootingStars(deltaTime);
     this.updateStars(deltaTime);
+    this.updateAsteroids(deltaTime);
     this.spawnDustParticles(deltaTime);
     this.updateDustParticles(deltaTime);
     this.updateEffects(deltaTime);
@@ -2108,6 +2445,15 @@ export class GravitySimulation {
     if (this.onSparkBankChange) {
       this.onSparkBankChange(this.sparkBank);
     }
+  }
+  
+  /**
+   * Set the last click position for star spawning.
+   * @param {number} x - X coordinate in CSS pixels
+   * @param {number} y - Y coordinate in CSS pixels
+   */
+  setClickPosition(x, y) {
+    this.lastClickPosition = { x, y };
   }
   
   /**
