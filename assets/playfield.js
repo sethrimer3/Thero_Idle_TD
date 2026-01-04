@@ -236,6 +236,7 @@ export function configurePlayfieldSystem(options = {}) {
 
 const TOWER_HOLD_ACTIVATION_MS = 500;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
+const TOWER_HOLD_INDICATOR_OFFSET_PX = 40;
 const TOWER_PRESS_GLOW_FADE_MS = 200;
 const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 800;
 const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
@@ -548,6 +549,7 @@ export class SimplePlayfield {
       holdTimeoutId: null,
       holdActivated: false,
       scribbleCleanup: null,
+      indicatorsCleanup: null,
       actionTriggered: null,
       pointerType: null,
       swipeStepPixels: 0,
@@ -3502,6 +3504,79 @@ export class SimplePlayfield {
   }
 
   /**
+   * Spawn visual triangular indicators above/below tower during hold gesture.
+   * Shows upgrade arrow above, and either downgrade arrow or sell symbols below.
+   */
+  spawnTowerHoldIndicators(tower) {
+    if (!tower || !this.container) {
+      return null;
+    }
+    if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+      return null;
+    }
+
+    const indicators = [];
+    const cleanupFunctions = [];
+
+    // Always show upgrade indicator above tower (unless at max tier)
+    const nextId = getNextTowerId(tower.type);
+    if (nextId) {
+      const upgradeIndicator = document.createElement('div');
+      upgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--upgrade';
+      upgradeIndicator.style.left = `${tower.x}px`;
+      upgradeIndicator.style.top = `${tower.y - TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
+      
+      const startColor = samplePaletteGradient(0.15) || { r: 139, g: 247, b: 255 };
+      upgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(startColor, 0.85));
+      
+      this.container.append(upgradeIndicator);
+      indicators.push(upgradeIndicator);
+    }
+
+    // Show downgrade indicator below tower, or sell indicator if at alpha tier
+    const previousId = getPreviousTowerId(tower.type);
+    const isAlphaTower = !previousId; // Alpha is the lowest tier with no previous tier
+    
+    if (isAlphaTower) {
+      // Show sell indicator ($ and Þ symbols)
+      const sellIndicator = document.createElement('div');
+      sellIndicator.className = 'tower-hold-indicator tower-hold-indicator--sell';
+      sellIndicator.style.left = `${tower.x}px`;
+      sellIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
+      sellIndicator.textContent = `$${this.theroSymbol}`;
+      
+      const sellColor = samplePaletteGradient(0.75) || { r: 255, g: 200, b: 80 };
+      sellIndicator.style.setProperty('--indicator-color', colorToRgbaString(sellColor, 0.95));
+      
+      this.container.append(sellIndicator);
+      indicators.push(sellIndicator);
+    } else {
+      // Show downgrade indicator
+      const downgradeIndicator = document.createElement('div');
+      downgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--downgrade';
+      downgradeIndicator.style.left = `${tower.x}px`;
+      downgradeIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
+      
+      const endColor = samplePaletteGradient(0.85) || { r: 255, g: 138, b: 216 };
+      downgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(endColor, 0.85));
+      
+      this.container.append(downgradeIndicator);
+      indicators.push(downgradeIndicator);
+    }
+
+    // Create cleanup function to remove all indicators
+    const cleanup = () => {
+      indicators.forEach(indicator => {
+        if (indicator.parentNode) {
+          indicator.parentNode.removeChild(indicator);
+        }
+      });
+    };
+
+    return cleanup;
+  }
+
+  /**
    * Schedule a glyph transition animation so promotions/demotions feel tactile.
    */
   queueTowerGlyphTransition(
@@ -3668,6 +3743,7 @@ export class SimplePlayfield {
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
     state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
+    state.indicatorsCleanup = this.spawnTowerHoldIndicators(tower);
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
@@ -3743,6 +3819,9 @@ export class SimplePlayfield {
     if (typeof state.scribbleCleanup === 'function') {
       state.scribbleCleanup();
     }
+    if (typeof state.indicatorsCleanup === 'function') {
+      state.indicatorsCleanup();
+    }
     if (!preserveWheel) {
       this.closeTowerSelectionWheel();
     }
@@ -3756,6 +3835,7 @@ export class SimplePlayfield {
     state.holdTimeoutId = null;
     state.holdActivated = false;
     state.scribbleCleanup = null;
+    state.indicatorsCleanup = null;
     state.actionTriggered = null;
     state.pointerType = null;
     state.swipeStepPixels = 0;
