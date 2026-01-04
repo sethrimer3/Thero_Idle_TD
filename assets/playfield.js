@@ -236,6 +236,7 @@ export function configurePlayfieldSystem(options = {}) {
 
 const TOWER_HOLD_ACTIVATION_MS = 500;
 const TOWER_HOLD_CANCEL_DISTANCE_PX = 18;
+const TOWER_HOLD_INDICATOR_OFFSET_PX = 40;
 const TOWER_PRESS_GLOW_FADE_MS = 200;
 const TOWER_MENU_DOUBLE_TAP_INTERVAL_MS = 800;
 const TOWER_MENU_DOUBLE_TAP_DISTANCE_PX = 28;
@@ -3523,7 +3524,7 @@ export class SimplePlayfield {
       const upgradeIndicator = document.createElement('div');
       upgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--upgrade';
       upgradeIndicator.style.left = `${tower.x}px`;
-      upgradeIndicator.style.top = `${tower.y - 40}px`; // Position above tower
+      upgradeIndicator.style.top = `${tower.y - TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
       
       const startColor = samplePaletteGradient(0.15) || { r: 139, g: 247, b: 255 };
       upgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(startColor, 0.85));
@@ -3541,7 +3542,7 @@ export class SimplePlayfield {
       const sellIndicator = document.createElement('div');
       sellIndicator.className = 'tower-hold-indicator tower-hold-indicator--sell';
       sellIndicator.style.left = `${tower.x}px`;
-      sellIndicator.style.top = `${tower.y + 40}px`; // Position below tower
+      sellIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
       sellIndicator.textContent = `$${this.theroSymbol}`;
       
       const sellColor = samplePaletteGradient(0.75) || { r: 255, g: 200, b: 80 };
@@ -3554,7 +3555,7 @@ export class SimplePlayfield {
       const downgradeIndicator = document.createElement('div');
       downgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--downgrade';
       downgradeIndicator.style.left = `${tower.x}px`;
-      downgradeIndicator.style.top = `${tower.y + 40}px`; // Position below tower
+      downgradeIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
       
       const endColor = samplePaletteGradient(0.85) || { r: 255, g: 138, b: 216 };
       downgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(endColor, 0.85));
