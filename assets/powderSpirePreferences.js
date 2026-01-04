@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   moteGlow: true,
   backgroundStars: true,
   moteTrails: true,
+  cameraControls: false, // Default Aleph camera controls to off for a calmer first view.
   renderOverlapLevel: 0, // Default to Small (overlap 0 margin)
 });
 
@@ -27,9 +28,14 @@ let starsToggle = null;
 let starsStateLabel = null;
 let trailsToggle = null;
 let trailsStateLabel = null;
+// Track the Aleph spire camera controls toggle elements.
+let cameraToggle = null;
+let cameraStateLabel = null;
 // Render size controls for the Aleph spire layout.
 let renderOverlapSelect = null;
 let renderOverlapRow = null;
+// Provide a handler to synchronize the Aleph camera mode with the main controller.
+let cameraModeHandler = null;
 
 /**
  * Persist the current Aleph spire visual settings into storage.
@@ -48,6 +54,7 @@ function loadSettings() {
     settings.moteGlow = stored.moteGlow !== false;
     settings.backgroundStars = stored.backgroundStars !== false;
     settings.moteTrails = stored.moteTrails !== false;
+    settings.cameraControls = stored.cameraControls === true;
     settings.renderOverlapLevel = normalizeRenderOverlapLevel(stored.renderOverlapLevel);
   }
 }
@@ -68,6 +75,13 @@ function applySettingsToSimulation() {
   }
   if (typeof simulation.setMoteTrailsEnabled === 'function') {
     simulation.setMoteTrailsEnabled(settings.moteTrails);
+  }
+}
+
+// Apply the persisted camera control preference to the main controller.
+function applyCameraModePreference() {
+  if (typeof cameraModeHandler === 'function') {
+    cameraModeHandler(settings.cameraControls);
   }
 }
 
@@ -109,6 +123,19 @@ function syncToggleUi() {
   }
   if (trailsStateLabel) {
     trailsStateLabel.textContent = settings.moteTrails ? 'On' : 'Off';
+  }
+
+  // Keep the Aleph camera toggle reflecting the stored preference.
+  if (cameraToggle) {
+    cameraToggle.checked = !!settings.cameraControls;
+    cameraToggle.setAttribute('aria-checked', settings.cameraControls ? 'true' : 'false');
+    const controlShell = cameraToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', !!settings.cameraControls);
+    }
+  }
+  if (cameraStateLabel) {
+    cameraStateLabel.textContent = settings.cameraControls ? 'On' : 'Off';
   }
 
   if (renderOverlapSelect) {
@@ -172,6 +199,17 @@ export function setPowderSimulationGetter(getter) {
 }
 
 /**
+ * Provide a handler so the Aleph camera mode stays in sync with the saved settings.
+ * @param {(enabled: boolean) => void} handler
+ */
+export function setPowderCameraModeHandler(handler) {
+  if (typeof handler === 'function') {
+    cameraModeHandler = handler;
+    applyCameraModePreference();
+  }
+}
+
+/**
  * Bind Aleph spire option controls and wire event listeners.
  */
 export function bindPowderSpireOptions() {
@@ -181,6 +219,9 @@ export function bindPowderSpireOptions() {
   starsStateLabel = document.getElementById('powder-background-stars-state');
   trailsToggle = document.getElementById('powder-mote-trails-toggle');
   trailsStateLabel = document.getElementById('powder-mote-trails-state');
+  // Cache the Aleph camera control toggle elements.
+  cameraToggle = document.getElementById('powder-camera-controls-toggle');
+  cameraStateLabel = document.getElementById('powder-camera-controls-state');
   renderOverlapSelect = document.getElementById('powder-render-overlap-select');
   renderOverlapRow = document.getElementById('powder-render-overlap-row');
 
@@ -211,6 +252,16 @@ export function bindPowderSpireOptions() {
     });
   }
 
+  // Apply updates when the Aleph camera controls toggle is flipped.
+  if (cameraToggle) {
+    cameraToggle.addEventListener('change', (event) => {
+      settings.cameraControls = event.target.checked;
+      persistSettings();
+      syncToggleUi();
+      applyCameraModePreference();
+    });
+  }
+
   if (renderOverlapSelect) {
     renderOverlapSelect.addEventListener('change', (event) => {
       settings.renderOverlapLevel = normalizeRenderOverlapLevel(event.target.value);
@@ -230,6 +281,7 @@ export function initializePowderSpirePreferences() {
   loadSettings();
   syncToggleUi();
   applySettingsToSimulation();
+  applyCameraModePreference();
   applyRenderOverlapLayout();
 }
 

@@ -49,6 +49,8 @@ export function createPowderStateContext() {
     viewInteraction: null,
     // Cache the latest camera transform so overlays sync even before the simulation emits.
     viewTransform: null,
+    // Track whether Aleph spire camera gestures are enabled from the settings panel.
+    alephCameraMode: false,
     // Preserve serialized simulation payloads until the active basin is ready to restore them.
     loadedSimulationState: null,
     loadedFluidState: null,
