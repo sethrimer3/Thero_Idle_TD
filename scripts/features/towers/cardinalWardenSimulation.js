@@ -191,7 +191,8 @@ class OrbitalSquare {
     this.rotationSpeed = 0.5 + rng.next() * 1.5;
     this.rotationDirection = rng.next() > 0.5 ? 1 : -1;
     this.selfRotation = 0;
-    this.selfRotationSpeed = 1 + rng.next() * 2;
+    // Reduced rotation speed to 20% of original (multiplied by 0.2)
+    this.selfRotationSpeed = (1 + rng.next() * 2) * 0.2;
     this.size = 8 + rng.next() * 6;
     this.orbitSpeed = 0.3 + rng.next() * 0.4;
     this.orbitOffset = 0;
@@ -2854,7 +2855,7 @@ export class CardinalWardenSimulation {
       return;
     }
     
-    // Load the warden core sprite
+    // Load the warden core sprite (golden version)
     this.wardenCoreSprite = new Image();
     this.wardenCoreSprite.onload = () => {
       this.wardenCoreLoaded = true;
@@ -2862,7 +2863,7 @@ export class CardinalWardenSimulation {
     this.wardenCoreSprite.onerror = () => {
       console.warn('Failed to load warden core sprite');
     };
-    this.wardenCoreSprite.src = './assets/sprites/spires/shinSpire/warden/wardenCore.png';
+    this.wardenCoreSprite.src = './assets/sprites/spires/shinSpire/warden/wardenCoreGold.png';
     
     // Load all 37 warden shard sprites
     for (let i = 1; i <= 37; i++) {
@@ -3814,6 +3815,11 @@ export class CardinalWardenSimulation {
    */
   fireWeapon(weaponId) {
     if (!this.warden || !this.canvas) return;
+    
+    // Safety check: Don't fire if weapon is not purchased
+    if (!this.weapons.purchased[weaponId]) {
+      return;
+    }
     
     const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
     if (!weaponDef) return;
