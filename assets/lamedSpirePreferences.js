@@ -303,10 +303,11 @@ function shouldLamedMenuUseInlineDisplay() {
 
 /**
  * Reposition the Lamed options menu based on which button is being used.
+ * Returns the container element after repositioning.
  */
 function repositionLamedMenuForContext(clickedButton) {
   if (!optionsMenu || !clickedButton) {
-    return;
+    return null;
   }
   
   const useInline = shouldLamedMenuUseInlineDisplay();
@@ -324,6 +325,7 @@ function repositionLamedMenuForContext(clickedButton) {
       footerCard.appendChild(optionsMenu);
       optionsMenu.classList.remove('spire-options-menu--popover');
     }
+    return footerCard;
   } else if (isCornerButton || !useInline) {
     // Move menu back to popover container for absolute positioning
     const popoverContainer = document.querySelector('.spire-options-popover--lamed');
@@ -334,19 +336,34 @@ function repositionLamedMenuForContext(clickedButton) {
         optionsMenu.classList.add('spire-options-menu--popover');
       }
     }
+    return popoverContainer;
   }
+  
+  // Fallback: return current container
+  return optionsMenu.closest('.spire-options-popover, .lamed-spire-options-card');
 }
 
 /**
  * Toggle the dropdown open/closed state with a smooth animation.
  */
 function toggleOptionsMenu(event) {
-  // Reposition menu based on which button was clicked
+  // Reposition menu based on which button was clicked and get the container
+  let container = null;
   if (event && event.currentTarget) {
-    repositionLamedMenuForContext(event.currentTarget);
+    container = repositionLamedMenuForContext(event.currentTarget);
+  }
+  // Fallback to finding container if repositioning didn't return one
+  if (!container && optionsMenu) {
+    container = optionsMenu.closest('.spire-options-popover, .lamed-spire-options-card');
   }
   
   optionsMenuOpen = !optionsMenuOpen;
+  
+  // Toggle options-open class on container for animation
+  if (container) {
+    container.classList.toggle('options-open', optionsMenuOpen);
+  }
+  
   if (optionsMenu) {
     optionsMenu.setAttribute('data-open', optionsMenuOpen ? 'true' : 'false');
     optionsMenu.setAttribute('aria-hidden', optionsMenuOpen ? 'false' : 'true');

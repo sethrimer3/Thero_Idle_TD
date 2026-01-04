@@ -70,11 +70,12 @@ function syncDropdownState({ menu, toggles, container }, open) {
 
 /**
  * Move the menu to the appropriate container based on which button was clicked and placement preference.
+ * Returns the new container element after repositioning.
  */
 function repositionMenuForContext(menu, clickedToggle, toggles) {
   if (!menu || !clickedToggle) {
     console.warn('repositionMenuForContext: missing menu or toggle');
-    return;
+    return null;
   }
   
   const useInline = shouldUseInlineDisplay(toggles, menu);
@@ -95,6 +96,7 @@ function repositionMenuForContext(menu, clickedToggle, toggles) {
       // Remove popover class so it displays inline
       menu.classList.remove('spire-options-menu--popover');
     }
+    return footerCard;
   } else if (isCornerToggle) {
     // If using corner toggle, ensure menu is in popover container
     const popoverContainer = clickedToggle.closest('.spire-options-popover');
@@ -105,7 +107,13 @@ function repositionMenuForContext(menu, clickedToggle, toggles) {
         menu.classList.add('spire-options-menu--popover');
       }
     }
+    return popoverContainer;
   }
+  
+  // Return the current container if no repositioning occurred
+  return menu.closest(
+    '.spire-options-popover, .spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper',
+  );
 }
 
 /**
@@ -155,10 +163,10 @@ export function bindSpireOptionsDropdown(config) {
   toggles.forEach((button) => {
     button.addEventListener('click', (event) => {
       lastClickedToggle = event.currentTarget;
-      // Reposition menu based on which button was clicked
-      repositionMenuForContext(menu, lastClickedToggle, toggles);
+      // Reposition menu based on which button was clicked and get the new container
+      const newContainer = repositionMenuForContext(menu, lastClickedToggle, toggles);
       open = !open;
-      syncDropdownState({ menu, toggles, container }, open);
+      syncDropdownState({ menu, toggles, container: newContainer || container }, open);
     });
   });
   closeButton?.addEventListener('click', () => {
