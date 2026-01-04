@@ -15208,9 +15208,14 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   #bet-spire-simulation-card,
   .lamed-simulation-card,
   .tsadi-simulation-card,
-  .shin-cardinal-card,
   .kuf-card--simulation {
     width: min(100%, calc((var(--stable-vh) - 220px) * 0.75));
+    max-width: 100%;
+  }
+
+  /* Let the Shin spire render span the full viewport width without side gaps. */
+  .shin-cardinal-card {
+    width: 100%;
     max-width: 100%;
   }
 }
