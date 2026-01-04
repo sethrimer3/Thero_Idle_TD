@@ -1719,6 +1719,82 @@ body.playfield-fullscreen .playfield canvas {
   }
 }
 
+/* Tower hold gesture directional indicators */
+.tower-hold-indicator {
+  position: absolute;
+  z-index: 8;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  opacity: 0;
+  animation: tower-hold-indicator-appear 0.2s ease-out forwards;
+}
+
+.tower-hold-indicator--upgrade {
+  /* Triangle pointing up - positioned above tower */
+  border-width: 0 clamp(12px, 2.5vw, 18px) clamp(16px, 3.2vw, 24px) clamp(12px, 2.5vw, 18px);
+  border-color: transparent transparent var(--indicator-color, rgba(139, 247, 255, 0.85)) transparent;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 4px 12px rgba(139, 247, 255, 0.5));
+}
+
+.tower-hold-indicator--downgrade {
+  /* Triangle pointing down - positioned below tower */
+  border-width: clamp(16px, 3.2vw, 24px) clamp(12px, 2.5vw, 18px) 0 clamp(12px, 2.5vw, 18px);
+  border-color: var(--indicator-color, rgba(255, 138, 216, 0.85)) transparent transparent transparent;
+  transform: translate(-50%, 100%);
+  filter: drop-shadow(0 -4px 12px rgba(255, 138, 216, 0.5));
+}
+
+.tower-hold-indicator--sell {
+  /* Dollar and Thero symbols for sell action */
+  border: none;
+  width: auto;
+  height: auto;
+  font-family: "Space Mono", monospace;
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  font-weight: 700;
+  color: var(--indicator-color, rgba(255, 200, 80, 0.95));
+  text-shadow: 
+    0 0 8px rgba(255, 200, 80, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+  transform: translate(-50%, 100%);
+  filter: drop-shadow(0 -4px 12px rgba(255, 200, 80, 0.5));
+  letter-spacing: 0.1em;
+}
+
+@keyframes tower-hold-indicator-appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+/* Adjust animation for downgrade and sell indicators */
+.tower-hold-indicator--downgrade,
+.tower-hold-indicator--sell {
+  animation: tower-hold-indicator-appear-down 0.2s ease-out forwards;
+}
+
+@keyframes tower-hold-indicator-appear-down {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 100%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 100%) scale(1);
+  }
+}
+
 .enemy-tooltip::after {
   content: "";
   position: absolute;
