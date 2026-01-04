@@ -132,7 +132,6 @@ export class GravitySimulation {
     
     // Asteroid management - always 5 asteroids that orbit the sun
     this.asteroids = [];
-    this.initializeAsteroids();
     
     // Click position for spawning stars near click location
     this.lastClickPosition = null;
@@ -328,6 +327,9 @@ export class GravitySimulation {
 
     // Schedule the first shooting star once RNG is available.
     this.scheduleNextShootingStar();
+    
+    // Initialize asteroids after RNG is available
+    this.initializeAsteroids();
     
     // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
     const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
