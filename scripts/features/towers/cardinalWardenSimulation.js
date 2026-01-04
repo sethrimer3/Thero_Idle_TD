@@ -6370,7 +6370,9 @@ export class CardinalWardenSimulation {
           }
           
           // Scale sprite to match the square size
-          const spriteSize = square.size * 3.5; // Make sprites larger for visual impact
+          // Scale sprite rendering down to reduce the warden shard footprint.
+          const spriteScale = 0.5;
+          const spriteSize = square.size * 3.5 * spriteScale; // Make sprites larger for visual impact
           ctx.drawImage(
             this.wardenShardSprites[shardIndex],
             -spriteSize / 2,
@@ -6404,7 +6406,9 @@ export class CardinalWardenSimulation {
         }
         
         // Scale core sprite to match the core radius
-        const coreSize = warden.coreRadius * 5; // Make core sprite larger
+        // Scale sprite rendering down to reduce the warden core footprint.
+        const spriteScale = 0.5;
+        const coreSize = warden.coreRadius * 5 * spriteScale; // Make core sprite larger
         ctx.drawImage(
           this.wardenCoreSprite,
           warden.x - coreSize / 2,
