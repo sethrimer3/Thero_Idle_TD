@@ -2651,6 +2651,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (!developerModeActive || !lamedSimulationInstance || typeof lamedSimulationInstance.spawnStar !== 'function') {
       return;
     }
+    
+    // Capture click position for star spawning
+    if (event && event.target) {
+      const rect = event.target.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (typeof lamedSimulationInstance.setClickPosition === 'function') {
+        lamedSimulationInstance.setClickPosition(x, y);
+      }
+    }
 
     lamedDeveloperSpamActive = true;
     if (typeof event?.preventDefault === 'function') {
