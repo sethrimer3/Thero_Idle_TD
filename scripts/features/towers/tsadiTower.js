@@ -179,6 +179,27 @@ function tierToColor(tier, sampleGradientFn = null) {
     return 'hsl(45, 100%, 75%)'; // Golden aleph
   }
   
+  // For Roman numerals, use a cycling color scheme based on the Roman index
+  if (tierInfo.isRoman) {
+    const romanCycle = (tierInfo.romanIndex - 1) % GREEK_SEQUENCE_LENGTH;
+    const position = romanCycle / (GREEK_SEQUENCE_LENGTH - 1);
+    
+    if (sampleGradientFn) {
+      const rgb = sampleGradientFn(position);
+      // Roman numerals use 40% brightness for a distinct appearance
+      const darkenFactor = 0.4;
+      const r = Math.round(rgb.r * darkenFactor);
+      const g = Math.round(rgb.g * darkenFactor);
+      const b = Math.round(rgb.b * darkenFactor);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    
+    // Fallback HSL for Roman numerals
+    const hue = 240 - (position * 240);
+    const lightness = (55 + position * 10) * 0.4;
+    return `hsl(${hue}, ${70 + position * 20}%, ${lightness}%)`;
+  }
+  
   // Calculate position in gradient (0 to 1) based on position in Greek sequence
   const greekIndex = tier % GREEK_SEQUENCE_LENGTH;
   const position = greekIndex / (GREEK_SEQUENCE_LENGTH - 1);
@@ -189,12 +210,9 @@ function tierToColor(tier, sampleGradientFn = null) {
     // Apply darkness multiplier based on cycle
     // Cycle 0 (lowercase): full brightness
     // Cycle 1 (capital): 70% brightness
-    // Cycle 2+ (double letters): 50% brightness
     let darkenFactor = 1.0;
     if (tierInfo.cycle === 1) {
       darkenFactor = 0.7;
-    } else if (tierInfo.cycle >= 2) {
-      darkenFactor = 0.5;
     }
     
     const r = Math.round(rgb.r * darkenFactor);
@@ -208,11 +226,9 @@ function tierToColor(tier, sampleGradientFn = null) {
   const hue = 240 - (position * 240);
   let lightness = 55 + (position * 10);
   
-  // Apply darkness for higher cycles
+  // Apply darkness for capital cycle
   if (tierInfo.cycle === 1) {
     lightness *= 0.7;
-  } else if (tierInfo.cycle >= 2) {
-    lightness *= 0.5;
   }
   
   return `hsl(${hue}, ${70 + position * 20}%, ${lightness}%)`;
@@ -269,20 +285,67 @@ function applyAlphaToColor(colorStr, alpha) {
  */
 function getTierClassification(tier) {
   if (tier === NULL_TIER) {
-    return { cycle: -1, isNull: true, isAleph: false, greekIndex: -1 };
+    return { cycle: -1, isNull: true, isAleph: false, isRoman: false, greekIndex: -1, romanIndex: -1 };
   }
   
   // Check if aleph (after omega omega = tier 47)
   const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
   if (tier >= alephTier) {
-    return { cycle: 3, isNull: false, isAleph: true, greekIndex: -1 };
+    return { cycle: 3, isNull: false, isAleph: true, isRoman: false, greekIndex: -1, romanIndex: -1 };
   }
   
-  // Determine cycle: 0 = lowercase, 1 = capital, 2 = double lowercase
+  // Determine cycle: 0 = lowercase, 1 = capital, 2+ = Roman numerals
   const cycle = Math.floor(tier / GREEK_SEQUENCE_LENGTH);
   const greekIndex = tier % GREEK_SEQUENCE_LENGTH;
   
-  return { cycle, isNull: false, isAleph: false, greekIndex };
+  // Check if this is a Roman numeral tier (after capital Greek letters)
+  if (cycle >= 2) {
+    const romanIndex = tier - alephTier + 1; // Roman numerals start at 1
+    return { cycle, isNull: false, isAleph: false, isRoman: true, greekIndex: -1, romanIndex };
+  }
+  
+  return { cycle, isNull: false, isAleph: false, isRoman: false, greekIndex, romanIndex: -1 };
+}
+
+/**
+ * Convert a number to Roman numerals.
+ * Supports numbers from 1 to 3999 with standard Roman numeral rules.
+ * @param {number} num - The number to convert (1-3999)
+ * @returns {string} Roman numeral representation
+ */
+function toRomanNumeral(num) {
+  if (num <= 0 || num > 3999) {
+    // For numbers outside the standard range, use a fallback format
+    return `[${num}]`;
+  }
+  
+  const romanNumerals = [
+    { value: 1000, numeral: 'M' },
+    { value: 900, numeral: 'CM' },
+    { value: 500, numeral: 'D' },
+    { value: 400, numeral: 'CD' },
+    { value: 100, numeral: 'C' },
+    { value: 90, numeral: 'XC' },
+    { value: 50, numeral: 'L' },
+    { value: 40, numeral: 'XL' },
+    { value: 10, numeral: 'X' },
+    { value: 9, numeral: 'IX' },
+    { value: 5, numeral: 'V' },
+    { value: 4, numeral: 'IV' },
+    { value: 1, numeral: 'I' },
+  ];
+  
+  let result = '';
+  let remaining = num;
+  
+  for (const { value, numeral } of romanNumerals) {
+    while (remaining >= value) {
+      result += numeral;
+      remaining -= value;
+    }
+  }
+  
+  return result;
 }
 
 /**
@@ -658,7 +721,7 @@ export class ParticleFusionSimulation {
    * Null particle (tier -1) is the reference size.
    * Each tier above null is 10% larger than null.
    * Capital letters reset to alpha size + 10%.
-   * Double letters reset to alpha size + 20%.
+   * Roman numerals start at a modest size and grow gradually.
    * @param {number} tier - The particle tier
    * @returns {number} Radius in pixels
    */
@@ -684,11 +747,14 @@ export class ParticleFusionSimulation {
       const capitalTierIndex = classification.greekIndex;
       const alphaRadius = this.nullParticleRadius * 1.1; // Alpha is 10% larger than null
       baseSize = alphaRadius * (1 + 0.1 * capitalTierIndex);
-    } else {
-      // Double letters: alpha + 20% per double tier
-      const doubleTierIndex = tier - (GREEK_SEQUENCE_LENGTH * 2);
+    } else if (classification.isRoman) {
+      // Roman numerals: start at alpha size + 5% per Roman tier
       const alphaRadius = this.nullParticleRadius * 1.1;
-      baseSize = alphaRadius * (1 + 0.2 * doubleTierIndex);
+      baseSize = alphaRadius * (1 + 0.05 * (classification.romanIndex - 1));
+    } else {
+      // Fallback for any undefined tier types
+      const alphaRadius = this.nullParticleRadius * 1.1;
+      baseSize = alphaRadius * (1 + 0.1 * (tier - NULL_TIER));
     }
     
     return baseSize;
@@ -2308,12 +2374,15 @@ export class ParticleFusionSimulation {
     if (this.visualSettings.renderForceLinks) {
       for (const link of this.forceLinks) {
         const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
-        const alpha = 0.12 + link.intensity * 0.28;
+        // Increased alpha for better visibility: from 0.12-0.40 to 0.30-0.70
+        const alpha = 0.30 + link.intensity * 0.40;
 
         ctx.save();
         ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
-        ctx.lineWidth = 1.2;
-        ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.5, alpha * 1.8)})`;
+        // Increased line width from 1.2 to 3.0 for thicker, more visible lines
+        ctx.lineWidth = 3.0;
+        // Increased shadow alpha for brighter glow
+        ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.8, alpha * 2.0)})`;
         ctx.shadowBlur = 8;
         ctx.beginPath();
         ctx.moveTo(link.x1, link.y1);
@@ -2329,7 +2398,7 @@ export class ParticleFusionSimulation {
     for (const particle of this.particles) {
       const classification = getTierClassification(particle.tier);
       
-      // Enhanced glow for capital and double letter particles
+      // Enhanced glow for capital letters and Roman numerals
       let glowRadius = particle.radius * 1.5;
       let glowIntensity = 1.0;
       
@@ -2337,14 +2406,14 @@ export class ParticleFusionSimulation {
         // Capital letters: slightly brighter glow
         glowRadius = particle.radius * 2.0;
         glowIntensity = 1.3;
-      } else if (classification.cycle >= 2) {
-        // Double letters: even brighter glow
-        glowRadius = particle.radius * 2.5;
-        glowIntensity = 1.6;
+      } else if (classification.isRoman) {
+        // Roman numerals: distinct darker glow
+        glowRadius = particle.radius * 2.2;
+        glowIntensity = 1.4;
       }
       
       // Outer bright glow for higher tiers
-      if (classification.cycle >= 1) {
+      if (classification.cycle >= 1 || classification.isRoman) {
         const brightGlowGradient = ctx.createRadialGradient(
           particle.x, particle.y, 0,
           particle.x, particle.y, glowRadius
@@ -3146,7 +3215,7 @@ export class ParticleFusionSimulation {
 }
 
 /**
- * Retrieve metadata for the provided tier with support for null, lowercase, capital, double, and aleph.
+ * Retrieve metadata for the provided tier with support for null, lowercase, capital, Roman numerals, and aleph.
  * @param {number} tier - Tier index (NULL_TIER = -1 for null particle, 0+ for Greek tiers)
  * @returns {{name: string, letter: string, displayName: string}}
  */
@@ -3175,35 +3244,33 @@ function getGreekTierInfo(tier) {
   }
 
   const classification = getTierClassification(safeTier);
-  const greekIndex = classification.greekIndex;
-  const cycle = classification.cycle;
-  const baseInfo = GREEK_TIER_SEQUENCE[greekIndex];
   const displayTier = toDisplayTier(safeTier);
   
   let name, letter, displayName;
   
-  if (cycle === 0) {
+  if (classification.isRoman) {
+    // Roman numerals (tiers 48+)
+    const romanNum = toRomanNumeral(classification.romanIndex);
+    name = `Roman ${romanNum}`;
+    letter = romanNum;
+    displayName = `${letter} – Tier ${displayTier}`;
+  } else if (classification.cycle === 0) {
     // Lowercase Greek letters (tiers 0-23)
+    const baseInfo = GREEK_TIER_SEQUENCE[classification.greekIndex];
     name = baseInfo.name;
     letter = baseInfo.letter;
     displayName = `${name} (${letter}) – Tier ${displayTier}`;
-  } else if (cycle === 1) {
+  } else if (classification.cycle === 1) {
     // Capital Greek letters (tiers 24-47)
+    const baseInfo = GREEK_TIER_SEQUENCE[classification.greekIndex];
     name = `Capital ${baseInfo.name}`;
     letter = baseInfo.capital;
     displayName = `${name} (${letter}) – Tier ${displayTier}`;
   } else {
-    // Double letters: Alpha Alpha, Alpha Beta, etc. (tiers 48+)
-    const firstLetterIndex = Math.floor((safeTier - alephTier) / GREEK_SEQUENCE_LENGTH);
-    const secondLetterIndex = (safeTier - alephTier) % GREEK_SEQUENCE_LENGTH;
-    const firstName = GREEK_TIER_SEQUENCE[firstLetterIndex]?.name || 'Alpha';
-    const secondName = GREEK_TIER_SEQUENCE[secondLetterIndex]?.name || 'Alpha';
-    const firstLetter = GREEK_TIER_SEQUENCE[firstLetterIndex]?.letter || 'α';
-    const secondLetter = GREEK_TIER_SEQUENCE[secondLetterIndex]?.letter || 'α';
-
-    name = `${firstName} ${secondName}`;
-    letter = `${firstLetter}${secondLetter}`;
-    displayName = `${name} (${letter}) – Tier ${displayTier}`;
+    // Fallback for any other case
+    name = `Tier ${displayTier}`;
+    letter = `T${displayTier}`;
+    displayName = `${name}`;
   }
 
   return { name, letter, displayName, displayTier };
