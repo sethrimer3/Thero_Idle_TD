@@ -560,6 +560,7 @@ export class GravitySimulation {
   /**
    * Initialize 5 asteroids at random orbital distances.
    * Asteroids face upward in their sprites and should rotate to face the sun.
+   * Each asteroid maintains its fixed orbit distance.
    */
   initializeAsteroids() {
     this.asteroids = [];
@@ -595,6 +596,8 @@ export class GravitySimulation {
         vy,
         spriteIndex: i % this.sprites.asteroids.length,
         size: this.rng.range(20, 40), // Random size for variety
+        orbitRadius: orbitRadiusDevice, // Store the fixed orbit distance
+        maxRenderDistance: maxAsteroidR * dpr, // Store max distance for opacity calculation
       });
     }
   }
@@ -1800,6 +1803,7 @@ export class GravitySimulation {
   
   /**
    * Update asteroids - they orbit the sun and collide with stars.
+   * Asteroids maintain their fixed orbit distance from the sun.
    */
   updateAsteroids(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
@@ -1812,18 +1816,30 @@ export class GravitySimulation {
       const distSq = Math.max(dx * dx + dy * dy, this.epsilon * this.epsilon);
       const dist = Math.sqrt(distSq);
       
-      // Calculate gravitational acceleration
-      const forceMagnitude = (this.G * this.starMass) / distSq;
-      const ax = (dx / dist) * forceMagnitude;
-      const ay = (dy / dist) * forceMagnitude;
+      // Calculate current angle
+      const currentAngle = Math.atan2(asteroid.y - this.centerY, asteroid.x - this.centerX);
       
-      // Update velocity
-      asteroid.vx += ax * dt;
-      asteroid.vy += ay * dt;
+      // Calculate tangential velocity for stable orbit at fixed radius
+      const orbitRadius = asteroid.orbitRadius || dist;
+      const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadius, this.epsilon));
+      
+      // Set velocity to be purely tangential (perpendicular to radius)
+      asteroid.vx = -Math.sin(currentAngle) * circularSpeed;
+      asteroid.vy = Math.cos(currentAngle) * circularSpeed;
       
       // Update position
       asteroid.x += asteroid.vx * dt;
       asteroid.y += asteroid.vy * dt;
+      
+      // Correct position to maintain fixed orbit distance
+      const newDx = asteroid.x - this.centerX;
+      const newDy = asteroid.y - this.centerY;
+      const newDist = Math.sqrt(newDx * newDx + newDy * newDy);
+      if (newDist > 0.001) {
+        const correctionFactor = orbitRadius / newDist;
+        asteroid.x = this.centerX + newDx * correctionFactor;
+        asteroid.y = this.centerY + newDy * correctionFactor;
+      }
       
       // Check collision with stars
       for (let i = this.stars.length - 1; i >= 0; i--) {
@@ -2162,6 +2178,7 @@ export class GravitySimulation {
     this.renderGeyserParticles(ctx, centerXScaled, centerYScaled, coreRadius);
     
     // Draw asteroids (always facing the sun)
+    // Opacity: 100% near sun, 10% at edge based on distance
     if (this.spritesLoaded && this.sprites.asteroids.length > 0) {
       for (const asteroid of this.asteroids) {
         const asteroidX = asteroid.x / dpr;
@@ -2176,6 +2193,19 @@ export class GravitySimulation {
           const dx = centerXScaled - asteroidX;
           const dy = centerYScaled - asteroidY;
           const angle = Math.atan2(dy, dx);
+          
+          // Calculate distance from sun for opacity
+          const distFromSun = Math.sqrt(dx * dx + dy * dy);
+          const sunRadius = coreRadius;
+          const maxRenderDistance = asteroid.maxRenderDistance ? asteroid.maxRenderDistance / dpr : this.calculateMaxSpawnRadiusCss();
+          
+          // Calculate opacity: 100% at sun surface, 10% at edge
+          // distFromSun ranges from sunRadius to maxRenderDistance
+          const normalizedDist = Math.max(0, Math.min(1, (distFromSun - sunRadius) / (maxRenderDistance - sunRadius)));
+          const opacity = 1.0 - (normalizedDist * 0.9); // 1.0 at sun, 0.1 at edge
+          
+          // Apply opacity
+          ctx.globalAlpha = opacity;
           
           // Rotate to face sun (sprite faces upward, so add 90 degrees)
           ctx.rotate(angle + Math.PI / 2);

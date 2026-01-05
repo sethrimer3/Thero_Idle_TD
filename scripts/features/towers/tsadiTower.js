@@ -1182,6 +1182,9 @@ export class ParticleFusionSimulation {
         const p1InfluenceRadius = p1.radius * 5;
         const p2InfluenceRadius = p2.radius * 5;
         const interactionRadius = Math.max(p1InfluenceRadius, p2InfluenceRadius);
+        
+        // Double the visual connection distance (10×) while keeping force interaction at 5×
+        const visualRadius = interactionRadius * 2;
 
         if (dist < interactionRadius && dist > 0.001) {
           // Average repelling force between the two particles
@@ -1210,6 +1213,24 @@ export class ParticleFusionSimulation {
               y2: p2.y,
               intensity: proximityStrength,
               isRepelling: forceMagnitude >= 0,
+              distance: dist,
+              maxDistance: visualRadius,
+            });
+          }
+        } else if (dist < visualRadius && dist > 0.001) {
+          // Show visual connection without applying force
+          if (collectForceLinks) {
+            // Calculate intensity based on visual radius for smooth opacity gradient
+            const visualStrength = 1 - dist / visualRadius;
+            this.forceLinks.push({
+              x1: p1.x,
+              y1: p1.y,
+              x2: p2.x,
+              y2: p2.y,
+              intensity: visualStrength,
+              isRepelling: true, // Default to repelling color
+              distance: dist,
+              maxDistance: visualRadius,
             });
           }
         }
@@ -2374,8 +2395,9 @@ export class ParticleFusionSimulation {
     if (this.visualSettings.renderForceLinks) {
       for (const link of this.forceLinks) {
         const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
-        // Increased alpha for better visibility: from 0.12-0.40 to 0.30-0.70
-        const alpha = 0.30 + link.intensity * 0.40;
+        // Smooth opacity gradient from 0 (at max distance) to 1 (when touching)
+        // link.intensity already represents this gradient (1 - distance/maxDistance)
+        const alpha = link.intensity;
 
         ctx.save();
         ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
