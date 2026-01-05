@@ -288,21 +288,21 @@ function getTierClassification(tier) {
     return { cycle: -1, isNull: true, isAleph: false, isRoman: false, greekIndex: -1, romanIndex: -1 };
   }
   
-  // Check if aleph (after omega omega = tier 47)
+  // Check if aleph (tier 48: after capital omega = tier 47)
   const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
-  if (tier >= alephTier) {
+  if (tier === alephTier) {
     return { cycle: 3, isNull: false, isAleph: true, isRoman: false, greekIndex: -1, romanIndex: -1 };
   }
   
-  // Determine cycle: 0 = lowercase, 1 = capital, 2+ = Roman numerals
+  // Check if Roman numeral tier (tier 49+)
+  if (tier > alephTier) {
+    const romanIndex = tier - alephTier; // Roman numerals start at 1 for tier 49
+    return { cycle: 2, isNull: false, isAleph: false, isRoman: true, greekIndex: -1, romanIndex };
+  }
+  
+  // Greek tiers: 0 = lowercase, 1 = capital
   const cycle = Math.floor(tier / GREEK_SEQUENCE_LENGTH);
   const greekIndex = tier % GREEK_SEQUENCE_LENGTH;
-  
-  // Check if this is a Roman numeral tier (after capital Greek letters)
-  if (cycle >= 2) {
-    const romanIndex = tier - alephTier + 1; // Roman numerals start at 1
-    return { cycle, isNull: false, isAleph: false, isRoman: true, greekIndex: -1, romanIndex };
-  }
   
   return { cycle, isNull: false, isAleph: false, isRoman: false, greekIndex, romanIndex: -1 };
 }
@@ -3232,13 +3232,13 @@ function getGreekTierInfo(tier) {
     };
   }
 
-  // Handle aleph particle (after omega omega)
+  // Handle aleph particle (tier 48: after capital omega)
   const alephTier = GREEK_SEQUENCE_LENGTH * 2; // 48 for 24 Greek letters
-  if (safeTier >= alephTier) {
+  if (safeTier === alephTier) {
     return {
       name: 'Aleph',
       letter: 'ℵ', // Aleph symbol
-      displayName: 'Aleph – Final Tier',
+      displayName: 'Aleph – Tier 49',
       displayTier: safeTier + 1,
     };
   }
@@ -3249,7 +3249,7 @@ function getGreekTierInfo(tier) {
   let name, letter, displayName;
   
   if (classification.isRoman) {
-    // Roman numerals (tiers 48+)
+    // Roman numerals (tiers 49+)
     const romanNum = toRomanNumeral(classification.romanIndex);
     name = `Roman ${romanNum}`;
     letter = romanNum;
