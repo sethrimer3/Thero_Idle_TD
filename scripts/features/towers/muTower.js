@@ -29,6 +29,15 @@ const TIER_CHARGE_TIME = 2.0; // Seconds to advance one tier
 const MINE_RADIUS_METERS = 0.3; // Visual size of the mine center
 const POLYGON_BASE_SIZE = 0.42; // Size multiplier for the mine polygon visuals (in meters)
 const POLYGON_TIER_GROWTH = 1.12; // Growth factor applied per tier for polygon size
+// Sprite paths for μ tower mines by tier so visuals match the authored art assets.
+const MU_MINE_SPRITE_PATHS = Array.from(
+  { length: 14 },
+  (_, index) => `../../../assets/sprites/towers/mu/projectiles/mineLevel (${index + 1}).png`,
+);
+// Cache for loaded μ mine sprites keyed by tier index.
+const MU_MINE_SPRITE_IMAGES = new Array(MU_MINE_SPRITE_PATHS.length).fill(null);
+// Track which μ mine sprites have completed loading.
+const MU_MINE_SPRITE_READY = new Array(MU_MINE_SPRITE_PATHS.length).fill(false);
 
 /**
  * Convert a tier value into a Roman numeral for the mine label.
@@ -71,6 +80,54 @@ function clampTierValue(rawTier) {
     return 1;
   }
   return Math.max(1, Math.round(rawTier));
+}
+
+/**
+ * Clamp a tier value to the available sprite index range.
+ */
+function clampMuMineSpriteIndex(tier) {
+  if (!Number.isFinite(tier) || tier < 1) {
+    return null;
+  }
+  const spriteIndex = Math.min(MU_MINE_SPRITE_PATHS.length - 1, Math.floor(tier) - 1);
+  return spriteIndex >= 0 ? spriteIndex : null;
+}
+
+/**
+ * Lazily load a μ mine sprite image so mines can render with tiered artwork.
+ */
+function ensureMuMineSpriteLoaded(spriteIndex) {
+  if (typeof Image === 'undefined') {
+    return null;
+  }
+  if (MU_MINE_SPRITE_IMAGES[spriteIndex]) {
+    return MU_MINE_SPRITE_IMAGES[spriteIndex];
+  }
+  const image = new Image();
+  image.onload = () => {
+    MU_MINE_SPRITE_READY[spriteIndex] = true;
+  };
+  image.src = encodeURI(MU_MINE_SPRITE_PATHS[spriteIndex]);
+  MU_MINE_SPRITE_IMAGES[spriteIndex] = image;
+  return image;
+}
+
+/**
+ * Resolve the sprite image (if available) for the requested tier.
+ */
+function resolveMuMineSprite(tier) {
+  const spriteIndex = clampMuMineSpriteIndex(tier);
+  if (spriteIndex === null) {
+    return null;
+  }
+  const image = ensureMuMineSpriteLoaded(spriteIndex);
+  if (!image) {
+    return null;
+  }
+  return {
+    image,
+    ready: MU_MINE_SPRITE_READY[spriteIndex],
+  };
 }
 
 /**
@@ -483,7 +540,7 @@ export function updateMuTower(playfield, tower, delta) {
 }
 
 /**
- * Draw a polygon-based mine where each tier adds an edge and a Roman numeral label.
+ * Draw a tiered μ mine using sprites when ready, otherwise fall back to polygon geometry.
  */
 function drawPolygonMine(ctx, mine, minDimension, colors) {
   const x = mine.x;
@@ -499,37 +556,45 @@ function drawPolygonMine(ctx, mine, minDimension, colors) {
     : 0.55 + 0.35 * Math.min(1, mine.chargeProgress / TIER_CHARGE_TIME);
   const strokeColor = mine.prestige ? colors[0] : colors[1];
   const fillColor = mine.prestige ? colors[2] : colors[0];
+  const sprite = resolveMuMineSprite(tier);
 
   ctx.save();
 
-  // Draw the main polygon shell.
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha})`;
-  ctx.fillStyle = `rgba(${fillColor.r}, ${fillColor.g}, ${fillColor.b}, ${baseAlpha * 0.4})`;
-  ctx.beginPath();
+  if (sprite?.ready && sprite.image?.naturalWidth && sprite.image?.naturalHeight) {
+    // Render the tier sprite scaled to the calculated mine radius.
+    const spriteSize = radiusPixels * 2;
+    ctx.globalAlpha = baseAlpha;
+    ctx.drawImage(sprite.image, x - spriteSize / 2, y - spriteSize / 2, spriteSize, spriteSize);
+  } else {
+    // Draw the main polygon shell while the sprite loads or when a tier sprite is missing.
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha})`;
+    ctx.fillStyle = `rgba(${fillColor.r}, ${fillColor.g}, ${fillColor.b}, ${baseAlpha * 0.4})`;
+    ctx.beginPath();
 
-  for (let i = 0; i < sides; i++) {
-    const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
-    const px = x + radiusPixels * Math.cos(angle);
-    const py = y + radiusPixels * Math.sin(angle);
+    for (let i = 0; i < sides; i++) {
+      const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
+      const px = x + radiusPixels * Math.cos(angle);
+      const py = y + radiusPixels * Math.sin(angle);
 
-    if (i === 0) {
-      ctx.moveTo(px, py);
-    } else {
-      ctx.lineTo(px, py);
+      if (i === 0) {
+        ctx.moveTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
     }
+
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Inner ring to emphasize charge state.
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha * 0.65})`;
+    ctx.beginPath();
+    ctx.arc(x, y, radiusPixels * 0.58, 0, Math.PI * 2);
+    ctx.stroke();
   }
-
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Inner ring to emphasize charge state.
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = `rgba(${strokeColor.r}, ${strokeColor.g}, ${strokeColor.b}, ${baseAlpha * 0.65})`;
-  ctx.beginPath();
-  ctx.arc(x, y, radiusPixels * 0.58, 0, Math.PI * 2);
-  ctx.stroke();
 
   // Tier indicator in Roman numerals.
   if (tier > 0) {
