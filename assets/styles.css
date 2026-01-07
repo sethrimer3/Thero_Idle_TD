@@ -15087,8 +15087,13 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   #panel-fluid .fluid-grid:first-of-type,
   .lamed-simulation-slot,
   .tsadi-simulation-slot,
-  .shin-game-content,
   .kuf-card--simulation {
+    margin-inline: calc(-1 * var(--panel-padding));
+  }
+
+  /* Expand the Shin render wrapper so the canvas fills the full viewport width. */
+  .shin-game-content {
+    width: calc(100% + (var(--panel-padding) * 2));
     margin-inline: calc(-1 * var(--panel-padding));
   }
 
