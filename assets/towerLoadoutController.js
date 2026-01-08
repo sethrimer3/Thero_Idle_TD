@@ -35,18 +35,10 @@ export function createTowerLoadoutController({
     list: null,
     slotIndex: -1,
     activeIndex: 0,
-    focusIndex: 0,
-    targetIndex: 0,
-    itemHeight: 0,
-    animationFrame: null,
     towers: [],
     outsideHandler: null,
-    pointerId: null,
-    lastY: 0,
-    dragAccumulator: 0,
+    wheelHandler: null,
     anchorElement: null,
-    verticalOffset: 0,
-    horizontalOffset: 0,
   };
   const loadoutUiState = { collapsed: false, toggleHandler: null };
 
@@ -371,33 +363,17 @@ export function createTowerLoadoutController({
    */
   function closeLoadoutWheel() {
     clearWheelHoldTimer();
-    if (wheelState.list && wheelState.pointerId !== null) {
-      try {
-        wheelState.list.releasePointerCapture(wheelState.pointerId);
-      } catch (error) {
-        // Ignore pointer capture errors so cleanup always completes.
-      }
+    if (wheelState.wheelHandler && wheelState.list) {
+      wheelState.list.removeEventListener('wheel', wheelState.wheelHandler);
     }
-    document.removeEventListener('pointermove', handleWheelDragMove);
-    document.removeEventListener('pointerup', endWheelDrag);
-    document.removeEventListener('pointercancel', endWheelDrag);
     if (wheelState.outsideHandler) {
       document.removeEventListener('pointerdown', wheelState.outsideHandler, { passive: true });
-    }
-    if (wheelState.animationFrame) {
-      cancelAnimationFrame(wheelState.animationFrame);
     }
     if (wheelState.anchorElement) {
       wheelState.anchorElement.classList.remove('tower-loadout-item--active-wheel');
     }
     wheelState.outsideHandler = null;
-    wheelState.pointerId = null;
-    wheelState.dragAccumulator = 0;
-    wheelState.lastY = 0;
-    wheelState.focusIndex = 0;
-    wheelState.targetIndex = 0;
-    wheelState.itemHeight = 0;
-    wheelState.animationFrame = null;
+    wheelState.wheelHandler = null;
     if (wheelState.container?.parentNode) {
       wheelState.container.remove();
     }
@@ -406,8 +382,23 @@ export function createTowerLoadoutController({
     wheelState.towers = [];
     wheelState.slotIndex = -1;
     wheelState.anchorElement = null;
-    wheelState.verticalOffset = 0;
-    wheelState.horizontalOffset = 0;
+  }
+
+  /**
+   * Handle scroll wheel events to shift towers step-wise.
+   */
+  function shiftLoadoutWheel(delta) {
+    if (!wheelState.towers || !wheelState.towers.length) {
+      return;
+    }
+    const nextIndex = Math.min(
+      Math.max(wheelState.activeIndex + delta, 0),
+      Math.max(0, wheelState.towers.length - 1),
+    );
+    if (nextIndex !== wheelState.activeIndex) {
+      wheelState.activeIndex = nextIndex;
+      renderLoadoutWheel();
+    }
   }
 
   /**
@@ -446,99 +437,13 @@ export function createTowerLoadoutController({
     const desiredTop = anchorCenterY - containerRect.height / 2;
     const left = Math.min(boundedMaxLeft, Math.max(minLeft, desiredLeft));
     const top = Math.min(boundedMaxTop, Math.max(minTop, desiredTop));
-    // Track how far the wheel was clamped vertically so the list can be nudged to stay aligned with the held slot.
-    wheelState.verticalOffset = desiredTop - top;
-    // Track horizontal clamp offset so the wheel contents can stay centered on the slot even near the viewport edge.
-    wheelState.horizontalOffset = desiredLeft - left;
     wheelState.container.style.left = `${left + scrollX}px`;
     wheelState.container.style.top = `${top + scrollY}px`;
-    if (wheelState.list) {
-      updateLoadoutWheelTransform({ immediate: true, skipReposition: true });
-    }
   }
 
   /**
-   * Update the wheel list items to mirror the focused index and affordability state.
-   */
-  function updateLoadoutWheelDistances() {
-    const { list, towers } = wheelState;
-    if (!list || !Array.isArray(towers) || !towers.length) {
-      return;
-    }
-    const focusIndex = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : wheelState.activeIndex;
-    Array.from(list.children).forEach((child, index) => {
-      const distance = Math.min(2, Math.round(Math.abs(index - focusIndex)));
-      child.dataset.distance = String(distance);
-    });
-  }
-
-  /**
-   * Smoothly translate the wheel list so the focused option is centered.
-   */
-  function updateLoadoutWheelTransform({ immediate = false, skipReposition = false } = {}) {
-    const { list, towers } = wheelState;
-    if (!list || !Array.isArray(towers) || !towers.length || !Number.isFinite(wheelState.focusIndex)) {
-      return;
-    }
-    const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
-    const listHeight = list.getBoundingClientRect()?.height || itemHeight;
-    const offset =
-      -wheelState.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2 + (wheelState.verticalOffset || 0);
-    list.style.willChange = 'transform';
-    list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
-    list.style.transform = `translate(${wheelState.horizontalOffset || 0}px, ${offset}px)`;
-    const roundedIndex = Math.min(
-      Math.max(Math.round(wheelState.focusIndex), 0),
-      Math.max(0, towers.length - 1),
-    );
-    wheelState.activeIndex = roundedIndex;
-    updateLoadoutWheelDistances();
-    if (wheelState.anchorElement && !skipReposition) {
-      positionLoadoutWheel(wheelState.anchorElement);
-    }
-    if (immediate) {
-      requestAnimationFrame(() => {
-        if (wheelState.list) {
-          wheelState.list.style.transition = 'transform 140ms ease-out';
-        }
-      });
-    }
-  }
-
-  /**
-   * Ease the focus index toward a target for smoother scrolling.
-   */
-  function setLoadoutWheelTarget(targetIndex) {
-    const { towers } = wheelState;
-    if (!Array.isArray(towers) || !towers.length) {
-      return;
-    }
-    const clamped = Math.min(Math.max(targetIndex, 0), Math.max(0, towers.length - 1));
-    wheelState.targetIndex = clamped;
-    if (!Number.isFinite(wheelState.focusIndex)) {
-      wheelState.focusIndex = clamped;
-    }
-    const stepAnimation = () => {
-      const target = Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.focusIndex;
-      const current = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : target;
-      const delta = target - current;
-      if (Math.abs(delta) < 0.002) {
-        wheelState.focusIndex = target;
-        updateLoadoutWheelTransform();
-        wheelState.animationFrame = null;
-        return;
-      }
-      wheelState.focusIndex = current + delta * 0.2;
-      updateLoadoutWheelTransform();
-      wheelState.animationFrame = requestAnimationFrame(stepAnimation);
-    };
-    if (!wheelState.animationFrame) {
-      wheelState.animationFrame = requestAnimationFrame(stepAnimation);
-    }
-  }
-
-  /**
-   * Update the wheel list items to mirror the active index and affordability state.
+   * Render exactly 3 tower icons stacked vertically: previous, current (center), and next.
+   * Simplified inline display with step-wise navigation.
    */
   function renderLoadoutWheel({ immediate = false } = {}) {
     const { list, towers } = wheelState;
@@ -547,147 +452,95 @@ export function createTowerLoadoutController({
     }
     const clampedIndex = Math.min(Math.max(wheelState.activeIndex, 0), towers.length - 1);
     wheelState.activeIndex = clampedIndex;
-    wheelState.focusIndex = Number.isFinite(wheelState.focusIndex) ? wheelState.focusIndex : clampedIndex;
-    wheelState.targetIndex = Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : clampedIndex;
     list.innerHTML = '';
 
-    towers.forEach((definition, index) => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'tower-loadout-wheel__item';
-      item.dataset.towerId = definition.id;
-      item.dataset.distance = String(Math.abs(index - clampedIndex));
-
-      const costState = resolveTowerCostState(definition.id);
-      const art = safeCreateTowerIconElement(definition, {
-        className: 'tower-loadout-wheel__icon',
-        alt: `${definition.name} icon`,
-      });
-      if (art) {
-        item.append(art);
-      }
-
-      const infoRow = document.createElement('div');
-      infoRow.className = 'tower-loadout-wheel__info';
-
-      const costValue = Number.isFinite(costState.anchorCostValue) ? costState.anchorCostValue : 0;
-      const costLabel = document.createElement('span');
-      costLabel.className = 'tower-loadout-wheel__cost';
-      costLabel.textContent = `${safeFormatCombatNumber(costValue)} ${safeGetTheroSymbol()}`;
-      infoRow.append(costLabel);
-
-      item.append(infoRow);
-      item.dataset.affordable = costState.canAffordAnchor ? 'true' : 'false';
-      item.setAttribute(
-        'aria-label',
-        `${definition.symbol || definition.name || definition.id} — ${safeFormatCombatNumber(costValue)} ${
-          safeGetTheroSymbol()
-        }`,
-      );
-
-      // Require a deliberate double click before swapping a loadout slot.
-      item.addEventListener('dblclick', () => {
-        wheelState.activeIndex = index;
-        const slots = safeGetLoadoutSlots();
-        if (Array.isArray(slots) && wheelState.slotIndex >= 0 && wheelState.slotIndex < slots.length) {
-          const duplicateIndex = slots.findIndex((id, slotIdx) => id === definition.id && slotIdx !== wheelState.slotIndex);
-          if (duplicateIndex !== -1) {
-            slots[duplicateIndex] = null;
-          }
-          slots[wheelState.slotIndex] = definition.id;
-          renderTowerLoadout();
-          safeSyncLoadoutToPlayfield();
+    // Calculate which 3 towers to show: previous, current, next
+    const indicesToShow = [];
+    const centerIndex = clampedIndex;
+    
+    // Previous tower (above current)
+    if (centerIndex > 0) {
+      indicesToShow.push({ index: centerIndex - 1, position: 'above' });
+    } else {
+      indicesToShow.push({ index: null, position: 'above' });
+    }
+    
+    // Current tower (center/middle)
+    indicesToShow.push({ index: centerIndex, position: 'center' });
+    
+    // Next tower (below current)
+    if (centerIndex < towers.length - 1) {
+      indicesToShow.push({ index: centerIndex + 1, position: 'below' });
+    } else {
+      indicesToShow.push({ index: null, position: 'below' });
+    }
+    
+    // Render each visible tower icon
+    indicesToShow.forEach(({ index, position }) => {
+      const item = document.createElement('div');
+      item.className = `tower-loadout-wheel__icon-simple tower-loadout-wheel__icon-simple--${position}`;
+      
+      if (index !== null) {
+        const definition = towers[index];
+        const art = safeCreateTowerIconElement(definition, {
+          className: 'tower-loadout-wheel__icon-img',
+          alt: `${definition.name} icon`,
+        });
+        if (art) {
+          item.appendChild(art);
         }
-        closeLoadoutWheel();
-      });
-
-      list.append(item);
+        
+        // Make the center tower tappable for selection
+        if (position === 'center') {
+          item.classList.add('tower-loadout-wheel__icon-simple--active');
+          item.addEventListener('click', (event) => {
+            event.stopPropagation();
+            selectLoadoutTower(definition);
+          });
+          item.addEventListener('touchend', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            selectLoadoutTower(definition);
+          });
+        }
+      } else {
+        // Empty slot for when at start/end of list
+        item.classList.add('tower-loadout-wheel__icon-simple--empty');
+      }
+      
+      list.appendChild(item);
     });
-
-    const firstItem = list.querySelector('.tower-loadout-wheel__item');
-    wheelState.itemHeight = firstItem?.getBoundingClientRect?.().height || LOADOUT_SCROLL_STEP_PX;
-    const itemHeight = Math.max(1, wheelState.itemHeight);
-    const listStyles = window.getComputedStyle(list);
-    const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
-    const listGap = Number.parseFloat(gapValue) || 0;
-    const totalHeight = itemHeight * Math.max(1, towers.length) + listGap * Math.max(0, towers.length - 1);
-    const viewportHeight = document.documentElement?.clientHeight || window.innerHeight || totalHeight;
-    // Keep the wheel height within the active playfield to prevent overflow beyond the battlefield.
-    const playfield = safeGetPlayfield();
-    const playfieldBounds =
-      playfield?.isInteractiveLevelActive?.() && playfield?.container?.getBoundingClientRect?.()
-        ? playfield.container.getBoundingClientRect()
-        : null;
-    const availableHeight = playfieldBounds?.height ? playfieldBounds.height - 24 : viewportHeight - 24;
-    // Clamp the wheel height to the viewport so the active option can sit over the slot without clipping off-screen.
-    const clampedHeight = Math.min(totalHeight, Math.max(itemHeight * MAX_VISIBLE_LOADOUT_ITEMS, availableHeight));
-    list.style.setProperty('--tower-loadout-wheel-height', `${clampedHeight}px`);
-    updateLoadoutWheelTransform({ immediate });
   }
 
   /**
-   * Begin listening for drag gestures on the wheel to emulate a scrolling column.
+   * Apply the selected tower to the loadout slot.
    */
-  function beginWheelDrag(event) {
-    wheelState.pointerId = event.pointerId;
-    wheelState.lastY = event.clientY;
-    wheelState.dragAccumulator = 0;
-    try {
-      wheelState.list?.setPointerCapture?.(event.pointerId);
-    } catch (error) {
-      // Ignore pointer capture errors so drag gestures remain responsive.
-    }
-    document.addEventListener('pointermove', handleWheelDragMove);
-    document.addEventListener('pointerup', endWheelDrag);
-    document.addEventListener('pointercancel', endWheelDrag);
-  }
-
-  /**
-   * Translate vertical drag movement into wheel index changes.
-   */
-  function handleWheelDragMove(event) {
-    if (event.pointerId !== wheelState.pointerId) {
+  function selectLoadoutTower(definition) {
+    if (!definition) {
       return;
     }
-    const deltaY = event.clientY - wheelState.lastY;
-    wheelState.lastY = event.clientY;
-    wheelState.dragAccumulator += deltaY;
-    const itemHeight = Math.max(1, wheelState.itemHeight || LOADOUT_SCROLL_STEP_PX);
-    const deltaIndex = wheelState.dragAccumulator / itemHeight;
-    if (Math.abs(deltaIndex) >= 0.01) {
-      const currentTarget = Number.isFinite(wheelState.targetIndex)
-        ? wheelState.targetIndex
-        : wheelState.activeIndex;
-      setLoadoutWheelTarget(currentTarget - deltaIndex);
-      wheelState.dragAccumulator = 0;
+    const slots = safeGetLoadoutSlots();
+    if (Array.isArray(slots) && wheelState.slotIndex >= 0 && wheelState.slotIndex < slots.length) {
+      const duplicateIndex = slots.findIndex((id, slotIdx) => id === definition.id && slotIdx !== wheelState.slotIndex);
+      if (duplicateIndex !== -1) {
+        slots[duplicateIndex] = null;
+      }
+      slots[wheelState.slotIndex] = definition.id;
+      
+      // Play the menu selection sound
+      const audioManager = safeGetAudioManager();
+      if (audioManager) {
+        audioManager.playSfx('menuSelect');
+      }
+      
+      renderTowerLoadout();
+      safeSyncLoadoutToPlayfield();
     }
+    closeLoadoutWheel();
   }
 
   /**
-   * Stop tracking drag gestures when the pointer is released or cancelled.
-   */
-  function endWheelDrag(event) {
-    if (event.pointerId !== wheelState.pointerId) {
-      return;
-    }
-    document.removeEventListener('pointermove', handleWheelDragMove);
-    document.removeEventListener('pointerup', endWheelDrag);
-    document.removeEventListener('pointercancel', endWheelDrag);
-    try {
-      wheelState.list?.releasePointerCapture?.(event.pointerId);
-    } catch (error) {
-      // Ignore release failures while still clearing drag state.
-    }
-    if (wheelState.towers.length) {
-      setLoadoutWheelTarget(Math.round(wheelState.focusIndex));
-    }
-    wheelState.pointerId = null;
-    wheelState.dragAccumulator = 0;
-    wheelState.lastY = 0;
-  }
-
-  /**
-   * Open the wheel overlay anchored to a specific slot.
+   * Open the wheel overlay anchored to a specific slot with simplified 3-icon display.
    */
   function openLoadoutWheel(slotIndex, anchorElement) {
     closeLoadoutWheel();
@@ -702,9 +555,9 @@ export function createTowerLoadoutController({
     const activeIndex = towers.findIndex((definition) => definition.id === slotTowerId);
 
     const container = document.createElement('div');
-    container.className = 'tower-loadout-wheel';
+    container.className = 'tower-loadout-wheel tower-loadout-wheel--simplified';
     const list = document.createElement('div');
-    list.className = 'tower-loadout-wheel__list';
+    list.className = 'tower-loadout-wheel__list tower-loadout-wheel__list--simplified';
     container.append(list);
 
     wheelState.container = container;
@@ -712,8 +565,6 @@ export function createTowerLoadoutController({
     wheelState.slotIndex = slotIndex;
     wheelState.towers = towers;
     wheelState.activeIndex = activeIndex >= 0 ? activeIndex : 0;
-    wheelState.focusIndex = wheelState.activeIndex;
-    wheelState.targetIndex = wheelState.activeIndex;
     wheelState.anchorElement = anchorElement || null;
 
     if (wheelState.anchorElement) {
@@ -726,20 +577,16 @@ export function createTowerLoadoutController({
 
     renderLoadoutWheel({ immediate: true });
 
-    list.addEventListener('pointerdown', beginWheelDrag);
-    list.addEventListener('wheel', (event) => {
+    // Handle scroll wheel events for step-wise navigation
+    const handleScroll = (event) => {
       event.preventDefault();
       const delta = event.deltaY || 0;
       const direction = delta > 0 ? 1 : -1;
-      const currentIndex = Math.round(Number.isFinite(wheelState.targetIndex) ? wheelState.targetIndex : wheelState.activeIndex);
-      const newTarget = currentIndex + direction;
-      const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheelState.towers.length - 1));
-      // Use immediate snapping by setting all indices directly and updating transform immediately
-      wheelState.focusIndex = clampedTarget;
-      wheelState.targetIndex = clampedTarget;
-      wheelState.activeIndex = clampedTarget;
-      updateLoadoutWheelTransform({ immediate: true });
-    });
+      shiftLoadoutWheel(direction);
+    };
+    
+    wheelState.wheelHandler = handleScroll;
+    list.addEventListener('wheel', wheelState.wheelHandler, { passive: false });
 
     // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
     const playfield = safeGetPlayfield();
