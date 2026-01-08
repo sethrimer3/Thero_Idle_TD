@@ -3735,12 +3735,7 @@ export class SimplePlayfield {
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
     
-    // Mark this pointer as the one that opened the wheel to prevent immediate closure
-    this.towerSelectionWheel.justReleasedPointerId = state.pointerId;
-    this.towerSelectionWheel.releaseTimestamp = performance.now();
-    
-    // Open the tower selection wheel instead of showing swipe indicators
-    this.openTowerSelectionWheel(tower);
+    // Tower hold gesture is disabled - no action is taken when holding a placed tower
     
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
