@@ -897,6 +897,13 @@ body.graphics-mode-low .control-button {
   max-height: calc(100vh - 2 * clamp(1rem, 5vw, 3rem));
   /* Preserve generous vertical real estate so longer intros fill the viewport. */
   min-height: min(80vh, 96vw);
+  /* Add the chalkboard story panel artwork for the story overlay. */
+  background-image: url('./sprites/pages/blackboardMobile.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 18px;
+  padding: clamp(1.5rem, 4vw, 2.5rem);
   color: #f6f2eb;
   text-align: center;
   font-family: 'Cormorant Garamond', 'Space Mono', serif;
@@ -972,6 +979,13 @@ body.graphics-mode-low .control-button {
 
 .level-story-overlay[data-story-complete='true'] .level-story-overlay__prompt {
   color: rgba(255, 255, 255, 0.9);
+}
+
+@media (min-width: 768px) {
+  .level-story-overlay__content {
+    /* Swap to the landscape chalkboard artwork for desktop story overlays. */
+    background-image: url('./sprites/pages/blackboardDesktop.png');
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7646,10 +7660,15 @@ body.playfield-fullscreen .playfield canvas {
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
+  /* Add the tower card face sprite behind tower icons. */
+  background-image:
+    url('./sprites/towers/towersTab/cardFaceBackground.png'),
     radial-gradient(circle at 18% 16%, rgba(130, 168, 255, 0.16), rgba(130, 168, 255, 0) 55%),
     radial-gradient(circle at 82% 20%, rgba(255, 196, 148, 0.18), rgba(255, 196, 148, 0) 60%),
     linear-gradient(135deg, rgba(10, 14, 28, 0.9), rgba(18, 22, 40, 0.92));
+  background-size: cover, auto, auto, auto;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 16px;
   min-height: 160px;
   display: grid;
