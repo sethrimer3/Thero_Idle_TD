@@ -493,15 +493,23 @@ export function createTowerLoadoutController({
         // Make the center tower tappable for selection
         if (position === 'center') {
           item.classList.add('tower-loadout-wheel__icon-simple--active');
-          item.addEventListener('click', (event) => {
+          
+          // Track if selection was already triggered to prevent double-firing on touch devices
+          let selectionTriggered = false;
+          const handleSelection = (event) => {
+            if (selectionTriggered) {
+              return;
+            }
             event.stopPropagation();
+            if (event.type === 'touchend') {
+              event.preventDefault();
+            }
+            selectionTriggered = true;
             selectLoadoutTower(definition);
-          });
-          item.addEventListener('touchend', (event) => {
-            event.stopPropagation();
-            event.preventDefault();
-            selectLoadoutTower(definition);
-          });
+          };
+          
+          item.addEventListener('click', handleSelection);
+          item.addEventListener('touchend', handleSelection);
         }
       } else {
         // Empty slot for when at start/end of list
