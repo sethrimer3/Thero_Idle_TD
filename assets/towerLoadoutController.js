@@ -393,7 +393,7 @@ export function createTowerLoadoutController({
     }
     const nextIndex = Math.min(
       Math.max(wheelState.activeIndex + delta, 0),
-      Math.max(0, wheelState.towers.length - 1),
+      wheelState.towers.length - 1,
     );
     if (nextIndex !== wheelState.activeIndex) {
       wheelState.activeIndex = nextIndex;

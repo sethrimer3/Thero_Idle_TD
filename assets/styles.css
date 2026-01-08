@@ -2258,7 +2258,9 @@ body.playfield-fullscreen .playfield canvas {
   border-width: 2px;
 }
 
-/* Tower Selection Wheel - DEPRECATED: No longer used (tower hold gesture is disabled) */
+/* Tower Selection Wheel - DEPRECATED: No longer used (tower hold gesture is disabled)
+ * TODO: Remove these deprecated styles in future cleanup
+ */
 .tower-selection-wheel {
   position: absolute;
   display: flex;
