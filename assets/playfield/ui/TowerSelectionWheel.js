@@ -1,62 +1,34 @@
-import { formatCombatNumber } from '../utils/formatting.js';
 import {
   getTowerDefinitions,
-  getNextTowerId,
-  getPreviousTowerId,
   isTowerPlaceable,
   isTowerUnlocked,
 } from '../../towersTab.js';
 
-// Scroll step keeps the tower selection wheel responsive while swiping or dragging through options.
-const TOWER_SELECTION_SCROLL_STEP_PX = 28;
-
 // Grace period to prevent hold release from being treated as an outside click.
 const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
 
-// Maximum number of tower options visible in the selection wheel at once.
-const MAX_VISIBLE_TOWER_ITEMS = 3;
+// Show exactly 3 towers: previous, current (center), next
+const VISIBLE_TOWER_COUNT = 3;
+
+// Slot height for layout calculations - the center slot is at 1.25x this height
+const BASE_SLOT_SIZE = 56;
 
 /**
- * Remove the tower selection wheel overlay and detach related listeners.
+ * Remove the tower selection overlay and detach related listeners.
  */
 export function closeTowerSelectionWheel() {
   const wheel = this.towerSelectionWheel;
   if (!wheel) {
     return;
   }
-  if (wheel.list && wheel.pointerId !== null) {
-    try {
-      wheel.list.releasePointerCapture(wheel.pointerId);
-    } catch (error) {
-      // Ignore pointer capture release errors so cleanup always completes.
-    }
-  }
-  if (wheel.moveHandler) {
-    document.removeEventListener('pointermove', wheel.moveHandler);
-  }
-  if (wheel.endHandler) {
-    document.removeEventListener('pointerup', wheel.endHandler);
-    document.removeEventListener('pointercancel', wheel.endHandler);
-  }
-  if (wheel.outsideHandler) {
-    document.removeEventListener('pointerdown', wheel.outsideHandler);
+  if (wheel.wheelHandler) {
+    document.removeEventListener('wheel', wheel.wheelHandler);
   }
   if (wheel.outsideClickHandler) {
     document.removeEventListener('click', wheel.outsideClickHandler);
+    document.removeEventListener('touchend', wheel.outsideClickHandler);
   }
-  if (wheel.animationFrame) {
-    cancelAnimationFrame(wheel.animationFrame);
-  }
-  wheel.animationFrame = null;
-  wheel.pointerId = null;
-  wheel.dragAccumulator = 0;
-  wheel.lastY = 0;
-  wheel.focusIndex = 0;
-  wheel.targetIndex = 0;
-  wheel.itemHeight = 0;
-  wheel.moveHandler = null;
-  wheel.endHandler = null;
-  wheel.outsideHandler = null;
+  wheel.wheelHandler = null;
   wheel.outsideClickHandler = null;
   wheel.justReleasedPointerId = null;
   wheel.releaseTimestamp = 0;
@@ -64,157 +36,86 @@ export function closeTowerSelectionWheel() {
     wheel.container.remove();
   }
   wheel.container = null;
-  wheel.list = null;
   wheel.towers = [];
   wheel.activeIndex = 0;
   wheel.towerId = null;
 }
 
 /**
- * Render the scrolling tower list so players can pick any lattice for promotion or demotion.
+ * Render 3 tower icons stacked vertically: previous, current (center), and next.
+ * Only shows tower icons, no cost labels or other information.
  */
 export function renderTowerSelectionWheel() {
   const wheel = this.towerSelectionWheel;
-  if (!wheel?.list || !Array.isArray(wheel.towers) || !wheel.towers.length) {
+  if (!wheel?.container || !Array.isArray(wheel.towers) || !wheel.towers.length) {
     return;
   }
-  const activeTower = wheel?.towerId ? this.getTowerById(wheel.towerId) : null;
-  const clampedIndex = Math.min(Math.max(wheel.activeIndex, 0), wheel.towers.length - 1);
-  wheel.activeIndex = clampedIndex;
-  wheel.targetIndex = Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : clampedIndex;
-  wheel.focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : clampedIndex;
-  wheel.list.innerHTML = '';
-
-  wheel.towers.forEach((definition, index) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'tower-loadout-wheel__item';
-    item.dataset.towerId = definition.id;
+  
+  wheel.container.innerHTML = '';
+  const activeIndex = Math.min(Math.max(wheel.activeIndex, 0), wheel.towers.length - 1);
+  
+  // Calculate which 3 towers to show: previous, current, next
+  const indicesToShow = [];
+  const centerIndex = activeIndex;
+  
+  // Previous tower (above current)
+  if (centerIndex > 0) {
+    indicesToShow.push({ index: centerIndex - 1, position: 'above' });
+  } else {
+    indicesToShow.push({ index: null, position: 'above' });
+  }
+  
+  // Current tower (center/middle)
+  indicesToShow.push({ index: centerIndex, position: 'center' });
+  
+  // Next tower (below current)
+  if (centerIndex < wheel.towers.length - 1) {
+    indicesToShow.push({ index: centerIndex + 1, position: 'below' });
+  } else {
+    indicesToShow.push({ index: null, position: 'below' });
+  }
+  
+  // Render each visible tower icon
+  indicesToShow.forEach(({ index, position }) => {
+    const item = document.createElement('div');
+    item.className = `tower-selection-icon tower-selection-icon--${position}`;
     
-    // Calculate initial distance and styling for smooth wheel effect
-    const distance = Math.abs(index - clampedIndex);
-    const roundedDistance = Math.round(distance);
-    item.dataset.distance = String(roundedDistance);
-    item.style.setProperty('--item-distance', distance.toFixed(3));
+    if (index !== null) {
+      const definition = wheel.towers[index];
+      if (definition?.icon) {
+        const icon = document.createElement('img');
+        icon.className = 'tower-selection-icon__image';
+        icon.src = definition.icon;
+        icon.alt = definition.name || definition.id;
+        icon.decoding = 'async';
+        icon.loading = 'eager';
+        item.appendChild(icon);
+      }
+      
+      // Make the center tower tappable for selection
+      if (position === 'center') {
+        item.classList.add('tower-selection-icon--active');
+        item.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.applyTowerSelection(definition);
+        });
+        item.addEventListener('touchend', (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          this.applyTowerSelection(definition);
+        });
+      }
+    } else {
+      // Empty slot for when at start/end of list
+      item.classList.add('tower-selection-icon--empty');
+    }
     
-    // Set initial opacity and scale based on distance
-    let opacity = 1.0;
-    let scale = 1.0;
-    if (distance > 0) {
-      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
-      scale = Math.max(0.75, 1.0 - (distance * 0.08));
-    }
-    item.style.opacity = opacity.toFixed(3);
-    item.style.transform = `scale(${scale.toFixed(3)})`;
-    if (distance > 2.5) {
-      item.style.pointerEvents = 'none';
-    }
-
-    if (definition.id === 'sell') {
-      item.dataset.role = 'sell';
-      const label = document.createElement('span');
-      label.className = 'tower-loadout-wheel__label tower-loadout-wheel__label--sell';
-      label.textContent = 'SELL';
-      item.append(label);
-    }
-
-    if (definition.icon) {
-      const art = document.createElement('img');
-      art.className = 'tower-loadout-wheel__icon';
-      art.src = definition.icon;
-      art.alt = `${definition.name} icon`;
-      art.decoding = 'async';
-      art.loading = 'lazy';
-      item.append(art);
-    }
-
-    const costDelta = this.getTowerSelectionCostDelta({
-      targetDefinition: definition,
-      sourceTower: activeTower,
-    });
-    const costLabel = document.createElement('span');
-    costLabel.className = 'tower-loadout-wheel__cost';
-    costLabel.dataset.direction = costDelta >= 0 ? 'increase' : 'refund';
-    const absoluteDelta = Math.max(0, Math.abs(costDelta));
-    const formattedDelta = formatCombatNumber(absoluteDelta);
-    const prefix = costDelta < 0 ? '+' : '';
-    // Remove space between number and symbol, display just the cost value and symbol
-    costLabel.textContent = `${prefix}${formattedDelta}${this.theroSymbol}`;
-    item.append(costLabel);
-
-    const netAffordable = costDelta <= 0 || this.energy >= costDelta;
-    item.dataset.affordable = netAffordable ? 'true' : 'false';
-    item.setAttribute(
-      'aria-label',
-      `${definition.id === 'sell' ? 'Sell lattice' : definition.name || definition.id} — ${
-        costDelta >= 0 ? 'Cost' : 'Refund'
-      } ${formatCombatNumber(absoluteDelta)} ${this.theroSymbol}`,
-    );
-
-    item.addEventListener('click', () => this.applyTowerSelection(definition));
-    wheel.list.append(item);
+    wheel.container.appendChild(item);
   });
-
-  const height = wheel.list.getBoundingClientRect()?.height || 0;
-  const items = wheel.list.querySelectorAll('.tower-loadout-wheel__item');
-  const itemHeights = Array.from(items).map((item) => item.getBoundingClientRect()?.height || 0);
-  const averageHeight = itemHeights.length
-    ? itemHeights.reduce((sum, value) => sum + value, 0) / itemHeights.length
-    : 0;
-  wheel.itemHeight = Math.max(averageHeight, TOWER_SELECTION_SCROLL_STEP_PX);
-
-  // Set wheel height to show exactly MAX_VISIBLE_TOWER_ITEMS
-  const listStyles = window.getComputedStyle(wheel.list);
-  const gapValue = listStyles?.rowGap || listStyles?.gap || '0';
-  const listGap = Number.parseFloat(gapValue) || 0;
-  const visibleItemsHeight = wheel.itemHeight * MAX_VISIBLE_TOWER_ITEMS + listGap * (MAX_VISIBLE_TOWER_ITEMS - 1);
-  wheel.list.style.setProperty('--tower-loadout-wheel-height', `${visibleItemsHeight}px`);
-
-  const handleScroll = (event) => {
-    const delta = event.deltaY || event.detail || event.wheelDelta || 0;
-    const direction = delta > 0 ? 1 : -1;
-    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
-    const newTarget = currentIndex + direction;
-    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
-    // Use immediate snapping by setting all indices directly and updating transform immediately
-    wheel.focusIndex = clampedTarget;
-    wheel.targetIndex = clampedTarget;
-    wheel.activeIndex = clampedTarget;
-    this.updateTowerSelectionWheelTransform({ immediate: true });
-    if (typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
-  };
-
-  const handleOutsideInteraction = (event) => {
-    if (!wheel?.container) {
-      return;
-    }
-    // Ignore events from the pointer that just opened the wheel (within grace period)
-    const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
-    if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
-      return;
-    }
-    const target = event.target instanceof Node ? event.target : null;
-    const clickedInside = target ? wheel.container.contains(target) : false;
-    if (!clickedInside) {
-      this.closeTowerSelectionWheel();
-      this.cancelTowerHoldGesture();
-    }
-  };
-
-  wheel.list.addEventListener('wheel', handleScroll, { passive: false });
-  wheel.list.addEventListener('DOMMouseScroll', handleScroll, { passive: false });
-  wheel.list.addEventListener('keydown', (event) => this.handleTowerSelectionWheelKeydown(event));
-
-  wheel.outsideHandler = handleOutsideInteraction;
-  wheel.outsideClickHandler = handleOutsideInteraction;
-  document.addEventListener('pointerdown', wheel.outsideHandler);
-  document.addEventListener('click', wheel.outsideClickHandler);
 }
 
 /**
- * Translate the wheel focus by a delta so keyboard navigation remains snappy.
+ * Handle scroll wheel events to switch towers step-wise.
  */
 export function shiftTowerSelectionWheel(delta) {
   const wheel = this.towerSelectionWheel;
@@ -222,135 +123,17 @@ export function shiftTowerSelectionWheel(delta) {
     return;
   }
   const nextIndex = Math.min(
-    Math.max((Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) + delta, 0),
+    Math.max(wheel.activeIndex + delta, 0),
     Math.max(0, wheel.towers.length - 1),
   );
-  this.setTowerSelectionWheelTarget(nextIndex);
-}
-
-/**
- * Support keyboard navigation for the selection wheel so touch and keyboard feel parity.
- */
-export function handleTowerSelectionWheelKeydown(event) {
-  if (!event) {
-    return;
-  }
-  if (event.key === 'ArrowUp' || event.key === 'Up') {
-    this.shiftTowerSelectionWheel(-1);
-    event.preventDefault();
-  } else if (event.key === 'ArrowDown' || event.key === 'Down') {
-    this.shiftTowerSelectionWheel(1);
-    event.preventDefault();
+  if (nextIndex !== wheel.activeIndex) {
+    wheel.activeIndex = nextIndex;
+    this.renderTowerSelectionWheel();
   }
 }
 
 /**
- * Attach drag listeners so the wheel can scroll immediately after a hold gesture activates it.
- */
-export function startTowerSelectionWheelDrag({ pointerId = null, initialClientY = null, target = null } = {}) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel?.list || !Number.isFinite(pointerId)) {
-    return;
-  }
-  if (wheel.pointerId && wheel.pointerId !== pointerId) {
-    this.endTowerSelectionWheelDrag({ pointerId: wheel.pointerId });
-  }
-  if (wheel.moveHandler) {
-    document.removeEventListener('pointermove', wheel.moveHandler);
-  }
-  if (wheel.endHandler) {
-    document.removeEventListener('pointerup', wheel.endHandler);
-    document.removeEventListener('pointercancel', wheel.endHandler);
-  }
-  wheel.pointerId = pointerId;
-  wheel.lastY = Number.isFinite(initialClientY) ? initialClientY : wheel.lastY || 0;
-  wheel.dragAccumulator = 0;
-  wheel.moveHandler = (moveEvent) => this.handleTowerSelectionWheelDrag(moveEvent);
-  wheel.endHandler = (endEvent) => this.endTowerSelectionWheelDrag(endEvent);
-  if (target?.setPointerCapture) {
-    try {
-      target.setPointerCapture(pointerId);
-    } catch (error) {
-      // Ignore pointer capture errors so drag gestures still function.
-    }
-  }
-  document.addEventListener('pointermove', wheel.moveHandler);
-  document.addEventListener('pointerup', wheel.endHandler);
-  document.addEventListener('pointercancel', wheel.endHandler);
-}
-
-/**
- * Begin tracking drag gestures on the tower selection wheel.
- */
-export function beginTowerSelectionWheelDrag(event) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel?.list) {
-    return;
-  }
-  this.startTowerSelectionWheelDrag({ pointerId: event.pointerId, initialClientY: event.clientY, target: wheel.list });
-}
-
-/**
- * Translate drag distance into smooth scroll offsets for the selection wheel.
- */
-export function handleTowerSelectionWheelDrag(event) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel || event.pointerId !== wheel.pointerId) {
-    return;
-  }
-  if (typeof event.preventDefault === 'function') {
-    event.preventDefault();
-  }
-  const deltaY = event.clientY - wheel.lastY;
-  wheel.lastY = event.clientY;
-  wheel.dragAccumulator += deltaY;
-  const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
-  const deltaIndex = wheel.dragAccumulator / itemHeight;
-  if (Math.abs(deltaIndex) >= 0.01) {
-    this.setTowerSelectionWheelTarget(
-      (Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex) - deltaIndex,
-    );
-    wheel.dragAccumulator = 0;
-  }
-}
-
-/**
- * Stop tracking pointer drag interactions on the tower selection wheel.
- */
-export function endTowerSelectionWheelDrag(event) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel || event.pointerId !== wheel.pointerId) {
-    return;
-  }
-  if (wheel.moveHandler) {
-    document.removeEventListener('pointermove', wheel.moveHandler);
-  }
-  if (wheel.endHandler) {
-    document.removeEventListener('pointerup', wheel.endHandler);
-    document.removeEventListener('pointercancel', wheel.endHandler);
-  }
-  try {
-    wheel.list?.releasePointerCapture?.(event.pointerId);
-  } catch (error) {
-    // Ignore release failures so drag cleanup always completes.
-  }
-  
-  // Store the pointer ID to prevent the release event from immediately closing the wheel via outside click handler
-  wheel.justReleasedPointerId = wheel.pointerId;
-  wheel.releaseTimestamp = performance.now();
-  
-  wheel.pointerId = null;
-  wheel.dragAccumulator = 0;
-  wheel.lastY = 0;
-  wheel.moveHandler = null;
-  wheel.endHandler = null;
-  if (wheel.towers.length) {
-    this.setTowerSelectionWheelTarget(Math.round(wheel.focusIndex));
-  }
-}
-
-/**
- * Position the tower selection wheel above the active lattice.
+ * Position the tower selection display near the tower being modified.
  */
 export function positionTowerSelectionWheel(tower) {
   const wheel = this.towerSelectionWheel;
@@ -364,57 +147,26 @@ export function positionTowerSelectionWheel(tower) {
   if (!screen || !canvasRect) {
     return;
   }
-  // Constrain the selector to the playfield (canvas) boundaries only
-  const baseLeft = canvasRect.left + screen.x - (wheel.container.offsetWidth || 0) / 2;
+  
+  // Position the wheel to the right of the tower, centered vertically on it
+  const baseLeft = canvasRect.left + screen.x + 40; // Offset to the right
   const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
-  // Use canvas bounds instead of viewport to keep wheel within playfield
+  
+  // Keep within canvas bounds
   const maxLeft = canvasRect.left + canvasRect.width - (wheel.container.offsetWidth || 0) - 8;
   const maxTop = canvasRect.top + canvasRect.height - (wheel.container.offsetHeight || 0) - 8;
   const minLeft = canvasRect.left + 8;
   const minTop = canvasRect.top + 8;
-  let absoluteLeft = Math.min(maxLeft, Math.max(minLeft, baseLeft)) + scrollX;
-  let absoluteTop = Math.min(maxTop, Math.max(minTop, baseTop)) + scrollY;
-
-  wheel.container.style.left = `${absoluteLeft}px`;
-  wheel.container.style.top = `${absoluteTop}px`;
-
-  const activeItem = wheel.list?.querySelector('[data-distance="0"]');
-  const targetX = canvasRect.left + screen.x;
-  const targetY = canvasRect.top + screen.y;
-  if (activeItem) {
-    const itemRect = activeItem.getBoundingClientRect();
-    const icon =
-      activeItem.querySelector('.tower-loadout-wheel__icon') || activeItem.querySelector('.tower-loadout-wheel__label');
-    const cost = activeItem.querySelector('.tower-loadout-wheel__cost');
-    const iconRect = icon?.getBoundingClientRect ? icon.getBoundingClientRect() : null;
-    const costRect = cost?.getBoundingClientRect ? cost.getBoundingClientRect() : null;
-
-    if (itemRect?.height) {
-      const itemCenterY = (itemRect.top + itemRect.bottom) / 2;
-      const deltaY = targetY - itemCenterY;
-      // Clamp adjustments to keep within canvas bounds
-      absoluteTop = Math.min(maxTop, Math.max(minTop, absoluteTop + deltaY));
-    }
-
-    if (iconRect?.width) {
-      const desiredIconRight = targetX - 8;
-      const deltaX = desiredIconRight - iconRect.right;
-      // Clamp adjustments to keep within canvas bounds
-      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
-    } else if (costRect?.left) {
-      const desiredCostLeft = targetX + 6;
-      const deltaX = desiredCostLeft - costRect.left;
-      // Clamp adjustments to keep within canvas bounds
-      absoluteLeft = Math.min(maxLeft, Math.max(minLeft, absoluteLeft + deltaX));
-    }
-  }
+  
+  const absoluteLeft = Math.min(maxLeft, Math.max(minLeft, baseLeft)) + scrollX;
+  const absoluteTop = Math.min(maxTop, Math.max(minTop, baseTop)) + scrollY;
 
   wheel.container.style.left = `${absoluteLeft}px`;
   wheel.container.style.top = `${absoluteTop}px`;
 }
 
 /**
- * Open the selection wheel so a held tower can morph into any unlocked lattice.
+ * Open the selection display for a tower being held.
  */
 export function openTowerSelectionWheel(tower) {
   if (!tower) {
@@ -426,213 +178,63 @@ export function openTowerSelectionWheel(tower) {
   if (!towers.length) {
     return;
   }
-  const options = [
-    { id: 'sell', name: 'Sell lattice' },
-    ...towers,
-  ];
+  
   const wheel = this.towerSelectionWheel;
-  wheel.towers = options;
-  wheel.activeIndex = Math.max(0, options.findIndex((definition) => definition.id === tower.type));
-  wheel.focusIndex = wheel.activeIndex;
-  wheel.targetIndex = wheel.activeIndex;
+  wheel.towers = towers;
+  wheel.activeIndex = Math.max(0, towers.findIndex((definition) => definition.id === tower.type));
   wheel.towerId = tower.id;
 
   const container = document.createElement('div');
-  container.className = 'tower-loadout-wheel';
-  const list = document.createElement('div');
-  list.className = 'tower-loadout-wheel__list';
-  container.append(list);
-
+  container.className = 'tower-selection-wheel';
   wheel.container = container;
-  wheel.list = list;
   document.body.append(container);
 
   this.renderTowerSelectionWheel();
-  list.addEventListener('pointerdown', (event) => this.beginTowerSelectionWheelDrag(event));
-  list.addEventListener('pointerup', (event) => this.endTowerSelectionWheelDrag(event));
-  list.addEventListener('pointercancel', (event) => this.endTowerSelectionWheelDrag(event));
-  list.addEventListener('pointermove', (event) => {
-    if (wheel.pointerId === event.pointerId) {
-      this.handleTowerSelectionWheelDrag(event);
-    }
-  });
-  list.addEventListener('pointerenter', () => {
-    const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
-    this.setTowerSelectionWheelTarget(Math.round(wheel.focusIndex || 0 + 0.0001));
-    wheel.list.style.setProperty('--tower-loadout-wheel-item-height', `${itemHeight}px`);
-  });
   this.positionTowerSelectionWheel(tower);
 
-  const handleKeyNavigation = (event) => {
-    if (event.key === 'Escape') {
-      this.closeTowerSelectionWheel();
-      return;
-    }
-    if (event.key === 'Enter' || event.key === ' ') {
-      const focusedIndex = Math.round(Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex);
-      const targetDefinition = wheel.towers[focusedIndex] || null;
-      if (targetDefinition) {
-        this.applyTowerSelection(targetDefinition);
-      }
-      return;
-    }
-  };
-  list.addEventListener('keydown', handleKeyNavigation);
-
-  const handleWheelEvent = (event) => {
+  // Handle scroll events for step-wise navigation
+  const handleScroll = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    const currentIndex = Math.round(Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.activeIndex);
-    const newTarget = currentIndex + direction;
-    const clampedTarget = Math.min(Math.max(newTarget, 0), Math.max(0, wheel.towers.length - 1));
-    // Use immediate snapping by setting all indices directly and updating transform immediately
-    wheel.focusIndex = clampedTarget;
-    wheel.targetIndex = clampedTarget;
-    wheel.activeIndex = clampedTarget;
-    this.updateTowerSelectionWheelTransform({ immediate: true });
+    this.shiftTowerSelectionWheel(direction);
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
   };
-  list.addEventListener('wheel', handleWheelEvent, { passive: false });
-  list.addEventListener('DOMMouseScroll', handleWheelEvent, { passive: false });
 
-  const handleOutsideInteraction = (event) => {
+  // Handle clicks/taps anywhere outside to confirm selection
+  const handleOutsideClick = (event) => {
     if (!wheel?.container) {
       return;
     }
-    
     // Ignore events from the pointer that just opened the wheel (within grace period)
     const timeSinceRelease = performance.now() - (wheel.releaseTimestamp || 0);
     if (wheel.justReleasedPointerId === event.pointerId && timeSinceRelease < POINTER_RELEASE_GRACE_PERIOD_MS) {
       return;
     }
-    
     const target = event.target instanceof Node ? event.target : null;
     const clickedInside = target ? wheel.container.contains(target) : false;
     if (!clickedInside) {
-      this.closeTowerSelectionWheel();
-      this.cancelTowerHoldGesture();
-    }
-  };
-
-  wheel.outsideHandler = handleOutsideInteraction;
-  wheel.outsideClickHandler = handleOutsideInteraction;
-  document.addEventListener('pointerdown', wheel.outsideHandler);
-  document.addEventListener('click', wheel.outsideClickHandler);
-}
-
-/**
- * Update the distance metadata for each option so scaling follows the focused entry.
- */
-export function updateTowerSelectionWheelDistances() {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel?.list) {
-    return;
-  }
-  const focusIndex = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : wheel.activeIndex;
-  Array.from(wheel.list.children).forEach((child, index) => {
-    // Calculate distance without rounding to allow smooth transitions
-    const distance = Math.abs(index - focusIndex);
-    const roundedDistance = Math.round(distance);
-    
-    // Set both the rounded distance (for CSS selectors) and exact distance (for smooth scaling)
-    child.dataset.distance = String(roundedDistance);
-    child.style.setProperty('--item-distance', distance.toFixed(3));
-    
-    // Calculate opacity and scale based on exact distance for smooth wheel effect
-    let opacity = 1.0;
-    let scale = 1.0;
-    
-    if (distance > 0) {
-      // Linear falloff for opacity: 1.0 at distance 0, 0.70 at distance 1, 0.30 at distance 2, 0 beyond
-      opacity = Math.max(0, Math.min(1.0, 1.0 - (distance * 0.35)));
-      // Scale falloff: 1.0 at distance 0, 0.92 at distance 1, 0.84 at distance 2, continues to shrink
-      scale = Math.max(0.75, 1.0 - (distance * 0.08));
-    }
-    
-    // Apply the calculated values directly to the element for smooth transitions
-    child.style.opacity = opacity.toFixed(3);
-    child.style.transform = `scale(${scale.toFixed(3)})`;
-    
-    // Hide items beyond distance 2.5 to keep the wheel focused
-    if (distance > 2.5) {
-      child.style.pointerEvents = 'none';
-    } else {
-      child.style.pointerEvents = 'auto';
-    }
-  });
-}
-
-/**
- * Smoothly translate the wheel list so the focused option aligns with the tower anchor.
- */
-export function updateTowerSelectionWheelTransform({ immediate = false } = {}) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel?.list || !Number.isFinite(wheel.focusIndex)) {
-    return;
-  }
-  const itemHeight = Math.max(1, wheel.itemHeight || TOWER_SELECTION_SCROLL_STEP_PX);
-  const listHeight = wheel.list.getBoundingClientRect()?.height || itemHeight;
-  const offset = -wheel.focusIndex * itemHeight + listHeight / 2 - itemHeight / 2;
-  wheel.list.style.willChange = 'transform';
-  wheel.list.style.transition = immediate ? 'none' : 'transform 140ms ease-out';
-  wheel.list.style.transform = `translateY(${offset}px)`;
-  const roundedIndex = Math.min(
-    Math.max(Math.round(wheel.focusIndex), 0),
-    Math.max(0, wheel.towers.length - 1),
-  );
-  wheel.activeIndex = roundedIndex;
-  this.updateTowerSelectionWheelDistances();
-  if (wheel.towerId) {
-    const tower = this.getTowerById(wheel.towerId);
-    if (tower) {
-      this.positionTowerSelectionWheel(tower);
-    }
-  }
-  if (immediate) {
-    requestAnimationFrame(() => {
-      if (wheel.list) {
-        wheel.list.style.transition = 'transform 140ms ease-out';
+      // Confirm selection with the center tower
+      const centerDefinition = wheel.towers[wheel.activeIndex];
+      if (centerDefinition) {
+        this.applyTowerSelection(centerDefinition);
+      } else {
+        this.closeTowerSelectionWheel();
+        this.cancelTowerHoldGesture();
       }
-    });
-  }
-}
-
-/**
- * Advance the focus index toward a target so scrolling eases instead of stepping.
- */
-export function setTowerSelectionWheelTarget(targetIndex) {
-  const wheel = this.towerSelectionWheel;
-  if (!wheel || !Array.isArray(wheel.towers) || !wheel.towers.length) {
-    return;
-  }
-  const clamped = Math.min(Math.max(targetIndex, 0), Math.max(0, wheel.towers.length - 1));
-  wheel.targetIndex = clamped;
-  if (!Number.isFinite(wheel.focusIndex)) {
-    wheel.focusIndex = clamped;
-  }
-  const stepAnimation = () => {
-    const target = Number.isFinite(wheel.targetIndex) ? wheel.targetIndex : wheel.focusIndex;
-    const current = Number.isFinite(wheel.focusIndex) ? wheel.focusIndex : target;
-    const delta = target - current;
-    if (Math.abs(delta) < 0.002) {
-      wheel.focusIndex = target;
-      this.updateTowerSelectionWheelTransform();
-      wheel.animationFrame = null;
-      return;
     }
-    wheel.focusIndex = current + delta * 0.2;
-    this.updateTowerSelectionWheelTransform();
-    wheel.animationFrame = requestAnimationFrame(stepAnimation);
   };
-  if (!wheel.animationFrame) {
-    wheel.animationFrame = requestAnimationFrame(stepAnimation);
-  }
+
+  wheel.wheelHandler = handleScroll;
+  wheel.outsideClickHandler = handleOutsideClick;
+  document.addEventListener('wheel', wheel.wheelHandler, { passive: false });
+  document.addEventListener('click', wheel.outsideClickHandler);
+  document.addEventListener('touchend', wheel.outsideClickHandler);
 }
 
 /**
- * Apply the selected tower template and mirror promotion or demotion costs accordingly.
+ * Apply the selected tower and transition the held tower to the new type.
  */
 export function applyTowerSelection(definition) {
   if (!definition) {
@@ -644,22 +246,24 @@ export function applyTowerSelection(definition) {
     this.closeTowerSelectionWheel();
     return;
   }
-  if (definition.id === 'sell') {
-    // Treat the sell row as a direct lattice dissolution shortcut.
-    this.sellTower(tower);
-    this.closeTowerSelectionWheel();
-    this.cancelTowerHoldGesture();
-    return;
-  }
+  
   if (definition.id === tower.type) {
+    // Same tower, just close the wheel
     this.closeTowerSelectionWheel();
     return;
   }
+  
+  // Play the menu selection sound
+  if (this.audioManager) {
+    this.audioManager.playSfx('menuSelect');
+  }
+  
   const targetTier = Number.isFinite(definition.tier) ? definition.tier : tower.tier;
   const currentTier = Number.isFinite(tower.tier) ? tower.tier : 0;
   const promoted = targetTier >= currentTier
     ? this.promoteTowerToTarget(tower, definition.id)
     : this.demoteTowerToTarget(tower, definition.id);
+  
   if (promoted) {
     this.suppressNextCanvasClick = true;
   }
@@ -674,18 +278,24 @@ export function promoteTowerToTarget(tower, targetId) {
   if (!tower || !targetId) {
     return false;
   }
-  const guardSteps = (Array.isArray(getTowerDefinitions()) ? getTowerDefinitions().length : 12) + 2;
-  const visited = new Set();
+  
+  // Simple direct upgrade to target type
+  // This assumes the tower system has a way to directly set tower type
+  // For now, we'll use the existing upgrade path
+  if (typeof this.upgradeTowerToType === 'function') {
+    return this.upgradeTowerToType(tower, targetId);
+  }
+  
+  // Fallback: attempt to upgrade step by step
+  const guardSteps = 20;
   let steps = 0;
   while (tower.type !== targetId && steps < guardSteps) {
-    if (visited.has(tower.type)) {
-      break;
-    }
-    visited.add(tower.type);
-    const nextId = getNextTowerId(tower.type) || targetId;
-    const isFinalStep = nextId === targetId;
-    const upgraded = this.upgradeTowerTier(tower, { expectedNextId: nextId, silent: !isFinalStep });
-    if (!upgraded) {
+    if (typeof this.upgradeTowerTier === 'function') {
+      const upgraded = this.upgradeTowerTier(tower, { silent: tower.type !== targetId });
+      if (!upgraded) {
+        return false;
+      }
+    } else {
       return false;
     }
     steps += 1;
@@ -694,24 +304,28 @@ export function promoteTowerToTarget(tower, targetId) {
 }
 
 /**
- * Demote the active tower toward the requested target while respecting refund math.
+ * Demote the active tower toward the requested target.
  */
 export function demoteTowerToTarget(tower, targetId) {
   if (!tower || !targetId) {
     return false;
   }
-  const guardSteps = (Array.isArray(getTowerDefinitions()) ? getTowerDefinitions().length : 12) + 2;
-  const visited = new Set();
+  
+  // Simple direct downgrade to target type
+  if (typeof this.downgradeTowerToType === 'function') {
+    return this.downgradeTowerToType(tower, targetId);
+  }
+  
+  // Fallback: attempt to downgrade step by step
+  const guardSteps = 20;
   let steps = 0;
   while (tower.type !== targetId && steps < guardSteps) {
-    if (visited.has(tower.type)) {
-      break;
-    }
-    visited.add(tower.type);
-    const previousId = getPreviousTowerId(tower.type);
-    const isFinalStep = previousId === targetId;
-    const demoted = this.demoteTowerTier(tower, { silent: !isFinalStep });
-    if (!demoted) {
+    if (typeof this.demoteTowerTier === 'function') {
+      const demoted = this.demoteTowerTier(tower, { silent: tower.type !== targetId });
+      if (!demoted) {
+        return false;
+      }
+    } else {
       return false;
     }
     steps += 1;

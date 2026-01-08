@@ -557,21 +557,13 @@ export class SimplePlayfield {
     };
     this.towerSelectionWheel = {
       container: null,
-      list: null,
-      animationFrame: null,
-      focusIndex: 0,
-      targetIndex: 0,
-      itemHeight: 0,
-      pointerId: null,
-      dragAccumulator: 0,
-      lastY: 0,
       towers: [],
       activeIndex: 0,
       towerId: null,
-      outsideHandler: null,
+      wheelHandler: null,
       outsideClickHandler: null,
-      moveHandler: null,
-      endHandler: null,
+      justReleasedPointerId: null,
+      releaseTimestamp: 0,
     };
     this.towerTapState = {
       lastTowerId: null,
@@ -3742,8 +3734,14 @@ export class SimplePlayfield {
     state.holdActivated = true;
     this.resetTowerTapState();
     this.suppressNextCanvasClick = true;
-    state.scribbleCleanup = this.spawnTowerUpgradeCostScribble(tower);
-    state.indicatorsCleanup = this.spawnTowerHoldIndicators(tower);
+    
+    // Mark this pointer as the one that opened the wheel to prevent immediate closure
+    this.towerSelectionWheel.justReleasedPointerId = state.pointerId;
+    this.towerSelectionWheel.releaseTimestamp = performance.now();
+    
+    // Open the tower selection wheel instead of showing swipe indicators
+    this.openTowerSelectionWheel(tower);
+    
     if (this.connectionDragState.pointerId === state.pointerId) {
       this.clearConnectionDragState();
     }
