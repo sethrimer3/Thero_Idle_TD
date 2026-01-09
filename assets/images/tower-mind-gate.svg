@@ -102,6 +102,35 @@
     <use href="#mindGate4" />
   </g>
 
+  <!-- Consciousness wavelength animation (sine wave behind the letters) -->
+  <g id="consciousnessWave" opacity="0.5">
+    <path id="waveform" d="M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64" 
+          fill="none" stroke="#ff7800" stroke-width="2.5" stroke-linecap="round">
+      <!-- Animate the wave by shifting the sine pattern -->
+      <animate attributeName="d" 
+        values="M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64;
+                M 20,64 Q 28,78 36,64 T 52,64 Q 60,50 68,64 T 84,64 Q 92,78 100,64 T 116,64;
+                M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64" 
+        dur="2s" 
+        repeatCount="indefinite" />
+      <!-- Animate opacity to create pulsing effect -->
+      <animate attributeName="opacity"
+        values="0.4;0.6;0.4"
+        dur="2s"
+        repeatCount="indefinite" />
+    </path>
+    <!-- Add a subtle glow layer -->
+    <path d="M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64" 
+          fill="none" stroke="#ff7800" stroke-width="4" stroke-linecap="round" opacity="0.2">
+      <animate attributeName="d" 
+        values="M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64;
+                M 20,64 Q 28,78 36,64 T 52,64 Q 60,50 68,64 T 84,64 Q 92,78 100,64 T 116,64;
+                M 20,64 Q 28,50 36,64 T 52,64 Q 60,78 68,64 T 84,64 Q 92,50 100,64 T 116,64" 
+        dur="2s" 
+        repeatCount="indefinite" />
+    </path>
+  </g>
+
   <!-- Convert the 𝔊℘ glyphs into explicit outlines so they render without bundling a binary font. -->
   <g filter="url(#glow)" fill="#fffed6" stroke="#06063b" stroke-linejoin="round">
     <path

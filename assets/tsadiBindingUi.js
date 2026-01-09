@@ -185,6 +185,14 @@ export function createTsadiBindingUi({
   let codexOpen = false;
   let automaticMode = false;
   let handleLongPressTimeout = null;
+  
+  // Wave force gesture tracking (hold + swipe for directional wave)
+  let waveGestureActive = false;
+  let waveGestureStartX = 0;
+  let waveGestureStartY = 0;
+  let waveGestureStartTime = 0;
+  const WAVE_HOLD_DURATION_MS = 150; // Minimum hold time before swipe can trigger wave
+  const WAVE_SWIPE_MIN_DISTANCE = 30; // Minimum swipe distance in pixels
 
   /**
    * Normalize stored molecule entries so legacy string saves still render.
@@ -601,17 +609,25 @@ export function createTsadiBindingUi({
   }
 
   /**
-   * Create an interactive wave force at the pointer location.
-   * @param {PointerEvent} event - Pointer event on the canvas.
+   * Create a directional wave force from a hold + swipe gesture.
+   * @param {number} startX - Starting X coordinate in canvas space
+   * @param {number} startY - Starting Y coordinate in canvas space
+   * @param {number} endX - Ending X coordinate in canvas space
+   * @param {number} endY - Ending Y coordinate in canvas space
    */
-  function createInteractiveWave(event) {
+  function createDirectionalWave(startX, startY, endX, endY) {
     const simulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
-    if (!simulation || typeof simulation.createInteractiveWave !== 'function') {
+    if (!simulation || typeof simulation.createDirectionalWave !== 'function') {
       return;
     }
-
-    const coords = toCanvasCoords(event);
-    simulation.createInteractiveWave(coords.x, coords.y);
+    
+    // Calculate direction vector
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const direction = Math.atan2(dy, dx); // Direction in radians
+    
+    // Use the starting point as the wave origin
+    simulation.createDirectionalWave(startX, startY, direction);
   }
 
   function attemptCodexCollection(event) {
@@ -755,23 +771,56 @@ export function createTsadiBindingUi({
         }
         const scheduledDisband = scheduleDisband(event);
         
-        // Create interactive wave if click didn't hit a binding agent
+        // Start tracking potential wave gesture (hold + swipe)
+        // Only if we didn't hit a binding agent
         if (!scheduledDisband) {
-          createInteractiveWave(event);
+          waveGestureActive = true;
+          const coords = toCanvasCoords(event);
+          waveGestureStartX = coords.x;
+          waveGestureStartY = coords.y;
+          waveGestureStartTime = Date.now();
         }
       });
-      canvasElement.addEventListener('pointermove', () => {
+      
+      canvasElement.addEventListener('pointermove', (event) => {
         if (!holdTriggered) {
           clearHoldTimer();
         }
+        
+        // Check if we should trigger a directional wave from swipe
+        if (waveGestureActive) {
+          const holdDuration = Date.now() - waveGestureStartTime;
+          
+          // Only allow wave after minimum hold duration
+          if (holdDuration >= WAVE_HOLD_DURATION_MS) {
+            const coords = toCanvasCoords(event);
+            const dx = coords.x - waveGestureStartX;
+            const dy = coords.y - waveGestureStartY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Trigger wave if swipe distance is sufficient
+            if (distance >= WAVE_SWIPE_MIN_DISTANCE) {
+              createDirectionalWave(waveGestureStartX, waveGestureStartY, coords.x, coords.y);
+              waveGestureActive = false; // Prevent multiple waves from same gesture
+            }
+          }
+        }
       });
+      
       canvasElement.addEventListener('pointerup', (event) => {
         if (holdTriggered && typeof event.preventDefault === 'function') {
           event.preventDefault();
         }
         clearHoldTimer();
+        // Reset wave gesture tracking
+        waveGestureActive = false;
       });
-      canvasElement.addEventListener('pointercancel', clearHoldTimer);
+      
+      canvasElement.addEventListener('pointercancel', () => {
+        clearHoldTimer();
+        // Reset wave gesture tracking
+        waveGestureActive = false;
+      });
     }
   }
 
