@@ -599,6 +599,18 @@ export {
   bindTowerUpgradeOverlay,
 };
 
+// Map tower tiers onto a 1 → 0 opacity range for the card face background text overlay.
+function resolveTowerCardFaceTextOpacity(tierValue) {
+  const sanitizedTier = Number.isFinite(tierValue) ? Math.max(1, Math.floor(tierValue)) : 1;
+  const maxTier = towerTabState.towerDefinitions.reduce((highest, tower) => {
+    const towerTier = Number.isFinite(tower?.tier) ? Math.floor(tower.tier) : 0;
+    return Math.max(highest, towerTier);
+  }, sanitizedTier);
+  const clampedMax = Math.max(1, maxTier);
+  const progress = clampedMax > 1 ? (sanitizedTier - 1) / (clampedMax - 1) : 0;
+  return Math.max(0, Math.min(1, 1 - progress));
+}
+
 // Ensure tower definitions expose meter-calibrated sizing and range data.
 function normalizeTowerDefinition(definition = {}) {
   const clone = { ...definition };
@@ -1687,6 +1699,16 @@ export function injectTowerCardPreviews() {
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
+    // Scale the card face text overlay opacity from tier 1 (fully visible) to max tier (hidden).
+    preview.style.setProperty(
+      '--tower-card-face-text-opacity',
+      resolveTowerCardFaceTextOpacity(definition?.tier).toString(),
+    );
+    // Add the card face text overlay so it can fade per tower tier.
+    const faceTextOverlay = document.createElement('span');
+    faceTextOverlay.className = 'tower-preview__face-text';
+    faceTextOverlay.setAttribute('aria-hidden', 'true');
+    preview.append(faceTextOverlay);
     const labelBase = composeTowerDisplayLabel(definition, towerId);
     const icon = createTowerIconElement(definition, {
       className: 'tower-preview__icon',

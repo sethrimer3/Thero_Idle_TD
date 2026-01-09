@@ -7680,6 +7680,18 @@ body.playfield-fullscreen .playfield canvas {
   pointer-events: none;
 }
 
+/* Overlay the card face text sprite so it can fade with tower tier. */
+.tower-preview__face-text {
+  position: absolute;
+  inset: 0;
+  background-image: url('./sprites/towers/towersTab/cardFaceBackgroundText.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--tower-card-face-text-opacity, 1);
+  pointer-events: none;
+}
+
 .tower-preview::before,
 .tower-preview::after {
   content: '';
