@@ -636,16 +636,21 @@ export {
   bindTowerUpgradeOverlay,
 };
 
-// Map tower tiers onto a 1 → 0 opacity range for the card face background text overlay.
+// Map tower tiers onto a 0 → 0.5 opacity range for the card face background text overlay.
 function resolveTowerCardFaceTextOpacity(tierValue) {
   const sanitizedTier = Number.isFinite(tierValue) ? Math.max(1, Math.floor(tierValue)) : 1;
   const maxTier = towerTabState.towerDefinitions.reduce((highest, tower) => {
+    // Ignore the Infinity tower so Alpha-to-Omega defines the full fade range.
+    if (tower?.id === 'infinity') {
+      return highest;
+    }
     const towerTier = Number.isFinite(tower?.tier) ? Math.floor(tower.tier) : 0;
     return Math.max(highest, towerTier);
   }, sanitizedTier);
   const clampedMax = Math.max(1, maxTier);
   const progress = clampedMax > 1 ? (sanitizedTier - 1) / (clampedMax - 1) : 0;
-  return Math.max(0, Math.min(1, 1 - progress));
+  const clampedProgress = Math.max(0, Math.min(1, progress));
+  return 0.5 * clampedProgress;
 }
 
 // Ensure tower definitions expose meter-calibrated sizing and range data.
@@ -1736,7 +1741,7 @@ export function injectTowerCardPreviews() {
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
-    // Scale the card face text overlay opacity from tier 1 (fully visible) to max tier (hidden).
+    // Scale the card face text overlay opacity from tier 1 (transparent) to max tier (50%).
     preview.style.setProperty(
       '--tower-card-face-text-opacity',
       resolveTowerCardFaceTextOpacity(definition?.tier).toString(),
