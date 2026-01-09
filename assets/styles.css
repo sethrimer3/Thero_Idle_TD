@@ -138,6 +138,13 @@ body.color-scheme-chromatic {
     radial-gradient(circle at 50% 40%, rgba(255, 138, 216, 0.12), transparent 60%), var(--bg);
 }
 
+/* Outline tower letters in the Towers tab for the Chromatic palette. */
+body.color-scheme-chromatic #panel-towers .tower-icon svg text {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.2px;
+  paint-order: stroke fill;
+}
+
 /* CoolingEmbers palette leans into ember reds tempered with cool violets. */
 body.color-scheme-cooling-embers {
   --accent: #ff6b6b;

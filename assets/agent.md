@@ -304,6 +304,7 @@ Individual JSON files in `data/towers/` for complex tower configurations
 - Tower icons: `tower-alpha.svg`, `tower-beta.svg`, etc.
 - UI elements: `enemy-gate.svg`
 - Scalable vector graphics (good for all screen sizes)
+- Avoid editing the Aleph tower icons (`tower-aleph-*.svg`) and the Mind Gate icon (`tower-mind-gate.svg`) unless a request explicitly calls for visual changes to them.
 
 ### `sprites/` - PNG Sprites
 - Particle effects
