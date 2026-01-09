@@ -416,24 +416,61 @@ async function loadAndColorSvg(iconUrl, palette) {
 }
 
 // Apply the active palette colors to a tower icon element.
+// NOTE: Mind Gate tower icon is INTENTIONALLY palette-invariant (always gold).
+// Do NOT make it palette-aware - it should remain in its original gold colors across all palettes.
 async function applyPaletteToTowerIconElement(element, tower) {
   if (!(element instanceof HTMLElement) || !tower) {
     return;
   }
   
-  const palette = resolveTowerIconPalette(tower);
   element.dataset.towerId = tower.id || element.dataset.towerId || '';
 
   if (tower.icon) {
-    // Load and inject colored SVG
-    const svgElement = await loadAndColorSvg(tower.icon, palette);
-    if (svgElement) {
-      // Clear existing content
-      element.innerHTML = '';
-      // Make SVG fill the container
-      svgElement.setAttribute('width', '100%');
-      svgElement.setAttribute('height', '100%');
-      element.appendChild(svgElement);
+    // Mind Gate tower icon should always use original colors, never palette-recolored
+    const isMindGate = tower.id === 'mind-gate';
+    
+    if (isMindGate) {
+      // Load SVG without palette coloring for Mind Gate
+      try {
+        let svgText = svgContentCache.get(tower.icon);
+        
+        if (!svgText) {
+          const response = await fetch(tower.icon);
+          if (response.ok) {
+            svgText = await response.text();
+            svgContentCache.set(tower.icon, svgText);
+          }
+        }
+        
+        if (svgText) {
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+          const svgElement = svgDoc.querySelector('svg');
+          
+          if (svgElement) {
+            // Clear existing content
+            element.innerHTML = '';
+            // Make SVG fill the container
+            svgElement.setAttribute('width', '100%');
+            svgElement.setAttribute('height', '100%');
+            element.appendChild(svgElement);
+          }
+        }
+      } catch (error) {
+        console.warn(`Error loading Mind Gate icon: ${tower.icon}`, error);
+      }
+    } else {
+      // Load and inject colored SVG for all other towers
+      const palette = resolveTowerIconPalette(tower);
+      const svgElement = await loadAndColorSvg(tower.icon, palette);
+      if (svgElement) {
+        // Clear existing content
+        element.innerHTML = '';
+        // Make SVG fill the container
+        svgElement.setAttribute('width', '100%');
+        svgElement.setAttribute('height', '100%');
+        element.appendChild(svgElement);
+      }
     }
   }
 }

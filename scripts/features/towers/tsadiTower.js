@@ -895,6 +895,8 @@ export class ParticleFusionSimulation {
   /**
    * Create an interactive wave force at the specified position.
    * Pushes particles away from the click/tap point with a visual wave effect.
+   * NOTE: This method is deprecated - waves now require hold + swipe gestures.
+   * Use createDirectionalWave instead.
    * @param {number} x - X coordinate in canvas space
    * @param {number} y - Y coordinate in canvas space
    */
@@ -908,7 +910,7 @@ export class ParticleFusionSimulation {
       return;
     }
 
-    // Create visual wave effect
+    // Create visual wave effect (circular - deprecated)
     this.interactiveWaves.push({
       x,
       y,
@@ -917,6 +919,39 @@ export class ParticleFusionSimulation {
       maxRadius: waveStats.maxRadius,
       force: waveStats.force,
       type: 'wave',
+      direction: null, // Null means omnidirectional (circular)
+      coneAngle: Math.PI * 2, // Full circle
+    });
+  }
+  
+  /**
+   * Create a directional wave force (cone) from a hold + swipe gesture.
+   * Pushes particles in a 90-degree cone in the specified direction.
+   * @param {number} x - X coordinate in canvas space (wave origin)
+   * @param {number} y - Y coordinate in canvas space (wave origin)
+   * @param {number} direction - Direction in radians (0 = right, Math.PI/2 = down)
+   */
+  createDirectionalWave(x, y, direction) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(direction)) {
+      return;
+    }
+
+    const waveStats = this.getWaveStats();
+    if (waveStats.force <= 0 || waveStats.radius <= 0) {
+      return;
+    }
+
+    // Create directional wave effect (90-degree cone)
+    this.interactiveWaves.push({
+      x,
+      y,
+      radius: waveStats.radius,
+      alpha: 1,
+      maxRadius: waveStats.maxRadius,
+      force: waveStats.force,
+      type: 'wave',
+      direction, // Direction in radians
+      coneAngle: Math.PI / 2, // 90 degrees
     });
   }
 
@@ -1081,16 +1116,33 @@ export class ParticleFusionSimulation {
         
         // Only affect particles within the wave's current radius
         if (dist < wave.radius && dist > WAVE_MIN_DISTANCE) {
-          const nx = dx / dist;
-          const ny = dy / dist;
+          // Check if particle is within the directional cone (if wave has direction)
+          let inCone = true;
+          if (wave.direction !== null && wave.direction !== undefined) {
+            // Calculate angle to particle
+            const angleToParticle = Math.atan2(dy, dx);
+            // Calculate difference from wave direction
+            let angleDiff = angleToParticle - wave.direction;
+            // Normalize to [-PI, PI]
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            // Check if within cone angle (e.g., 90 degrees = PI/2 means +/- PI/4 from center)
+            const halfConeAngle = (wave.coneAngle || Math.PI * 2) / 2;
+            inCone = Math.abs(angleDiff) <= halfConeAngle;
+          }
           
-          // Force falls off with distance from wave center
-          const forceFalloff = 1 - (dist / wave.radius);
-          const forceMagnitude = wave.force * forceFalloff * dt;
-          
-          // Push particles away from wave center
-          body.vx += nx * forceMagnitude;
-          body.vy += ny * forceMagnitude;
+          if (inCone) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            
+            // Force falls off with distance from wave center
+            const forceFalloff = 1 - (dist / wave.radius);
+            const forceMagnitude = wave.force * forceFalloff * dt;
+            
+            // Push particles away from wave center
+            body.vx += nx * forceMagnitude;
+            body.vy += ny * forceMagnitude;
+          }
         }
       }
     }
@@ -2341,26 +2393,67 @@ export class ParticleFusionSimulation {
     
     // Draw interactive wave effects from user clicks/taps
     for (const wave of this.interactiveWaves) {
-      // Draw expanding wave ring with cyan/blue color to distinguish from other effects
-      ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
-      ctx.stroke();
+      // Check if this is a directional wave (cone) or omnidirectional (circle)
+      const isDirectional = wave.direction !== null && wave.direction !== undefined;
       
-      // Add inner glow effect
-      const gradient = ctx.createRadialGradient(
-        wave.x, wave.y, wave.radius * 0.7,
-        wave.x, wave.y, wave.radius
-      );
-      gradient.addColorStop(0, `rgba(100, 200, 255, 0)`);
-      gradient.addColorStop(0.5, `rgba(100, 200, 255, ${wave.alpha * 0.3})`);
-      gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
-      
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
-      ctx.fill();
+      if (isDirectional) {
+        // Draw directional cone wave
+        const halfConeAngle = (wave.coneAngle || Math.PI / 2) / 2;
+        const startAngle = wave.direction - halfConeAngle;
+        const endAngle = wave.direction + halfConeAngle;
+        
+        // Draw cone outline
+        ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, startAngle, endAngle);
+        ctx.lineTo(wave.x, wave.y);
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Fill cone with gradient
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, startAngle, endAngle);
+        ctx.lineTo(wave.x, wave.y);
+        ctx.closePath();
+        ctx.clip();
+        
+        const gradient = ctx.createRadialGradient(
+          wave.x, wave.y, wave.radius * 0.3,
+          wave.x, wave.y, wave.radius
+        );
+        gradient.addColorStop(0, `rgba(100, 200, 255, ${wave.alpha * 0.4})`);
+        gradient.addColorStop(0.7, `rgba(100, 200, 255, ${wave.alpha * 0.2})`);
+        gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Draw omnidirectional (circular) wave
+        ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Add inner glow effect
+        const gradient = ctx.createRadialGradient(
+          wave.x, wave.y, wave.radius * 0.7,
+          wave.x, wave.y, wave.radius
+        );
+        gradient.addColorStop(0, `rgba(100, 200, 255, 0)`);
+        gradient.addColorStop(0.5, `rgba(100, 200, 255, ${wave.alpha * 0.3})`);
+        gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     
     // Draw fusion effects
