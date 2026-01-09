@@ -44,7 +44,7 @@
   <!-- Tower letter with white fill and black outline -->
   <text
     x="32"
-    y="39"
+    y="40.5"
     font-family="'Cormorant Garamond', serif"
     font-size="26"
     text-anchor="middle"
