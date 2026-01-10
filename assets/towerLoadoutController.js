@@ -39,6 +39,12 @@ export function createTowerLoadoutController({
     outsideHandler: null,
     wheelHandler: null,
     anchorElement: null,
+    // Track pointer drag distance so hold-and-drag gestures step through the wheel list.
+    dragPointerId: null,
+    dragLastY: 0,
+    dragAccumulated: 0,
+    dragMoveHandler: null,
+    dragEndHandler: null,
   };
   const loadoutUiState = { collapsed: false, toggleHandler: null };
 
@@ -366,6 +372,13 @@ export function createTowerLoadoutController({
     if (wheelState.wheelHandler && wheelState.list) {
       wheelState.list.removeEventListener('wheel', wheelState.wheelHandler);
     }
+    if (wheelState.dragMoveHandler) {
+      document.removeEventListener('pointermove', wheelState.dragMoveHandler);
+    }
+    if (wheelState.dragEndHandler) {
+      document.removeEventListener('pointerup', wheelState.dragEndHandler);
+      document.removeEventListener('pointercancel', wheelState.dragEndHandler);
+    }
     if (wheelState.outsideHandler) {
       document.removeEventListener('pointerdown', wheelState.outsideHandler, { passive: true });
     }
@@ -382,6 +395,11 @@ export function createTowerLoadoutController({
     wheelState.towers = [];
     wheelState.slotIndex = -1;
     wheelState.anchorElement = null;
+    wheelState.dragPointerId = null;
+    wheelState.dragLastY = 0;
+    wheelState.dragAccumulated = 0;
+    wheelState.dragMoveHandler = null;
+    wheelState.dragEndHandler = null;
   }
 
   /**
@@ -596,6 +614,33 @@ export function createTowerLoadoutController({
     wheelState.wheelHandler = handleScroll;
     list.addEventListener('wheel', wheelState.wheelHandler, { passive: false });
 
+    // Track pointer drag distance so hold-and-drag steps through the wheel list.
+    wheelState.dragMoveHandler = (event) => {
+      if (wheelState.dragPointerId === null || event.pointerId !== wheelState.dragPointerId) {
+        return;
+      }
+      const deltaY = event.clientY - wheelState.dragLastY;
+      wheelState.dragLastY = event.clientY;
+      wheelState.dragAccumulated += deltaY;
+      while (Math.abs(wheelState.dragAccumulated) >= LOADOUT_SCROLL_STEP_PX) {
+        const direction = wheelState.dragAccumulated > 0 ? 1 : -1;
+        shiftLoadoutWheel(direction);
+        wheelState.dragAccumulated -= direction * LOADOUT_SCROLL_STEP_PX;
+      }
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+    };
+    // Clear the drag tracking once the pointer is released.
+    wheelState.dragEndHandler = (event) => {
+      if (wheelState.dragPointerId !== null && event.pointerId === wheelState.dragPointerId) {
+        wheelState.dragPointerId = null;
+      }
+    };
+    document.addEventListener('pointermove', wheelState.dragMoveHandler, { passive: false });
+    document.addEventListener('pointerup', wheelState.dragEndHandler, { passive: true });
+    document.addEventListener('pointercancel', wheelState.dragEndHandler, { passive: true });
+
     // Anchor the wheel within the playfield during active levels to prevent bleed outside the battlefield.
     const playfield = safeGetPlayfield();
     const loadoutContainer =
@@ -642,6 +687,10 @@ export function createTowerLoadoutController({
       cancelHold();
       cancelTowerDrag();
       openLoadoutWheel(slotIndex, element);
+      // Record the pointer position so hold-and-drag scrolls the wheel in discrete steps.
+      wheelState.dragPointerId = event.pointerId;
+      wheelState.dragLastY = event.clientY;
+      wheelState.dragAccumulated = 0;
     }, LOADOUT_WHEEL_HOLD_MS);
 
     element.addEventListener('pointermove', handleMove);
