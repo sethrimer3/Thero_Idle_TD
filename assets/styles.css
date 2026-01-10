@@ -2030,6 +2030,10 @@ body.playfield-fullscreen .playfield canvas {
   transition: transform var(--transition), opacity var(--transition);
   min-height: 0;
   pointer-events: auto; /* Re-enable interaction on actual loadout items while leaving gaps transparent to input. */
+  /* Prevent long-press text selection and callouts on loadout slots. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .tower-loadout-item:focus-visible {
@@ -2058,6 +2062,12 @@ body.playfield-fullscreen .playfield canvas {
   transform: translateY(-8px);
 }
 
+/* Hide the anchor slot contents while the loadout wheel is open. */
+.tower-loadout-item--active-wheel .tower-loadout-art,
+.tower-loadout-item--active-wheel .tower-loadout-cost {
+  opacity: 0;
+}
+
 .tower-loadout-item--empty {
   border: 1px solid rgba(255, 255, 255, 0.76); /* Emphasize the add-slot control with a thin outline. */
   color: rgba(139, 247, 255, 0.94);
@@ -2083,6 +2093,10 @@ body.playfield-fullscreen .playfield canvas {
   background: transparent;
   border: none;
   box-shadow: none;
+  /* Prevent text selection on the wheel overlay during touch holds. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   min-width: 210px;
   width: min(340px, calc(100vw - 16px)); /* Keep the picker wide enough that tower icons are never squeezed into slivers. */
   z-index: 12;
