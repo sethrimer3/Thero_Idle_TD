@@ -564,6 +564,8 @@ export class SimplePlayfield {
       outsideClickHandler: null,
       justReleasedPointerId: null,
       releaseTimestamp: 0,
+      // Track the drag gesture state for stepwise tower selection scrolling.
+      dragState: null,
     };
     this.towerTapState = {
       lastTowerId: null,

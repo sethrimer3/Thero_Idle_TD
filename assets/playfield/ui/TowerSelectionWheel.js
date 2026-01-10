@@ -12,6 +12,10 @@ const VISIBLE_TOWER_COUNT = 3;
 
 // Slot height for layout calculations - the center slot is at 1.25x this height
 const BASE_SLOT_SIZE = 56;
+// Minimum pointer travel before a drag scroll engages for the tower wheel.
+const DRAG_ACTIVATION_DISTANCE = 8;
+// Pixel distance per step when dragging through the wheel.
+const DRAG_STEP_PIXELS = BASE_SLOT_SIZE;
 
 /**
  * Remove the tower selection overlay and detach related listeners.
@@ -32,6 +36,8 @@ export function closeTowerSelectionWheel() {
   wheel.outsideClickHandler = null;
   wheel.justReleasedPointerId = null;
   wheel.releaseTimestamp = 0;
+  // Reset drag tracking so a fresh wheel can rebind cleanly.
+  wheel.dragState = null;
   if (wheel.container?.parentNode) {
     wheel.container.remove();
   }
@@ -189,6 +195,14 @@ export function openTowerSelectionWheel(tower) {
   wheel.container = container;
   document.body.append(container);
 
+  // Track pointer drags so touch users can scroll the wheel stepwise.
+  wheel.dragState = {
+    pointerId: null,
+    startY: 0,
+    isDragging: false,
+    suppressClick: false,
+  };
+
   this.renderTowerSelectionWheel();
   this.positionTowerSelectionWheel(tower);
 
@@ -200,6 +214,70 @@ export function openTowerSelectionWheel(tower) {
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
+  };
+
+  // Handle pointer drags so the menu scrolls in stepwise increments.
+  const handlePointerDown = (event) => {
+    if (!wheel.dragState || event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+    wheel.dragState.pointerId = event.pointerId;
+    wheel.dragState.startY = event.clientY;
+    wheel.dragState.isDragging = false;
+    wheel.dragState.suppressClick = false;
+  };
+
+  const handlePointerMove = (event) => {
+    if (!wheel.dragState || event.pointerId !== wheel.dragState.pointerId) {
+      return;
+    }
+    const deltaY = event.clientY - wheel.dragState.startY;
+    if (!wheel.dragState.isDragging && Math.abs(deltaY) < DRAG_ACTIVATION_DISTANCE) {
+      return;
+    }
+    if (!wheel.dragState.isDragging) {
+      // Enter drag mode once the pointer moves far enough to feel intentional.
+      wheel.dragState.isDragging = true;
+      wheel.dragState.suppressClick = true;
+      try {
+        wheel.container.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer-capture errors to keep scrolling responsive.
+      }
+    }
+    const stepDelta = Math.trunc(deltaY / DRAG_STEP_PIXELS);
+    if (stepDelta !== 0) {
+      this.shiftTowerSelectionWheel(stepDelta);
+      // Adjust the baseline so each step is discrete instead of continuous.
+      wheel.dragState.startY += stepDelta * DRAG_STEP_PIXELS;
+    }
+    event.preventDefault();
+  };
+
+  const handlePointerUp = (event) => {
+    if (!wheel.dragState || event.pointerId !== wheel.dragState.pointerId) {
+      return;
+    }
+    if (wheel.dragState.isDragging) {
+      try {
+        wheel.container.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        // Ignore pointer-capture errors when the pointer ends.
+      }
+    }
+    wheel.dragState.pointerId = null;
+    wheel.dragState.startY = 0;
+    wheel.dragState.isDragging = false;
+  };
+
+  const handleWheelClick = (event) => {
+    if (!wheel.dragState?.suppressClick) {
+      return;
+    }
+    // Block the click that follows a drag so selection only happens on taps.
+    wheel.dragState.suppressClick = false;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   // Handle clicks/taps anywhere outside to confirm selection
@@ -231,6 +309,13 @@ export function openTowerSelectionWheel(tower) {
   document.addEventListener('wheel', wheel.wheelHandler, { passive: false });
   document.addEventListener('click', wheel.outsideClickHandler);
   document.addEventListener('touchend', wheel.outsideClickHandler);
+  // Bind drag handlers directly on the wheel container for stepwise scrolling.
+  container.addEventListener('pointerdown', handlePointerDown);
+  container.addEventListener('pointermove', handlePointerMove);
+  container.addEventListener('pointerup', handlePointerUp);
+  container.addEventListener('pointercancel', handlePointerUp);
+  container.addEventListener('lostpointercapture', handlePointerUp);
+  container.addEventListener('click', handleWheelClick, true);
 }
 
 /**
