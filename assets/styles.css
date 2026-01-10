@@ -886,7 +886,12 @@ body.graphics-mode-low .control-button {
   align-items: center;
   justify-content: center;
   padding: clamp(1rem, 5vw, 3rem);
-  background: rgba(0, 0, 0, 0);
+  /* Lock the story artwork to the viewport so it doesn't resize as text grows. */
+  background-color: rgba(0, 0, 0, 0);
+  background-image: url('./sprites/pages/blackboardMobile.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   opacity: 0;
   pointer-events: none;
   transition: opacity 350ms ease, background-color 350ms ease;
@@ -904,11 +909,8 @@ body.graphics-mode-low .control-button {
   max-height: calc(100vh - 2 * clamp(1rem, 5vw, 3rem));
   /* Preserve generous vertical real estate so longer intros fill the viewport. */
   min-height: min(80vh, 96vw);
-  /* Add the chalkboard story panel artwork for the story overlay. */
-  background-image: url('./sprites/pages/blackboardMobile.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  /* Keep the content surface transparent so the full-screen artwork shows through. */
+  background-color: transparent;
   border-radius: 18px;
   padding: clamp(1.5rem, 4vw, 2.5rem);
   color: #f6f2eb;
@@ -990,6 +992,10 @@ body.graphics-mode-low .control-button {
 
 @media (min-width: 768px) {
   .level-story-overlay__content {
+    /* Keep desktop layout sizing without overriding the viewport artwork. */
+  }
+
+  .level-story-overlay {
     /* Swap to the landscape chalkboard artwork for desktop story overlays. */
     background-image: url('./sprites/pages/blackboardDesktop.png');
   }
