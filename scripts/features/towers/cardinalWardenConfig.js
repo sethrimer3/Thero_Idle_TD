@@ -426,7 +426,21 @@ export const LEGACY_WEAPON_DEFINITIONS = {
 };
 
 /**
+ * Enemy ship sprite URLs for the 6 difficulty levels.
+ * These SVG sprites are located in assets/sprites/spires/shinSpire/enemies/
+ */
+export const ENEMY_SHIP_SPRITES = [
+  './assets/sprites/spires/shinSpire/enemies/enemyShip1.svg',
+  './assets/sprites/spires/shinSpire/enemies/enemyShip2.svg',
+  './assets/sprites/spires/shinSpire/enemies/enemyShip3.svg',
+  './assets/sprites/spires/shinSpire/enemies/enemyShip4.svg',
+  './assets/sprites/spires/shinSpire/enemies/enemyShip5.svg',
+  './assets/sprites/spires/shinSpire/enemies/enemyShip6.svg',
+];
+
+/**
  * Enemy type configurations for different difficulty tiers.
+ * Each enemy type corresponds to a sprite level (1-6).
  */
 export const ENEMY_TYPES = {
   basic: {
@@ -436,6 +450,7 @@ export const ENEMY_TYPES = {
     size: 8,
     scoreValue: 10,
     color: '#000000',
+    spriteLevel: 1,
   },
   fast: {
     speed: 80,
@@ -444,6 +459,7 @@ export const ENEMY_TYPES = {
     size: 6,
     scoreValue: 15,
     color: '#000000',
+    spriteLevel: 2,
   },
   tank: {
     speed: 25,
@@ -452,14 +468,7 @@ export const ENEMY_TYPES = {
     size: 12,
     scoreValue: 25,
     color: '#000000',
-  },
-  elite: {
-    speed: 50,
-    health: 5,
-    damage: 15,
-    size: 10,
-    scoreValue: 50,
-    color: '#000000',
+    spriteLevel: 3,
   },
   ricochet: {
     speed: 70,
@@ -474,6 +483,25 @@ export const ENEMY_TYPES = {
     maxSmokePuffs: 45,
     initialStraightTime: 0.55,
     turnIntervalRange: { min: 0.65, max: 1.2 },
+    spriteLevel: 4,
+  },
+  elite: {
+    speed: 50,
+    health: 5,
+    damage: 15,
+    size: 10,
+    scoreValue: 50,
+    color: '#000000',
+    spriteLevel: 5,
+  },
+  advanced: {
+    speed: 60,
+    health: 8,
+    damage: 20,
+    size: 11,
+    scoreValue: 75,
+    color: '#000000',
+    spriteLevel: 6,
   },
 };
 
