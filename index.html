@@ -3557,6 +3557,30 @@
             </div>
           </article>
 
+          <!-- Enemy Almanac -->
+          <article class="card shin-enemy-almanac-card" id="shin-enemy-almanac-card">
+            <div class="shin-enemy-almanac-header">
+              <h3>Enemy Almanac</h3>
+              <button 
+                class="shin-enemy-almanac-toggle" 
+                id="shin-enemy-almanac-toggle" 
+                type="button"
+                aria-expanded="false"
+                aria-controls="shin-enemy-almanac-content"
+                aria-label="Toggle Enemy Almanac"
+              >
+                <span class="shin-enemy-almanac-icon">▾</span>
+              </button>
+            </div>
+            <div class="shin-enemy-almanac-content" id="shin-enemy-almanac-content" hidden>
+              <p class="shin-enemy-almanac-description">Track enemies encountered in Shin Spire waves.</p>
+              <div class="shin-enemy-almanac-list" id="shin-enemy-almanac-list" role="list" aria-live="polite">
+                <!-- Enemy entries populated dynamically -->
+              </div>
+              <p class="shin-enemy-almanac-empty" id="shin-enemy-almanac-empty" hidden>No enemies encountered yet. Start a wave to discover enemies!</p>
+            </div>
+          </article>
+
           <!-- Grapheme Inventory -->
           <article class="card shin-phoneme-card" id="shin-phoneme-card">
             <h3>Grapheme Collection</h3>

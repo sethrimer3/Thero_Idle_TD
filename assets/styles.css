@@ -14500,6 +14500,215 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 
 /* ============================================================
+   Enemy Almanac Styles
+   ============================================================ */
+
+.shin-enemy-almanac-card {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(25, 20, 35, 0.95), rgba(18, 15, 28, 0.98));
+  border: 1px solid rgba(200, 160, 100, 0.3);
+}
+
+.shin-enemy-almanac-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.shin-enemy-almanac-header h3 {
+  color: #c8a064;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.shin-enemy-almanac-toggle {
+  background: rgba(200, 160, 100, 0.1);
+  border: 1px solid rgba(200, 160, 100, 0.3);
+  color: #c8a064;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.shin-enemy-almanac-toggle:hover {
+  background: rgba(200, 160, 100, 0.2);
+  border-color: rgba(200, 160, 100, 0.5);
+}
+
+.shin-enemy-almanac-icon {
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.shin-enemy-almanac-toggle[aria-expanded="true"] .shin-enemy-almanac-icon {
+  transform: rotate(180deg);
+}
+
+.shin-enemy-almanac-content {
+  margin-top: 0.75rem;
+}
+
+.shin-enemy-almanac-description {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.shin-enemy-almanac-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.shin-enemy-entry {
+  background: rgba(40, 35, 50, 0.5);
+  border: 1px solid rgba(200, 160, 100, 0.2);
+  border-radius: 6px;
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.shin-enemy-entry:hover {
+  background: rgba(45, 40, 55, 0.6);
+  border-color: rgba(200, 160, 100, 0.35);
+}
+
+.shin-enemy-entry--unknown {
+  opacity: 0.5;
+  filter: blur(2px);
+}
+
+.shin-enemy-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.shin-enemy-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(60, 50, 70, 0.6);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shin-enemy-icon-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.shin-enemy-icon-placeholder {
+  font-size: 2rem;
+  color: rgba(200, 160, 100, 0.3);
+}
+
+.shin-enemy-entry-info {
+  flex: 1;
+}
+
+.shin-enemy-name {
+  color: #c8a064;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.shin-enemy-description {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  margin-bottom: 0.5rem;
+}
+
+.shin-enemy-stats-toggle {
+  background: rgba(200, 160, 100, 0.08);
+  border: 1px solid rgba(200, 160, 100, 0.2);
+  color: #c8a064;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 100%;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.shin-enemy-stats-toggle:hover {
+  background: rgba(200, 160, 100, 0.15);
+  border-color: rgba(200, 160, 100, 0.3);
+}
+
+.shin-enemy-stats-icon {
+  font-size: 0.9rem;
+  transition: transform 0.2s ease;
+}
+
+.shin-enemy-stats-toggle[aria-expanded="true"] .shin-enemy-stats-icon {
+  transform: rotate(180deg);
+}
+
+.shin-enemy-stats {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(30, 25, 40, 0.5);
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.shin-enemy-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+}
+
+.shin-enemy-stat-label {
+  color: var(--muted);
+}
+
+.shin-enemy-stat-value {
+  color: #c8a064;
+  font-weight: 600;
+}
+
+.shin-enemy-almanac-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .shin-enemy-almanac-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .shin-enemy-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ============================================================
    Phoneme Inventory Styles
    ============================================================ */
 

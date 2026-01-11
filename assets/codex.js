@@ -9,6 +9,20 @@ export const codexState = {
   encounteredEnemies: new Set(),
 };
 
+// Callbacks to notify when enemies are encountered
+let enemyEncounterCallbacks = [];
+
+// Register a callback to be called when an enemy is encountered
+export function onEnemyEncounter(callback) {
+  if (typeof callback === 'function' && !enemyEncounterCallbacks.includes(callback)) {
+    enemyEncounterCallbacks.push(callback);
+  }
+  // Return an unsubscribe function
+  return () => {
+    enemyEncounterCallbacks = enemyEncounterCallbacks.filter(cb => cb !== callback);
+  };
+}
+
 // Stores DOM elements associated with the enemy codex list.
 export const enemyCodexElements = {
   list: null,
@@ -451,6 +465,15 @@ export function registerEnemyEncounter(enemyId) {
   codexState.encounteredEnemies.add(enemyId);
   renderEnemyCodex();
   renderEnemyCodexOverlay();
+  
+  // Notify all registered callbacks
+  enemyEncounterCallbacks.forEach(callback => {
+    try {
+      callback(enemyId);
+    } catch (error) {
+      console.error('Error in enemy encounter callback:', error);
+    }
+  });
 }
 
 // Renders the enemy codex overlay with collapsible entries.

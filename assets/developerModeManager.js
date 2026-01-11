@@ -47,6 +47,7 @@ export function createDeveloperModeManager(options = {}) {
     getEnemyCodexEntries,
     codexState,
     renderEnemyCodex,
+    refreshEnemyAlmanac,
     updateLevelCards,
     updateActiveLevelBanner,
     updateTowerCardVisibility,
@@ -287,6 +288,7 @@ export function createDeveloperModeManager(options = {}) {
     }
 
     renderEnemyCodex?.();
+    refreshEnemyAlmanac?.();
     updateLevelCards?.();
     updateActiveLevelBanner?.();
     updateTowerCardVisibility?.();
