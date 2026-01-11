@@ -56,7 +56,7 @@ const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
 
 // Particle spawner configuration (mini forges for each unlocked particle type)
 const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than before)
-const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
+const SPAWNER_ROTATION_SPEED = 0.01; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
 const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6; // Scale generator sprites to match the previous triangle footprint.
