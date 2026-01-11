@@ -12908,6 +12908,28 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   transition: all 0.2s ease;
 }
 
+/* Add a luminous core ship watermark behind the ship menu tile for atmosphere. */
+.kuf-sim-menu-tile--ship {
+  position: relative;
+  overflow: hidden;
+}
+
+.kuf-sim-menu-tile--ship::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('sprites/spires/kufSpire/playerShips/coreShipLevel2.png') center / 85% no-repeat;
+  opacity: 0.3;
+  filter: brightness(1.4);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.kuf-sim-menu-tile--ship > * {
+  position: relative;
+  z-index: 1;
+}
+
 .kuf-sim-menu-tile:hover {
   background: linear-gradient(160deg, rgba(28, 36, 68, 0.95), rgba(18, 22, 48, 0.98));
   border-color: rgba(140, 180, 240, 0.5);
