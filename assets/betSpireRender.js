@@ -59,6 +59,8 @@ const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than be
 const SPAWNER_ROTATION_SPEED = 0.03; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
+const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6; // Scale generator sprites to match the previous triangle footprint.
+const LARGE_PARTICLE_SPRITE_SCALE = 3.2; // Scale the 10,000-particle sprite so it reads at small particle sizes.
 
 // Particle veer behavior configuration (developer-toggleable).
 const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
@@ -68,6 +70,25 @@ const VEER_INTERVAL_MAX_MS = 1000; // Maximum interval between veer nudges in mi
 
 // Utility to generate a random number within an inclusive range.
 const getRandomInRange = (min, max) => min + Math.random() * (max - min);
+// Utility to create a tinted sprite canvas from a monochrome base image.
+const createTintedSpriteCanvas = (sourceImage, color, size) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const drawSize = size;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(sourceImage, 0, 0, drawSize, drawSize);
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+  ctx.fillRect(0, 0, drawSize, drawSize);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(sourceImage, 0, 0, drawSize, drawSize);
+  ctx.globalCompositeOperation = 'source-over';
+
+  return canvas;
+};
 
 // Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
 // All 11 generators are equidistant from each other on a circle around the forge
@@ -157,6 +178,9 @@ const SIZE_TIERS = ['small', 'medium', 'large'];
 const SMALL_SIZE_INDEX = 0;
 const MEDIUM_SIZE_INDEX = 1;
 const LARGE_SIZE_INDEX = 2;
+const LARGE_PARTICLE_SPRITE_SIZE = Math.ceil(
+  BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, LARGE_SIZE_INDEX) * LARGE_PARTICLE_SPRITE_SCALE
+); // Cache size for the 10,000-particle sprite to avoid recalculating.
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
 const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
 const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
@@ -521,6 +545,27 @@ export class BetSpireRender {
     this.forgeSpriteClockwise.src = './assets/sprites/spires/betSpire/forge.png';
     this.forgeSpriteCounterClockwise = new Image();
     this.forgeSpriteCounterClockwise.src = './assets/sprites/spires/betSpire/forge2.png';
+
+    // Cache tinted generator sprites so we only colorize them once per tier.
+    this.generatorSpriteCache = new Map();
+    this.generatorSpriteSources = new Map();
+    // Cache the 10,000-particle sprite per tier for large particle rendering.
+    this.largeParticleSpriteCache = new Map();
+    this.largeParticleSpriteSource = new Image();
+    this.largeParticleSpriteSource.src = './assets/sprites/spires/betSpire/10000Particle.svg';
+    this.largeParticleSpriteSource.onload = () => {
+      this.populateLargeParticleSpriteCache();
+    };
+
+    // Load generator sprite sources for each tier so they can be tinted and cached on load.
+    PARTICLE_TIERS.forEach((tier, index) => {
+      const sprite = new Image();
+      sprite.src = `./assets/sprites/spires/betSpire/generators/tier${index + 1}.svg`;
+      sprite.onload = () => {
+        this.cacheGeneratorSpritesForTier(tier.id, sprite);
+      };
+      this.generatorSpriteSources.set(tier.id, sprite);
+    });
     
     // Developer debug flags (only visible when developer mode is active)
     this.particleSpawningEnabled = true; // Controls whether particles can spawn
@@ -1895,6 +1940,8 @@ export class BetSpireRender {
     
     // Bucket particles by draw style so canvas state only changes a handful of times even with thousands of particles.
     const drawBuckets = new Map();
+    // Bucket large particles separately so the cached 10,000-particle sprite can render them.
+    const largeSpriteBuckets = new Map();
 
     // Update particles and collect their draw intents
     for (let i = 0; i < this.particles.length; i++) {
@@ -1914,17 +1961,30 @@ export class BetSpireRender {
         );
       }
 
-      const styleKey = particle.getDrawStyleKey();
-      if (!drawBuckets.has(styleKey)) {
-        drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
-      }
+      const largeSpriteSet = particle.sizeIndex === LARGE_SIZE_INDEX
+        ? this.largeParticleSpriteCache.get(particle.tierId)
+        : null;
 
-      const bucket = drawBuckets.get(styleKey);
-      bucket.positions.push({ x: particle.x, y: particle.y });
+      if (largeSpriteSet) {
+        if (!largeSpriteBuckets.has(particle.tierId)) {
+          largeSpriteBuckets.set(particle.tierId, []);
+        }
+        largeSpriteBuckets.get(particle.tierId).push({ x: particle.x, y: particle.y });
+      } else {
+        const styleKey = particle.getDrawStyleKey();
+        if (!drawBuckets.has(styleKey)) {
+          drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
+        }
+
+        const bucket = drawBuckets.get(styleKey);
+        bucket.positions.push({ x: particle.x, y: particle.y });
+      }
     }
 
     // Draw each bucket in a single fill pass to minimize expensive shadow/style switches.
     this.drawBatchedParticles(drawBuckets);
+    // Draw cached sprites for large particles after the batched square passes.
+    this.drawLargeParticleSprites(largeSpriteBuckets);
     
     // Periodically attempt to merge particles (size merging)
     // Increase merge frequency when particle count is high
@@ -1998,6 +2058,59 @@ export class BetSpireRender {
     });
 
     ctx.shadowBlur = 0; // Reset so later draws are unaffected by any glow buckets.
+  }
+
+  // Draw cached 10,000-particle sprites for large particles so they read as special merges.
+  drawLargeParticleSprites(largeSpriteBuckets) {
+    const ctx = this.ctx;
+
+    largeSpriteBuckets.forEach((positions, tierId) => {
+      const spriteEntry = this.largeParticleSpriteCache.get(tierId);
+      if (!spriteEntry) {
+        return;
+      }
+
+      const halfSize = spriteEntry.size * 0.5;
+      positions.forEach(({ x, y }) => {
+        ctx.drawImage(spriteEntry.sprite, Math.floor(x - halfSize), Math.floor(y - halfSize), spriteEntry.size, spriteEntry.size);
+      });
+    });
+  }
+
+  // Cache a pair of tinted generator sprites (clockwise/counter) for a tier so coloring happens once.
+  cacheGeneratorSpritesForTier(tierId, sourceImage) {
+    const tier = PARTICLE_TIERS.find(entry => entry.id === tierId);
+    if (!tier) {
+      return;
+    }
+
+    const baseColor = tier.color;
+    const brighterColor = {
+      r: Math.min(255, baseColor.r + SPAWNER_COLOR_BRIGHTNESS_OFFSET),
+      g: Math.min(255, baseColor.g + SPAWNER_COLOR_BRIGHTNESS_OFFSET),
+      b: Math.min(255, baseColor.b + SPAWNER_COLOR_BRIGHTNESS_OFFSET),
+    };
+    const spriteSize = Math.ceil(SPAWNER_SPRITE_SIZE);
+
+    this.generatorSpriteCache.set(tierId, {
+      clockwise: createTintedSpriteCanvas(sourceImage, baseColor, spriteSize),
+      counterClockwise: createTintedSpriteCanvas(sourceImage, brighterColor, spriteSize),
+      size: spriteSize,
+    });
+  }
+
+  // Cache tinted 10,000-particle sprites per tier so large particle rendering stays lightweight.
+  populateLargeParticleSpriteCache() {
+    if (!this.largeParticleSpriteSource.complete || this.largeParticleSpriteSource.naturalWidth === 0) {
+      return;
+    }
+
+    PARTICLE_TIERS.forEach((tier) => {
+      this.largeParticleSpriteCache.set(tier.id, {
+        sprite: createTintedSpriteCanvas(this.largeParticleSpriteSource, tier.color, LARGE_PARTICLE_SPRITE_SIZE),
+        size: LARGE_PARTICLE_SPRITE_SIZE,
+      });
+    });
   }
 
   drawForge() {
@@ -2125,28 +2238,38 @@ export class BetSpireRender {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Draw first triangle (pointing up, rotating clockwise)
-      ctx.rotate(rotation);
-      ctx.strokeStyle = colorString;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, -SPAWNER_SIZE);
-      ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
-      ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
-      ctx.closePath();
-      ctx.stroke();
-      
-      // Draw second triangle (pointing down, rotating counter-clockwise)
-      ctx.rotate(-rotation * 2); // Reset and rotate opposite direction
-      // Use slightly lighter/darker variant for second triangle
-      const lightColorString = `rgba(${Math.min(255, color.r + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.g + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.b + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, 0.6)`;
-      ctx.strokeStyle = lightColorString;
-      ctx.beginPath();
-      ctx.moveTo(0, SPAWNER_SIZE);
-      ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
-      ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
-      ctx.closePath();
-      ctx.stroke();
+      // Draw cached generator sprites when available so they render as tinted art instead of vectors.
+      const spriteSet = this.generatorSpriteCache.get(tierId);
+      if (spriteSet) {
+        const halfSize = spriteSet.size * 0.5;
+        // Draw first sprite (clockwise spin).
+        ctx.rotate(rotation);
+        ctx.drawImage(spriteSet.clockwise, -halfSize, -halfSize, spriteSet.size, spriteSet.size);
+        // Draw second sprite (counter-clockwise spin).
+        ctx.rotate(-rotation * 2);
+        ctx.drawImage(spriteSet.counterClockwise, -halfSize, -halfSize, spriteSet.size, spriteSet.size);
+      } else {
+        // Fallback to vector triangles if the sprite has not loaded yet.
+        ctx.rotate(rotation);
+        ctx.strokeStyle = colorString;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -SPAWNER_SIZE);
+        ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.closePath();
+        ctx.stroke();
+        
+        ctx.rotate(-rotation * 2);
+        const lightColorString = `rgba(${Math.min(255, color.r + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.g + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, ${Math.min(255, color.b + SPAWNER_COLOR_BRIGHTNESS_OFFSET)}, 0.6)`;
+        ctx.strokeStyle = lightColorString;
+        ctx.beginPath();
+        ctx.moveTo(0, SPAWNER_SIZE);
+        ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.closePath();
+        ctx.stroke();
+      }
       
       // Draw center glow with tier color (only if glow is enabled)
       if (this.forgeGlowEnabled) {
