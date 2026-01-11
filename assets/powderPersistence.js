@@ -282,13 +282,21 @@ export function createPowderPersistence({
       // Restore Bet terrarium leveling progress for fractal trees.
       const storedTerrarium = base.betTerrarium || {};
       const storedTrees = storedTerrarium.trees && typeof storedTerrarium.trees === 'object' ? storedTerrarium.trees : {};
+      // Fall back to legacy happiness-owned slime purchases when terrarium counts are missing.
+      const legacySlimeCount = Number.isFinite(base.betHappiness?.producers?.slime)
+        ? Math.max(0, Math.floor(base.betHappiness.producers.slime))
+        : 0;
+      // Prefer explicit terrarium slime counts but honor legacy saves that only tracked happiness producers.
+      const resolvedSlimeCount = Number.isFinite(Number(storedTerrarium.slimeCount))
+        ? Math.max(0, Math.floor(Number(storedTerrarium.slimeCount)))
+        : legacySlimeCount;
       powderState.betTerrarium = {
         levelingMode: Boolean(storedTerrarium.levelingMode),
         celestialBodiesEnabled: Boolean(storedTerrarium.celestialBodiesEnabled),
         sunEnabled: Boolean(storedTerrarium.sunEnabled),
         moonEnabled: Boolean(storedTerrarium.moonEnabled),
         // Restore purchased terrarium creatures so overlays match saved state.
-        slimeCount: Math.max(0, Math.floor(Number(storedTerrarium.slimeCount) || 0)),
+        slimeCount: resolvedSlimeCount,
         birdCount: Math.max(0, Math.floor(Number(storedTerrarium.birdCount) || 0)),
         trees: Object.entries(storedTrees).reduce((result, [key, value]) => {
           const allocated = Number.isFinite(value?.allocated) ? Math.max(0, Math.floor(value.allocated)) : 0;

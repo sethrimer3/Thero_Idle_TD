@@ -2,6 +2,7 @@
 // Tiered particle system with size merging at generator centers and tier conversion at the forge.
 
 import { moteGemState, resolveGemDefinition } from './enemies.js';
+import { powderState } from './powder/powderState.js';
 
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
@@ -2221,6 +2222,8 @@ export class BetSpireRender {
     if (glyphsAwarded > 0 && this.state) {
       this.state.betGlyphsAwarded = this.betGlyphsAwarded;
       this.state.particleFactorMilestone = this.particleFactorMilestone;
+      // Sync powder-state counters so unlocks and achievements read the latest Bet glyph awards.
+      powderState.fluidGlyphsAwarded = Math.max(powderState.fluidGlyphsAwarded, this.betGlyphsAwarded);
     }
     
     return glyphsAwarded;
