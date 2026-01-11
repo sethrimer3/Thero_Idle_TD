@@ -89,6 +89,7 @@ import {
   WEAPON_SLOT_DEFINITIONS,
   LEGACY_WEAPON_DEFINITIONS,
   ENEMY_TYPES,
+  ENEMY_SHIP_SPRITES,
   VISUAL_CONFIG,
   RING_SQUARE_CONFIGS,
   INNER_RING_CONFIGS,
@@ -769,6 +770,7 @@ class EnemyShip {
     this.scoreValue = config.scoreValue || 10;
     this.baseColor = config.color || VISUAL_CONFIG.DEFAULT_ENEMY_COLOR;
     this.color = this.baseColor;
+    this.spriteLevel = config.spriteLevel || 1; // Sprite level for rendering (1-6)
 
     // Trail and exhaust controls for enemy-specific silhouettes.
     this.trailLimit = config.trailLimit || 12;
@@ -2468,6 +2470,11 @@ export class CardinalWardenSimulation {
     this.legacyWardenGraphics = false; // Toggle between sprite and canvas rendering
     this.loadWardenSprites();
 
+    // Enemy ship sprite artwork for 6 difficulty levels
+    this.enemyShipSprites = [];
+    this.enemyShipSpritesLoaded = [];
+    this.loadEnemyShipSprites();
+
     // Game state
     this.running = false;
     this.paused = false;
@@ -2877,6 +2884,31 @@ export class CardinalWardenSimulation {
       sprite.src = `./assets/sprites/spires/shinSpire/warden/wardenShard (${i}).png`;
       this.wardenShardSprites[i - 1] = sprite;
     }
+  }
+
+  /**
+   * Load enemy ship sprites for the 6 difficulty levels.
+   */
+  loadEnemyShipSprites() {
+    // Skip sprite loading on non-browser contexts.
+    if (typeof Image === 'undefined') {
+      return;
+    }
+    
+    this.enemyShipSprites = [];
+    this.enemyShipSpritesLoaded = [];
+    
+    ENEMY_SHIP_SPRITES.forEach((url, index) => {
+      const sprite = new Image();
+      sprite.onload = () => {
+        this.enemyShipSpritesLoaded[index + 1] = true;
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load enemy ship sprite: ${url}`);
+      };
+      sprite.src = url;
+      this.enemyShipSprites[index + 1] = sprite;
+    });
   }
 
   /**
@@ -4948,6 +4980,7 @@ export class CardinalWardenSimulation {
     if (this.difficultyLevel >= 2) pool.push('tank');
     if (this.difficultyLevel >= 3) pool.push('ricochet');
     if (this.difficultyLevel >= 4) pool.push('elite');
+    if (this.difficultyLevel >= 5) pool.push('advanced');
     return pool;
   }
 
@@ -6720,15 +6753,32 @@ export class CardinalWardenSimulation {
       ctx.translate(enemy.x, enemy.y);
       ctx.rotate(enemy.headingAngle - Math.PI / 2);
 
-      // Draw enemy ship as a simple triangle pointing toward movement.
-      ctx.beginPath();
-      ctx.moveTo(0, enemy.size);
-      ctx.lineTo(-enemy.size * 0.7, -enemy.size * 0.5);
-      ctx.lineTo(enemy.size * 0.7, -enemy.size * 0.5);
-      ctx.closePath();
+      // Draw enemy ship sprite if available, otherwise fall back to triangle
+      const spriteLevel = enemy.spriteLevel || 1;
+      const sprite = this.enemyShipSprites[spriteLevel];
+      const spriteLoaded = this.enemyShipSpritesLoaded[spriteLevel];
+      
+      if (sprite && spriteLoaded) {
+        // Render the enemy ship sprite
+        const spriteSize = enemy.size * 3; // Scale sprite to be visible
+        ctx.drawImage(
+          sprite,
+          -spriteSize / 2,
+          -spriteSize / 2,
+          spriteSize,
+          spriteSize
+        );
+      } else {
+        // Fallback: Draw enemy ship as a simple triangle pointing toward movement.
+        ctx.beginPath();
+        ctx.moveTo(0, enemy.size);
+        ctx.lineTo(-enemy.size * 0.7, -enemy.size * 0.5);
+        ctx.lineTo(enemy.size * 0.7, -enemy.size * 0.5);
+        ctx.closePath();
 
-      ctx.fillStyle = this.nightMode ? '#ffffff' : enemy.color;
-      ctx.fill();
+        ctx.fillStyle = this.nightMode ? '#ffffff' : enemy.color;
+        ctx.fill();
+      }
 
       // Health bar for multi-hit enemies
       if (enemy.maxHealth > 1) {
