@@ -6787,6 +6787,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 onRunComplete: () => {
                   spireMenuController.updateCounts();
                 },
+                // Keep the Kuf almanac in sync with the global developer mode toggle.
+                getDeveloperModeActive: () => developerModeActive,
               });
               initializeKufSpirePreferences();
               bindKufSpireOptions();

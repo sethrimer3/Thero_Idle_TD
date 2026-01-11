@@ -13391,6 +13391,223 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   color: rgba(180, 220, 255, 0.95);
 }
 
+/* Enemy almanac dropdown styling for the Kuf units view. */
+.kuf-almanac {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kuf-almanac-toggle {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(140, 180, 255, 0.4);
+  background: rgba(20, 30, 60, 0.45);
+  color: rgba(205, 235, 255, 0.95);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: var(--cursor-pointer);
+  transition: all 0.2s ease;
+}
+
+.kuf-almanac-toggle:hover {
+  background: rgba(40, 60, 110, 0.55);
+  border-color: rgba(170, 210, 255, 0.6);
+}
+
+.kuf-almanac-toggle-icon {
+  transition: transform 0.2s ease;
+}
+
+.kuf-almanac-toggle[aria-expanded='true'] .kuf-almanac-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.kuf-almanac-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.kuf-almanac-panel[hidden] {
+  display: none;
+}
+
+.kuf-almanac-entry {
+  border-radius: 12px;
+  border: 1px solid rgba(110, 160, 230, 0.3);
+  background: rgba(18, 28, 54, 0.5);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.kuf-almanac-entry.is-locked {
+  opacity: 0.55;
+}
+
+.kuf-almanac-entry-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.kuf-almanac-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 170, 230, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem;
+  color: rgba(210, 235, 255, 0.9);
+  background: radial-gradient(circle at top, rgba(110, 160, 230, 0.6), rgba(40, 60, 100, 0.7));
+}
+
+.kuf-almanac-icon--unknown {
+  background: rgba(30, 40, 70, 0.5);
+  color: rgba(210, 220, 255, 0.8);
+}
+
+.kuf-almanac-icon--turret {
+  background: linear-gradient(135deg, rgba(90, 130, 210, 0.7), rgba(30, 50, 90, 0.7));
+}
+
+.kuf-almanac-icon--heavy-turret {
+  background: linear-gradient(135deg, rgba(160, 130, 110, 0.8), rgba(60, 40, 50, 0.7));
+}
+
+.kuf-almanac-icon--laser-turret {
+  background: linear-gradient(135deg, rgba(120, 200, 255, 0.7), rgba(40, 80, 120, 0.7));
+}
+
+.kuf-almanac-icon--rocket-turret {
+  background: linear-gradient(135deg, rgba(255, 190, 120, 0.7), rgba(90, 60, 40, 0.7));
+}
+
+.kuf-almanac-icon--artillery-turret {
+  background: linear-gradient(135deg, rgba(220, 180, 150, 0.7), rgba(80, 60, 50, 0.7));
+}
+
+.kuf-almanac-icon--plasma-turret {
+  background: linear-gradient(135deg, rgba(255, 160, 200, 0.75), rgba(80, 30, 70, 0.7));
+}
+
+.kuf-almanac-icon--scatter-turret {
+  background: linear-gradient(135deg, rgba(200, 230, 140, 0.7), rgba(70, 90, 40, 0.7));
+}
+
+.kuf-almanac-icon--wall {
+  background: linear-gradient(135deg, rgba(120, 120, 140, 0.8), rgba(40, 40, 50, 0.7));
+}
+
+.kuf-almanac-icon--mine {
+  background: linear-gradient(135deg, rgba(220, 100, 100, 0.8), rgba(80, 30, 30, 0.7));
+}
+
+.kuf-almanac-icon--melee {
+  background: linear-gradient(135deg, rgba(200, 150, 255, 0.75), rgba(60, 40, 90, 0.7));
+}
+
+.kuf-almanac-icon--ranged {
+  background: linear-gradient(135deg, rgba(120, 200, 180, 0.75), rgba(40, 80, 70, 0.7));
+}
+
+.kuf-almanac-icon--barracks {
+  background: linear-gradient(135deg, rgba(170, 140, 210, 0.75), rgba(60, 50, 90, 0.7));
+}
+
+.kuf-almanac-icon--support {
+  background: linear-gradient(135deg, rgba(140, 210, 255, 0.75), rgba(40, 80, 110, 0.7));
+}
+
+.kuf-almanac-icon--stasis {
+  background: linear-gradient(135deg, rgba(130, 210, 255, 0.75), rgba(40, 70, 110, 0.7));
+}
+
+.kuf-almanac-icon--relay {
+  background: linear-gradient(135deg, rgba(160, 210, 150, 0.75), rgba(60, 90, 60, 0.7));
+}
+
+.kuf-almanac-icon--shield {
+  background: linear-gradient(135deg, rgba(120, 140, 255, 0.75), rgba(40, 50, 110, 0.7));
+}
+
+.kuf-almanac-icon--supply {
+  background: linear-gradient(135deg, rgba(200, 180, 140, 0.75), rgba(80, 70, 50, 0.7));
+}
+
+.kuf-almanac-icon--signal {
+  background: linear-gradient(135deg, rgba(200, 220, 255, 0.75), rgba(60, 80, 120, 0.7));
+}
+
+.kuf-almanac-entry-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kuf-almanac-entry-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(210, 235, 255, 0.95);
+  margin: 0;
+}
+
+.kuf-almanac-entry-description {
+  font-size: 0.9rem;
+  color: rgba(170, 200, 235, 0.85);
+  margin: 0;
+}
+
+.kuf-almanac-entry-toggle {
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(140, 180, 255, 0.4);
+  background: rgba(30, 50, 90, 0.55);
+  color: rgba(190, 220, 255, 0.9);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  cursor: var(--cursor-pointer);
+  transition: all 0.2s ease;
+}
+
+.kuf-almanac-entry-toggle:hover {
+  background: rgba(50, 80, 130, 0.65);
+}
+
+.kuf-almanac-entry-stats {
+  border-top: 1px solid rgba(100, 150, 220, 0.25);
+  padding-top: 0.65rem;
+}
+
+.kuf-almanac-stats {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.kuf-almanac-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: rgba(180, 210, 245, 0.85);
+}
+
+.kuf-almanac-stat-row dt {
+  color: rgba(140, 180, 240, 0.8);
+}
+
 /* Shard Codex */
 .kuf-card--codex {
   padding: 1.5rem;

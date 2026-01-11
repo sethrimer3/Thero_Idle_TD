@@ -14,6 +14,7 @@ import {
   getKufRemainingShards,
   getKufTotalShards,
   getKufShardsAvailableForUnits,
+  getKufEncounteredEnemies,
   calculateKufMarineStats,
   calculateKufUnitStats,
   calculateKufCoreShipStats,
@@ -27,6 +28,7 @@ import {
   sellKufUnit,
   allocateKufUpgrade,
   deallocateKufUpgrade,
+  recordKufEnemyEncounters,
   getKufShardsSpentOnUpgrades,
   getCoreShipLevel,
   getCoreShipNextLevelCost,
@@ -40,6 +42,7 @@ import {
 } from './kufState.js';
 
 import { KufBattlefieldSimulation } from './kufSimulation.js';
+import { getKufAlmanacStatLabels, getKufEnemyDefinition, KUF_ENEMY_ORDER } from './kufEnemyDefinitions.js';
 import {
   getCachedKufMaps,
   loadKufMaps,
@@ -54,6 +57,7 @@ let runCompleteCallback = null;
 let currentOpenDropdown = null;
 let holdTimers = new Map(); // For hold-to-spam functionality
 let currentExpandedView = null; // Track which view is currently expanded
+let getDeveloperModeActive = () => false; // Provide developer visibility overrides for the almanac.
 const KUF_FALLBACK_MAP_ID = 'forward-bastion';
 
 let kufMapList = getCachedKufMaps();
@@ -229,6 +233,9 @@ function cacheElements() {
     coreShipLevel: document.getElementById('kuf-core-ship-level'),
     coreShipLevelUpButton: document.getElementById('kuf-core-ship-level-up'),
     coreShipLevelUpCost: document.getElementById('kuf-core-ship-level-up-cost'),
+    // Enemy almanac elements for the Kuf units menu.
+    enemyAlmanacToggle: document.getElementById('kuf-enemy-almanac-toggle'),
+    enemyAlmanacPanel: document.getElementById('kuf-enemy-almanac-panel'),
   };
 }
 
@@ -355,6 +362,15 @@ function bindButtons() {
       hideResultPanel();
     });
   }
+
+  // Enemy almanac toggle in the units menu.
+  if (kufElements.enemyAlmanacToggle && kufElements.enemyAlmanacPanel) {
+    kufElements.enemyAlmanacToggle.addEventListener('click', () => {
+      const isHidden = !kufElements.enemyAlmanacPanel.hidden;
+      kufElements.enemyAlmanacPanel.hidden = isHidden;
+      kufElements.enemyAlmanacToggle.setAttribute('aria-expanded', String(!isHidden));
+    });
+  }
   
   // Unit +/- buttons (using event delegation)
   document.addEventListener('click', (e) => {
@@ -384,6 +400,19 @@ function bindButtons() {
     if (unitType && kufElements.unitUpgradePanels[unitType]) {
       toggleUpgradeDropdown(unitType);
     }
+  });
+
+  // Enemy almanac stat toggles.
+  document.addEventListener('click', (e) => {
+    const button = e.target.closest('.kuf-almanac-entry-toggle');
+    if (!button) return;
+    const enemyType = button.dataset.enemyType;
+    if (!enemyType) return;
+    const statsPanel = document.getElementById(`kuf-almanac-stats-${enemyType}`);
+    if (!statsPanel) return;
+    const isExpanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!isExpanded));
+    statsPanel.hidden = isExpanded;
   });
   
   // Upgrade +/- buttons (using event delegation)
@@ -467,6 +496,25 @@ function ensureSimulationInstance() {
   window.addEventListener('resize', () => simulation.resize());
 }
 
+// Record all enemy types present in the selected map layout for the almanac.
+function recordMapEnemyEncounters(mapId) {
+  const map = mapId ? kufMapLookup.get(mapId) : null;
+  if (!map?.layout) {
+    return;
+  }
+  const encounteredTypes = Array.from(
+    new Set(
+      map.layout
+        .map((entry) => entry?.type)
+        .filter((type) => typeof type === 'string' && type.trim()),
+    ),
+  );
+  if (encounteredTypes.length > 0) {
+    recordKufEnemyEncounters(encounteredTypes);
+    updateEnemyAlmanacDisplay();
+  }
+}
+
 function startSimulation() {
   ensureSimulationInstance();
   if (!simulation || simulation.active) {
@@ -491,6 +539,9 @@ function startSimulation() {
   // Force zero starting units so all forces are trained during the encounter.
   const units = { marines: 0, snipers: 0, splayers: 0, lasers: 0 };
   const mapId = ensureSelectedMapId();
+
+  // Record enemy encounters for the selected map so the almanac reveals new entries.
+  recordMapEnemyEncounters(mapId);
 
   simulation.start({ marineStats, sniperStats, splayerStats, laserStats, coreShipStats, units, mapId });
 }
@@ -611,6 +662,142 @@ function updateMapDetails() {
       kufElements.mapMechanics.appendChild(li);
     }
   }
+}
+
+// Format stat values for the Kuf enemy almanac display.
+function formatAlmanacStatValue(statKey, value) {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  if (statKey === 'attackSpeed') {
+    return value > 0 ? `${value.toFixed(1)} /s` : '—';
+  }
+  if (statKey === 'range') {
+    return value > 0 ? `${value.toFixed(0)} px` : '—';
+  }
+  if (statKey === 'goldValue') {
+    return `${value.toFixed(0)} gold`;
+  }
+  return value > 0 ? value.toFixed(1).replace(/\.0$/, '') : '—';
+}
+
+// Build a stat list for an almanac entry.
+function buildAlmanacStatList(stats, extraDetails) {
+  const statLabels = getKufAlmanacStatLabels();
+  const list = document.createElement('dl');
+  list.className = 'kuf-almanac-stats';
+
+  Object.entries(statLabels).forEach(([statKey, label]) => {
+    const row = document.createElement('div');
+    row.className = 'kuf-almanac-stat-row';
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const value = document.createElement('dd');
+    value.textContent = formatAlmanacStatValue(statKey, stats[statKey]);
+    row.append(term, value);
+    list.appendChild(row);
+  });
+
+  if (Array.isArray(extraDetails)) {
+    extraDetails.forEach((detail) => {
+      if (!detail?.label || !detail?.value) {
+        return;
+      }
+      const row = document.createElement('div');
+      row.className = 'kuf-almanac-stat-row';
+      const term = document.createElement('dt');
+      term.textContent = detail.label;
+      const value = document.createElement('dd');
+      value.textContent = detail.value;
+      row.append(term, value);
+      list.appendChild(row);
+    });
+  }
+
+  return list;
+}
+
+// Render the Kuf enemy almanac roster based on encountered enemy types.
+function updateEnemyAlmanacDisplay() {
+  if (!kufElements.enemyAlmanacPanel) {
+    return;
+  }
+
+  const encounteredEnemies = new Set(getKufEncounteredEnemies());
+  const revealAll = Boolean(getDeveloperModeActive());
+  kufElements.enemyAlmanacPanel.innerHTML = '';
+
+  KUF_ENEMY_ORDER.forEach((enemyType) => {
+    const definition = getKufEnemyDefinition(enemyType);
+    if (!definition) {
+      return;
+    }
+
+    const isUnlocked = revealAll || encounteredEnemies.has(enemyType);
+    const entry = document.createElement('article');
+    entry.className = 'kuf-almanac-entry';
+    if (!isUnlocked) {
+      entry.classList.add('is-locked');
+    }
+
+    const header = document.createElement('div');
+    header.className = 'kuf-almanac-entry-header';
+
+    const icon = document.createElement('div');
+    icon.className = 'kuf-almanac-icon';
+    icon.dataset.enemyType = enemyType;
+    if (!isUnlocked) {
+      icon.classList.add('kuf-almanac-icon--unknown');
+      icon.textContent = '?';
+    } else if (definition.iconClass) {
+      icon.classList.add(`kuf-almanac-icon--${definition.iconClass}`);
+    }
+
+    const textGroup = document.createElement('div');
+    textGroup.className = 'kuf-almanac-entry-text';
+    const name = document.createElement('p');
+    name.className = 'kuf-almanac-entry-name';
+    name.textContent = isUnlocked ? definition.name : 'Unknown';
+    textGroup.appendChild(name);
+
+    if (isUnlocked && definition.description) {
+      const description = document.createElement('p');
+      description.className = 'kuf-almanac-entry-description';
+      description.textContent = definition.description;
+      textGroup.appendChild(description);
+    }
+
+    header.append(icon, textGroup);
+
+    const statsPanelId = `kuf-almanac-stats-${enemyType}`;
+    let toggle = null;
+    let statsPanel = null;
+
+    if (isUnlocked) {
+      toggle = document.createElement('button');
+      toggle.className = 'kuf-almanac-entry-toggle';
+      toggle.type = 'button';
+      toggle.dataset.enemyType = enemyType;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-controls', statsPanelId);
+      toggle.textContent = 'Stats';
+
+      statsPanel = document.createElement('div');
+      statsPanel.className = 'kuf-almanac-entry-stats';
+      statsPanel.id = statsPanelId;
+      statsPanel.hidden = true;
+      statsPanel.appendChild(buildAlmanacStatList(definition.stats, definition.almanacDetails));
+    }
+
+    if (toggle) {
+      header.append(toggle);
+    }
+    entry.appendChild(header);
+    if (statsPanel) {
+      entry.appendChild(statsPanel);
+    }
+    kufElements.enemyAlmanacPanel.appendChild(entry);
+  });
 }
 
 function updateUpgradeDisplay() {
@@ -737,6 +924,7 @@ function handleStateChange(event) {
     updateUnitDisplay();
     updateUpgradeDisplay();
     updateCodexDisplay();
+    updateEnemyAlmanacDisplay();
   }
   if (event.type === 'units') {
     updateUnitDisplay();
@@ -745,6 +933,9 @@ function handleStateChange(event) {
   if (event.type === 'upgrades') {
     updateUpgradeDisplay();
     updateCodexDisplay();
+  }
+  if (event.type === 'enemyEncounters') {
+    updateEnemyAlmanacDisplay();
   }
   if (event.type === 'allocation') {
     // Refresh the ledger whenever shard allocations shift via external state updates.
@@ -877,6 +1068,10 @@ function setupHoldToSpam() {
  */
 export function initializeKufUI(options = {}) {
   runCompleteCallback = typeof options.onRunComplete === 'function' ? options.onRunComplete : null;
+  // Allow the almanac to reveal all entries while developer mode is enabled.
+  getDeveloperModeActive = typeof options.getDeveloperModeActive === 'function'
+    ? options.getDeveloperModeActive
+    : () => false;
   cacheElements();
   bindButtons();
   setupHoldToSpam();
@@ -894,6 +1089,7 @@ export function initializeKufUI(options = {}) {
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
+  updateEnemyAlmanacDisplay();
 }
 
 /**
@@ -903,6 +1099,7 @@ export function updateKufDisplay() {
   updateUnitDisplay();
   updateUpgradeDisplay();
   updateCodexDisplay();
+  updateEnemyAlmanacDisplay();
   updateMapDetails();
   if (simulation) {
     simulation.resize();

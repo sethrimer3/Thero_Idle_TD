@@ -18,6 +18,8 @@ const DEFAULT_UPGRADES = Object.freeze({
   // Track core ship upgrades for hull integrity and attached cannon mounts.
   coreShip: { health: 0, cannons: 0, hullRepair: 0, healingAura: 0, shield: 0, droneRate: 0, droneHealth: 0, droneDamage: 0 },
 });
+// Default encountered enemy roster for the Kuf enemy almanac.
+const DEFAULT_ENCOUNTERED_ENEMIES = Object.freeze([]);
 
 // Core ship level costs in shards
 // Index represents the cost to upgrade FROM that level TO the next level:
@@ -120,6 +122,8 @@ const kufState = {
   highScore: 0,
   lastResult: null,
   mapHighScores: { ...DEFAULT_MAP_HIGH_SCORES },
+  // Track which Kuf enemies have been encountered so the almanac can reveal them.
+  encounteredEnemies: [...DEFAULT_ENCOUNTERED_ENEMIES],
 };
 
 const listeners = new Set();
@@ -240,6 +244,19 @@ function normalizeMapHighScores(rawMapScores) {
   return normalized;
 }
 
+// Normalize encountered enemy ids so the almanac only stores valid string keys.
+function normalizeEncounteredEnemies(rawEnemies) {
+  const normalized = new Set();
+  if (Array.isArray(rawEnemies)) {
+    rawEnemies.forEach((enemyId) => {
+      if (typeof enemyId === 'string' && enemyId.trim()) {
+        normalized.add(enemyId);
+      }
+    });
+  }
+  return Array.from(normalized);
+}
+
 /**
  * Initialize the Kuf state with saved data.
  * @param {object} [savedState] - Persisted Kuf spire snapshot.
@@ -253,6 +270,7 @@ export function initializeKufState(savedState = {}) {
   kufState.coreShipLevelShardsSpent = sanitizeInteger(savedState.coreShipLevelShardsSpent, 0);
   kufState.highScore = sanitizeInteger(savedState.highScore, 0);
   kufState.mapHighScores = normalizeMapHighScores(savedState.mapHighScores);
+  kufState.encounteredEnemies = normalizeEncounteredEnemies(savedState.encounteredEnemies);
   // Seed legacy saves with the global high score so map buttons surface a real value immediately.
   if (!Object.keys(kufState.mapHighScores).length && kufState.highScore > 0) {
     kufState.mapHighScores[DEFAULT_MAP_ID] = kufState.highScore;
@@ -303,7 +321,39 @@ export function getKufStateSnapshot() {
     highScore: kufState.highScore,
     lastResult: kufState.lastResult ? { ...kufState.lastResult } : null,
     mapHighScores: { ...kufState.mapHighScores },
+    encounteredEnemies: [...kufState.encounteredEnemies],
   };
+}
+
+/**
+ * Retrieve the list of encountered Kuf enemy identifiers.
+ * @returns {string[]}
+ */
+export function getKufEncounteredEnemies() {
+  return [...kufState.encounteredEnemies];
+}
+
+/**
+ * Record newly encountered enemy types for the Kuf almanac.
+ * @param {string[]} enemyTypes - Enemy identifiers encountered during a mission.
+ * @returns {string[]} Updated list of encountered enemy ids.
+ */
+export function recordKufEnemyEncounters(enemyTypes = []) {
+  const encountered = new Set(kufState.encounteredEnemies);
+  let didChange = false;
+  enemyTypes.forEach((enemyType) => {
+    if (typeof enemyType === 'string' && enemyType.trim()) {
+      if (!encountered.has(enemyType)) {
+        encountered.add(enemyType);
+        didChange = true;
+      }
+    }
+  });
+  if (didChange) {
+    kufState.encounteredEnemies = Array.from(encountered);
+    emitChange('enemyEncounters', { encounteredEnemies: getKufEncounteredEnemies() });
+  }
+  return getKufEncounteredEnemies();
 }
 
 /**

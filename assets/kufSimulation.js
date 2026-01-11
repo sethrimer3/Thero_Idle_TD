@@ -1,5 +1,6 @@
 import { getCachedKufMaps, onKufMapsReady } from './kufMapData.js';
 import { isLowGraphicsModeActive } from './preferences.js';
+import { getKufEnemyBaseStats } from './kufEnemyDefinitions.js';
 import {
   KUF_FALLBACK_MAP_ID,
   MARINE_CONFIG,
@@ -7,11 +8,7 @@ import {
   SPLAYER_CONFIG,
   LASER_CONFIG,
   TURRET_CONFIG,
-  BIG_TURRET_CONFIG,
-  MELEE_UNIT_CONFIG,
-  RANGED_UNIT_CONFIG,
   STRUCTURE_CONFIG,
-  PROJECTILE_SPEEDS,
   RENDERING_CONFIG,
   CAMERA_CONFIG,
   GAMEPLAY_CONFIG,
@@ -60,28 +57,9 @@ const LASER_BULLET_SPEED = LASER_CONFIG.BULLET_SPEED;
 const LASER_PIERCE_COUNT = 3;
 
 const TURRET_RADIUS = TURRET_CONFIG.RADIUS;
-const TURRET_RANGE = TURRET_CONFIG.RANGE;
 const TURRET_BULLET_SPEED = TURRET_CONFIG.BULLET_SPEED;
 
-const BIG_TURRET_RADIUS = BIG_TURRET_CONFIG.RADIUS;
-const BIG_TURRET_RANGE = BIG_TURRET_CONFIG.RANGE;
-
-const MELEE_UNIT_RADIUS = MELEE_UNIT_CONFIG.RADIUS;
-const MELEE_UNIT_RANGE = MELEE_UNIT_CONFIG.RANGE;
-const MELEE_UNIT_SIGHT_RANGE = MELEE_UNIT_CONFIG.SIGHT_RANGE;
-const MELEE_UNIT_SPEED = MELEE_UNIT_CONFIG.SPEED;
-
-const RANGED_UNIT_RADIUS = RANGED_UNIT_CONFIG.RADIUS;
-const RANGED_UNIT_RANGE = RANGED_UNIT_CONFIG.RANGE;
-const RANGED_UNIT_SIGHT_RANGE = RANGED_UNIT_CONFIG.SIGHT_RANGE;
-const RANGED_UNIT_SPEED = RANGED_UNIT_CONFIG.SPEED;
-
-const BARRACKS_RADIUS = STRUCTURE_CONFIG.BARRACKS_RADIUS;
-const MINE_RADIUS = STRUCTURE_CONFIG.MINE_RADIUS;
 const MINE_EXPLOSION_RADIUS = STRUCTURE_CONFIG.MINE_EXPLOSION_RADIUS;
-const WALL_RADIUS = STRUCTURE_CONFIG.WALL_RADIUS;
-
-const PLASMA_BULLET_SPEED = PROJECTILE_SPEEDS.PLASMA_BULLET_SPEED;
 
 const TRAIL_ALPHA = RENDERING_CONFIG.TRAIL_ALPHA;
 const LOW_TRAIL_ALPHA = RENDERING_CONFIG.LOW_TRAIL_ALPHA;
@@ -1223,254 +1201,8 @@ export class KufBattlefieldSimulation {
   }
 
   getEnemyBaseStats(type) {
-    switch (type) {
-      case 'small_turret':
-        return {
-          radius: TURRET_RADIUS,
-          health: 5,
-          attack: 1,
-          attackSpeed: 1,
-          range: TURRET_RANGE,
-          goldValue: 6,
-          extra: {},
-        };
-      case 'big_turret':
-        return {
-          radius: BIG_TURRET_RADIUS,
-          health: 20,
-          attack: 3,
-          attackSpeed: 0.8,
-          range: BIG_TURRET_RANGE,
-          goldValue: 12,
-          extra: {},
-        };
-      case 'laser_turret':
-        return {
-          radius: TURRET_RADIUS,
-          health: 8,
-          attack: 1.8,
-          attackSpeed: 1.6,
-          range: TURRET_RANGE * 1.1,
-          goldValue: 8,
-          extra: {},
-        };
-      case 'wall':
-        return {
-          radius: WALL_RADIUS,
-          health: 50,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 4,
-          extra: { isWall: true },
-        };
-      case 'mine':
-        return {
-          radius: MINE_RADIUS,
-          health: 1,
-          attack: 5,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 5,
-          extra: { isMine: true, explosionRadius: MINE_EXPLOSION_RADIUS },
-        };
-      case 'melee_unit':
-        return {
-          radius: MELEE_UNIT_RADIUS,
-          health: 8,
-          attack: 2,
-          attackSpeed: 1.2,
-          range: MELEE_UNIT_RANGE,
-          goldValue: 7,
-          extra: {
-            isMobile: true,
-            moveSpeed: MELEE_UNIT_SPEED,
-            sightRange: MELEE_UNIT_SIGHT_RANGE,
-          },
-        };
-      case 'ranged_unit':
-        return {
-          radius: RANGED_UNIT_RADIUS,
-          health: 6,
-          attack: 1.5,
-          attackSpeed: 0.8,
-          range: RANGED_UNIT_RANGE,
-          goldValue: 8,
-          extra: {
-            isMobile: true,
-            moveSpeed: RANGED_UNIT_SPEED,
-            sightRange: RANGED_UNIT_SIGHT_RANGE,
-          },
-        };
-      case 'melee_barracks':
-        return {
-          radius: BARRACKS_RADIUS,
-          health: 30,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 10,
-          extra: {
-            isBarracks: true,
-            spawnType: 'melee_unit',
-            spawnRange: 150,
-            spawnCooldown: 5,
-            spawnTimer: 0,
-            maxSpawns: 3,
-            currentSpawns: 0,
-          },
-        };
-      case 'ranged_barracks':
-        return {
-          radius: BARRACKS_RADIUS,
-          health: 30,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 10,
-          extra: {
-            isBarracks: true,
-            spawnType: 'ranged_unit',
-            spawnRange: 150,
-            spawnCooldown: 5,
-            spawnTimer: 0,
-            maxSpawns: 3,
-            currentSpawns: 0,
-          },
-        };
-      case 'rocket_turret':
-        return {
-          radius: BIG_TURRET_RADIUS * 0.9,
-          health: 16,
-          attack: 2.5,
-          attackSpeed: 1.1,
-          range: BIG_TURRET_RANGE * 1.1,
-          goldValue: 11,
-          extra: {},
-        };
-      case 'artillery_turret':
-        return {
-          radius: BIG_TURRET_RADIUS,
-          health: 24,
-          attack: 3.5,
-          attackSpeed: 0.7,
-          range: BIG_TURRET_RANGE * 1.35,
-          goldValue: 14,
-          extra: {},
-        };
-      case 'plasma_turret':
-        return {
-          radius: TURRET_RADIUS,
-          health: 10,
-          attack: 1.4,
-          attackSpeed: 1.4,
-          range: TURRET_RANGE * 1.05,
-          goldValue: 10,
-          extra: {
-            projectileSpeed: PLASMA_BULLET_SPEED,
-            projectileEffects: {
-              type: 'burn',
-              damagePerSecond: 2.5,
-              duration: 4,
-            },
-          },
-        };
-      case 'scatter_turret':
-        return {
-          radius: BIG_TURRET_RADIUS * 0.85,
-          health: 18,
-          attack: 1.8,
-          attackSpeed: 1.3,
-          range: BIG_TURRET_RANGE,
-          goldValue: 13,
-          extra: {
-            multiShot: 3,
-            spreadAngle: 18 * (Math.PI / 180),
-          },
-        };
-      case 'support_drone':
-        return {
-          radius: RANGED_UNIT_RADIUS,
-          health: 6,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 9,
-          extra: {
-            isMobile: true,
-            isSupport: true,
-            moveSpeed: 85,
-            sightRange: 260,
-            healRange: 80,
-            healPerSecond: 6,
-            healVisualTimer: 0,
-          },
-        };
-      case 'stasis_obelisk':
-        return {
-          radius: BIG_TURRET_RADIUS,
-          health: 28,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 11,
-          extra: {
-            isStructure: true,
-            isStasisField: true,
-            slowAmount: 0.35,
-            slowRadius: 220,
-            fieldPulse: 0,
-          },
-        };
-      case 'relay_pylon':
-        return {
-          radius: BIG_TURRET_RADIUS * 0.75,
-          health: 30,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 12,
-          extra: {
-            isStructure: true,
-            isBuffNode: true,
-            buffRadius: 240,
-            attackSpeedMultiplier: 1.25,
-            damageMultiplier: 1.15,
-          },
-        };
-      case 'shield_generator':
-        return {
-          radius: BIG_TURRET_RADIUS,
-          health: 40,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 9,
-          extra: { isStructure: true },
-        };
-      case 'supply_cache':
-        return {
-          radius: BIG_TURRET_RADIUS * 0.8,
-          health: 35,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 12,
-          extra: { isStructure: true },
-        };
-      case 'signal_beacon':
-        return {
-          radius: BIG_TURRET_RADIUS * 0.7,
-          health: 28,
-          attack: 0,
-          attackSpeed: 0,
-          range: 0,
-          goldValue: 10,
-          extra: { isStructure: true },
-        };
-      default:
-        return null;
-    }
+    // Pull the latest enemy baseline from the shared definition catalog.
+    return getKufEnemyBaseStats(type);
   }
 
   step(timestamp) {
