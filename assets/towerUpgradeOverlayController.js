@@ -101,6 +101,19 @@ export function createTowerUpgradeOverlayController({
   }
 
   /**
+   * Normalize TeX-like labels into plain text for overlay display and token matching.
+   */
+  function normalizeEquationLabel(label) {
+    const trimmed = typeof label === 'string' ? label.trim() : '';
+    if (!trimmed) {
+      return '';
+    }
+    // Convert TeX commands like \text{R}_{\Omega} into readable glyph text.
+    const plain = convertMathExpressionToPlainText(trimmed);
+    return plain || trimmed;
+  }
+
+  /**
    * Compose a tower display label that keeps lowercase glyphs intact.
    */
   function composeTowerDisplayLabel(definition, fallback = '') {
@@ -170,7 +183,7 @@ export function createTowerUpgradeOverlayController({
     if (!target) {
       return;
     }
-    const text = typeof label === 'string' && label.trim() ? label.trim() : '';
+    const text = normalizeEquationLabel(label);
     if (!text) {
       appendEquationText(target, label);
       return;
@@ -203,7 +216,8 @@ export function createTowerUpgradeOverlayController({
       resolvedEquation,
       blueprintVariables.map((variable) => ({
         key: variable.key,
-        symbol: variable.equationSymbol || variable.symbol || variable.key.toUpperCase(),
+        // Ensure TeX-heavy labels still match the plain-text base equation rendering.
+        symbol: normalizeEquationLabel(variable.equationSymbol || variable.symbol || variable.key.toUpperCase()),
       })),
     );
 
