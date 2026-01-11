@@ -229,6 +229,7 @@ import {
   setShinUIUpdateCallback,
   updateFractalSimulation,
   resizeShinFractalCanvases,
+  refreshEnemyAlmanac,
 } from './shinUI.js';
 // Cardinal Warden reverse danmaku game for Shin Spire.
 import {
@@ -2487,6 +2488,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getEnemyCodexEntries,
     codexState,
     renderEnemyCodex,
+    refreshEnemyAlmanac,
     updateLevelCards,
     updateActiveLevelBanner,
     updateTowerCardVisibility,

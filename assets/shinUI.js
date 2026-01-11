@@ -26,6 +26,11 @@ import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoi
 import { BrownianTreeSimulation } from '../scripts/features/towers/brownianTreeSimulation.js';
 import { FlameFractalSimulation } from '../scripts/features/towers/flameFractalSimulation.js';
 import { getShinVisualSettings } from './shinSpirePreferences.js';
+import {
+  getEnemyCodexEntries,
+  codexState,
+  onEnemyEncounter
+} from './codex.js';
 
 let shinElements = {};
 let activeFractalTabId = null;
@@ -33,6 +38,7 @@ let updateCallback = null;
 let fractalSimulations = new Map(); // Store simulation instances keyed by fractal ID
 let animationFrameId = null;
 let fractalResizeObserver = null;
+let enemyEncounterUnsubscribe = null;
 
 function resolveShinMaxDevicePixelRatio() {
   const { graphicsLevel } = getShinVisualSettings();
@@ -179,8 +185,25 @@ export function initializeShinUI() {
     layerProgress: document.getElementById('shin-layer-progress'),
     layerProgressBar: document.getElementById('shin-layer-progress-bar'),
     layerProgressText: document.getElementById('shin-layer-progress-text'),
-    totalIterons: document.getElementById('shin-total-iterons')
+    totalIterons: document.getElementById('shin-total-iterons'),
+    enemyAlmanacToggle: document.getElementById('shin-enemy-almanac-toggle'),
+    enemyAlmanacContent: document.getElementById('shin-enemy-almanac-content'),
+    enemyAlmanacList: document.getElementById('shin-enemy-almanac-list'),
+    enemyAlmanacEmpty: document.getElementById('shin-enemy-almanac-empty')
   };
+
+  // Set up enemy almanac toggle
+  if (shinElements.enemyAlmanacToggle && shinElements.enemyAlmanacContent) {
+    shinElements.enemyAlmanacToggle.addEventListener('click', toggleEnemyAlmanac);
+  }
+  
+  // Subscribe to enemy encounter events to refresh the almanac
+  if (enemyEncounterUnsubscribe) {
+    enemyEncounterUnsubscribe();
+  }
+  enemyEncounterUnsubscribe = onEnemyEncounter(() => {
+    renderEnemyAlmanac();
+  });
 
   // Observe layout changes so fractal canvases can follow the responsive container size.
   if (!fractalResizeObserver && typeof ResizeObserver === 'function' && shinElements.fractalContent) {
@@ -193,6 +216,7 @@ export function initializeShinUI() {
   renderFractalTabs();
   selectFractalTab(getActiveFractalId());
   updateShinDisplay();
+  renderEnemyAlmanac();
   
   // Start animation loop for fractal rendering
   startAnimationLoop();
@@ -670,3 +694,192 @@ export function updateFractalSimulation() {
     handler.update(simulation, fractal, state);
   }
 }
+
+/**
+ * Toggle the Enemy Almanac dropdown
+ */
+function toggleEnemyAlmanac() {
+  if (!shinElements.enemyAlmanacToggle || !shinElements.enemyAlmanacContent) {
+    return;
+  }
+  
+  const isExpanded = shinElements.enemyAlmanacToggle.getAttribute('aria-expanded') === 'true';
+  
+  if (isExpanded) {
+    shinElements.enemyAlmanacToggle.setAttribute('aria-expanded', 'false');
+    shinElements.enemyAlmanacContent.hidden = true;
+  } else {
+    shinElements.enemyAlmanacToggle.setAttribute('aria-expanded', 'true');
+    shinElements.enemyAlmanacContent.hidden = false;
+    renderEnemyAlmanac(); // Refresh the list when opening
+  }
+}
+
+/**
+ * Render the Enemy Almanac with encountered enemies
+ */
+function renderEnemyAlmanac() {
+  if (!shinElements.enemyAlmanacList || !shinElements.enemyAlmanacEmpty) {
+    return;
+  }
+  
+  const allEnemies = getEnemyCodexEntries();
+  const encounteredIds = codexState.encounteredEnemies;
+  
+  // Check if developer mode is enabled
+  const developerMode = typeof window !== 'undefined' && 
+    localStorage.getItem('glyph-defense-idle:developer-mode') === 'true';
+  
+  // Filter to show encountered enemies or all if developer mode
+  const enemiesToShow = developerMode 
+    ? allEnemies 
+    : allEnemies.filter(enemy => encounteredIds.has(enemy.id));
+  
+  // Clear the list
+  shinElements.enemyAlmanacList.innerHTML = '';
+  
+  // Show/hide empty message
+  if (enemiesToShow.length === 0) {
+    shinElements.enemyAlmanacEmpty.hidden = false;
+    return;
+  }
+  
+  shinElements.enemyAlmanacEmpty.hidden = true;
+  
+  // Create enemy entries
+  enemiesToShow.forEach(enemy => {
+    const isEncountered = encounteredIds.has(enemy.id);
+    const entry = createEnemyEntry(enemy, isEncountered);
+    shinElements.enemyAlmanacList.appendChild(entry);
+  });
+}
+
+/**
+ * Create a single enemy entry element
+ */
+function createEnemyEntry(enemy, isEncountered) {
+  const entry = document.createElement('div');
+  entry.className = 'shin-enemy-entry';
+  if (!isEncountered) {
+    entry.classList.add('shin-enemy-entry--unknown');
+  }
+  entry.setAttribute('role', 'listitem');
+  
+  // Header with icon and basic info
+  const header = document.createElement('div');
+  header.className = 'shin-enemy-entry-header';
+  
+  // Icon
+  const iconContainer = document.createElement('div');
+  iconContainer.className = 'shin-enemy-icon';
+  
+  if (isEncountered && enemy.icon) {
+    const icon = document.createElement('img');
+    icon.className = 'shin-enemy-icon-image';
+    icon.src = enemy.icon;
+    icon.alt = enemy.name;
+    iconContainer.appendChild(icon);
+  } else {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'shin-enemy-icon-placeholder';
+    placeholder.textContent = '?';
+    iconContainer.appendChild(placeholder);
+  }
+  
+  // Info section
+  const info = document.createElement('div');
+  info.className = 'shin-enemy-entry-info';
+  
+  const name = document.createElement('div');
+  name.className = 'shin-enemy-name';
+  name.textContent = isEncountered ? enemy.name : '???';
+  
+  info.appendChild(name);
+  
+  header.appendChild(iconContainer);
+  header.appendChild(info);
+  entry.appendChild(header);
+  
+  // Description
+  if (isEncountered && enemy.description) {
+    const description = document.createElement('div');
+    description.className = 'shin-enemy-description';
+    description.textContent = enemy.description;
+    entry.appendChild(description);
+  }
+  
+  // Stats dropdown (only for encountered enemies)
+  if (isEncountered) {
+    const statsToggle = document.createElement('button');
+    statsToggle.className = 'shin-enemy-stats-toggle';
+    statsToggle.type = 'button';
+    statsToggle.setAttribute('aria-expanded', 'false');
+    
+    const statsLabel = document.createElement('span');
+    statsLabel.textContent = 'Stats';
+    
+    const statsIcon = document.createElement('span');
+    statsIcon.className = 'shin-enemy-stats-icon';
+    statsIcon.textContent = '▾';
+    
+    statsToggle.appendChild(statsLabel);
+    statsToggle.appendChild(statsIcon);
+    
+    const statsContainer = document.createElement('div');
+    statsContainer.className = 'shin-enemy-stats';
+    statsContainer.hidden = true;
+    
+    // Add stats if available
+    if (enemy.traits && Array.isArray(enemy.traits)) {
+      enemy.traits.forEach(trait => {
+        const statRow = document.createElement('div');
+        statRow.className = 'shin-enemy-stat';
+        statRow.textContent = trait;
+        statsContainer.appendChild(statRow);
+      });
+    }
+    
+    // Add additional stats from enemy properties
+    const stats = [];
+    if (enemy.formula) {
+      stats.push({ label: 'Formula', value: enemy.formula });
+    }
+    
+    stats.forEach(stat => {
+      const statRow = document.createElement('div');
+      statRow.className = 'shin-enemy-stat';
+      
+      const label = document.createElement('span');
+      label.className = 'shin-enemy-stat-label';
+      label.textContent = stat.label;
+      
+      const value = document.createElement('span');
+      value.className = 'shin-enemy-stat-value';
+      value.textContent = stat.value;
+      
+      statRow.appendChild(label);
+      statRow.appendChild(value);
+      statsContainer.appendChild(statRow);
+    });
+    
+    statsToggle.addEventListener('click', () => {
+      const isExpanded = statsToggle.getAttribute('aria-expanded') === 'true';
+      statsToggle.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+      statsContainer.hidden = !statsContainer.hidden;
+    });
+    
+    entry.appendChild(statsToggle);
+    entry.appendChild(statsContainer);
+  }
+  
+  return entry;
+}
+
+/**
+ * Refresh the Enemy Almanac display
+ * Call this when enemies are encountered or developer mode changes
+ */
+export function refreshEnemyAlmanac() {
+  renderEnemyAlmanac();
+}
+
