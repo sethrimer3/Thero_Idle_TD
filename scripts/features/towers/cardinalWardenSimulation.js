@@ -2446,14 +2446,12 @@ export class CardinalWardenSimulation {
     this.scriptColorNight = options.scriptColorNight || VISUAL_CONFIG.NIGHT.SCRIPT_COLOR;
     this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
-    // Script font sprite sheet for Cardinal Warden name display
-    // The sprite sheet is a 7x5 grid of characters stored as a PNG paired with JSON metadata
-    this.scriptSpriteSheet = null;
-    this.scriptSpriteLoaded = false;
-    this.scriptCols = VISUAL_CONFIG.SCRIPT_SPRITE_COLS;
-    this.scriptRows = VISUAL_CONFIG.SCRIPT_SPRITE_ROWS;
-    this.tintedScriptSheet = null; // Offscreen canvas containing the colorized script sheet
-    this.loadScriptSpriteSheet();
+    // Individual grapheme SVG sprites for Cardinal Warden name display
+    // Each grapheme (A-Z) has its own white SVG file that gets colored
+    this.graphemeSprites = new Map(); // Map from grapheme index to Image
+    this.graphemeSpriteLoaded = new Map(); // Map from grapheme index to boolean
+    this.tintedGraphemeCache = new Map(); // Map from grapheme index to colored canvas
+    this.loadGraphemeSprites();
 
     // Bullet sprite artwork for Shin spire projectiles.
     this.bulletSprites = [];
@@ -2679,8 +2677,8 @@ export class CardinalWardenSimulation {
     this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
     this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
 
-    // Rebuild the tinted script sheet so glyphs match the active palette immediately.
-    this.rebuildTintedScriptSheet();
+    // Rebuild the tinted grapheme cache so glyphs match the active palette immediately.
+    this.rebuildTintedGraphemeCache();
     
     // Update weapon colors based on gradient
     this.updateWeaponColors();
@@ -2793,41 +2791,79 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Create a tinted copy of the script sprite sheet so glyphs follow the active palette.
+   * Create tinted copies of all loaded grapheme sprites so glyphs follow the active palette.
    */
-  rebuildTintedScriptSheet() {
-    if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = this.scriptSpriteSheet.width;
-    canvas.height = this.scriptSpriteSheet.height;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(this.scriptSpriteSheet, 0, 0);
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = this.activeScriptColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    this.tintedScriptSheet = canvas;
+  rebuildTintedGraphemeCache() {
+    // Clear existing cache
+    this.tintedGraphemeCache.clear();
+    
+    // Rebuild colored versions for each loaded grapheme
+    for (const [index, img] of this.graphemeSprites.entries()) {
+      if (!this.graphemeSpriteLoaded.get(index)) continue;
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = this.activeScriptColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      this.tintedGraphemeCache.set(index, canvas);
+    }
   }
 
   /**
-   * Load the script sprite sheet for the Cardinal Warden name display.
-   * The sprite sheet contains unique characters in a 7x5 grid.
+   * Load individual SVG grapheme sprites for the Cardinal Warden name display.
+   * Each grapheme (A-Z, index 0-25) has its own white SVG file that gets colored.
    */
-  loadScriptSpriteSheet() {
-    this.scriptSpriteSheet = new Image();
-    this.scriptSpriteSheet.onload = () => {
-      this.scriptSpriteLoaded = true;
-      // Immediately build a tinted sheet so the glyphs pick up the current color mode.
-      this.rebuildTintedScriptSheet();
-    };
-    this.scriptSpriteSheet.onerror = () => {
-      console.warn('Failed to load script sprite sheet for Cardinal Warden');
-      this.tintedScriptSheet = null;
-    };
-    // Path is relative to the HTML page (index.html)
-    this.scriptSpriteSheet.src = './assets/sprites/spires/shinSpire/Script.png';
+  loadGraphemeSprites() {
+    // Skip sprite loading on non-browser contexts
+    if (typeof Image === 'undefined') {
+      return;
+    }
+    
+    // Letter mapping: index 0 = A, index 1 = B, ..., index 25 = Z
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    
+    letters.forEach((letter, index) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        this.graphemeSpriteLoaded.set(index, true);
+        // Rebuild the tinted cache entry for this grapheme
+        this.rebuildSingleTintedGrapheme(index, img);
+      };
+      
+      img.onerror = () => {
+        console.warn(`Failed to load grapheme sprite: grapheme-${letter}.svg`);
+      };
+      
+      // Load the SVG file for this grapheme
+      img.src = `./assets/sprites/spires/shinSpire/graphemes/grapheme-${letter}.svg`;
+      this.graphemeSprites.set(index, img);
+    });
+  }
+
+  /**
+   * Create a tinted copy of a single grapheme sprite.
+   * @param {number} index - The grapheme index (0-25)
+   * @param {Image} img - The loaded image
+   */
+  rebuildSingleTintedGrapheme(index, img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = this.activeScriptColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    this.tintedGraphemeCache.set(index, canvas);
   }
 
   /**
@@ -2912,35 +2948,34 @@ export class CardinalWardenSimulation {
   }
 
   /**
-   * Render a character from the script sprite sheet.
+   * Render a character from the individual grapheme sprites.
    * @param {CanvasRenderingContext2D} ctx - Canvas context
-   * @param {number} charIndex - Index of the character (0-34 for a 7x5 grid)
+   * @param {number} charIndex - Index of the grapheme (0-25 for A-Z)
    * @param {number} x - X position to render at
    * @param {number} y - Y position to render at
    * @param {number} size - Size to render the character
    */
   renderScriptChar(ctx, charIndex, x, y, size) {
-    if (!this.scriptSpriteLoaded || !this.scriptSpriteSheet) return;
-
-    // Validate bounds: sprite sheet has scriptCols * scriptRows total indices
-    const maxIndex = this.scriptCols * this.scriptRows - 1;
-    if (charIndex < 0 || charIndex > maxIndex) {
-      console.warn(`Script character index ${charIndex} out of bounds (0-${maxIndex}). Sprite sheet is ${this.scriptCols}x${this.scriptRows}.`);
+    // Check if the grapheme sprite is loaded
+    if (!this.graphemeSpriteLoaded.get(charIndex)) {
       return;
     }
 
-    const sheet = this.tintedScriptSheet || this.scriptSpriteSheet;
-    const col = charIndex % this.scriptCols;
-    const row = Math.floor(charIndex / this.scriptCols);
-    const charWidth = sheet.width / this.scriptCols;
-    const charHeight = sheet.height / this.scriptRows;
+    // Validate bounds: we have 26 graphemes (A-Z, indices 0-25)
+    if (charIndex < 0 || charIndex > 25) {
+      console.warn(`Grapheme index ${charIndex} out of bounds (0-25 for A-Z).`);
+      return;
+    }
 
+    // Use the tinted (colored) version if available, otherwise use the original
+    const sprite = this.tintedGraphemeCache.get(charIndex) || this.graphemeSprites.get(charIndex);
+    if (!sprite) {
+      return;
+    }
+
+    // Draw the grapheme sprite centered at the given position
     ctx.drawImage(
-      sheet,
-      col * charWidth,
-      row * charHeight,
-      charWidth,
-      charHeight,
+      sprite,
       x - size / 2,
       y - size / 2,
       size,
@@ -2953,7 +2988,8 @@ export class CardinalWardenSimulation {
    * Displays 8 lines of script, one per weapon slot, based on assigned graphemes.
    */
   renderWardenName() {
-    if (!this.ctx || !this.warden || !this.scriptSpriteLoaded) return;
+    // Skip if context, warden, or grapheme sprites are not ready
+    if (!this.ctx || !this.warden || this.graphemeSpriteLoaded.size === 0) return;
 
     const ctx = this.ctx;
     const warden = this.warden;
