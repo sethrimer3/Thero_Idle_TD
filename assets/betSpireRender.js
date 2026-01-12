@@ -59,7 +59,8 @@ const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than be
 const SPAWNER_ROTATION_SPEED = 0.01; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6; // Scale generator sprites to match the previous triangle footprint.
+const GENERATOR_SPRITE_SCALE = 1.5; // Increase generator sprite size to improve legibility across device resolutions.
+const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6 * GENERATOR_SPRITE_SCALE; // Scale generator sprites to match the previous triangle footprint.
 const LARGE_PARTICLE_SPRITE_SCALE = 3.2; // Scale the 10,000-particle sprite so it reads at small particle sizes.
 
 // Particle veer behavior configuration (developer-toggleable).
@@ -2115,7 +2116,7 @@ export class BetSpireRender {
 
   drawForge() {
     const ctx = this.ctx;
-    const forgeSize = 20; // Size of triangles
+    const forgeSize = 24; // Size of triangles (20% larger so the forge sprites read clearly).
     const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
     const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
     const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;

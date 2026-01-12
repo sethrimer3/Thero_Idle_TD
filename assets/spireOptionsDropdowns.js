@@ -143,6 +143,8 @@ export function bindSpireOptionsDropdown(config) {
   const container = menu.closest(
     '.spire-options-popover, .spire-options-card, .lamed-spire-options-card, .cognitive-realm-options-wrapper',
   );
+  // Track the active container so the options-open state follows the menu after it moves.
+  let activeContainer = container;
   const closeButton = menu.querySelector('.spire-options-close');
   let open = false;
   let lastClickedToggle = null;
@@ -157,7 +159,7 @@ export function bindSpireOptionsDropdown(config) {
       return;
     }
     open = false;
-    syncDropdownState({ menu, toggles, container }, open);
+    syncDropdownState({ menu, toggles, container: activeContainer }, open);
   };
 
   toggles.forEach((button) => {
@@ -166,7 +168,9 @@ export function bindSpireOptionsDropdown(config) {
       // Reposition menu based on which button was clicked and get the new container
       const newContainer = repositionMenuForContext(menu, lastClickedToggle, toggles);
       open = !open;
-      syncDropdownState({ menu, toggles, container: newContainer || container }, open);
+      // Update the active container so closing restores the full-width trigger button.
+      activeContainer = newContainer || container;
+      syncDropdownState({ menu, toggles, container: activeContainer }, open);
     });
   });
   closeButton?.addEventListener('click', () => {
@@ -174,7 +178,7 @@ export function bindSpireOptionsDropdown(config) {
       return;
     }
     open = false;
-    syncDropdownState({ menu, toggles, container }, open);
+    syncDropdownState({ menu, toggles, container: activeContainer }, open);
   });
   if (closeOnOutside) {
     // Close the popover when a click lands outside the menu or trigger.
@@ -183,10 +187,10 @@ export function bindSpireOptionsDropdown(config) {
   const controller = {
     close: () => {
       open = false;
-      syncDropdownState({ menu, toggles, container }, open);
+      syncDropdownState({ menu, toggles, container: activeContainer }, open);
     },
     isOpen: () => open,
-    refresh: () => syncDropdownState({ menu, toggles, container }, open),
+    refresh: () => syncDropdownState({ menu, toggles, container: activeContainer }, open),
   };
   dropdownRegistry.set(spireId, controller);
   return controller;
