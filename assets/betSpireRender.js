@@ -61,7 +61,6 @@ const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle c
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
 const GENERATOR_SPRITE_SCALE = 1.5; // Increase generator sprite size to improve legibility across device resolutions.
 const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6 * GENERATOR_SPRITE_SCALE; // Scale generator sprites to match the previous triangle footprint.
-const LARGE_PARTICLE_SPRITE_SCALE = 3.2; // Scale the 10,000-particle sprite so it reads at small particle sizes.
 
 // Particle veer behavior configuration (developer-toggleable).
 const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
@@ -179,9 +178,6 @@ const SIZE_TIERS = ['small', 'medium', 'large'];
 const SMALL_SIZE_INDEX = 0;
 const MEDIUM_SIZE_INDEX = 1;
 const LARGE_SIZE_INDEX = 2;
-const LARGE_PARTICLE_SPRITE_SIZE = Math.ceil(
-  BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, LARGE_SIZE_INDEX) * LARGE_PARTICLE_SPRITE_SCALE
-); // Cache size for the 10,000-particle sprite to avoid recalculating.
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
 const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
 const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
@@ -550,14 +546,6 @@ export class BetSpireRender {
     // Cache tinted generator sprites so we only colorize them once per tier.
     this.generatorSpriteCache = new Map();
     this.generatorSpriteSources = new Map();
-    // Cache the 10,000-particle sprite per tier for large particle rendering.
-    this.largeParticleSpriteCache = new Map();
-    this.largeParticleSpriteSource = new Image();
-    this.largeParticleSpriteSource.src = './assets/sprites/spires/betSpire/10000Particle.svg';
-    this.largeParticleSpriteSource.onload = () => {
-      this.populateLargeParticleSpriteCache();
-    };
-
     // Load generator sprite sources for each tier so they can be tinted and cached on load.
     PARTICLE_TIERS.forEach((tier, index) => {
       const sprite = new Image();
@@ -1941,8 +1929,6 @@ export class BetSpireRender {
     
     // Bucket particles by draw style so canvas state only changes a handful of times even with thousands of particles.
     const drawBuckets = new Map();
-    // Bucket large particles separately so the cached 10,000-particle sprite can render them.
-    const largeSpriteBuckets = new Map();
 
     // Update particles and collect their draw intents
     for (let i = 0; i < this.particles.length; i++) {
@@ -1962,30 +1948,17 @@ export class BetSpireRender {
         );
       }
 
-      const largeSpriteSet = particle.sizeIndex === LARGE_SIZE_INDEX
-        ? this.largeParticleSpriteCache.get(particle.tierId)
-        : null;
-
-      if (largeSpriteSet) {
-        if (!largeSpriteBuckets.has(particle.tierId)) {
-          largeSpriteBuckets.set(particle.tierId, []);
-        }
-        largeSpriteBuckets.get(particle.tierId).push({ x: particle.x, y: particle.y });
-      } else {
-        const styleKey = particle.getDrawStyleKey();
-        if (!drawBuckets.has(styleKey)) {
-          drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
-        }
-
-        const bucket = drawBuckets.get(styleKey);
-        bucket.positions.push({ x: particle.x, y: particle.y });
+      const styleKey = particle.getDrawStyleKey();
+      if (!drawBuckets.has(styleKey)) {
+        drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
       }
+
+      const bucket = drawBuckets.get(styleKey);
+      bucket.positions.push({ x: particle.x, y: particle.y });
     }
 
     // Draw each bucket in a single fill pass to minimize expensive shadow/style switches.
     this.drawBatchedParticles(drawBuckets);
-    // Draw cached sprites for large particles after the batched square passes.
-    this.drawLargeParticleSprites(largeSpriteBuckets);
     
     // Periodically attempt to merge particles (size merging)
     // Increase merge frequency when particle count is high
@@ -2061,23 +2034,6 @@ export class BetSpireRender {
     ctx.shadowBlur = 0; // Reset so later draws are unaffected by any glow buckets.
   }
 
-  // Draw cached 10,000-particle sprites for large particles so they read as special merges.
-  drawLargeParticleSprites(largeSpriteBuckets) {
-    const ctx = this.ctx;
-
-    largeSpriteBuckets.forEach((positions, tierId) => {
-      const spriteEntry = this.largeParticleSpriteCache.get(tierId);
-      if (!spriteEntry) {
-        return;
-      }
-
-      const halfSize = spriteEntry.size * 0.5;
-      positions.forEach(({ x, y }) => {
-        ctx.drawImage(spriteEntry.sprite, Math.floor(x - halfSize), Math.floor(y - halfSize), spriteEntry.size, spriteEntry.size);
-      });
-    });
-  }
-
   // Cache a pair of tinted generator sprites (clockwise/counter) for a tier so coloring happens once.
   cacheGeneratorSpritesForTier(tierId, sourceImage) {
     const tier = PARTICLE_TIERS.find(entry => entry.id === tierId);
@@ -2097,20 +2053,6 @@ export class BetSpireRender {
       clockwise: createTintedSpriteCanvas(sourceImage, baseColor, spriteSize),
       counterClockwise: createTintedSpriteCanvas(sourceImage, brighterColor, spriteSize),
       size: spriteSize,
-    });
-  }
-
-  // Cache tinted 10,000-particle sprites per tier so large particle rendering stays lightweight.
-  populateLargeParticleSpriteCache() {
-    if (!this.largeParticleSpriteSource.complete || this.largeParticleSpriteSource.naturalWidth === 0) {
-      return;
-    }
-
-    PARTICLE_TIERS.forEach((tier) => {
-      this.largeParticleSpriteCache.set(tier.id, {
-        sprite: createTintedSpriteCanvas(this.largeParticleSpriteSource, tier.color, LARGE_PARTICLE_SPRITE_SIZE),
-        size: LARGE_PARTICLE_SPRITE_SIZE,
-      });
     });
   }
 
