@@ -35,6 +35,10 @@ export function initParticleInventoryDisplay() {
     countBadge.id = `particle-count-badge-${tier.id}`;
     countBadge.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
     countBadge.style.fontWeight = 'bold';
+    // Add a purple glow for Nullstone counts so the darkest tier stays readable.
+    if (tier.id === 'nullstone') {
+      countBadge.classList.add('particle-count-badge--nullstone');
+    }
     
     nameCell.appendChild(tierNameSpan);
     nameCell.appendChild(countBadge);
@@ -63,16 +67,18 @@ export function updateParticleInventoryDisplay() {
     if (countBadge) {
       const counts = inventoryBySize.get(tier.id);
       if (counts) {
-        // Format as "large.medium.small" with leading zeros (e.g., "00.00.00")
+        // Format as "extra-large.large.medium.small" with leading zeros (e.g., "00.00.00.00")
+        const formattedExtraLarge = String(counts['extra-large']).padStart(2, '0');
         const formattedLarge = String(counts.large).padStart(2, '0');
         const formattedMedium = String(counts.medium).padStart(2, '0');
         const formattedSmall = String(counts.small).padStart(2, '0');
-        const formattedCount = `${formattedLarge}.${formattedMedium}.${formattedSmall}`;
+        // Include extra-large digits so the largest tier is visible in the inventory display.
+        const formattedCount = `${formattedExtraLarge}.${formattedLarge}.${formattedMedium}.${formattedSmall}`;
         countBadge.textContent = formattedCount;
         
         // Highlight non-zero counts (check if any size has particles)
         const row = countBadge.closest('tr');
-        const hasParticles = counts.small > 0 || counts.medium > 0 || counts.large > 0;
+        const hasParticles = counts.small > 0 || counts.medium > 0 || counts.large > 0 || counts['extra-large'] > 0;
         if (hasParticles) {
           row.classList.add('has-particles');
         } else {
