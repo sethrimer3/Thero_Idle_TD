@@ -28,11 +28,14 @@ import {
   getDropChanceUpgradeCost,
   getDropChanceUpgradeLevel,
   getUnlockedGraphemes,
+  getUnlockedBaseGraphemeCount,
+  getUnlockableGraphemeCount,
+  getDageshGraphemeIndices,
+  hasAllBaseGraphemesUnlocked,
   getEquivalenceBank,
   getGraphemeCharacters,
   consumeGrapheme,
   returnGrapheme,
-  hasAllGraphemesUnlocked,
   isWeaponPurchased,
   getPurchasedWeapons,
   purchaseWeapon,
@@ -113,25 +116,45 @@ const SHIN_GRAPHEME_CONFIG = {
   tint: '#d4af37', // Golden tint color
 };
 
-// Preload grapheme SVG sprites for A-Z (indices 0-25)
+// Chance for boss kills to drop a dagesh grapheme once base graphemes are unlocked.
+const DAGESH_DROP_CHANCE = 0.15;
+
+// Preload grapheme SVG sprites for all available grapheme definitions.
 const graphemeSvgUrls = new Map();
 const graphemeSvgImages = new Map();
 const graphemeSvgLoaded = new Map();
-const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-letters.forEach((letter, index) => {
-  const url = new URL(`./sprites/spires/shinSpire/graphemes/grapheme-${letter}.svg`, import.meta.url).href;
-  graphemeSvgUrls.set(index, url);
+// Resolve the sprite filename for a given grapheme definition.
+const resolveGraphemeSpriteName = (definition) => {
+  if (!definition) {
+    return null;
+  }
+  if (definition.sprite) {
+    return definition.sprite;
+  }
+  if (typeof definition.name === 'string' && definition.name.length === 1) {
+    return `grapheme-${definition.name}.svg`;
+  }
+  return null;
+};
+
+getGraphemeCharacters().forEach((definition) => {
+  const spriteName = resolveGraphemeSpriteName(definition);
+  if (!spriteName) {
+    return;
+  }
+  const url = new URL(`./sprites/spires/shinSpire/graphemes/${spriteName}`, import.meta.url).href;
+  graphemeSvgUrls.set(definition.index, url);
   
-  // Preload the SVG as an Image for canvas rendering
+  // Preload the SVG as an Image for canvas rendering.
   const img = new Image();
   img.onload = () => {
-    graphemeSvgLoaded.set(index, true);
+    graphemeSvgLoaded.set(definition.index, true);
   };
   img.onerror = () => {
-    console.warn(`Failed to load grapheme SVG: grapheme-${letter}.svg`);
+    console.warn(`Failed to load grapheme SVG: ${spriteName}`);
   };
   img.src = url;
-  graphemeSvgImages.set(index, img);
+  graphemeSvgImages.set(definition.index, img);
 });
 
 /**
@@ -158,7 +181,7 @@ function applyGraphemeSpriteStyles(element, index) {
 
 /**
  * Build a DOM element that displays a single grapheme tile from SVG sprites.
- * For collectable graphemes (A-Z, indices 0-25), adds a small capital letter label in the bottom-right corner.
+ * For collectable graphemes (A-Z and dagesh variants), adds a small label in the bottom-right corner.
  */
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
   const wrapper = document.createElement('span');
@@ -172,12 +195,12 @@ function createGraphemeIconElement(index, rowOverride, colOverride, className = 
   
   wrapper.appendChild(icon);
   
-  // Add letter label for collectable graphemes (A-Z, indices 0-25)
-  if (index >= 0 && index <= 25) {
-    const letter = String.fromCharCode(65 + index); // A=65 in ASCII
+  // Add letter label for collectable graphemes (A-Z and dagesh variants).
+  const labelText = getGraphemeLabel(index);
+  if (labelText) {
     const label = document.createElement('span');
     label.className = 'shin-grapheme-letter-label';
-    label.textContent = letter;
+    label.textContent = labelText;
     label.setAttribute('aria-hidden', 'true');
     wrapper.appendChild(label);
   }
@@ -188,7 +211,7 @@ function createGraphemeIconElement(index, rowOverride, colOverride, className = 
 /**
  * Draw a gold-tinted grapheme sprite onto the Cardinal canvas.
  * @param {CanvasRenderingContext2D} ctx - The canvas context
- * @param {number} index - The grapheme index (0-25 for A-Z)
+ * @param {number} index - The grapheme index (A-Z plus dagesh variants)
  * @param {number} centerX - X coordinate for center of sprite
  * @param {number} centerY - Y coordinate for center of sprite
  */
@@ -597,6 +620,15 @@ function handleEnemyKill(x, y, isBoss) {
       }
     }
   }
+
+  // Bosses can drop dagesh graphemes once all base graphemes are unlocked.
+  if (isBoss && hasAllBaseGraphemesUnlocked()) {
+    const dageshIndices = getDageshGraphemeIndices();
+    if (dageshIndices.length > 0 && Math.random() < DAGESH_DROP_CHANCE) {
+      const selectedIndex = dageshIndices[Math.floor(Math.random() * dageshIndices.length)];
+      spawnSpecificGraphemeDrop(x, y, selectedIndex);
+    }
+  }
 }
 
 /**
@@ -607,9 +639,10 @@ function handleGuaranteedGraphemeDrop(waveNumber) {
   // Calculate which grapheme should drop based on wave number
   // Wave 10 = A (index 0), Wave 20 = B (index 1), ..., Wave 260 = Z (index 25)
   const graphemeIndex = (waveNumber / 10) - 1;
+  const baseGraphemeCount = getUnlockableGraphemeCount();
   
-  // Only drop if it's a valid grapheme (A-Z, indices 0-25)
-  if (graphemeIndex >= 0 && graphemeIndex <= 25) {
+  // Only drop if it's a valid base grapheme (A-Z).
+  if (graphemeIndex >= 0 && graphemeIndex < baseGraphemeCount) {
     const unlockedGraphemes = getUnlockedGraphemes();
     
     // Check if player already has this grapheme
@@ -969,7 +1002,8 @@ function updateBaseHealthDisplay() {
  * Update the grapheme UI displays.
  */
 function updateGraphemeUI() {
-  const unlockedGraphemes = getUnlockedGraphemes();
+  const unlockedBaseCount = getUnlockedBaseGraphemeCount();
+  const baseGraphemeCount = getUnlockableGraphemeCount();
   const unlockCost = getGraphemeUnlockCost();
   const dropChance = getGraphemeDropChance();
   const dropChanceCost = getDropChanceUpgradeCost();
@@ -977,7 +1011,7 @@ function updateGraphemeUI() {
   
   // Update unlocked count
   if (cardinalElements.unlockedCount) {
-    cardinalElements.unlockedCount.textContent = unlockedGraphemes.length;
+    cardinalElements.unlockedCount.textContent = unlockedBaseCount;
   }
   
   // Update unlock button
@@ -987,12 +1021,12 @@ function updateGraphemeUI() {
   
   if (cardinalElements.graphemeUnlockBtn) {
     const canAffordUnlock = currentEquivalence >= unlockCost;
-    // Only 26 graphemes are collectable (letters A-Z, numbers 1-8 are not collectable)
-    const allUnlocked = unlockedGraphemes.length >= 26;
+    // Only base graphemes are unlockable via Equivalence.
+    const allUnlocked = unlockedBaseCount >= baseGraphemeCount;
     cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
     
     if (allUnlocked) {
-      cardinalElements.graphemeUnlockBtn.textContent = 'All Graphemes Unlocked';
+      cardinalElements.graphemeUnlockBtn.textContent = 'All Base Graphemes Unlocked';
     } else {
       cardinalElements.graphemeUnlockBtn.innerHTML = `Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">${formatGameNumber(unlockCost)}</span> ℸ`;
       cardinalElements.graphemeUnlockCost = document.getElementById('shin-grapheme-unlock-cost');
@@ -1571,9 +1605,9 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   if (drops.length === 0) return;
   
   const time = Date.now();
-  const allGraphemesUnlocked = hasAllGraphemesUnlocked();
+  const allGraphemesUnlocked = hasAllBaseGraphemesUnlocked();
   
-  // Auto-collect graphemes if all 26 are unlocked
+  // Auto-collect graphemes if all base graphemes are unlocked
   if (allGraphemesUnlocked) {
     // Process drops in reverse to safely remove them during iteration.
     // collectPhonemeDrop() modifies the drops array (which is a reference to activeGraphemeDrops),
@@ -1920,10 +1954,28 @@ function formatGraphemeSymbol(index) {
   return `#${index + 1}`;
 }
 
+/**
+ * Get the display label for a grapheme index (letters + dagesh variants).
+ */
+function getGraphemeLabel(index) {
+  const definition = graphemeDictionary.get(index);
+  if (definition?.label) {
+    return definition.label;
+  }
+  if (typeof definition?.name === 'string' && definition.name.length === 1) {
+    return definition.name;
+  }
+  if (index >= 0 && index <= 25) {
+    return String.fromCharCode(65 + index);
+  }
+  return null;
+}
+
 function formatGraphemeTitle(index) {
   const definition = graphemeDictionary.get(index);
   if (definition) {
-    return `${definition.name} · ${definition.property}`;
+    const name = definition.displayName || definition.name;
+    return `${name} · ${definition.property}`;
   }
   return `Grapheme #${index + 1}`;
 }

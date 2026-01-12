@@ -360,14 +360,23 @@ export function unlockAllFractals() {
 // ============================================================
 
 /**
- * Available grapheme characters from the custom script (Script.png).
- * The script contains 35 unique characters arranged in a 7x5 grid.
+ * Available grapheme characters from the custom script (Script.png) plus dagesh variants.
+ * The script contains 35 unique characters arranged in a 7x5 grid, with dagesh variants
+ * provided as separate sprite files for special acquisition.
  * ThoughtSpeak Language Structure:
  * - Indices 0-25: Letters A-Z (26 total) - can be collected by player and equipped to weapons
  * - Indices 26-33: Numbers 1-8 (8 total) - CANNOT be collected (used for UI only)
+ * - Indices 34-40: Dagesh variants (7 total) - special drops with enhanced effects
  * 
- * Characters are represented by their index (0-33) and rendered from the sprite sheet.
+ * Characters are represented by their index (0-40) and rendered from the sprite sheet or SVG variants.
  */
+// Base grapheme count used for standard unlock progression.
+const BASE_GRAPHEME_COUNT = 26;
+// Dagesh indices for special drops and enhanced effects.
+const DAGESH_GRAPHEME_INDICES = [34, 35, 36, 37, 38, 39, 40];
+// Total count of collectable graphemes (base + dagesh).
+const TOTAL_COLLECTABLE_GRAPHEME_COUNT = BASE_GRAPHEME_COUNT + DAGESH_GRAPHEME_INDICES.length;
+
 const GRAPHEME_CHARACTERS = [
   // Letters (indices 0-25): 26 letters A-Z that can be collected and equipped
   // Row 1 (indices 0-6)
@@ -410,11 +419,20 @@ const GRAPHEME_CHARACTERS = [
   { index: 31, name: 'number-6', property: 'numeral', row: 4, col: 3, collectable: false },
   { index: 32, name: 'number-7', property: 'numeral', row: 4, col: 4, collectable: false },
   { index: 33, name: 'number-8', property: 'numeral', row: 4, col: 5, collectable: false },
+
+  // Dagesh variants (indices 34-40): enhanced letters earned through special drops
+  { index: 34, name: 'A•', label: 'A•', displayName: 'A• (Dagesh)', property: 'dagesh-thoughtspeak', row: 5, col: 0, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 0, sprite: 'grapheme-A-dagesh.svg' },
+  { index: 35, name: 'I•', label: 'I•', displayName: 'I• (Dagesh)', property: 'dagesh-spread', row: 5, col: 1, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 8, sprite: 'grapheme-I-dagesh.svg' },
+  { index: 36, name: 'M•', label: 'M•', displayName: 'M• (Dagesh)', property: 'dagesh-mines', row: 5, col: 2, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 12, sprite: 'grapheme-M-dagesh.svg' },
+  { index: 37, name: 'P•', label: 'P•', displayName: 'P• (Dagesh)', property: 'dagesh-homing', row: 5, col: 3, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 15, sprite: 'grapheme-P-dagesh.svg' },
+  { index: 38, name: 'R•', label: 'R•', displayName: 'R• (Dagesh)', property: 'dagesh-chain', row: 5, col: 4, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 17, sprite: 'grapheme-R-dagesh.svg' },
+  { index: 39, name: 'S•', label: 'S•', displayName: 'S• (Dagesh)', property: 'dagesh-size', row: 5, col: 5, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 18, sprite: 'grapheme-S-dagesh.svg' },
+  { index: 40, name: 'U•', label: 'U•', displayName: 'U• (Dagesh)', property: 'dagesh-pulse', row: 5, col: 6, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 20, sprite: 'grapheme-U-dagesh.svg' },
 ];
 
 /**
  * Get a random grapheme character from the unlocked set for drops.
- * Only returns collectable graphemes (letters and punctuation, not numbers).
+ * Only returns collectable graphemes (letters and dagesh variants, not numbers).
  * @returns {Object} A grapheme definition with index and property
  */
 export function getRandomGrapheme() {
@@ -462,7 +480,7 @@ export function spawnGraphemeDrop(x, y) {
  * Spawn a specific grapheme drop at the given position.
  * @param {number} x - X coordinate on the canvas
  * @param {number} y - Y coordinate on the canvas
- * @param {number} graphemeIndex - Index of the specific grapheme to spawn (0-25 for A-Z)
+ * @param {number} graphemeIndex - Index of the specific grapheme to spawn (0-40 for collectable graphemes)
  * @returns {Object} The created grapheme drop, or null if invalid index
  */
 export function spawnSpecificGraphemeDrop(x, y, graphemeIndex) {
@@ -525,6 +543,12 @@ export function collectGraphemeDrop(dropId) {
     collectedAt: Date.now(),
   };
   shinState.graphemes.push(collected);
+
+  // Auto-unlock special graphemes so they can enter the random drop pool.
+  const graphemeDefinition = GRAPHEME_CHARACTERS[drop.index];
+  if (graphemeDefinition?.unlockOnCollect && !shinState.unlockedGraphemes.includes(drop.index)) {
+    shinState.unlockedGraphemes.push(drop.index);
+  }
   
   return collected;
 }
@@ -583,17 +607,48 @@ export function getUnlockedGraphemes() {
 }
 
 /**
- * Check if all 26 collectable graphemes (A-Z) are unlocked.
- * @returns {boolean} True if all 26 graphemes are unlocked
+ * Get the total number of standard graphemes available for unlock progression.
+ * @returns {number} Total base grapheme count
+ */
+export function getUnlockableGraphemeCount() {
+  return BASE_GRAPHEME_COUNT;
+}
+
+/**
+ * Get the number of base graphemes that have been unlocked.
+ * @returns {number} Count of unlocked base graphemes
+ */
+export function getUnlockedBaseGraphemeCount() {
+  return shinState.unlockedGraphemes.filter(index => index >= 0 && index < BASE_GRAPHEME_COUNT).length;
+}
+
+/**
+ * Get the indices of all dagesh graphemes.
+ * @returns {Array<number>} Dagesh grapheme indices
+ */
+export function getDageshGraphemeIndices() {
+  return [...DAGESH_GRAPHEME_INDICES];
+}
+
+/**
+ * Check if all base (A-Z) graphemes are unlocked.
+ * @returns {boolean} True if all base graphemes are unlocked
+ */
+export function hasAllBaseGraphemesUnlocked() {
+  return getUnlockedBaseGraphemeCount() >= BASE_GRAPHEME_COUNT;
+}
+
+/**
+ * Check if all collectable graphemes (base + dagesh) are unlocked.
+ * @returns {boolean} True if all collectable graphemes are unlocked
  */
 export function hasAllGraphemesUnlocked() {
-  // There are 26 collectable graphemes (A-Z, indices 0-25)
-  return shinState.unlockedGraphemes.length >= 26;
+  return shinState.unlockedGraphemes.length >= TOTAL_COLLECTABLE_GRAPHEME_COUNT;
 }
 
 /**
  * Unlock the next grapheme in sequence.
- * Only unlocks collectable graphemes (letters and punctuation, not numbers).
+ * Only unlocks base collectable graphemes (letters A-Z, not numbers or dagesh).
  * @returns {Object} Result with success status and the unlocked grapheme index
  */
 export function unlockNextGrapheme() {
@@ -604,8 +659,9 @@ export function unlockNextGrapheme() {
   }
   
   // Find the next collectable grapheme to unlock
-  const collectableGraphemes = GRAPHEME_CHARACTERS.filter(g => g.collectable);
-  const nextIndex = shinState.unlockedGraphemes.length;
+  // Only base graphemes are unlockable via the standard progression.
+  const collectableGraphemes = GRAPHEME_CHARACTERS.filter(g => g.collectable && g.unlockable !== false);
+  const nextIndex = getUnlockedBaseGraphemeCount();
   if (nextIndex >= collectableGraphemes.length) {
     return { success: false, message: 'All graphemes already unlocked' };
   }

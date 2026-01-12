@@ -37,6 +37,13 @@ export const GRAPHEME_INDEX = {
   X: 23,           // Bullet lifetime modifier (short/long range)
   Y: 24,           // Vortex bullets that pull enemies
   Z: 25,           // Ultimate chaos with random effects
+  A_DAGESH: 34,    // Dagesh variant of grapheme A (enhanced ThoughtSpeak)
+  I_DAGESH: 35,    // Dagesh variant of grapheme I (enhanced spread)
+  M_DAGESH: 36,    // Dagesh variant of grapheme M (enhanced mines)
+  P_DAGESH: 37,    // Dagesh variant of grapheme P (enhanced homing)
+  R_DAGESH: 38,    // Dagesh variant of grapheme R (enhanced chains)
+  S_DAGESH: 39,    // Dagesh variant of grapheme S (enhanced size)
+  U_DAGESH: 40,    // Dagesh variant of grapheme U (enhanced pulses)
 };
 
 /**
@@ -207,6 +214,42 @@ export const CHAIN_CONFIG = {
 export const SIZE_CONFIG = {
   SLOT_TO_SIZE_MULT: [0.5, 0.6, 0.7, 0.8, 1.2, 1.4, 1.7, 2.0], // Size multiplier by slot
   SLOT_TO_SPEED_MULT: [1.3, 1.2, 1.1, 1.05, 0.95, 0.9, 0.85, 0.8], // Speed mult (inverse)
+};
+
+/**
+ * Dagesh grapheme tuning for extra-powerful variants of select letters.
+ */
+export const DAGESH_CONFIG = {
+  A: {
+    SHAPE_BONUS: 2, // Adds extra polygon sides before damage scaling.
+    DAMAGE_MULTIPLIER: 1.5, // Multiplies the ThoughtSpeak damage bonus.
+  },
+  I: {
+    SLOT_TO_EXTRA_BULLETS: [4, 6, 8, 10, 10, 8, 6, 4], // Extra spread bullets by slot.
+    SPREAD_ANGLE: Math.PI / 4, // Wider spread cone for the dagesh variant.
+  },
+  M: {
+    SPAWN_RATE_DIVISOR: 10, // Faster mine spawn rate divisor for dagesh.
+    DAMAGE_MULTIPLIER: 2, // Multiplies mine explosion damage.
+  },
+  P: {
+    TURN_RATE_MULTIPLIER: 1.75, // Stronger homing turn rate scaling.
+    DETECTION_RADIUS: 320, // Longer homing acquisition radius.
+  },
+  R: {
+    CHAIN_BONUS: 2, // Adds extra chain jumps.
+    RANGE_MULTIPLIER: 1.5, // Extends chain search radius.
+    DAMAGE_MULTIPLIER: 0.85, // Higher chain damage retention.
+  },
+  S: {
+    SLOT_TO_SIZE_MULT: [0.4, 0.5, 0.6, 0.7, 1.6, 1.9, 2.3, 2.7], // Stronger size shifts.
+    SLOT_TO_SPEED_MULT: [1.5, 1.4, 1.3, 1.15, 0.9, 0.85, 0.8, 0.75], // Stronger speed shifts.
+  },
+  U: {
+    PULSE_RATE_MULTIPLIER: 1.5, // Faster pulse cadence.
+    PULSE_RADIUS_MULTIPLIER: 1.4, // Larger pulse radius.
+    PULSE_DAMAGE_MULTIPLIER: 0.35, // Higher pulse damage share.
+  },
 };
 
 /**
@@ -600,5 +643,4 @@ export const UI_CONFIG = {
   LARGE_FONT_SIZE: 20,
   FONT_FAMILY: '"Cormorant Garamond", serif',
 };
-
 

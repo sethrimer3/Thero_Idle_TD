@@ -16,7 +16,7 @@
  *
  * Grapheme System:
  * Each weapon has up to 8 grapheme slots (0-7) where lexemes can be placed to modify behavior.
- * Graphemes are named A-Z (English letters), indices 0-25.
+ * Graphemes are named A-Z (English letters), indices 0-25, with dagesh variants beyond.
  * 
  * - Grapheme 0 (A): ThoughtSpeak - Shape and damage multiplier based on slot
  * - Grapheme 1 (B): Fire rate multiplier based on slot position
@@ -76,6 +76,7 @@ import {
   SPLIT_CONFIG,
   CHAIN_CONFIG,
   SIZE_CONFIG,
+  DAGESH_CONFIG,
   ORBITAL_CONFIG,
   PULSE_CONFIG,
   SPEED_CONFIG,
@@ -2143,14 +2144,17 @@ class MathBullet {
     this.ricochetBounces = config.ricochetBounces || 0; // Grapheme O - max bounces
     this.ricochetCount = 0; // Track current bounce count
     this.homingTurnRate = config.homingTurnRate || 0; // Grapheme P - turn rate (rad/s)
+    this.homingDetectionRadius = config.homingDetectionRadius || 0; // Grapheme P - detection radius override
     this.splitCount = config.splitCount || 0; // Grapheme Q - splits on hit
     this.chainCount = config.chainCount || 0; // Grapheme R - chain targets
     this.chainRange = config.chainRange || 0; // Grapheme R - chain range
+    this.chainDamageMultiplier = config.chainDamageMultiplier || 0; // Grapheme R - chain damage override
     this.orbitalCount = config.orbitalCount || 0; // Grapheme T - orbit count
     this.orbitalProgress = 0; // Track orbit completion
     this.pulseRate = config.pulseRate || 0; // Grapheme U - pulses per second
     this.pulseRadius = config.pulseRadius || 0; // Grapheme U - pulse radius
     this.pulseTimer = 0; // Track time for next pulse
+    this.pulseDamageMultiplier = config.pulseDamageMultiplier || 0; // Grapheme U - pulse damage override
     this.explosionRadius = config.explosionRadius || 0; // Grapheme W - explosion radius
     this.lifetimeMultiplier = config.lifetimeMultiplier || 1; // Grapheme X - lifetime mult
     this.vortexRadius = config.vortexRadius || 0; // Grapheme Y - pull radius
@@ -2182,12 +2186,13 @@ class MathBullet {
     
     // Grapheme P (index 15) - Homing missiles
     if (this.homingTurnRate > 0 && Array.isArray(enemies) && enemies.length > 0) {
-      // Find nearest enemy within detection radius
+      // Find nearest enemy within detection radius (dagesh variants can override).
+      const detectionRadius = this.homingDetectionRadius || HOMING_CONFIG.DETECTION_RADIUS;
       let nearestEnemy = null;
       let nearestDist = Infinity;
       for (const enemy of enemies) {
         const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
-        if (dist < HOMING_CONFIG.DETECTION_RADIUS && dist < nearestDist) {
+        if (dist < detectionRadius && dist < nearestDist) {
           nearestDist = dist;
           nearestEnemy = enemy;
         }
@@ -2817,7 +2822,7 @@ export class CardinalWardenSimulation {
 
   /**
    * Load individual SVG grapheme sprites for the Cardinal Warden name display.
-   * Each grapheme (A-Z, index 0-25) has its own white SVG file that gets colored.
+   * Each grapheme (A-Z plus dagesh variants) has its own white SVG file that gets colored.
    */
   loadGraphemeSprites() {
     // Skip sprite loading on non-browser contexts
@@ -2825,31 +2830,46 @@ export class CardinalWardenSimulation {
       return;
     }
     
-    // Letter mapping: index 0 = A, index 1 = B, ..., index 25 = Z
+    // Letter mapping: index 0 = A, index 1 = B, ..., index 25 = Z.
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    
-    letters.forEach((letter, index) => {
+    // Dagesh sprite mapping for enhanced graphemes.
+    const dageshSprites = [
+      { index: GRAPHEME_INDEX.A_DAGESH, filename: 'grapheme-A-dagesh.svg' },
+      { index: GRAPHEME_INDEX.I_DAGESH, filename: 'grapheme-I-dagesh.svg' },
+      { index: GRAPHEME_INDEX.M_DAGESH, filename: 'grapheme-M-dagesh.svg' },
+      { index: GRAPHEME_INDEX.P_DAGESH, filename: 'grapheme-P-dagesh.svg' },
+      { index: GRAPHEME_INDEX.R_DAGESH, filename: 'grapheme-R-dagesh.svg' },
+      { index: GRAPHEME_INDEX.S_DAGESH, filename: 'grapheme-S-dagesh.svg' },
+      { index: GRAPHEME_INDEX.U_DAGESH, filename: 'grapheme-U-dagesh.svg' },
+    ];
+
+    const spriteSources = [
+      ...letters.map((letter, index) => ({ index, filename: `grapheme-${letter}.svg` })),
+      ...dageshSprites,
+    ];
+
+    spriteSources.forEach(({ index, filename }) => {
       const img = new Image();
-      
+
       img.onload = () => {
         this.graphemeSpriteLoaded.set(index, true);
-        // Rebuild the tinted cache entry for this grapheme
+        // Rebuild the tinted cache entry for this grapheme.
         this.rebuildSingleTintedGrapheme(index, img);
       };
-      
+
       img.onerror = () => {
-        console.warn(`Failed to load grapheme sprite: grapheme-${letter}.svg`);
+        console.warn(`Failed to load grapheme sprite: ${filename}`);
       };
-      
-      // Load the SVG file for this grapheme
-      img.src = `./assets/sprites/spires/shinSpire/graphemes/grapheme-${letter}.svg`;
+
+      // Load the SVG file for this grapheme.
+      img.src = `./assets/sprites/spires/shinSpire/graphemes/${filename}`;
       this.graphemeSprites.set(index, img);
     });
   }
 
   /**
    * Create a tinted copy of a single grapheme sprite.
-   * @param {number} index - The grapheme index (0-25)
+   * @param {number} index - The grapheme index (A-Z plus dagesh variants)
    * @param {Image} img - The loaded image
    */
   rebuildSingleTintedGrapheme(index, img) {
@@ -2950,7 +2970,7 @@ export class CardinalWardenSimulation {
   /**
    * Render a character from the individual grapheme sprites.
    * @param {CanvasRenderingContext2D} ctx - Canvas context
-   * @param {number} charIndex - Index of the grapheme (0-25 for A-Z)
+   * @param {number} charIndex - Index of the grapheme (A-Z plus dagesh variants)
    * @param {number} x - X position to render at
    * @param {number} y - Y position to render at
    * @param {number} size - Size to render the character
@@ -2961,9 +2981,9 @@ export class CardinalWardenSimulation {
       return;
     }
 
-    // Validate bounds: we have 26 graphemes (A-Z, indices 0-25)
-    if (charIndex < 0 || charIndex > 25) {
-      console.warn(`Grapheme index ${charIndex} out of bounds (0-25 for A-Z).`);
+    // Validate bounds by ensuring we have a sprite registered for the grapheme index.
+    if (!this.graphemeSprites.has(charIndex)) {
+      console.warn(`Grapheme index ${charIndex} has no registered sprite.`);
       return;
     }
 
@@ -3852,9 +3872,18 @@ export class CardinalWardenSimulation {
       
       // Check for grapheme M (index 12) - Mine spawning
       let hasMineGrapheme = false;
+      // Track dagesh mine modifiers to boost spawn frequency and damage.
+      let useDageshMine = false;
+      let mineSpawnDivisor = MINE_CONFIG.SPAWN_RATE_DIVISOR;
       for (const assignment of effectiveAssignments) {
         if (assignment && assignment.index === GRAPHEME_INDEX.M) {
           hasMineGrapheme = true;
+          break;
+        }
+        if (assignment && assignment.index === GRAPHEME_INDEX.M_DAGESH) {
+          hasMineGrapheme = true;
+          useDageshMine = true;
+          mineSpawnDivisor = DAGESH_CONFIG.M.SPAWN_RATE_DIVISOR;
           break;
         }
       }
@@ -3867,14 +3896,14 @@ export class CardinalWardenSimulation {
         
         // Calculate mine spawn rate: (shots per second) / 20
         const shotsPerSecond = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
-        const mineSpawnRate = shotsPerSecond / MINE_CONFIG.SPAWN_RATE_DIVISOR;
+        const mineSpawnRate = shotsPerSecond / mineSpawnDivisor;
         const mineSpawnInterval = 1000 / mineSpawnRate; // Interval in milliseconds
         
         this.mineSpawnAccumulators[weaponId] += deltaTime;
         
         if (this.mineSpawnAccumulators[weaponId] >= mineSpawnInterval) {
           this.mineSpawnAccumulators[weaponId] = 0;
-          this.spawnMine(weaponId);
+          this.spawnMine(weaponId, { useDagesh: useDageshMine });
         }
       }
     }
@@ -4023,8 +4052,17 @@ export class CardinalWardenSimulation {
     
     // Check for ninth grapheme (index 8 - I) - Spread bullets
     let spreadBulletCount = 0;
+    let spreadAngle = SPREAD_CONFIG.SPREAD_ANGLE;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.I_DAGESH) {
+        // Dagesh I found! Extra bullets and wider cone based on slot position.
+        if (slotIndex >= 0 && slotIndex < DAGESH_CONFIG.I.SLOT_TO_EXTRA_BULLETS.length) {
+          spreadBulletCount = DAGESH_CONFIG.I.SLOT_TO_EXTRA_BULLETS[slotIndex];
+        }
+        spreadAngle = DAGESH_CONFIG.I.SPREAD_ANGLE;
+        break; // Only apply the first occurrence
+      }
       if (assignment && assignment.index === GRAPHEME_INDEX.I) {
         // Ninth grapheme found! Extra bullets based on slot position
         // Use lookup table for slot-to-bullet mapping
@@ -4096,8 +4134,16 @@ export class CardinalWardenSimulation {
     
     // Check for grapheme P (index 15) - Homing missiles
     let homingTurnRate = 0;
+    let homingDetectionRadius = 0;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.P_DAGESH) {
+        // Dagesh homing found! Stronger turn rate and longer detection radius.
+        const turnMultiplier = HOMING_CONFIG.SLOT_TO_TURN_MULTIPLIER[slotIndex] || 1;
+        homingTurnRate = HOMING_CONFIG.BASE_TURN_RATE * turnMultiplier * DAGESH_CONFIG.P.TURN_RATE_MULTIPLIER;
+        homingDetectionRadius = DAGESH_CONFIG.P.DETECTION_RADIUS;
+        break; // Only apply the first occurrence
+      }
       if (assignment && assignment.index === GRAPHEME_INDEX.P) {
         // Homing found! Turn rate based on slot position
         const turnMultiplier = HOMING_CONFIG.SLOT_TO_TURN_MULTIPLIER[slotIndex] || 1;
@@ -4120,8 +4166,18 @@ export class CardinalWardenSimulation {
     // Check for grapheme R (index 17) - Chain lightning
     let chainCount = 0;
     let chainRange = 0;
+    let chainDamageMultiplier = 0;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.R_DAGESH) {
+        // Dagesh chain found! Adds extra jumps and stronger retention.
+        const baseChainCount = CHAIN_CONFIG.SLOT_TO_CHAINS[slotIndex] || (slotIndex + 1);
+        const baseRange = CHAIN_CONFIG.SLOT_TO_RANGE[slotIndex] || 20;
+        chainCount = baseChainCount + DAGESH_CONFIG.R.CHAIN_BONUS;
+        chainRange = baseRange * DAGESH_CONFIG.R.RANGE_MULTIPLIER;
+        chainDamageMultiplier = DAGESH_CONFIG.R.DAMAGE_MULTIPLIER;
+        break; // Only apply the first occurrence
+      }
       if (assignment && assignment.index === GRAPHEME_INDEX.R) {
         // Chain found! Chains based on slot position
         chainCount = CHAIN_CONFIG.SLOT_TO_CHAINS[slotIndex] || (slotIndex + 1);
@@ -4135,6 +4191,12 @@ export class CardinalWardenSimulation {
     let sizeSpeedMult = 1;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.S_DAGESH) {
+        // Dagesh size modifier found! Applies stronger size and speed shifts.
+        sizeMultiplier = DAGESH_CONFIG.S.SLOT_TO_SIZE_MULT[slotIndex] || 1;
+        sizeSpeedMult = DAGESH_CONFIG.S.SLOT_TO_SPEED_MULT[slotIndex] || 1;
+        break; // Only apply the first occurrence
+      }
       if (assignment && assignment.index === GRAPHEME_INDEX.S) {
         // Size modifier found!
         sizeMultiplier = SIZE_CONFIG.SLOT_TO_SIZE_MULT[slotIndex] || 1;
@@ -4157,8 +4219,16 @@ export class CardinalWardenSimulation {
     // Check for grapheme U (index 20) - Pulse waves
     let pulseRate = 0;
     let pulseRadius = 0;
+    let pulseDamageMultiplier = 0;
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
+      if (assignment && assignment.index === GRAPHEME_INDEX.U_DAGESH) {
+        // Dagesh pulse found! Faster, larger, and harder-hitting pulses.
+        pulseRate = (PULSE_CONFIG.SLOT_TO_PULSE_RATE[slotIndex] || (slotIndex + 1)) * DAGESH_CONFIG.U.PULSE_RATE_MULTIPLIER;
+        pulseRadius = (PULSE_CONFIG.SLOT_TO_PULSE_RADIUS[slotIndex] || 15) * DAGESH_CONFIG.U.PULSE_RADIUS_MULTIPLIER;
+        pulseDamageMultiplier = DAGESH_CONFIG.U.PULSE_DAMAGE_MULTIPLIER;
+        break; // Only apply the first occurrence
+      }
       if (assignment && assignment.index === GRAPHEME_INDEX.U) {
         // Pulse found! Rate and radius based on slot position
         pulseRate = PULSE_CONFIG.SLOT_TO_PULSE_RATE[slotIndex] || (slotIndex + 1);
@@ -4226,15 +4296,22 @@ export class CardinalWardenSimulation {
     
     for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
       const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === 0) {
-        // First grapheme found! Apply slot-based mechanics
+      if (assignment && (assignment.index === GRAPHEME_INDEX.A || assignment.index === GRAPHEME_INDEX.A_DAGESH)) {
+        // ThoughtSpeak grapheme found! Apply slot-based mechanics (dagesh adds extra sides + damage).
         // Slot 0 = triangle (3 sides), 3x damage
         // Slot 1 = pentagon (5 sides), 5x damage  
         // Slot 2 = hexagon (6 sides), 6x damage
         // Slot 3+ = continues pattern (7, 8, 9, 10, 11 sides, etc.)
         const sidesMap = [3, 5, 6, 7, 8, 9, 10, 11];
-        bulletShape = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
-        damageMultiplier *= bulletShape; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x, etc.
+        let sides = sidesMap[slotIndex] !== undefined ? sidesMap[slotIndex] : Math.max(3, slotIndex + 3);
+        if (assignment.index === GRAPHEME_INDEX.A_DAGESH) {
+          // Dagesh A gains additional sides and a damage multiplier.
+          sides += DAGESH_CONFIG.A.SHAPE_BONUS;
+          damageMultiplier *= sides * DAGESH_CONFIG.A.DAMAGE_MULTIPLIER;
+        } else {
+          damageMultiplier *= sides; // 3x, 5x, 6x, 7x, 8x, 9x, 10x, 11x, etc.
+        }
+        bulletShape = sides;
         break; // Only apply the first occurrence
       }
     }
@@ -4267,12 +4344,15 @@ export class CardinalWardenSimulation {
       // New grapheme O-Z effects
       ricochetBounces: ricochetBounces, // Grapheme O - number of bounces
       homingTurnRate: homingTurnRate, // Grapheme P - homing turn rate
+      homingDetectionRadius: homingDetectionRadius, // Grapheme P - homing detection radius
       splitCount: splitCount, // Grapheme Q - number of splits
       chainCount: chainCount, // Grapheme R - chain lightning count
       chainRange: chainRange, // Grapheme R - chain range
+      chainDamageMultiplier: chainDamageMultiplier, // Grapheme R - chain damage retention
       orbitalCount: orbitalCount, // Grapheme T - number of orbits
       pulseRate: pulseRate, // Grapheme U - pulses per second
       pulseRadius: pulseRadius, // Grapheme U - pulse radius
+      pulseDamageMultiplier: pulseDamageMultiplier, // Grapheme U - pulse damage retention
       explosionRadius: explosionRadius, // Grapheme W - explosion radius
       lifetimeMultiplier: lifetimeMultiplier, // Grapheme X - lifetime multiplier
       vortexRadius: vortexRadius, // Grapheme Y - vortex pull radius
@@ -4339,9 +4419,9 @@ export class CardinalWardenSimulation {
       
       // Calculate spread angle (in radians)
       // Spread out evenly across a cone
-      const spreadAngle = SPREAD_CONFIG.SPREAD_ANGLE;
-      const angleStep = spreadAngle / (totalBullets - 1);
-      const startAngle = baseAngle - (spreadAngle / 2);
+      const totalSpreadAngle = spreadAngle;
+      const angleStep = totalSpreadAngle / (totalBullets - 1);
+      const startAngle = baseAngle - (totalSpreadAngle / 2);
       
       for (let i = 0; i < totalBullets; i++) {
         const bulletAngle = startAngle + (i * angleStep);
@@ -4363,7 +4443,7 @@ export class CardinalWardenSimulation {
    * Spawn a mine from a specific weapon slot.
    * Mines drift slowly and explode on contact with enemies.
    */
-  spawnMine(weaponId) {
+  spawnMine(weaponId, { useDagesh = false } = {}) {
     if (!this.warden || !this.canvas) return;
     
     const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
@@ -4372,9 +4452,12 @@ export class CardinalWardenSimulation {
     const cx = this.warden.x;
     const cy = this.warden.y;
     
-    // Calculate explosion damage (100x base weapon damage)
+    // Calculate explosion damage (dagesh mines multiply the base explosion).
     const baseDamage = weaponDef.baseDamage * this.upgrades.bulletDamage;
-    const explosionDamage = baseDamage * MINE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER;
+    const mineDamageMultiplier = useDagesh
+      ? MINE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER * DAGESH_CONFIG.M.DAMAGE_MULTIPLIER
+      : MINE_CONFIG.EXPLOSION_DAMAGE_MULTIPLIER;
+    const explosionDamage = baseDamage * mineDamageMultiplier;
     
     // Calculate explosion radius (1/10th canvas width)
     const explosionRadius = this.canvas.width / MINE_CONFIG.EXPLOSION_DIAMETER_DIVISOR;
@@ -5400,7 +5483,9 @@ export class CardinalWardenSimulation {
         
         if (bullet.pulseTimer >= pulseInterval) {
           bullet.pulseTimer = 0;
-          const pulseDamage = bullet.damage * PULSE_CONFIG.PULSE_DAMAGE_MULTIPLIER;
+          // Allow dagesh pulse graphemes to override pulse damage scaling.
+          const pulseDamageMultiplier = bullet.pulseDamageMultiplier || PULSE_CONFIG.PULSE_DAMAGE_MULTIPLIER;
+          const pulseDamage = bullet.damage * pulseDamageMultiplier;
           
           // Damage all enemies in pulse radius
           for (const enemy of this.enemies) {
@@ -5550,14 +5635,16 @@ export class CardinalWardenSimulation {
           // Note: Initial enemy already received full damage above in normal collision
           // This chains ADDITIONAL damage to nearby enemies
           if (bullet.chainCount > 0) {
-            let currentChainDamage = bullet.damage * CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER; // First chain gets reduced damage
+            // Allow dagesh chain graphemes to override damage retention.
+            const chainDamageMultiplier = bullet.chainDamageMultiplier || CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+            let currentChainDamage = bullet.damage * chainDamageMultiplier; // First chain gets reduced damage
             let currentTarget = enemy;
             const chainedTargets = new Set([ei]); // Track to avoid chaining to same target (includes initial hit)
             
             for (let c = 0; c < bullet.chainCount; c++) {
               // Apply additional damage decay for subsequent chains (after first chain target)
               if (c > 0) {
-                currentChainDamage *= CHAIN_CONFIG.CHAIN_DAMAGE_MULTIPLIER;
+                currentChainDamage *= chainDamageMultiplier;
               }
               
               // Find nearest unchained enemy (excludes initial hit and previously chained)
