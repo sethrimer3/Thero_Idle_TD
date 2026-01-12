@@ -224,6 +224,10 @@ export function createBetSpireUpgradeMenu({
         const countSpan = document.createElement('span');
         countSpan.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
         countSpan.textContent = formatGameNumber(count);
+        // Add a purple glow for Nullstone counts to improve contrast in the equation display.
+        if (tier.id === 'nullstone') {
+          countSpan.classList.add('bet-equation-nullstone');
+        }
         equationElement.appendChild(countSpan);
         
         // Add multiplication symbol if not the last item
