@@ -11,6 +11,7 @@ const CANVAS_HEIGHT = 320;
 const TRAIL_FADE = 0.15; // Lower = longer trails
 const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
+const EXTRA_LARGE_SIZE_BONUS = 1.5; // Extra-large particles are 50% larger than large.
 const MIN_VELOCITY = 0.312; // Minimum speed to keep particles swirling (30% faster: 0.24 * 1.3 = 0.312)
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
@@ -59,7 +60,7 @@ const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than be
 const SPAWNER_ROTATION_SPEED = 0.01; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const GENERATOR_SPRITE_SCALE = 1.5; // Increase generator sprite size to improve legibility across device resolutions.
+const GENERATOR_SPRITE_SCALE = 1.75; // Increase generator sprites by 75% for better legibility.
 const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6 * GENERATOR_SPRITE_SCALE; // Scale generator sprites to match the previous triangle footprint.
 
 // Particle veer behavior configuration (developer-toggleable).
@@ -180,9 +181,16 @@ const MEDIUM_SIZE_INDEX = 1;
 const LARGE_SIZE_INDEX = 2;
 const EXTRA_LARGE_SIZE_INDEX = 3;
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
-const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64, 0.25]; // Small: 100%, Medium: 80%, Large: 64% (0.8 * 0.8), Extra-Large: 25% for heavy inertia.
+const SIZE_SCALE_MULTIPLIERS = [
+  1.0,
+  SIZE_MULTIPLIER,
+  SIZE_MULTIPLIER * SIZE_MULTIPLIER,
+  SIZE_MULTIPLIER * SIZE_MULTIPLIER * EXTRA_LARGE_SIZE_BONUS
+]; // Match size tiers while keeping extra-large at +50% over large.
+const SIZE_MIN_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64, 0.15]; // Extra-large keeps a low minimum drift speed.
+const SIZE_MAX_VELOCITY_MODIFIERS = [1.0, 0.85, 0.7, 1.6]; // Extra-large can reach high top speeds.
 // Force modifiers scale how strongly particles respond to pulls; extra-large is intentionally sluggish.
-const SIZE_FORCE_MODIFIERS = [1.0, 0.85, 0.7, 0.2];
+const SIZE_FORCE_MODIFIERS = [1.0, 0.85, 0.7, 0.12]; // Extra-large resists drag to feel heavy.
 const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
 
 // Particle class with tier and size
@@ -213,12 +221,13 @@ class Particle {
     this._glowColorString = this._tier.glowColor 
       ? `rgba(${this._tier.glowColor.r}, ${this._tier.glowColor.g}, ${this._tier.glowColor.b}, 0.8)`
       : null;
-    this._size = BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, sizeIndex);
-    this._sizeModifier = SIZE_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
+    this._size = BASE_PARTICLE_SIZE * (SIZE_SCALE_MULTIPLIERS[sizeIndex] || 1.0);
+    this._minVelocityModifier = SIZE_MIN_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
+    this._maxVelocityModifier = SIZE_MAX_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
     // Cache force scaling so extra-large particles resist pulls with massive inertia.
     this._forceModifier = SIZE_FORCE_MODIFIERS[sizeIndex] || 1.0;
-    this._maxVelocity = MAX_VELOCITY * this._sizeModifier;
-    this._minVelocity = MIN_VELOCITY * this._sizeModifier;
+    this._maxVelocity = MAX_VELOCITY * this._maxVelocityModifier;
+    this._minVelocity = MIN_VELOCITY * this._minVelocityModifier;
 
     // Track when this particle should apply its next random veer adjustment.
     this.nextVeerTime = performance.now() + getRandomInRange(VEER_INTERVAL_MIN_MS, VEER_INTERVAL_MAX_MS);
@@ -298,33 +307,36 @@ class Particle {
         this.vy *= damping;
       }
     } else {
-      // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
-      for (const spawner of spawners) {
-        // Only attract particles to their matching generator tier.
-        if (spawner.tierId !== this.tierId) {
-          continue;
-        }
-        const dx = spawner.x - this.x;
-        const dy = spawner.y - this.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      // Extra-large particles ignore generator pull so they only drift toward the forge.
+      if (this.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) {
+        // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
+        for (const spawner of spawners) {
+          // Only attract particles to their matching generator tier.
+          if (spawner.tierId !== this.tierId) {
+            continue;
+          }
+          const dx = spawner.x - this.x;
+          const dy = spawner.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist <= spawner.range && dist > 0.5) {
-          // Record that the particle is inside its generator field so we can cap its top speed there.
-          isInsideGeneratorField = true;
-          // Scale generator gravity by size so heavier particles accelerate more slowly.
-          const force = (SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
-          const angle = Math.atan2(dy, dx);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
-        }
+          if (dist <= spawner.range && dist > 0.5) {
+            // Record that the particle is inside its generator field so we can cap its top speed there.
+            isInsideGeneratorField = true;
+            // Scale generator gravity by size so heavier particles accelerate more slowly.
+            const force = (SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
+            const angle = Math.atan2(dy, dx);
+            this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+            this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          }
 
-        // Apply an additional, extremely gentle pull for small particles toward their matching generator.
-        if (smallTierGravityEnabled && this.sizeIndex === SMALL_SIZE_INDEX && dist > 0.5) {
-          // Scale the small-tier gravity nudge by size inertia as well.
-          const force = (SMALL_TIER_GENERATOR_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
-          const angle = Math.atan2(dy, dx);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          // Apply an additional, extremely gentle pull for small particles toward their matching generator.
+          if (smallTierGravityEnabled && this.sizeIndex === SMALL_SIZE_INDEX && dist > 0.5) {
+            // Scale the small-tier gravity nudge by size inertia as well.
+            const force = (SMALL_TIER_GENERATOR_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
+            const angle = Math.atan2(dy, dx);
+            this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+            this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          }
         }
       }
 
@@ -334,7 +346,7 @@ class Particle {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
-      // Restrict forge attraction to medium and large particles only.
+      // Restrict forge attraction to medium and larger particles only.
       const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX;
       if (isForgeAttractable && dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
         const angle = Math.atan2(dy, dx);
@@ -1005,7 +1017,7 @@ export class BetSpireRender {
     });
   }
 
-  // Attempt to convert medium and large particles to two tiers up at the forge (center).
+  // Attempt to convert extra-large particles to two tiers up at the forge (center).
   // Forge promotions now yield 1 large particle two tiers higher.
   attemptTierConversion() {
     // Skip tier conversion if disabled via developer controls
@@ -1037,7 +1049,7 @@ export class BetSpireRender {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist <= GENERATOR_CONVERSION_RADIUS) {
-          if (particle.sizeIndex === MEDIUM_SIZE_INDEX || particle.sizeIndex === LARGE_SIZE_INDEX) {
+          if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
             // Always convert into a single large particle for the two-tier forge jump.
             const conversionCount = 1;
             conversionCandidates.push({
@@ -1088,7 +1100,7 @@ export class BetSpireRender {
       return;
     }
 
-    // Find medium and large particles within forge radius that can be upgraded.
+    // Find extra-large particles within forge radius that can be upgraded.
     const validParticles = [];
     
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
@@ -1098,8 +1110,8 @@ export class BetSpireRender {
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
-        // Only medium and large particles can be upgraded.
-        if (particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== LARGE_SIZE_INDEX) return;
+        // Only extra-large particles can be upgraded.
+        if (particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
         
         // Check if particle is within forge radius
         const dx = particle.x - this.forge.x;
@@ -1229,8 +1241,8 @@ export class BetSpireRender {
       const nextTier = PARTICLE_TIERS[tierIndex + 2];
       
       particles.forEach(particle => {
-        // Award 1 gem per large particle crushed
-        if (particle.sizeIndex === LARGE_SIZE_INDEX) {
+        // Award 1 gem per extra-large particle crushed.
+        if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
           const gemTierId = nextTier.id; // Award gem of the tier it converts to
           const gemDefinition = resolveGemDefinition(gemTierId);
           
@@ -2103,7 +2115,7 @@ export class BetSpireRender {
 
   drawForge() {
     const ctx = this.ctx;
-    const forgeSize = 24; // Size of triangles (20% larger so the forge sprites read clearly).
+    const forgeSize = 36; // Size of triangles (50% larger so the forge sprites read clearly).
     const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
     const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
     const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;
