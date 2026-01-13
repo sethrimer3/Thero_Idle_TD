@@ -354,9 +354,9 @@ class Particle {
       const dy = forge.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
-      // Restrict forge attraction to medium and larger particles only.
-      const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX;
+      // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well.
+      // Let nullstone drift into the forge at any size so single particles can still be crunched.
+      const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX || this.tierId === 'nullstone';
       if (isForgeAttractable && dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
         const angle = Math.atan2(dy, dx);
         if (dist > 1) {
