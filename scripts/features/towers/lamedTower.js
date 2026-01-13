@@ -2143,7 +2143,8 @@ export class GravitySimulation {
       
       if (sunSprite && sunSprite.complete) {
         ctx.save();
-        ctx.globalAlpha = Math.min(1, luminosity / 2); // Apply luminosity as alpha
+        // Apply luminosity to sprite opacity (use full luminosity range for visibility)
+        ctx.globalAlpha = Math.min(1, luminosity);
         ctx.drawImage(
           sunSprite,
           centerXScaled - coreRadius,
