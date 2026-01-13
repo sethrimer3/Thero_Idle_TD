@@ -563,6 +563,7 @@ export function createDeveloperModeManager(options = {}) {
         spireResourceState.lamed.starMass = 10;
         spireResourceState.lamed.upgrades = { starMass: 0 };
         spireResourceState.lamed.stats = { totalAbsorptions: 0, totalMassGained: 0, starMilestoneReached: 0 };
+        spireResourceState.lamed.simulationSnapshot = null;
       }
       if (spireResourceState.tsadi) {
         spireResourceState.tsadi.unlocked = false;
@@ -570,6 +571,7 @@ export function createDeveloperModeManager(options = {}) {
         spireResourceState.tsadi.bindingAgents = 0;
         spireResourceState.tsadi.discoveredMolecules = [];
         spireResourceState.tsadi.stats = { totalParticles: 0, totalGlyphs: 0, highestTier: 0 };
+        spireResourceState.tsadi.simulationSnapshot = null;
       }
       if (spireResourceState.shin) {
         spireResourceState.shin.unlocked = false;
