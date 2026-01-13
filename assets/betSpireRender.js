@@ -357,7 +357,11 @@ class Particle {
       // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well.
       // Let nullstone drift into the forge at any size so single particles can still be crunched.
       const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX || this.tierId === 'nullstone';
-      if (isForgeAttractable && dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
+      // Extra-large and nullstone particles should feel the forge pull across the entire basin so crunches can trigger reliably.
+      const forgeAttractionRange = (this.sizeIndex === EXTRA_LARGE_SIZE_INDEX || this.tierId === 'nullstone')
+        ? Number.POSITIVE_INFINITY
+        : MAX_FORGE_ATTRACTION_DISTANCE;
+      if (isForgeAttractable && dist <= forgeAttractionRange) {
         const angle = Math.atan2(dy, dx);
         if (dist > 1) {
           // Scale forge attraction by size so extra-large particles resist the forge pull.
