@@ -37,6 +37,8 @@ export function initParticleInventoryDisplay() {
     countBadge.style.fontWeight = 'bold';
     // Add a purple glow for Nullstone counts so the darkest tier stays readable.
     if (tier.id === 'nullstone') {
+      // Override nullstone digits to solid black so the glow defines the contrast.
+      countBadge.style.color = '#000';
       countBadge.classList.add('particle-count-badge--nullstone');
     }
     
