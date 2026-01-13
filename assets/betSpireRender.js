@@ -28,6 +28,7 @@ const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four 
 const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
 const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.24; // Extremely gentle pull that nudges small particles toward their generator.
 const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.15; // Extremely weak pull that guides medium particles toward the central forge.
+const PARTICLE_FACTOR_EXPONENT_INCREMENT = 1e-7; // Each nullstone small-equivalent crunch increases the particle factor exponent.
 
 // Performance optimization configuration
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
@@ -181,6 +182,12 @@ const MEDIUM_SIZE_INDEX = 1;
 const LARGE_SIZE_INDEX = 2;
 const EXTRA_LARGE_SIZE_INDEX = 3;
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
+const SIZE_SMALL_EQUIVALENTS = [
+  1,
+  MERGE_THRESHOLD,
+  Math.pow(MERGE_THRESHOLD, 2),
+  Math.pow(MERGE_THRESHOLD, 3)
+]; // Map size index to its small-particle equivalent for nullstone crunch gains.
 const SIZE_SCALE_MULTIPLIERS = [
   1.0,
   SIZE_MULTIPLIER,
@@ -217,6 +224,8 @@ class Particle {
     
     // Cache tier reference and color strings for performance
     this._tier = PARTICLE_TIERS.find(t => t.id === tierId) || PARTICLE_TIERS[0];
+    // Cache the tier index so generator-only speed scaling can reference the tier number.
+    this._tierIndex = PARTICLE_TIERS.findIndex(tier => tier.id === this._tier.id);
     this._colorString = `rgba(${this._tier.color.r}, ${this._tier.color.g}, ${this._tier.color.b}, 0.9)`;
     this._glowColorString = this._tier.glowColor 
       ? `rgba(${this._tier.glowColor.r}, ${this._tier.glowColor.g}, ${this._tier.glowColor.b}, 0.8)`
@@ -389,12 +398,13 @@ class Particle {
 
     // Limit velocity with size-based modifier
     const maxVelocity = this._maxVelocity;
-    // Triple the minimum speed while particles are within their generator's influence to keep them lively near spawners.
-    const minVelocity = isInsideGeneratorField ? this._minVelocity * 3 : this._minVelocity;
+    // Match generator-field minimum speed to the particle tier number so each type has constant motion near its own spawner.
+    const generatorMinVelocity = this._minVelocity * Math.max(1, this._tierIndex + 1);
+    const minVelocity = isInsideGeneratorField ? generatorMinVelocity : this._minVelocity;
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     // Clamp speed based on whether the particle is caught in its generator gravity field.
-    const generatorMaxVelocity = this._minVelocity * 5;
+    const generatorMaxVelocity = generatorMinVelocity * 5;
     // Reduce the generator field speed cap by 10% so particles drift more gently near their spawner.
     const generatorVelocityCap = generatorMaxVelocity * 0.9;
     const allowedMaxVelocity = isInsideGeneratorField ? Math.min(maxVelocity, generatorVelocityCap) : maxVelocity;
@@ -546,6 +556,10 @@ export class BetSpireRender {
       : 100; // Start at 100, then 10,000, 1,000,000, etc.
     this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
       ? state.betGlyphsAwarded
+      : 0;
+    // Track the exponent bonus granted by nullstone crunches so particle factor scales upward over time.
+    this.particleFactorExponentBonus = Number.isFinite(state.particleFactorExponentBonus)
+      ? state.particleFactorExponentBonus
       : 0;
 
     // Keep manual interactions enabled for particle gathering visuals while blocking manual spawning.
@@ -1104,14 +1118,15 @@ export class BetSpireRender {
     const validParticles = [];
     
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
-      // Can't convert the last two tiers when jumping two tiers ahead.
-      if (tierIndex >= PARTICLE_TIERS.length - 2) return;
+      const isNullstone = tier.id === 'nullstone';
+      // Can't convert the last two tiers when jumping two tiers ahead (nullstone can still be crunched).
+      if (!isNullstone && tierIndex >= PARTICLE_TIERS.length - 2) return;
       
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
-        // Only extra-large particles can be upgraded.
-        if (particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
+        // Only extra-large particles can be upgraded; nullstone can be crunched at any size.
+        if (!isNullstone && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
         
         // Check if particle is within forge radius
         const dx = particle.x - this.forge.x;
@@ -1215,14 +1230,28 @@ export class BetSpireRender {
     return 1;
   }
 
+  // Translate a particle size into its small-equivalent count for nullstone crunch rewards.
+  getSmallEquivalentForSize(sizeIndex) {
+    return SIZE_SMALL_EQUIVALENTS[sizeIndex] || 1;
+  }
+
   // Complete the forge crunch and upgrade particles
   completeForgeCrunch() {
     // Find all particles marked for crunch upgrade
     const crunchParticles = this.particles.filter(p => p.forgeCrunchParticle && p.merging);
+
+    // Separate nullstone crunches so they can boost the particle factor exponent.
+    const nullstoneParticles = [];
+    let nullstoneSmallEquivalent = 0;
     
     // Group by tier for tier conversion
     const particlesByTier = new Map();
     crunchParticles.forEach(particle => {
+      if (particle.tierId === 'nullstone') {
+        nullstoneParticles.push(particle);
+        nullstoneSmallEquivalent += this.getSmallEquivalentForSize(particle.sizeIndex);
+        return;
+      }
       if (!particlesByTier.has(particle.tierId)) {
         particlesByTier.set(particle.tierId, []);
       }
@@ -1289,6 +1318,24 @@ export class BetSpireRender {
           startTime: now,
         });
       });
+    }
+
+    if (nullstoneParticles.length > 0) {
+      // Remove nullstone crunch particles since they do not convert into higher tiers.
+      this.particles = this.particles.filter(p => !nullstoneParticles.includes(p));
+    }
+
+    if (nullstoneSmallEquivalent > 0) {
+      // Apply the nullstone exponent gain and persist it to the spire state.
+      this.particleFactorExponentBonus += nullstoneSmallEquivalent * PARTICLE_FACTOR_EXPONENT_INCREMENT;
+      if (this.state) {
+        this.state.particleFactorExponentBonus = this.particleFactorExponentBonus;
+      }
+    }
+
+    if (nullstoneParticles.length > 0) {
+      // Refresh inventory totals so nullstone crunches immediately reflect in the UI.
+      this.updateInventory();
     }
 
     // Reset crunch state and mark end time for spin-down
@@ -2311,18 +2358,28 @@ export class BetSpireRender {
   }
 
   /**
-   * Calculate the Particle Factor by multiplying the number of particles from each tier.
+   * Calculate the base particle factor by multiplying the number of particles from each tier.
    * If a tier has 0 particles, it contributes 1 to avoid zeroing out the entire factor.
-   * This is the player's total score in the BET spire.
    */
-  calculateParticleFactor() {
+  calculateBaseParticleFactor() {
     let factor = 1;
     PARTICLE_TIERS.forEach(tier => {
       const count = this.inventory.get(tier.id) || 0;
-      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication
+      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication.
       factor *= (count > 0 ? count : 1);
     });
     return factor;
+  }
+
+  /**
+   * Calculate the Particle Factor with the nullstone exponent applied.
+   * This is the player's total score in the BET spire.
+   */
+  calculateParticleFactor() {
+    const baseFactor = this.calculateBaseParticleFactor();
+    // Apply the exponent bonus to the particle factor for nullstone crunch rewards.
+    const exponent = 1 + this.particleFactorExponentBonus;
+    return Math.pow(baseFactor, exponent);
   }
 
   /**
@@ -2353,12 +2410,15 @@ export class BetSpireRender {
    * Get the current particle factor and milestone progress.
    */
   getParticleFactorStatus() {
-    const currentFactor = this.calculateParticleFactor();
+    const baseFactor = this.calculateBaseParticleFactor();
+    const currentFactor = Math.pow(baseFactor, 1 + this.particleFactorExponentBonus);
     return {
       particleFactor: currentFactor,
+      baseFactor,
       currentMilestone: this.particleFactorMilestone,
       betGlyphsAwarded: this.betGlyphsAwarded,
       progressToNext: currentFactor / this.particleFactorMilestone,
+      particleFactorExponent: 1 + this.particleFactorExponentBonus,
     };
   }
 

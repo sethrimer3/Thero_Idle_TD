@@ -41,6 +41,7 @@ const DEFAULT_FLUID_STATE = {
   generators: {}, // Particle generators for BET spire upgrade menu
   particleFactorMilestone: 100, // Next milestone for BET glyph awards
   betGlyphsAwarded: 0, // Total BET glyphs awarded from particle factor
+  particleFactorExponentBonus: 0, // Nullstone crunches increase the particle factor exponent by tiny increments.
 };
 
 function mergeBranch(base, overrides = {}) {

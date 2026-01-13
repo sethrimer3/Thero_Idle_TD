@@ -15635,7 +15635,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 /* Highlight Nullstone counts with a purple glow for readability. */
 .particle-count-badge--nullstone {
-  text-shadow: 0 0 6px rgba(150, 100, 200, 0.75), 0 0 12px rgba(150, 100, 200, 0.6);
+  color: #000;
+  text-shadow: 0 0 10px rgba(180, 130, 230, 0.9), 0 0 18px rgba(180, 130, 230, 0.8), 0 0 26px rgba(200, 160, 255, 0.7);
 }
 
 .particle-count {
@@ -15711,7 +15712,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 /* Add a purple glow to the Nullstone digits in the BET particle equation. */
 .bet-equation-nullstone {
-  text-shadow: 0 0 8px rgba(150, 100, 200, 0.85), 0 0 14px rgba(150, 100, 200, 0.6);
+  color: #000;
+  text-shadow: 0 0 12px rgba(180, 130, 230, 0.95), 0 0 20px rgba(180, 130, 230, 0.8), 0 0 30px rgba(200, 160, 255, 0.75);
 }
 
 /* Expand the BET spire simulation card to match other spires' responsive sizing. */

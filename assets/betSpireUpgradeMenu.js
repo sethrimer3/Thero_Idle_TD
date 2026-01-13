@@ -198,7 +198,9 @@ export function createBetSpireUpgradeMenu({
     
     const factorElement = document.getElementById('bet-particle-factor');
     if (factorElement) {
-      factorElement.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)}`;
+      // Surface the nullstone-boosted exponent alongside the particle factor for clarity.
+      const exponentLabel = formatDecimal(status.particleFactorExponent, 7);
+      factorElement.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)} (Exponent ${exponentLabel})`;
     }
     
     // Add particle factor equation display
@@ -226,6 +228,8 @@ export function createBetSpireUpgradeMenu({
         countSpan.textContent = formatGameNumber(count);
         // Add a purple glow for Nullstone counts to improve contrast in the equation display.
         if (tier.id === 'nullstone') {
+          // Force nullstone digits to solid black so the glow is the primary contrast.
+          countSpan.style.color = '#000';
           countSpan.classList.add('bet-equation-nullstone');
         }
         equationElement.appendChild(countSpan);
@@ -246,9 +250,20 @@ export function createBetSpireUpgradeMenu({
         equalsSpan.textContent = ' = ';
         equationElement.appendChild(equalsSpan);
         
+        const baseFactorSpan = document.createElement('span');
+        baseFactorSpan.style.color = 'white';
+        baseFactorSpan.textContent = formatGameNumber(status.baseFactor);
+        equationElement.appendChild(baseFactorSpan);
+
+        const exponentSpan = document.createElement('span');
+        exponentSpan.style.color = 'white';
+        // Display the nullstone exponent as a superscript so the boosted factor is explicit.
+        exponentSpan.textContent = `^${formatDecimal(status.particleFactorExponent, 7)}`;
+        equationElement.appendChild(exponentSpan);
+
         const resultSpan = document.createElement('span');
         resultSpan.style.color = 'white';
-        resultSpan.textContent = formatGameNumber(status.particleFactor);
+        resultSpan.textContent = ` = ${formatGameNumber(status.particleFactor)}`;
         equationElement.appendChild(resultSpan);
       } else {
         equationElement.textContent = 'No particles yet';
