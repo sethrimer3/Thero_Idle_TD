@@ -715,10 +715,16 @@ export function initializeEnemyCodexOverlay() {
     }
   }
 
-  const openButton = document.getElementById('open-enemy-codex-button');
-  if (openButton) {
-    openButton.addEventListener('click', openEnemyCodexOverlay);
-  }
+  const openButtons = [
+    document.getElementById('open-enemy-codex-button'),
+    document.getElementById('shin-enemy-almanac-toggle')
+  ];
+  // Wire both the Codex tab and Shin spire entry points to the shared overlay.
+  openButtons.forEach((button) => {
+    if (button) {
+      button.addEventListener('click', openEnemyCodexOverlay);
+    }
+  });
 }
 
 // Wires up codex UI buttons with helpers supplied by the main module.

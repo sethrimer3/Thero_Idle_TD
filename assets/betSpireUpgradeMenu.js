@@ -24,6 +24,10 @@ export function createBetSpireUpgradeMenu({
   formatDecimal = (value, places = 2) => value?.toFixed ? value.toFixed(places) : String(value),
   state = {},
 } = {}) {
+  // Format particle factor exponents in scientific notation for readability at tiny deltas.
+  const formatExponentForDisplay = (value) => (
+    Number.isFinite(value) ? value.toExponential(6) : '0e+0'
+  );
   // Generator state: tracks owned count for each generator
   const generatorState = state.generators || {};
   const generatorRemainders = {}; // Carry fractional generation so slow generators still produce over time
@@ -198,7 +202,30 @@ export function createBetSpireUpgradeMenu({
     
     const factorElement = document.getElementById('bet-particle-factor');
     if (factorElement) {
-      factorElement.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)}`;
+      // Only surface the exponent once a nullstone crunch has boosted it.
+      const shouldShowExponent = status.particleFactorExponent > 1;
+      factorElement.textContent = '';
+
+      const factorLabel = document.createElement('span');
+      factorLabel.textContent = `Particle Factor: ${formatGameNumber(status.particleFactor)}`;
+      factorElement.appendChild(factorLabel);
+
+      if (shouldShowExponent) {
+        // Include the exponent label only when the nullstone crunch has modified the factor.
+        const exponentWrapper = document.createElement('span');
+        exponentWrapper.textContent = ' (Exponent ';
+        factorElement.appendChild(exponentWrapper);
+
+        const exponentValue = document.createElement('span');
+        // Match the nullstone glow styling so the exponent reads like the nullstone factor.
+        exponentValue.classList.add('bet-equation-nullstone');
+        exponentValue.textContent = formatExponentForDisplay(status.particleFactorExponent);
+        factorElement.appendChild(exponentValue);
+
+        const exponentSuffix = document.createElement('span');
+        exponentSuffix.textContent = ')';
+        factorElement.appendChild(exponentSuffix);
+      }
     }
     
     // Add particle factor equation display
@@ -224,6 +251,12 @@ export function createBetSpireUpgradeMenu({
         const countSpan = document.createElement('span');
         countSpan.style.color = `rgb(${tier.color.r}, ${tier.color.g}, ${tier.color.b})`;
         countSpan.textContent = formatGameNumber(count);
+        // Add a purple glow for Nullstone counts to improve contrast in the equation display.
+        if (tier.id === 'nullstone') {
+          // Force nullstone digits to solid black so the glow is the primary contrast.
+          countSpan.style.color = '#000';
+          countSpan.classList.add('bet-equation-nullstone');
+        }
         equationElement.appendChild(countSpan);
         
         // Add multiplication symbol if not the last item
@@ -242,9 +275,22 @@ export function createBetSpireUpgradeMenu({
         equalsSpan.textContent = ' = ';
         equationElement.appendChild(equalsSpan);
         
+        const baseFactorSpan = document.createElement('span');
+        baseFactorSpan.style.color = 'white';
+        baseFactorSpan.textContent = formatGameNumber(status.baseFactor);
+        equationElement.appendChild(baseFactorSpan);
+
+        if (status.particleFactorExponent > 1) {
+          const exponentSpan = document.createElement('span');
+          // Display the nullstone exponent as a superscript so the boosted factor is explicit.
+          exponentSpan.classList.add('bet-equation-nullstone');
+          exponentSpan.textContent = `^${formatExponentForDisplay(status.particleFactorExponent)}`;
+          equationElement.appendChild(exponentSpan);
+        }
+
         const resultSpan = document.createElement('span');
         resultSpan.style.color = 'white';
-        resultSpan.textContent = formatGameNumber(status.particleFactor);
+        resultSpan.textContent = ` = ${formatGameNumber(status.particleFactor)}`;
         equationElement.appendChild(resultSpan);
       } else {
         equationElement.textContent = 'No particles yet';

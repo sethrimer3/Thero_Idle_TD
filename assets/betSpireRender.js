@@ -11,6 +11,7 @@ const CANVAS_HEIGHT = 320;
 const TRAIL_FADE = 0.15; // Lower = longer trails
 const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
 const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
+const EXTRA_LARGE_SIZE_BONUS = 1.5; // Extra-large particles are 50% larger than large.
 const MIN_VELOCITY = 0.312; // Minimum speed to keep particles swirling (30% faster: 0.24 * 1.3 = 0.312)
 const MAX_VELOCITY = 2;
 const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
@@ -27,6 +28,7 @@ const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four 
 const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
 const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.24; // Extremely gentle pull that nudges small particles toward their generator.
 const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.15; // Extremely weak pull that guides medium particles toward the central forge.
+const PARTICLE_FACTOR_EXPONENT_INCREMENT = 1e-7; // Each nullstone small-equivalent crunch increases the particle factor exponent.
 
 // Performance optimization configuration
 const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
@@ -59,9 +61,8 @@ const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than be
 const SPAWNER_ROTATION_SPEED = 0.01; // Rotation speed for spawner triangles
 const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
 const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const GENERATOR_SPRITE_SCALE = 1.5; // Increase generator sprite size to improve legibility across device resolutions.
+const GENERATOR_SPRITE_SCALE = 1.75; // Increase generator sprites by 75% for better legibility.
 const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6 * GENERATOR_SPRITE_SCALE; // Scale generator sprites to match the previous triangle footprint.
-const LARGE_PARTICLE_SPRITE_SCALE = 3.2; // Scale the 10,000-particle sprite so it reads at small particle sizes.
 
 // Particle veer behavior configuration (developer-toggleable).
 const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
@@ -174,16 +175,29 @@ const PARTICLE_TIERS = [
   },
 ];
 
-// Size tiers: small, medium, large
-const SIZE_TIERS = ['small', 'medium', 'large'];
+// Size tiers: small, medium, large, extra-large.
+const SIZE_TIERS = ['small', 'medium', 'large', 'extra-large'];
 const SMALL_SIZE_INDEX = 0;
 const MEDIUM_SIZE_INDEX = 1;
 const LARGE_SIZE_INDEX = 2;
-const LARGE_PARTICLE_SPRITE_SIZE = Math.ceil(
-  BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, LARGE_SIZE_INDEX) * LARGE_PARTICLE_SPRITE_SCALE
-); // Cache size for the 10,000-particle sprite to avoid recalculating.
+const EXTRA_LARGE_SIZE_INDEX = 3;
 const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
-const SIZE_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64]; // Small: 100%, Medium: 80%, Large: 64% (20% slower than medium: 0.8 * 0.8 = 0.64)
+const SIZE_SMALL_EQUIVALENTS = [
+  1,
+  MERGE_THRESHOLD,
+  Math.pow(MERGE_THRESHOLD, 2),
+  Math.pow(MERGE_THRESHOLD, 3)
+]; // Map size index to its small-particle equivalent for nullstone crunch gains.
+const SIZE_SCALE_MULTIPLIERS = [
+  1.0,
+  SIZE_MULTIPLIER,
+  SIZE_MULTIPLIER * SIZE_MULTIPLIER,
+  SIZE_MULTIPLIER * SIZE_MULTIPLIER * EXTRA_LARGE_SIZE_BONUS
+]; // Match size tiers while keeping extra-large at +50% over large.
+const SIZE_MIN_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64, 0.15]; // Extra-large keeps a low minimum drift speed.
+const SIZE_MAX_VELOCITY_MODIFIERS = [1.0, 0.85, 0.7, 1.6]; // Extra-large can reach high top speeds.
+// Force modifiers scale how strongly particles respond to pulls; extra-large is intentionally sluggish.
+const SIZE_FORCE_MODIFIERS = [1.0, 0.85, 0.7, 0.12]; // Extra-large resists drag to feel heavy.
 const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
 
 // Particle class with tier and size
@@ -206,18 +220,23 @@ class Particle {
     
     // Tier and size properties
     this.tierId = tierId;
-    this.sizeIndex = sizeIndex; // 0 = small, 1 = medium, 2 = large
+    this.sizeIndex = sizeIndex; // 0 = small, 1 = medium, 2 = large, 3 = extra-large
     
     // Cache tier reference and color strings for performance
     this._tier = PARTICLE_TIERS.find(t => t.id === tierId) || PARTICLE_TIERS[0];
+    // Cache the tier index so generator-only speed scaling can reference the tier number.
+    this._tierIndex = PARTICLE_TIERS.findIndex(tier => tier.id === this._tier.id);
     this._colorString = `rgba(${this._tier.color.r}, ${this._tier.color.g}, ${this._tier.color.b}, 0.9)`;
     this._glowColorString = this._tier.glowColor 
       ? `rgba(${this._tier.glowColor.r}, ${this._tier.glowColor.g}, ${this._tier.glowColor.b}, 0.8)`
       : null;
-    this._size = BASE_PARTICLE_SIZE * Math.pow(SIZE_MULTIPLIER, sizeIndex);
-    this._sizeModifier = SIZE_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
-    this._maxVelocity = MAX_VELOCITY * this._sizeModifier;
-    this._minVelocity = MIN_VELOCITY * this._sizeModifier;
+    this._size = BASE_PARTICLE_SIZE * (SIZE_SCALE_MULTIPLIERS[sizeIndex] || 1.0);
+    this._minVelocityModifier = SIZE_MIN_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
+    this._maxVelocityModifier = SIZE_MAX_VELOCITY_MODIFIERS[sizeIndex] || 1.0;
+    // Cache force scaling so extra-large particles resist pulls with massive inertia.
+    this._forceModifier = SIZE_FORCE_MODIFIERS[sizeIndex] || 1.0;
+    this._maxVelocity = MAX_VELOCITY * this._maxVelocityModifier;
+    this._minVelocity = MIN_VELOCITY * this._minVelocityModifier;
 
     // Track when this particle should apply its next random veer adjustment.
     this.nextVeerTime = performance.now() + getRandomInRange(VEER_INTERVAL_MIN_MS, VEER_INTERVAL_MAX_MS);
@@ -285,7 +304,8 @@ class Particle {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist > 1) {
-        const force = MOUSE_ATTRACTION_STRENGTH;
+        // Scale drag attraction so extra-large particles are far harder to pull.
+        const force = MOUSE_ATTRACTION_STRENGTH * this._forceModifier;
         const angle = Math.atan2(dy, dx);
         this.vx += Math.cos(angle) * force * clampedDelta;
         this.vy += Math.sin(angle) * force * clampedDelta;
@@ -296,31 +316,36 @@ class Particle {
         this.vy *= damping;
       }
     } else {
-      // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
-      for (const spawner of spawners) {
-        // Only attract particles to their matching generator tier.
-        if (spawner.tierId !== this.tierId) {
-          continue;
-        }
-        const dx = spawner.x - this.x;
-        const dy = spawner.y - this.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      // Extra-large particles ignore generator pull so they only drift toward the forge.
+      if (this.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) {
+        // Apply gravity from each unlocked spawner within its local field so particles stay near their forge of origin.
+        for (const spawner of spawners) {
+          // Only attract particles to their matching generator tier.
+          if (spawner.tierId !== this.tierId) {
+            continue;
+          }
+          const dx = spawner.x - this.x;
+          const dy = spawner.y - this.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist <= spawner.range && dist > 0.5) {
-          // Record that the particle is inside its generator field so we can cap its top speed there.
-          isInsideGeneratorField = true;
-          const force = SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
-          const angle = Math.atan2(dy, dx);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
-        }
+          if (dist <= spawner.range && dist > 0.5) {
+            // Record that the particle is inside its generator field so we can cap its top speed there.
+            isInsideGeneratorField = true;
+            // Scale generator gravity by size so heavier particles accelerate more slowly.
+            const force = (SPAWNER_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
+            const angle = Math.atan2(dy, dx);
+            this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+            this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          }
 
-        // Apply an additional, extremely gentle pull for small particles toward their matching generator.
-        if (smallTierGravityEnabled && this.sizeIndex === SMALL_SIZE_INDEX && dist > 0.5) {
-          const force = SMALL_TIER_GENERATOR_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
-          const angle = Math.atan2(dy, dx);
-          this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
-          this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          // Apply an additional, extremely gentle pull for small particles toward their matching generator.
+          if (smallTierGravityEnabled && this.sizeIndex === SMALL_SIZE_INDEX && dist > 0.5) {
+            // Scale the small-tier gravity nudge by size inertia as well.
+            const force = (SMALL_TIER_GENERATOR_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
+            const angle = Math.atan2(dy, dx);
+            this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
+            this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
+          }
         }
       }
 
@@ -329,13 +354,18 @@ class Particle {
       const dy = forge.y - this.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well
-      // Restrict forge attraction to medium and large particles only.
-      const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX;
-      if (isForgeAttractable && dist <= MAX_FORGE_ATTRACTION_DISTANCE) {
+      // Apply attraction force (inverse square law simplified) only while within the localized forge gravity well.
+      // Let nullstone drift into the forge at any size so single particles can still be crunched.
+      const isForgeAttractable = this.sizeIndex >= MEDIUM_SIZE_INDEX || this.tierId === 'nullstone';
+      // Extra-large and nullstone particles should feel the forge pull across the entire basin so crunches can trigger reliably.
+      const forgeAttractionRange = (this.sizeIndex === EXTRA_LARGE_SIZE_INDEX || this.tierId === 'nullstone')
+        ? Number.POSITIVE_INFINITY
+        : MAX_FORGE_ATTRACTION_DISTANCE;
+      if (isForgeAttractable && dist <= forgeAttractionRange) {
         const angle = Math.atan2(dy, dx);
         if (dist > 1) {
-          const force = ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE);
+          // Scale forge attraction by size so extra-large particles resist the forge pull.
+          const force = (ATTRACTION_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
           this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
           this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
         }
@@ -345,7 +375,8 @@ class Particle {
       // Apply an additional, extremely weak pull for medium particles toward the central forge.
       if (mediumTierGravityEnabled && this.sizeIndex === MEDIUM_SIZE_INDEX && dist > 0.5) {
         const angle = Math.atan2(dy, dx);
-        const force = MEDIUM_TIER_FORGE_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE);
+        // Scale medium-tier gravity to keep inertia consistent across sizes.
+        const force = (MEDIUM_TIER_FORGE_GRAVITY_STRENGTH / (dist * DISTANCE_SCALE)) * this._forceModifier;
         this.vx += Math.cos(angle) * force * FORCE_SCALE * clampedDelta;
         this.vy += Math.sin(angle) * force * FORCE_SCALE * clampedDelta;
       }
@@ -371,12 +402,13 @@ class Particle {
 
     // Limit velocity with size-based modifier
     const maxVelocity = this._maxVelocity;
-    // Triple the minimum speed while particles are within their generator's influence to keep them lively near spawners.
-    const minVelocity = isInsideGeneratorField ? this._minVelocity * 3 : this._minVelocity;
+    // Match generator-field minimum speed to the particle tier number so each type has constant motion near its own spawner.
+    const generatorMinVelocity = this._minVelocity * Math.max(1, this._tierIndex + 1);
+    const minVelocity = isInsideGeneratorField ? generatorMinVelocity : this._minVelocity;
     
     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
     // Clamp speed based on whether the particle is caught in its generator gravity field.
-    const generatorMaxVelocity = this._minVelocity * 5;
+    const generatorMaxVelocity = generatorMinVelocity * 5;
     // Reduce the generator field speed cap by 10% so particles drift more gently near their spawner.
     const generatorVelocityCap = generatorMaxVelocity * 0.9;
     const allowedMaxVelocity = isInsideGeneratorField ? Math.min(maxVelocity, generatorVelocityCap) : maxVelocity;
@@ -529,6 +561,10 @@ export class BetSpireRender {
     this.betGlyphsAwarded = Number.isFinite(state.betGlyphsAwarded)
       ? state.betGlyphsAwarded
       : 0;
+    // Track the exponent bonus granted by nullstone crunches so particle factor scales upward over time.
+    this.particleFactorExponentBonus = Number.isFinite(state.particleFactorExponentBonus)
+      ? state.particleFactorExponentBonus
+      : 0;
 
     // Keep manual interactions enabled for particle gathering visuals while blocking manual spawning.
     this.interactionsEnabled = true;
@@ -550,14 +586,6 @@ export class BetSpireRender {
     // Cache tinted generator sprites so we only colorize them once per tier.
     this.generatorSpriteCache = new Map();
     this.generatorSpriteSources = new Map();
-    // Cache the 10,000-particle sprite per tier for large particle rendering.
-    this.largeParticleSpriteCache = new Map();
-    this.largeParticleSpriteSource = new Image();
-    this.largeParticleSpriteSource.src = './assets/sprites/spires/betSpire/10000Particle.svg';
-    this.largeParticleSpriteSource.onload = () => {
-      this.populateLargeParticleSpriteCache();
-    };
-
     // Load generator sprite sources for each tier so they can be tinted and cached on load.
     PARTICLE_TIERS.forEach((tier, index) => {
       const sprite = new Image();
@@ -699,24 +727,24 @@ export class BetSpireRender {
 
   /**
    * Remove a specific number of particles of a given tier.
-   * Removes small particles first, then converts medium/large if needed.
+   * Removes small particles first, then converts medium/large/extra-large if needed.
    * Returns the number of particles actually removed (in small equivalent units).
    */
   removeParticlesByType(tierId, count) {
     let remaining = count;
     const particlesToRemove = new Set();
     
-    // First, remove small particles
-    const smallParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 0);
+    // First, remove small particles.
+    const smallParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === SMALL_SIZE_INDEX);
     const smallToRemove = Math.min(smallParticles.length, remaining);
     for (let i = 0; i < smallToRemove; i++) {
       particlesToRemove.add(smallParticles[i]);
     }
     remaining -= smallToRemove;
     
-    // If we need more, convert medium particles (1 medium = 100 small)
+    // If we need more, convert medium particles (1 medium = 100 small).
     if (remaining > 0) {
-      const mediumParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 1);
+      const mediumParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === MEDIUM_SIZE_INDEX);
       while (remaining > 0 && mediumParticles.length > 0) {
         const mediumParticle = mediumParticles.pop();
         particlesToRemove.add(mediumParticle);
@@ -726,7 +754,7 @@ export class BetSpireRender {
         if (remaining < mediumValue) {
           const changeBack = mediumValue - remaining;
           for (let i = 0; i < changeBack; i++) {
-            this.addParticle(tierId, 0);
+            this.addParticle(tierId, SMALL_SIZE_INDEX);
           }
           remaining = 0;
         } else {
@@ -735,9 +763,9 @@ export class BetSpireRender {
       }
     }
     
-    // If we still need more, convert large particles (1 large = 10000 small)
+    // If we still need more, convert large particles (1 large = 10000 small).
     if (remaining > 0) {
-      const largeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === 2);
+      const largeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === LARGE_SIZE_INDEX);
       while (remaining > 0 && largeParticles.length > 0) {
         const largeParticle = largeParticles.pop();
         particlesToRemove.add(largeParticle);
@@ -750,14 +778,46 @@ export class BetSpireRender {
           const mediumsToAdd = Math.floor(changeBack / MERGE_THRESHOLD);
           const smallsToAdd = changeBack % MERGE_THRESHOLD;
           for (let i = 0; i < mediumsToAdd; i++) {
-            this.addParticle(tierId, 1);
+            this.addParticle(tierId, MEDIUM_SIZE_INDEX);
           }
           for (let i = 0; i < smallsToAdd; i++) {
-            this.addParticle(tierId, 0);
+            this.addParticle(tierId, SMALL_SIZE_INDEX);
           }
           remaining = 0;
         } else {
           remaining -= largeValue;
+        }
+      }
+    }
+
+    // If we still need more, convert extra-large particles (1 extra-large = 1,000,000 small).
+    if (remaining > 0) {
+      const extraLargeParticles = this.particles.filter(p => p.tierId === tierId && p.sizeIndex === EXTRA_LARGE_SIZE_INDEX);
+      while (remaining > 0 && extraLargeParticles.length > 0) {
+        const extraLargeParticle = extraLargeParticles.pop();
+        particlesToRemove.add(extraLargeParticle);
+
+        // Add back particles if we removed more than needed.
+        const extraLargeValue = Math.pow(MERGE_THRESHOLD, 3); // 1,000,000 small
+        if (remaining < extraLargeValue) {
+          const changeBack = extraLargeValue - remaining;
+          // Add back as large, medium, and small particles.
+          const largesToAdd = Math.floor(changeBack / Math.pow(MERGE_THRESHOLD, 2));
+          const remainingAfterLarge = changeBack - (largesToAdd * Math.pow(MERGE_THRESHOLD, 2));
+          const mediumsToAdd = Math.floor(remainingAfterLarge / MERGE_THRESHOLD);
+          const smallsToAdd = remainingAfterLarge - (mediumsToAdd * MERGE_THRESHOLD);
+          for (let i = 0; i < largesToAdd; i++) {
+            this.addParticle(tierId, LARGE_SIZE_INDEX);
+          }
+          for (let i = 0; i < mediumsToAdd; i++) {
+            this.addParticle(tierId, MEDIUM_SIZE_INDEX);
+          }
+          for (let i = 0; i < smallsToAdd; i++) {
+            this.addParticle(tierId, SMALL_SIZE_INDEX);
+          }
+          remaining = 0;
+        } else {
+          remaining -= extraLargeValue;
         }
       }
     }
@@ -777,13 +837,13 @@ export class BetSpireRender {
       this.inventory.set(key, 0);
     });
     
-    // Count particles by tier (combining all sizes using conversion rules)
+    // Count particles by tier (combining all sizes using conversion rules).
     this.particles.forEach(particle => {
       const tierId = particle.tierId;
       const sizeIndex = particle.sizeIndex;
       
-      // Convert to small particle equivalent
-      // 1 medium = 100 small, 1 large = 10000 small
+      // Convert to small particle equivalent.
+      // 1 medium = 100 small, 1 large = 10,000 small, 1 extra-large = 1,000,000 small.
       const smallEquivalent = Math.pow(MERGE_THRESHOLD, sizeIndex);
       const currentCount = this.inventory.get(tierId) || 0;
       this.inventory.set(tierId, currentCount + smallEquivalent);
@@ -893,7 +953,7 @@ export class BetSpireRender {
     this.updateInventory();
   }
 
-  // Attempt to merge particles of the same tier and size (100 small → 1 medium, 100 medium → 1 large)
+  // Attempt to merge particles of the same tier and size (100 small → 1 medium, 100 medium → 1 large, 100 large → 1 extra-large)
   // This can happen anywhere on the screen
   attemptMerge() {
     // Skip merging if disabled via developer controls
@@ -975,8 +1035,8 @@ export class BetSpireRender {
     });
   }
 
-  // Attempt to convert medium and large particles to next tier at the forge (center)
-  // Medium particles convert to 1 small of next tier, large particles convert to 100 small of next tier
+  // Attempt to convert extra-large particles to two tiers up at the forge (center).
+  // Forge promotions now yield 1 large particle two tiers higher.
   attemptTierConversion() {
     // Skip tier conversion if disabled via developer controls
     if (!this.particlePromotionEnabled || !this.canStartNewMerge()) {
@@ -990,12 +1050,13 @@ export class BetSpireRender {
 
     const conversionCandidates = [];
 
-    // Group particles by their tier, checking if they're at the forge (center) position
+    // Group particles by their tier, checking if they're at the forge (center) position.
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
-      // Can't convert the last tier
-      if (tierIndex >= PARTICLE_TIERS.length - 1) return;
+      // Can't convert the last two tiers when we need a two-tier jump.
+      if (tierIndex >= PARTICLE_TIERS.length - 2) return;
 
-      const nextTier = PARTICLE_TIERS[tierIndex + 1];
+      // Select the tier two steps above the current tier for forge promotions.
+      const nextTier = PARTICLE_TIERS[tierIndex + 2];
 
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
@@ -1006,8 +1067,9 @@ export class BetSpireRender {
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist <= GENERATOR_CONVERSION_RADIUS) {
-          if (particle.sizeIndex === MEDIUM_SIZE_INDEX || particle.sizeIndex === LARGE_SIZE_INDEX) {
-            const conversionCount = particle.sizeIndex === MEDIUM_SIZE_INDEX ? 1 : 100;
+          if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
+            // Always convert into a single large particle for the two-tier forge jump.
+            const conversionCount = 1;
             conversionCandidates.push({
               particle,
               nextTierId: nextTier.id,
@@ -1036,7 +1098,7 @@ export class BetSpireRender {
       targetX: this.forge.x,
       targetY: this.forge.y,
       tierId: selectedConversion.nextTierId,
-      sizeIndex: 0, // Small particle
+      sizeIndex: LARGE_SIZE_INDEX, // Large particle output for forge jumps.
       startTime: Date.now(),
       isTierConversion: true,
       conversionCount: selectedConversion.conversionCount
@@ -1056,18 +1118,19 @@ export class BetSpireRender {
       return;
     }
 
-    // Find medium and large particles within forge radius that can be upgraded
+    // Find extra-large particles within forge radius that can be upgraded.
     const validParticles = [];
     
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
-      // Can't convert the last tier
-      if (tierIndex >= PARTICLE_TIERS.length - 1) return;
+      const isNullstone = tier.id === 'nullstone';
+      // Can't convert the last two tiers when jumping two tiers ahead (nullstone can still be crunched).
+      if (!isNullstone && tierIndex >= PARTICLE_TIERS.length - 2) return;
       
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
-        // Only medium and large particles can be upgraded
-        if (particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== LARGE_SIZE_INDEX) return;
+        // Only extra-large particles can be upgraded; nullstone can be crunched at any size.
+        if (!isNullstone && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
         
         // Check if particle is within forge radius
         const dx = particle.x - this.forge.x;
@@ -1171,14 +1234,28 @@ export class BetSpireRender {
     return 1;
   }
 
+  // Translate a particle size into its small-equivalent count for nullstone crunch rewards.
+  getSmallEquivalentForSize(sizeIndex) {
+    return SIZE_SMALL_EQUIVALENTS[sizeIndex] || 1;
+  }
+
   // Complete the forge crunch and upgrade particles
   completeForgeCrunch() {
     // Find all particles marked for crunch upgrade
     const crunchParticles = this.particles.filter(p => p.forgeCrunchParticle && p.merging);
+
+    // Separate nullstone crunches so they can boost the particle factor exponent.
+    const nullstoneParticles = [];
+    let nullstoneSmallEquivalent = 0;
     
     // Group by tier for tier conversion
     const particlesByTier = new Map();
     crunchParticles.forEach(particle => {
+      if (particle.tierId === 'nullstone') {
+        nullstoneParticles.push(particle);
+        nullstoneSmallEquivalent += this.getSmallEquivalentForSize(particle.sizeIndex);
+        return;
+      }
       if (!particlesByTier.has(particle.tierId)) {
         particlesByTier.set(particle.tierId, []);
       }
@@ -1188,16 +1265,17 @@ export class BetSpireRender {
     // Track gems to award for floating feedback
     const gemsToAward = new Map(); // tierId -> count
 
-    // Convert each particle to next tier
+    // Convert each particle to the tier two steps above.
     particlesByTier.forEach((particles, tierId) => {
       const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
-      if (tierIndex < 0 || tierIndex >= PARTICLE_TIERS.length - 1) return;
+      if (tierIndex < 0 || tierIndex >= PARTICLE_TIERS.length - 2) return;
       
-      const nextTier = PARTICLE_TIERS[tierIndex + 1];
+      // Forge upgrades now jump two tiers up.
+      const nextTier = PARTICLE_TIERS[tierIndex + 2];
       
       particles.forEach(particle => {
-        // Award 1 gem per large particle crushed
-        if (particle.sizeIndex === LARGE_SIZE_INDEX) {
+        // Award 1 gem per extra-large particle crushed.
+        if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
           const gemTierId = nextTier.id; // Award gem of the tier it converts to
           const gemDefinition = resolveGemDefinition(gemTierId);
           
@@ -1218,15 +1296,15 @@ export class BetSpireRender {
           }
         }
         
-        // Create conversion animation entry
-        const conversionCount = particle.sizeIndex === MEDIUM_SIZE_INDEX ? 1 : 100;
+        // Create conversion animation entry for the two-tier forge jump.
+        const conversionCount = 1;
         
         this.activeMerges.push({
           particles: [particle],
           targetX: this.forge.x,
           targetY: this.forge.y,
           tierId: nextTier.id,
-          sizeIndex: 0, // Small particle
+          sizeIndex: LARGE_SIZE_INDEX, // Large particle output for forge jumps.
           startTime: Date.now(),
           isTierConversion: true,
           conversionCount: conversionCount
@@ -1244,6 +1322,24 @@ export class BetSpireRender {
           startTime: now,
         });
       });
+    }
+
+    if (nullstoneParticles.length > 0) {
+      // Remove nullstone crunch particles since they do not convert into higher tiers.
+      this.particles = this.particles.filter(p => !nullstoneParticles.includes(p));
+    }
+
+    if (nullstoneSmallEquivalent > 0) {
+      // Apply the nullstone exponent gain and persist it to the spire state.
+      this.particleFactorExponentBonus += nullstoneSmallEquivalent * PARTICLE_FACTOR_EXPONENT_INCREMENT;
+      if (this.state) {
+        this.state.particleFactorExponentBonus = this.particleFactorExponentBonus;
+      }
+    }
+
+    if (nullstoneParticles.length > 0) {
+      // Refresh inventory totals so nullstone crunches immediately reflect in the UI.
+      this.updateInventory();
     }
 
     // Reset crunch state and mark end time for spin-down
@@ -1941,8 +2037,6 @@ export class BetSpireRender {
     
     // Bucket particles by draw style so canvas state only changes a handful of times even with thousands of particles.
     const drawBuckets = new Map();
-    // Bucket large particles separately so the cached 10,000-particle sprite can render them.
-    const largeSpriteBuckets = new Map();
 
     // Update particles and collect their draw intents
     for (let i = 0; i < this.particles.length; i++) {
@@ -1962,30 +2056,17 @@ export class BetSpireRender {
         );
       }
 
-      const largeSpriteSet = particle.sizeIndex === LARGE_SIZE_INDEX
-        ? this.largeParticleSpriteCache.get(particle.tierId)
-        : null;
-
-      if (largeSpriteSet) {
-        if (!largeSpriteBuckets.has(particle.tierId)) {
-          largeSpriteBuckets.set(particle.tierId, []);
-        }
-        largeSpriteBuckets.get(particle.tierId).push({ x: particle.x, y: particle.y });
-      } else {
-        const styleKey = particle.getDrawStyleKey();
-        if (!drawBuckets.has(styleKey)) {
-          drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
-        }
-
-        const bucket = drawBuckets.get(styleKey);
-        bucket.positions.push({ x: particle.x, y: particle.y });
+      const styleKey = particle.getDrawStyleKey();
+      if (!drawBuckets.has(styleKey)) {
+        drawBuckets.set(styleKey, { style: particle.getDrawStyle(), positions: [] });
       }
+
+      const bucket = drawBuckets.get(styleKey);
+      bucket.positions.push({ x: particle.x, y: particle.y });
     }
 
     // Draw each bucket in a single fill pass to minimize expensive shadow/style switches.
     this.drawBatchedParticles(drawBuckets);
-    // Draw cached sprites for large particles after the batched square passes.
-    this.drawLargeParticleSprites(largeSpriteBuckets);
     
     // Periodically attempt to merge particles (size merging)
     // Increase merge frequency when particle count is high
@@ -2061,23 +2142,6 @@ export class BetSpireRender {
     ctx.shadowBlur = 0; // Reset so later draws are unaffected by any glow buckets.
   }
 
-  // Draw cached 10,000-particle sprites for large particles so they read as special merges.
-  drawLargeParticleSprites(largeSpriteBuckets) {
-    const ctx = this.ctx;
-
-    largeSpriteBuckets.forEach((positions, tierId) => {
-      const spriteEntry = this.largeParticleSpriteCache.get(tierId);
-      if (!spriteEntry) {
-        return;
-      }
-
-      const halfSize = spriteEntry.size * 0.5;
-      positions.forEach(({ x, y }) => {
-        ctx.drawImage(spriteEntry.sprite, Math.floor(x - halfSize), Math.floor(y - halfSize), spriteEntry.size, spriteEntry.size);
-      });
-    });
-  }
-
   // Cache a pair of tinted generator sprites (clockwise/counter) for a tier so coloring happens once.
   cacheGeneratorSpritesForTier(tierId, sourceImage) {
     const tier = PARTICLE_TIERS.find(entry => entry.id === tierId);
@@ -2100,23 +2164,9 @@ export class BetSpireRender {
     });
   }
 
-  // Cache tinted 10,000-particle sprites per tier so large particle rendering stays lightweight.
-  populateLargeParticleSpriteCache() {
-    if (!this.largeParticleSpriteSource.complete || this.largeParticleSpriteSource.naturalWidth === 0) {
-      return;
-    }
-
-    PARTICLE_TIERS.forEach((tier) => {
-      this.largeParticleSpriteCache.set(tier.id, {
-        sprite: createTintedSpriteCanvas(this.largeParticleSpriteSource, tier.color, LARGE_PARTICLE_SPRITE_SIZE),
-        size: LARGE_PARTICLE_SPRITE_SIZE,
-      });
-    });
-  }
-
   drawForge() {
     const ctx = this.ctx;
-    const forgeSize = 24; // Size of triangles (20% larger so the forge sprites read clearly).
+    const forgeSize = 36; // Size of triangles (50% larger so the forge sprites read clearly).
     const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
     const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
     const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;
@@ -2312,18 +2362,28 @@ export class BetSpireRender {
   }
 
   /**
-   * Calculate the Particle Factor by multiplying the number of particles from each tier.
+   * Calculate the base particle factor by multiplying the number of particles from each tier.
    * If a tier has 0 particles, it contributes 1 to avoid zeroing out the entire factor.
-   * This is the player's total score in the BET spire.
    */
-  calculateParticleFactor() {
+  calculateBaseParticleFactor() {
     let factor = 1;
     PARTICLE_TIERS.forEach(tier => {
       const count = this.inventory.get(tier.id) || 0;
-      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication
+      // Multiply by the count, but use 1 if count is 0 to avoid zero multiplication.
       factor *= (count > 0 ? count : 1);
     });
     return factor;
+  }
+
+  /**
+   * Calculate the Particle Factor with the nullstone exponent applied.
+   * This is the player's total score in the BET spire.
+   */
+  calculateParticleFactor() {
+    const baseFactor = this.calculateBaseParticleFactor();
+    // Apply the exponent bonus to the particle factor for nullstone crunch rewards.
+    const exponent = 1 + this.particleFactorExponentBonus;
+    return Math.pow(baseFactor, exponent);
   }
 
   /**
@@ -2354,12 +2414,15 @@ export class BetSpireRender {
    * Get the current particle factor and milestone progress.
    */
   getParticleFactorStatus() {
-    const currentFactor = this.calculateParticleFactor();
+    const baseFactor = this.calculateBaseParticleFactor();
+    const currentFactor = Math.pow(baseFactor, 1 + this.particleFactorExponentBonus);
     return {
       particleFactor: currentFactor,
+      baseFactor,
       currentMilestone: this.particleFactorMilestone,
       betGlyphsAwarded: this.betGlyphsAwarded,
       progressToNext: currentFactor / this.particleFactorMilestone,
+      particleFactorExponent: 1 + this.particleFactorExponentBonus,
     };
   }
 
@@ -2385,7 +2448,9 @@ export class BetSpireRender {
       counts.set(tier.id, {
         small: 0,
         medium: 0,
-        large: 0
+        large: 0,
+        // Track extra-large counts for the new maximum size tier.
+        'extra-large': 0
       });
     });
     
@@ -2411,7 +2476,9 @@ export class BetSpireRender {
       particlesByTierAndSize[tier.id] = {
         small: 0,
         medium: 0,
-        large: 0
+        large: 0,
+        // Persist extra-large particle counts for Bet spire state saves.
+        'extra-large': 0
       };
     });
     
@@ -2445,15 +2512,27 @@ export class BetSpireRender {
         const smallCount = Math.max(0, counts.small || 0);
         const mediumCount = Math.max(0, counts.medium || 0);
         const largeCount = Math.max(0, counts.large || 0);
+        // Include extra-large particles so the largest size tier persists across saves.
+        const extraLargeCount = Math.max(0, counts['extra-large'] || 0);
 
         // Normalize stored counts into the largest possible pieces so resumptions start with the chunkiest particles.
         const totalSmallUnits =
-          smallCount + (mediumCount * MERGE_THRESHOLD) + (largeCount * MERGE_THRESHOLD * MERGE_THRESHOLD);
+          smallCount
+          + (mediumCount * MERGE_THRESHOLD)
+          + (largeCount * MERGE_THRESHOLD * MERGE_THRESHOLD)
+          + (extraLargeCount * Math.pow(MERGE_THRESHOLD, 3));
 
-        const normalizedLarge = Math.floor(totalSmallUnits / (MERGE_THRESHOLD * MERGE_THRESHOLD));
-        const remainingAfterLarge = totalSmallUnits - (normalizedLarge * MERGE_THRESHOLD * MERGE_THRESHOLD);
+        const normalizedExtraLarge = Math.floor(totalSmallUnits / Math.pow(MERGE_THRESHOLD, 3));
+        const remainingAfterExtraLarge = totalSmallUnits - (normalizedExtraLarge * Math.pow(MERGE_THRESHOLD, 3));
+        const normalizedLarge = Math.floor(remainingAfterExtraLarge / (MERGE_THRESHOLD * MERGE_THRESHOLD));
+        const remainingAfterLarge = remainingAfterExtraLarge - (normalizedLarge * MERGE_THRESHOLD * MERGE_THRESHOLD);
         const normalizedMedium = Math.floor(remainingAfterLarge / MERGE_THRESHOLD);
         const normalizedSmall = remainingAfterLarge - (normalizedMedium * MERGE_THRESHOLD);
+
+        // Spawn extra-large particles first so the restored swarm stays chunky.
+        for (let i = 0; i < normalizedExtraLarge; i++) {
+          spawnQueue.push({ tierId: tier.id, sizeIndex: EXTRA_LARGE_SIZE_INDEX, tierIndex });
+        }
 
         for (let i = 0; i < normalizedLarge; i++) {
           spawnQueue.push({ tierId: tier.id, sizeIndex: LARGE_SIZE_INDEX, tierIndex });

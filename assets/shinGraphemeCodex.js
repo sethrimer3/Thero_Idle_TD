@@ -1,14 +1,14 @@
 /**
  * Shin Grapheme Codex Data
  * 
- * Contains detailed descriptions of all graphemes (A-Z) for the Cardinal Warden
+ * Contains detailed descriptions of all graphemes (A-Z plus dagesh variants) for the Cardinal Warden
  * weapon system. This data is used to populate the grapheme codex UI.
  */
 
 /**
  * Grapheme codex entries with detailed descriptions.
  * Each entry contains:
- * - index: The grapheme index (0-25)
+ * - index: The grapheme index (0-25 plus dagesh variants)
  * - name: The English letter name (A-Z)
  * - title: Display title for the grapheme
  * - summary: Brief one-line description
@@ -457,6 +457,125 @@ export const GRAPHEME_CODEX_ENTRIES = [
       { slot: 7, description: '3 random effects per bullet' },
     ],
     specialMechanics: 'Each bullet receives random effects from unlocked graphemes (A, B, E, F, I, J, O, P, Q, R, S, U, V, W). Slots 0-3 apply 2 effects, slots 4-7 apply 3 effects. Creates unpredictable but powerful combinations.',
+  },
+  {
+    index: 34,
+    name: 'A•',
+    title: 'Grapheme A• — Dagesh Polygons',
+    summary: 'Amplifies ThoughtSpeak shapes with extra sides and higher damage.',
+    effects: [
+      { slot: 0, description: 'Pentagon (5 sides), 7.5× damage' },
+      { slot: 1, description: 'Heptagon (7 sides), 10.5× damage' },
+      { slot: 2, description: 'Octagon (8 sides), 12× damage' },
+      { slot: 3, description: 'Nonagon (9 sides), 13.5× damage' },
+      { slot: 4, description: 'Decagon (10 sides), 15× damage' },
+      { slot: 5, description: 'Hendecagon (11 sides), 16.5× damage' },
+      { slot: 6, description: 'Dodecagon (12 sides), 18× damage' },
+      { slot: 7, description: 'Tridecagon (13 sides), 19.5× damage' },
+    ],
+    specialMechanics: 'Dagesh A adds +2 sides to the base polygon and multiplies the ThoughtSpeak damage bonus by 1.5×.',
+  },
+  {
+    index: 35,
+    name: 'I•',
+    title: 'Grapheme I• — Dagesh Spread',
+    summary: 'Fires a denser bullet fan with a wider firing cone.',
+    effects: [
+      { slot: 0, description: '+4 extra bullets (5 total)' },
+      { slot: 1, description: '+6 extra bullets (7 total)' },
+      { slot: 2, description: '+8 extra bullets (9 total)' },
+      { slot: 3, description: '+10 extra bullets (11 total)' },
+      { slot: 4, description: '+10 extra bullets (11 total)' },
+      { slot: 5, description: '+8 extra bullets (9 total)' },
+      { slot: 6, description: '+6 extra bullets (7 total)' },
+      { slot: 7, description: '+4 extra bullets (5 total)' },
+    ],
+    specialMechanics: 'Dagesh I doubles the extra bullet count and expands the spread cone to π/4 radians (45 degrees).',
+  },
+  {
+    index: 36,
+    name: 'M•',
+    title: 'Grapheme M• — Dagesh Mines',
+    summary: 'Spawns empowered mines with faster cadence and stronger blasts.',
+    effects: [
+      { slot: 0, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 1, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 2, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 3, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 4, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 5, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 6, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+      { slot: 7, description: 'Dagesh mines (spawn rate ÷ 10, 200× explosion damage)' },
+    ],
+    specialMechanics: 'Mines appear twice as fast and explode for double the usual damage multiplier.',
+  },
+  {
+    index: 37,
+    name: 'P•',
+    title: 'Grapheme P• — Dagesh Homing',
+    summary: 'Bullets curve harder and lock on from farther away.',
+    effects: [
+      { slot: 0, description: 'Enhanced homing (0.88 rad/s turn rate, 320px range)' },
+      { slot: 1, description: 'Enhanced homing (1.31 rad/s turn rate, 320px range)' },
+      { slot: 2, description: 'Enhanced homing (1.75 rad/s turn rate, 320px range)' },
+      { slot: 3, description: 'Enhanced homing (2.19 rad/s turn rate, 320px range)' },
+      { slot: 4, description: 'Enhanced homing (2.63 rad/s turn rate, 320px range)' },
+      { slot: 5, description: 'Enhanced homing (3.06 rad/s turn rate, 320px range)' },
+      { slot: 6, description: 'Enhanced homing (3.50 rad/s turn rate, 320px range)' },
+      { slot: 7, description: 'Enhanced homing (3.94 rad/s turn rate, 320px range)' },
+    ],
+    specialMechanics: 'Turn rate multipliers stack with slot strength and are amplified by 1.75×.',
+  },
+  {
+    index: 38,
+    name: 'R•',
+    title: 'Grapheme R• — Dagesh Chain',
+    summary: 'Chain lightning leaps farther with added jumps and stronger retention.',
+    effects: [
+      { slot: 0, description: 'Chains to 3 enemies (30px range, 85% damage)' },
+      { slot: 1, description: 'Chains to 4 enemies (30px range, 85% damage)' },
+      { slot: 2, description: 'Chains to 5 enemies (30px range, 85% damage)' },
+      { slot: 3, description: 'Chains to 6 enemies (30px range, 85% damage)' },
+      { slot: 4, description: 'Chains to 7 enemies (45px range, 85% damage)' },
+      { slot: 5, description: 'Chains to 8 enemies (45px range, 85% damage)' },
+      { slot: 6, description: 'Chains to 9 enemies (45px range, 85% damage)' },
+      { slot: 7, description: 'Chains to 10 enemies (45px range, 85% damage)' },
+    ],
+    specialMechanics: 'Dagesh R adds +2 chain jumps, multiplies chain range by 1.5×, and retains 85% damage between links.',
+  },
+  {
+    index: 39,
+    name: 'S•',
+    title: 'Grapheme S• — Dagesh Size',
+    summary: 'Pushes bullet size shifts to extremes with stronger speed changes.',
+    effects: [
+      { slot: 0, description: '0.4× size, 1.5× speed (needle)' },
+      { slot: 1, description: '0.5× size, 1.4× speed (tiny)' },
+      { slot: 2, description: '0.6× size, 1.3× speed (small)' },
+      { slot: 3, description: '0.7× size, 1.15× speed (reduced)' },
+      { slot: 4, description: '1.6× size, 0.9× speed (large)' },
+      { slot: 5, description: '1.9× size, 0.85× speed (huge)' },
+      { slot: 6, description: '2.3× size, 0.8× speed (gargantuan)' },
+      { slot: 7, description: '2.7× size, 0.75× speed (colossal)' },
+    ],
+    specialMechanics: 'Dagesh S intensifies both size shifts and the accompanying speed tradeoffs.',
+  },
+  {
+    index: 40,
+    name: 'U•',
+    title: 'Grapheme U• — Dagesh Pulse',
+    summary: 'Pulse waves strike faster, wider, and harder.',
+    effects: [
+      { slot: 0, description: '1.5 pulses/sec (21px radius, 35% damage)' },
+      { slot: 1, description: '3.0 pulses/sec (25.2px radius, 35% damage)' },
+      { slot: 2, description: '4.5 pulses/sec (29.4px radius, 35% damage)' },
+      { slot: 3, description: '6.0 pulses/sec (33.6px radius, 35% damage)' },
+      { slot: 4, description: '7.5 pulses/sec (37.8px radius, 35% damage)' },
+      { slot: 5, description: '9.0 pulses/sec (42px radius, 35% damage)' },
+      { slot: 6, description: '10.5 pulses/sec (46.2px radius, 35% damage)' },
+      { slot: 7, description: '12.0 pulses/sec (50.4px radius, 35% damage)' },
+    ],
+    specialMechanics: 'Dagesh U multiplies pulse rate by 1.5×, radius by 1.4×, and raises pulse damage to 35% of bullet damage.',
   },
 ];
 

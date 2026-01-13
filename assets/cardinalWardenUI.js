@@ -28,11 +28,14 @@ import {
   getDropChanceUpgradeCost,
   getDropChanceUpgradeLevel,
   getUnlockedGraphemes,
+  getUnlockedBaseGraphemeCount,
+  getUnlockableGraphemeCount,
+  getDageshGraphemeIndices,
+  hasAllBaseGraphemesUnlocked,
   getEquivalenceBank,
   getGraphemeCharacters,
   consumeGrapheme,
   returnGrapheme,
-  hasAllGraphemesUnlocked,
   isWeaponPurchased,
   getPurchasedWeapons,
   purchaseWeapon,
@@ -107,116 +110,97 @@ const graphemeDictionary = new Map(getGraphemeCharacters().map(def => [def.index
 const weaponElements = new Map();
 const pointerState = { active: false, startX: 0, startY: 0, moved: false };
 
-// Sprite sheet metadata for rendering Shin graphemes from Script.png and its JSON metadata.
-const SHIN_SCRIPT_METADATA_URL = new URL('./sprites/spires/shinSpire/Script.json', import.meta.url).href;
-const SHIN_SCRIPT_SPRITE = {
-  url: new URL('./sprites/spires/shinSpire/Script.png', import.meta.url).href,
-  columns: 7,
-  rows: 5,
-  cellWidth: 200,
-  cellHeight: 190,
-  scale: 0.14,
-  tint: '#d4af37',
+// Individual SVG grapheme sprites configuration
+const SHIN_GRAPHEME_CONFIG = {
+  size: 28, // Default display size for grapheme icons
+  tint: '#d4af37', // Golden tint color
 };
 
-// Load sprite sheet layout metadata from the JSON manifest to keep PNG framing consistent.
-function loadShinScriptMetadata() {
-  fetch(SHIN_SCRIPT_METADATA_URL)
-    .then(response => (response.ok ? response.json() : Promise.reject(response.status)))
-    .then((metadata) => {
-      if (metadata && typeof metadata === 'object') {
-        SHIN_SCRIPT_SPRITE.columns = Number(metadata.columns) || SHIN_SCRIPT_SPRITE.columns;
-        SHIN_SCRIPT_SPRITE.rows = Number(metadata.rows) || SHIN_SCRIPT_SPRITE.rows;
-        SHIN_SCRIPT_SPRITE.cellWidth = Number(metadata.cellWidth) || SHIN_SCRIPT_SPRITE.cellWidth;
-        SHIN_SCRIPT_SPRITE.cellHeight = Number(metadata.cellHeight) || SHIN_SCRIPT_SPRITE.cellHeight;
-      }
-    })
-    .catch((error) => {
-      console.warn('Failed to load Shin Script sprite metadata JSON.', error);
-    });
-}
+// Chance for boss kills to drop a dagesh grapheme once base graphemes are unlocked.
+const DAGESH_DROP_CHANCE = 0.15;
 
-// Compute scaled metrics for grapheme sprites from the current metadata.
-function getShinScriptScaledMetrics() {
-  const scaledCellWidth = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
-  const scaledCellHeight = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
-  return {
-    scaledCellWidth,
-    scaledCellHeight,
-    scaledSheetWidth: scaledCellWidth * SHIN_SCRIPT_SPRITE.columns,
-    scaledSheetHeight: scaledCellHeight * SHIN_SCRIPT_SPRITE.rows,
+// Preload grapheme SVG sprites for all available grapheme definitions.
+const graphemeSvgUrls = new Map();
+const graphemeSvgImages = new Map();
+const graphemeSvgLoaded = new Map();
+// Resolve the sprite filename for a given grapheme definition.
+const resolveGraphemeSpriteName = (definition) => {
+  if (!definition) {
+    return null;
+  }
+  if (definition.sprite) {
+    return definition.sprite;
+  }
+  if (typeof definition.name === 'string' && definition.name.length === 1) {
+    return `grapheme-${definition.name}.svg`;
+  }
+  return null;
+};
+
+getGraphemeCharacters().forEach((definition) => {
+  const spriteName = resolveGraphemeSpriteName(definition);
+  if (!spriteName) {
+    return;
+  }
+  const url = new URL(`./sprites/spires/shinSpire/graphemes/${spriteName}`, import.meta.url).href;
+  graphemeSvgUrls.set(definition.index, url);
+  
+  // Preload the SVG as an Image for canvas rendering.
+  const img = new Image();
+  img.onload = () => {
+    graphemeSvgLoaded.set(definition.index, true);
   };
-}
-
-// Preload the script sprite sheet so canvas drops and UI icons can share it.
-const shinScriptSpriteImage = new Image();
-let shinScriptSpriteLoaded = false;
-shinScriptSpriteImage.addEventListener('load', () => {
-  shinScriptSpriteLoaded = true;
+  img.onerror = () => {
+    console.warn(`Failed to load grapheme SVG: ${spriteName}`);
+  };
+  img.src = url;
+  graphemeSvgImages.set(definition.index, img);
 });
-shinScriptSpriteImage.addEventListener('error', (error) => {
-  console.warn('Failed to load Shin Script sprite sheet; falling back to text glyphs.', error);
-});
-shinScriptSpriteImage.src = SHIN_SCRIPT_SPRITE.url;
-loadShinScriptMetadata();
 
 /**
- * Resolve the sprite frame for a grapheme using either explicit row/col data or the dictionary definition.
+ * Apply SVG grapheme sprite styles to the provided element.
  */
-function resolveGraphemeFrame(index, rowOverride, colOverride) {
-  const definition = graphemeDictionary.get(index);
-  return {
-    row: rowOverride ?? definition?.row ?? 0,
-    col: colOverride ?? definition?.col ?? 0,
-  };
-}
-
-/**
- * Apply Script.png sprite background positioning to the provided element.
- */
-function applyGraphemeSpriteStyles(element, frame) {
-  const metrics = getShinScriptScaledMetrics();
-  element.style.width = `${metrics.scaledCellWidth}px`;
-  element.style.height = `${metrics.scaledCellHeight}px`;
-  // Use the PNG as a mask so we can paint collected graphemes with the golden tint while
-  // still falling back to the direct background image when masking is unavailable.
-  element.style.backgroundColor = SHIN_SCRIPT_SPRITE.tint;
-  element.style.backgroundSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
-  element.style.backgroundPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
-  element.style.backgroundImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
-  element.style.maskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
-  element.style.webkitMaskImage = `url(${SHIN_SCRIPT_SPRITE.url})`;
-  element.style.maskSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
-  element.style.webkitMaskSize = `${metrics.scaledSheetWidth}px ${metrics.scaledSheetHeight}px`;
-  element.style.maskPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
-  element.style.webkitMaskPosition = `-${frame.col * metrics.scaledCellWidth}px -${frame.row * metrics.scaledCellHeight}px`;
+function applyGraphemeSpriteStyles(element, index) {
+  const url = graphemeSvgUrls.get(index);
+  if (!url) {
+    return;
+  }
+  
+  element.style.width = `${SHIN_GRAPHEME_CONFIG.size}px`;
+  element.style.height = `${SHIN_GRAPHEME_CONFIG.size}px`;
+  element.style.backgroundColor = SHIN_GRAPHEME_CONFIG.tint;
+  element.style.maskImage = `url(${url})`;
+  element.style.webkitMaskImage = `url(${url})`;
+  element.style.maskSize = 'contain';
+  element.style.webkitMaskSize = 'contain';
+  element.style.maskPosition = 'center';
+  element.style.webkitMaskPosition = 'center';
   element.style.maskRepeat = 'no-repeat';
   element.style.webkitMaskRepeat = 'no-repeat';
 }
 
 /**
- * Build a DOM element that displays a single grapheme tile from Script.png.
- * For collectable graphemes (A-Z, indices 0-25), adds a small capital letter label in the bottom-right corner.
+ * Build a DOM element that displays a single grapheme tile from SVG sprites.
+ * For collectable graphemes (A-Z and dagesh variants), adds a small label in the bottom-right corner.
  */
 function createGraphemeIconElement(index, rowOverride, colOverride, className = 'shin-grapheme-icon') {
   const wrapper = document.createElement('span');
   wrapper.className = 'shin-grapheme-icon-wrapper';
   
   const icon = document.createElement('span');
-  const frame = resolveGraphemeFrame(index, rowOverride, colOverride);
   icon.className = className;
   icon.setAttribute('role', 'img');
   icon.setAttribute('aria-label', formatGraphemeTitle(index));
-  applyGraphemeSpriteStyles(icon, frame);
+  applyGraphemeSpriteStyles(icon, index);
   
   wrapper.appendChild(icon);
   
-  // Add letter label for collectable graphemes (A-Z, indices 0-25)
-  if (index >= 0 && index <= 25) {
-    const letter = String.fromCharCode(65 + index); // A=65 in ASCII
+  // Add letter label for collectable graphemes (A-Z and dagesh variants).
+  const labelText = getGraphemeLabel(index);
+  if (labelText) {
     const label = document.createElement('span');
     label.className = 'shin-grapheme-letter-label';
-    label.textContent = letter;
+    label.textContent = labelText;
     label.setAttribute('aria-hidden', 'true');
     wrapper.appendChild(label);
   }
@@ -226,42 +210,36 @@ function createGraphemeIconElement(index, rowOverride, colOverride, className = 
 
 /**
  * Draw a gold-tinted grapheme sprite onto the Cardinal canvas.
+ * @param {CanvasRenderingContext2D} ctx - The canvas context
+ * @param {number} index - The grapheme index (A-Z plus dagesh variants)
+ * @param {number} centerX - X coordinate for center of sprite
+ * @param {number} centerY - Y coordinate for center of sprite
  */
-function renderGraphemeSprite(ctx, frame, centerX, centerY) {
-  if (!shinScriptSpriteLoaded) {
+function renderGraphemeSprite(ctx, index, centerX, centerY) {
+  if (!graphemeSvgLoaded.get(index)) {
     return false;
   }
 
-  const drawWidth = SHIN_SCRIPT_SPRITE.cellWidth * SHIN_SCRIPT_SPRITE.scale;
-  const drawHeight = SHIN_SCRIPT_SPRITE.cellHeight * SHIN_SCRIPT_SPRITE.scale;
-  const drawX = centerX - (drawWidth / 2);
-  const drawY = centerY - (drawHeight / 2);
-  const sourceX = frame.col * SHIN_SCRIPT_SPRITE.cellWidth;
-  const sourceY = frame.row * SHIN_SCRIPT_SPRITE.cellHeight;
+  const img = graphemeSvgImages.get(index);
+  if (!img) {
+    return false;
+  }
+
+  const drawSize = SHIN_GRAPHEME_CONFIG.size;
+  const drawX = centerX - (drawSize / 2);
+  const drawY = centerY - (drawSize / 2);
 
   // Use an offscreen canvas to apply the tint without affecting the main canvas
-  // Note: Creating a new canvas each time is acceptable here since grapheme drops are infrequent
-  // and the canvas is small (28x27 pixels scaled). Caching would add complexity without meaningful benefit.
   const offscreen = document.createElement('canvas');
-  offscreen.width = drawWidth;
-  offscreen.height = drawHeight;
+  offscreen.width = drawSize;
+  offscreen.height = drawSize;
   const offCtx = offscreen.getContext('2d');
   
   offCtx.imageSmoothingEnabled = true;
-  offCtx.drawImage(
-    shinScriptSpriteImage,
-    sourceX,
-    sourceY,
-    SHIN_SCRIPT_SPRITE.cellWidth,
-    SHIN_SCRIPT_SPRITE.cellHeight,
-    0,
-    0,
-    drawWidth,
-    drawHeight
-  );
+  offCtx.drawImage(img, 0, 0, drawSize, drawSize);
   offCtx.globalCompositeOperation = 'source-in';
-  offCtx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
-  offCtx.fillRect(0, 0, drawWidth, drawHeight);
+  offCtx.fillStyle = SHIN_GRAPHEME_CONFIG.tint;
+  offCtx.fillRect(0, 0, drawSize, drawSize);
   
   // Draw the tinted result onto the main canvas
   ctx.save();
@@ -642,6 +620,15 @@ function handleEnemyKill(x, y, isBoss) {
       }
     }
   }
+
+  // Bosses can drop dagesh graphemes once all base graphemes are unlocked.
+  if (isBoss && hasAllBaseGraphemesUnlocked()) {
+    const dageshIndices = getDageshGraphemeIndices();
+    if (dageshIndices.length > 0 && Math.random() < DAGESH_DROP_CHANCE) {
+      const selectedIndex = dageshIndices[Math.floor(Math.random() * dageshIndices.length)];
+      spawnSpecificGraphemeDrop(x, y, selectedIndex);
+    }
+  }
 }
 
 /**
@@ -652,9 +639,10 @@ function handleGuaranteedGraphemeDrop(waveNumber) {
   // Calculate which grapheme should drop based on wave number
   // Wave 10 = A (index 0), Wave 20 = B (index 1), ..., Wave 260 = Z (index 25)
   const graphemeIndex = (waveNumber / 10) - 1;
+  const baseGraphemeCount = getUnlockableGraphemeCount();
   
-  // Only drop if it's a valid grapheme (A-Z, indices 0-25)
-  if (graphemeIndex >= 0 && graphemeIndex <= 25) {
+  // Only drop if it's a valid base grapheme (A-Z).
+  if (graphemeIndex >= 0 && graphemeIndex < baseGraphemeCount) {
     const unlockedGraphemes = getUnlockedGraphemes();
     
     // Check if player already has this grapheme
@@ -1014,7 +1002,8 @@ function updateBaseHealthDisplay() {
  * Update the grapheme UI displays.
  */
 function updateGraphemeUI() {
-  const unlockedGraphemes = getUnlockedGraphemes();
+  const unlockedBaseCount = getUnlockedBaseGraphemeCount();
+  const baseGraphemeCount = getUnlockableGraphemeCount();
   const unlockCost = getGraphemeUnlockCost();
   const dropChance = getGraphemeDropChance();
   const dropChanceCost = getDropChanceUpgradeCost();
@@ -1022,7 +1011,7 @@ function updateGraphemeUI() {
   
   // Update unlocked count
   if (cardinalElements.unlockedCount) {
-    cardinalElements.unlockedCount.textContent = unlockedGraphemes.length;
+    cardinalElements.unlockedCount.textContent = unlockedBaseCount;
   }
   
   // Update unlock button
@@ -1032,12 +1021,12 @@ function updateGraphemeUI() {
   
   if (cardinalElements.graphemeUnlockBtn) {
     const canAffordUnlock = currentEquivalence >= unlockCost;
-    // Only 26 graphemes are collectable (letters A-Z, numbers 1-8 are not collectable)
-    const allUnlocked = unlockedGraphemes.length >= 26;
+    // Only base graphemes are unlockable via Equivalence.
+    const allUnlocked = unlockedBaseCount >= baseGraphemeCount;
     cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
     
     if (allUnlocked) {
-      cardinalElements.graphemeUnlockBtn.textContent = 'All Graphemes Unlocked';
+      cardinalElements.graphemeUnlockBtn.textContent = 'All Base Graphemes Unlocked';
     } else {
       cardinalElements.graphemeUnlockBtn.innerHTML = `Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">${formatGameNumber(unlockCost)}</span> ℸ`;
       cardinalElements.graphemeUnlockCost = document.getElementById('shin-grapheme-unlock-cost');
@@ -1616,9 +1605,9 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   if (drops.length === 0) return;
   
   const time = Date.now();
-  const allGraphemesUnlocked = hasAllGraphemesUnlocked();
+  const allGraphemesUnlocked = hasAllBaseGraphemesUnlocked();
   
-  // Auto-collect graphemes if all 26 are unlocked
+  // Auto-collect graphemes if all base graphemes are unlocked
   if (allGraphemesUnlocked) {
     // Process drops in reverse to safely remove them during iteration.
     // collectPhonemeDrop() modifies the drops array (which is a reference to activeGraphemeDrops),
@@ -1690,13 +1679,12 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Script character rendered from Script.png with a gold tint.
-    const frame = resolveGraphemeFrame(drop.index, drop.row, drop.col);
-    const spriteDrawn = renderGraphemeSprite(ctx, frame, dropX, dropY + floatY + 1);
+    // SVG grapheme sprite rendered with a gold tint.
+    const spriteDrawn = renderGraphemeSprite(ctx, drop.index, dropX, dropY + floatY + 1);
 
     // Fallback to labeled text if the sprite is not yet available.
     if (!spriteDrawn) {
-      ctx.fillStyle = SHIN_SCRIPT_SPRITE.tint;
+      ctx.fillStyle = SHIN_GRAPHEME_CONFIG.tint;
       ctx.font = 'bold 16px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -1859,13 +1847,10 @@ function handleGraphemeInventoryClick(event) {
 }
 
 function selectGrapheme(index, element) {
-  const frame = resolveGraphemeFrame(index);
   selectedGrapheme = {
     index,
     symbol: formatGraphemeSymbol(index),
     title: formatGraphemeTitle(index),
-    row: frame.row,
-    col: frame.col,
   };
 
   if (selectedGraphemeElement && selectedGraphemeElement !== element) {
@@ -1969,10 +1954,28 @@ function formatGraphemeSymbol(index) {
   return `#${index + 1}`;
 }
 
+/**
+ * Get the display label for a grapheme index (letters + dagesh variants).
+ */
+function getGraphemeLabel(index) {
+  const definition = graphemeDictionary.get(index);
+  if (definition?.label) {
+    return definition.label;
+  }
+  if (typeof definition?.name === 'string' && definition.name.length === 1) {
+    return definition.name;
+  }
+  if (index >= 0 && index <= 25) {
+    return String.fromCharCode(65 + index);
+  }
+  return null;
+}
+
 function formatGraphemeTitle(index) {
   const definition = graphemeDictionary.get(index);
   if (definition) {
-    return `${definition.name} · ${definition.property}`;
+    const name = definition.displayName || definition.name;
+    return `${name} · ${definition.property}`;
   }
   return `Grapheme #${index + 1}`;
 }
