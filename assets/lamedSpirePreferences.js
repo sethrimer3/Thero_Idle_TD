@@ -8,6 +8,8 @@ import {
   readStorage,
   LAMED_VISUAL_SETTINGS_STORAGE_KEY,
 } from './autoSave.js';
+// Format large star counts for the Lamed star density slider label.
+import { formatWholeNumber } from '../scripts/core/formatting.js';
 
 // Graphics quality levels for the Lamed spire simulation.
 const LAMED_GRAPHICS_LEVELS = Object.freeze({
@@ -15,6 +17,10 @@ const LAMED_GRAPHICS_LEVELS = Object.freeze({
   MEDIUM: 'medium',
   HIGH: 'high',
 });
+
+// Clamp the Lamed star render slider to a performance-friendly range.
+const LAMED_STAR_RENDER_MIN = 1000;
+const LAMED_STAR_RENDER_MAX = 10000;
 
 // Default settings when no preferences are stored.
 const DEFAULT_LAMED_SETTINGS = Object.freeze({
@@ -25,6 +31,8 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
+  // Default star render cap aligns with the new minimum slider value.
+  starRenderCap: LAMED_STAR_RENDER_MIN,
   renderSizeLevel: 0, // Fixed to Small
 });
 
@@ -75,6 +83,9 @@ let sunDetailToggle = null;
 let sunSplashesToggle = null;
 let shootingStarTrailsToggle = null;
 let spawnFlashesToggle = null;
+// Slider controls for choosing how many stars render in the Lamed spire.
+let starRenderSlider = null;
+let starRenderValueLabel = null;
 
 /**
  * Retrieve the current graphics level label for the UI.
@@ -190,6 +201,13 @@ function applySettingsToSimulation() {
   // Track whether spawn flashes should render; the simulation checks this per-spawn.
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
 
+  // Update the star render cap so density reflects the player's slider choice.
+  if (typeof simulation.setStarRenderCap === 'function') {
+    simulation.setStarRenderCap(lamedSettings.starRenderCap);
+  } else {
+    simulation.maxStars = clampStarRenderCap(lamedSettings.starRenderCap);
+  }
+
   // Downscale extremely dense canvases on high-DPI devices to protect mobile GPUs from overdraw.
   const targetMaxDpr = isLow ? 1.1 : isMedium ? 1.35 : 1.5;
   if (simulation.maxDevicePixelRatio !== targetMaxDpr) {
@@ -226,6 +244,8 @@ function loadPersistedSettings() {
   } catch (error) {
     console.warn('Failed to load Lamed visual settings; using defaults:', error);
   }
+  // Always clamp the star cap so stored data cannot exceed the slider bounds.
+  lamedSettings.starRenderCap = clampStarRenderCap(lamedSettings.starRenderCap);
 }
 
 /**
@@ -291,6 +311,41 @@ function syncAllToggles() {
     document.getElementById('lamed-flashes-toggle-state'),
     lamedSettings.spawnFlashes,
   );
+  // Keep the star density slider synced with the saved setting.
+  syncStarRenderSlider();
+}
+
+/**
+ * Clamp the star render slider value to the supported bounds.
+ */
+function clampStarRenderCap(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) {
+    return LAMED_STAR_RENDER_MIN;
+  }
+  return Math.max(LAMED_STAR_RENDER_MIN, Math.min(LAMED_STAR_RENDER_MAX, Math.floor(raw)));
+}
+
+/**
+ * Update the numeric label shown beside the star render slider.
+ */
+function updateStarRenderLabel(value) {
+  if (!starRenderValueLabel) {
+    return;
+  }
+  starRenderValueLabel.textContent = formatWholeNumber(value);
+}
+
+/**
+ * Sync the Lamed star render slider to the persisted settings.
+ */
+function syncStarRenderSlider() {
+  if (!starRenderSlider) {
+    return;
+  }
+  const clamped = clampStarRenderCap(lamedSettings.starRenderCap);
+  starRenderSlider.value = String(clamped);
+  updateStarRenderLabel(clamped);
 }
 
 /**
@@ -428,6 +483,9 @@ export function bindLamedSpireOptions() {
   sunSplashesToggle = document.getElementById('lamed-splashes-toggle');
   shootingStarTrailsToggle = document.getElementById('lamed-shooting-trails-toggle');
   spawnFlashesToggle = document.getElementById('lamed-flashes-toggle');
+  // Capture slider elements for star density control.
+  starRenderSlider = document.getElementById('lamed-star-render-slider');
+  starRenderValueLabel = document.getElementById('lamed-star-render-value');
 
   if (optionsToggleButton) {
     optionsToggleButton.addEventListener('click', toggleOptionsMenu);
@@ -487,6 +545,16 @@ export function bindLamedSpireOptions() {
     });
   }
 
+  if (starRenderSlider) {
+    starRenderSlider.addEventListener('input', (event) => {
+      // Clamp the slider value before persisting to avoid invalid ranges.
+      const clamped = clampStarRenderCap(event.target.value);
+      event.target.value = String(clamped);
+      applySetting('starRenderCap', clamped);
+      updateStarRenderLabel(clamped);
+    });
+  }
+
   // Sync UI with persisted settings.
   updateGraphicsLevelButton();
   syncAllToggles();
@@ -520,6 +588,8 @@ export function getLamedVisualSettings() {
  */
 export function applyLamedVisualSettings(settings, { persist = true } = {}) {
   lamedSettings = { ...createDefaultLamedSettings(), ...settings };
+  // Clamp star render settings so programmatic updates respect slider bounds.
+  lamedSettings.starRenderCap = clampStarRenderCap(lamedSettings.starRenderCap);
   if (persist) {
     persistSettings();
   }

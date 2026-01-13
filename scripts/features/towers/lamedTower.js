@@ -38,14 +38,24 @@ const BLACK_HOLE_MAX_DIAMETER_PERCENT = 0.5;
 /** Duration of the collapse animation (in seconds) when transitioning to smaller tiers. */
 const COLLAPSE_ANIMATION_SECONDS = 10;
 
+/** Minimum number of orbiting stars the render-cap slider can target. */
+const MIN_RENDERED_STARS = 1000;
+
 /** Maximum number of orbiting stars that can be rendered simultaneously. */
-const MAX_RENDERED_STARS = 200;
+const MAX_RENDERED_STARS = 10000;
 
 /** Cap how many stars are allowed to draw trails at any given time to protect performance. */
 const MAX_TRAIL_STARS = 50;
 
 /** Maximum decorative dust particle population when no stars are present. */
 const MAX_DUST_PARTICLES = 200;
+
+/**
+ * Calculate a reduced star cap while honoring the minimum render floor.
+ */
+function resolveReducedStarCap(maxStars) {
+  return Math.max(MIN_RENDERED_STARS, Math.round(maxStars * 0.6));
+}
 
 /**
  * Deterministic pseudo-random number generator using seed.
@@ -176,7 +186,7 @@ export class GravitySimulation {
     this.performanceCaps = {
       reducedDevicePixelRatio: Math.min(this.maxDevicePixelRatio, 1.25),
       reducedTrailCount: Math.max(6, Math.min(this.maxStarsWithTrails, 24)),
-      reducedStarCount: Math.min(this.maxStars, 160),
+      reducedStarCount: Math.min(this.maxStars, resolveReducedStarCap(this.maxStars)),
       reducedDustCap: 80,
     };
     this.performanceDustCap = MAX_DUST_PARTICLES;
@@ -454,6 +464,36 @@ export class GravitySimulation {
 
     // Rescale the canvas so the new DPR cap applies immediately.
     this.resize();
+  }
+
+  /**
+   * Update the star render cap while syncing performance thresholds and trimming overflow.
+   * @param {number} targetMaxStars - Desired star render cap from UI preferences.
+   */
+  setStarRenderCap(targetMaxStars) {
+    // Clamp the incoming cap so gameplay respects the slider boundaries.
+    const clampedMaxStars = Math.max(
+      MIN_RENDERED_STARS,
+      Math.min(MAX_RENDERED_STARS, Math.floor(Number(targetMaxStars) || MIN_RENDERED_STARS)),
+    );
+    // Store the base cap so balanced mode restores the desired density.
+    this.initialCaps.starCount = clampedMaxStars;
+    // Recalculate reduced caps so performance mode stays proportional to the chosen density.
+    this.performanceCaps.reducedStarCount = Math.min(clampedMaxStars, resolveReducedStarCap(clampedMaxStars));
+    // Apply the active cap based on the current performance profile.
+    this.maxStars = this.performanceMode === 'reduced'
+      ? this.performanceCaps.reducedStarCount
+      : clampedMaxStars;
+    // Trim any overflow so the live star list matches the new cap immediately.
+    const overflow = Math.max(0, this.stars.length - this.maxStars);
+    for (let i = 0; i < overflow; i++) {
+      const star = this.stars.pop();
+      if (star) {
+        this.absorbStarImmediately(star.mass);
+      }
+    }
+    // Keep the trail budget aligned with the updated max population.
+    this.trailEnabledStarCount = Math.min(this.trailEnabledStarCount, this.maxStarsWithTrails);
   }
 
   /**
