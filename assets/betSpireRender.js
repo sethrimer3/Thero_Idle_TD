@@ -1129,8 +1129,8 @@ export class BetSpireRender {
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
-        // Only extra-large particles can be upgraded; nullstone can be crunched at any size.
-        if (!isNullstone && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
+        // Only medium and extra-large particles can be upgraded; nullstone can be crunched at any size.
+        if (!isNullstone && particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
         
         // Check if particle is within forge radius
         const dx = particle.x - this.forge.x;
@@ -1265,23 +1265,40 @@ export class BetSpireRender {
     // Track gems to award for floating feedback
     const gemsToAward = new Map(); // tierId -> count
 
-    // Convert each particle to the tier two steps above.
+    // Convert particles based on their size: medium particles jump 1 tier, extra-large jump 2 tiers.
     particlesByTier.forEach((particles, tierId) => {
       const tierIndex = PARTICLE_TIERS.findIndex(t => t.id === tierId);
-      if (tierIndex < 0 || tierIndex >= PARTICLE_TIERS.length - 2) return;
-      
-      // Forge upgrades now jump two tiers up.
-      const nextTier = PARTICLE_TIERS[tierIndex + 2];
+      if (tierIndex < 0) return;
       
       particles.forEach(particle => {
-        // Award 1 gem per extra-large particle crushed.
-        if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
-          const gemTierId = nextTier.id; // Award gem of the tier it converts to
-          const gemDefinition = resolveGemDefinition(gemTierId);
+        // Determine conversion based on particle size
+        let targetTierIndex;
+        let outputSizeIndex;
+        let targetTierId;
+        
+        if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
+          // Medium particles: jump 1 tier up and output small particles
+          targetTierIndex = tierIndex + 1;
+          outputSizeIndex = SMALL_SIZE_INDEX;
+          
+          // Check if we can upgrade (not at the last tier)
+          if (targetTierIndex >= PARTICLE_TIERS.length) return;
+          targetTierId = PARTICLE_TIERS[targetTierIndex].id;
+        } else if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
+          // Extra-large particles: jump 2 tiers up and output large particles
+          targetTierIndex = tierIndex + 2;
+          outputSizeIndex = LARGE_SIZE_INDEX;
+          
+          // Check if we can upgrade (not at the last two tiers)
+          if (targetTierIndex >= PARTICLE_TIERS.length) return;
+          targetTierId = PARTICLE_TIERS[targetTierIndex].id;
+          
+          // Award 1 gem per extra-large particle crushed.
+          const gemDefinition = resolveGemDefinition(targetTierId);
           
           if (gemDefinition) {
             // Add to player's gem inventory
-            const record = moteGemState.inventory.get(gemTierId) || {
+            const record = moteGemState.inventory.get(targetTierId) || {
               label: gemDefinition.name,
               total: 0,
               count: 0,
@@ -1289,22 +1306,25 @@ export class BetSpireRender {
             record.total += 1;
             record.count = (record.count || 0) + 1;
             record.label = gemDefinition.name || record.label;
-            moteGemState.inventory.set(gemTierId, record);
+            moteGemState.inventory.set(targetTierId, record);
             
             // Track for floating feedback display
-            gemsToAward.set(gemTierId, (gemsToAward.get(gemTierId) || 0) + 1);
+            gemsToAward.set(targetTierId, (gemsToAward.get(targetTierId) || 0) + 1);
           }
+        } else {
+          // Other sizes should not reach here, but skip them if they do
+          return;
         }
         
-        // Create conversion animation entry for the two-tier forge jump.
+        // Create conversion animation entry for the tier jump.
         const conversionCount = 1;
         
         this.activeMerges.push({
           particles: [particle],
           targetX: this.forge.x,
           targetY: this.forge.y,
-          tierId: nextTier.id,
-          sizeIndex: LARGE_SIZE_INDEX, // Large particle output for forge jumps.
+          tierId: targetTierId,
+          sizeIndex: outputSizeIndex,
           startTime: Date.now(),
           isTierConversion: true,
           conversionCount: conversionCount
