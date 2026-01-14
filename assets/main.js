@@ -5189,7 +5189,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               // Special unlock for chapter story levels: unlock corresponding Ladder chapter and next Trial
               const chapterStoryMatch = level.id.match(/^([1-6]) - Story$/);
               if (chapterStoryMatch) {
-                const chapterNum = parseInt(chapterStoryMatch[1], 10);
+                const chapterNum = Number(chapterStoryMatch[1]);
                 // Unlock all Ladder levels for this chapter
                 for (let i = 1; i <= 5; i++) {
                   const ladderLevelId = `Ladder - ${chapterNum} - ${i}`;

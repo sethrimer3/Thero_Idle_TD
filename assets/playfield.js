@@ -2076,7 +2076,9 @@ export class SimplePlayfield {
       // Create a minimal path structure for the center point
       this.pathPoints = [centerPoint];
       this.pathSegments = [];
-      this.pathLength = 1; // Nominal length to avoid division by zero
+      // Use nominal length to avoid division by zero in progress calculations
+      const RADIAL_SPAWN_NOMINAL_LENGTH = 1;
+      this.pathLength = RADIAL_SPAWN_NOMINAL_LENGTH;
       this.tunnelSegments = [];
       this.trackRiverParticles = [];
       this.trackRiverTracerParticles = [];
@@ -8322,26 +8324,22 @@ export class SimplePlayfield {
         const offset = Math.random(); // Position along that edge
         
         let spawnX, spawnY;
-        switch (edge) {
-          case 0: // Top edge
-            spawnX = offset;
-            spawnY = 0;
-            break;
-          case 1: // Right edge
-            spawnX = 1;
-            spawnY = offset;
-            break;
-          case 2: // Bottom edge
-            spawnX = offset;
-            spawnY = 1;
-            break;
-          case 3: // Left edge
-            spawnX = 0;
-            spawnY = offset;
-            break;
-          default:
-            spawnX = 0.5;
-            spawnY = 0;
+        if (edge === 0) {
+          // Top edge
+          spawnX = offset;
+          spawnY = 0;
+        } else if (edge === 1) {
+          // Right edge
+          spawnX = 1;
+          spawnY = offset;
+        } else if (edge === 2) {
+          // Bottom edge
+          spawnX = offset;
+          spawnY = 1;
+        } else {
+          // Left edge (edge === 3)
+          spawnX = 0;
+          spawnY = offset;
         }
         
         // Store absolute spawn position for radial enemies
