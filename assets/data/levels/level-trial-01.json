@@ -1,0 +1,27 @@
+{
+  "id": "level-trial-01",
+  "name": "Convergence Nexus",
+  "description": "First trial - defend the Mind Gate at the center against waves from all directions",
+  "waves": "1:4A5.0e2/2.0|2:6A1.0e3/1.8|3:8A2.0e3/1.6|4:10A4.0e3/1.5|5:12A8.0e3/1.4|6:8B1.5e4+4A1.0e4/1.3|7:10B3.0e4+6A2.0e4/1.2|8:12B6.0e4+8A4.0e4/1.1|9:14B1.2e5+10A8.0e4/1.0|10:16B2.4e5+12A1.6e5/0.9",
+  "path": [
+    {
+      "x": 0.5,
+      "y": 0.5
+    }
+  ],
+  "centerSpawn": true,
+  "radialSpawn": true,
+  "autoAnchors": [],
+  "startThero": 200,
+  "lives": 15,
+  "gateDefense": 0,
+  "_documentation": {
+    "purpose": "Unique first trial with Mind Gate in center",
+    "mechanics": {
+      "centerSpawn": "Mind Gate is placed at center (0.5, 0.5)",
+      "radialSpawn": "Enemies spawn from edges and move toward center",
+      "path": "Single center point indicates gate position, not enemy path",
+      "waves": "Progressive difficulty starting easy"
+    }
+  }
+}
