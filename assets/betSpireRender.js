@@ -1123,14 +1123,23 @@ export class BetSpireRender {
     
     PARTICLE_TIERS.forEach((tier, tierIndex) => {
       const isNullstone = tier.id === 'nullstone';
-      // Can't convert the last two tiers when jumping two tiers ahead (nullstone can still be crunched).
-      if (!isNullstone && tierIndex >= PARTICLE_TIERS.length - 2) return;
       
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
         // Only medium and extra-large particles can be upgraded; nullstone can be crunched at any size.
         if (!isNullstone && particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
+        
+        // Check tier conversion limits based on particle size
+        if (!isNullstone) {
+          if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
+            // Extra-large particles jump 2 tiers, so can't convert last two tiers
+            if (tierIndex >= PARTICLE_TIERS.length - 2) return;
+          } else if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
+            // Medium particles jump 1 tier, so can't convert last tier
+            if (tierIndex >= PARTICLE_TIERS.length - 1) return;
+          }
+        }
         
         // Check if particle is within forge radius
         const dx = particle.x - this.forge.x;
