@@ -2066,7 +2066,7 @@ export class GravitySimulation {
     const centerYScaled = this.centerY / dpr;
     
     // Get current tier information
-    const { tier, nextTier, progress } = this.getCurrentTier();
+    const { tier, nextTier, progress, tierIndex } = this.getCurrentTier();
     
     // Calculate star visual radius based on mass
     // diameter = star_mass / sqrt(center_mass) (scaled for display)
@@ -2138,7 +2138,11 @@ export class GravitySimulation {
     // sunPhase2.svg = Main Sequence
     // sunPhase3-8.svg = subsequent phases
     if (this.spritesLoaded && this.sprites.sunPhases.length > 0) {
-      const sunPhaseIndex = Math.min(tier.tierIndex, this.sprites.sunPhases.length - 1);
+      // Use the resolved tier index so the sun sprite lookup stays aligned with mass thresholds.
+      const sunPhaseIndex = Math.min(
+        typeof tierIndex === 'number' ? tierIndex : 0,
+        this.sprites.sunPhases.length - 1,
+      );
       const sunSprite = this.sprites.sunPhases[sunPhaseIndex];
       
       if (sunSprite && sunSprite.complete) {
