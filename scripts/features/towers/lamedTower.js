@@ -338,9 +338,6 @@ export class GravitySimulation {
     // Schedule the first shooting star once RNG is available.
     this.scheduleNextShootingStar();
     
-    // Initialize asteroids after RNG is available
-    this.initializeAsteroids();
-    
     // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
     const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
     this.setSparkBank(initialSparkBank);
@@ -531,10 +528,8 @@ export class GravitySimulation {
       this.ctx.scale(dpr, dpr);
     }
     
-    // Reinitialize asteroids with new dimensions
-    if (this.asteroids.length === 0) {
-      this.initializeAsteroids();
-    }
+    // Initialize asteroids with new dimensions (always reinitialize to ensure correct positioning)
+    this.initializeAsteroids();
   }
   
   /**
@@ -708,7 +703,8 @@ export class GravitySimulation {
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const minimumRadius = Math.max(1, cssWidth / 900);
     const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
-    const massRatio = normalizedMass / Math.max(this.starMass, 1e-6);
+    // Multiply mass ratio by 100 to make stars 100x larger relative to the sun
+    const massRatio = (normalizedMass / Math.max(this.starMass, 1e-6)) * 100;
     return Math.max(minimumRadius, coreRadiusCss * massRatio);
   }
 
