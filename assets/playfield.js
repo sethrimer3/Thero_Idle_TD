@@ -2052,9 +2052,42 @@ export class SimplePlayfield {
     if (
       !this.levelConfig ||
       !Array.isArray(this.levelConfig.path) ||
-      this.levelConfig.path.length < 2 ||
       !this.ctx
     ) {
+      this.pathSegments = [];
+      this.pathPoints = [];
+      this.pathLength = 0;
+      this.trackRiverParticles = [];
+      this.trackRiverTracerParticles = [];
+      this.trackRiverPulse = 0;
+      return;
+    }
+
+    // Handle radial spawn levels (single center point, no traditional path)
+    if (this.levelConfig.radialSpawn && this.levelConfig.centerSpawn && this.levelConfig.path.length === 1) {
+      const centerNode = this.levelConfig.path[0];
+      const centerPoint = {
+        x: centerNode.x * this.renderWidth,
+        y: centerNode.y * this.renderHeight,
+        speedMultiplier: 1,
+        tunnel: false,
+      };
+      
+      // Create a minimal path structure for the center point
+      this.pathPoints = [centerPoint];
+      this.pathSegments = [];
+      // Use nominal length to avoid division by zero in progress calculations
+      const RADIAL_SPAWN_NOMINAL_LENGTH = 1;
+      this.pathLength = RADIAL_SPAWN_NOMINAL_LENGTH;
+      this.tunnelSegments = [];
+      this.trackRiverParticles = [];
+      this.trackRiverTracerParticles = [];
+      this.trackRiverPulse = 0;
+      return;
+    }
+
+    // Normal path handling (2+ points required)
+    if (this.levelConfig.path.length < 2) {
       this.pathSegments = [];
       this.pathPoints = [];
       this.pathLength = 0;
@@ -8283,6 +8316,39 @@ export class SimplePlayfield {
         hpExponent,
         gemDropMultiplier,
       };
+      
+      // Support radial spawn mode for special trials where enemies spawn from edges
+      if (this.levelConfig.radialSpawn && this.levelConfig.centerSpawn) {
+        // Spawn enemy at random edge position
+        const edge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+        const offset = Math.random(); // Position along that edge
+        
+        let spawnX, spawnY;
+        if (edge === 0) {
+          // Top edge
+          spawnX = offset;
+          spawnY = 0;
+        } else if (edge === 1) {
+          // Right edge
+          spawnX = 1;
+          spawnY = offset;
+        } else if (edge === 2) {
+          // Bottom edge
+          spawnX = offset;
+          spawnY = 1;
+        } else {
+          // Left edge (edge === 3)
+          spawnX = 0;
+          spawnY = offset;
+        }
+        
+        // Store absolute spawn position for radial enemies
+        enemy.radialSpawnX = spawnX;
+        enemy.radialSpawnY = spawnY;
+        // Use direct path mode to move straight to center
+        enemy.pathMode = 'direct';
+      }
+      
       if (spawningBoss) {
         enemy.isBoss = true;
       }
@@ -11421,6 +11487,25 @@ export class SimplePlayfield {
   getEnemyPosition(enemy) {
     if (!enemy) {
       return { x: 0, y: 0 };
+    }
+
+    // Handle radial spawn enemies (spawn from edges, move to center)
+    if (enemy.radialSpawnX !== undefined && enemy.radialSpawnY !== undefined && this.levelConfig?.centerSpawn) {
+      // Get center position (should be at path[0] for radial levels)
+      const center = this.levelConfig.path && this.levelConfig.path.length > 0
+        ? { x: this.levelConfig.path[0].x * this.renderWidth, y: this.levelConfig.path[0].y * this.renderHeight }
+        : { x: this.renderWidth * 0.5, y: this.renderHeight * 0.5 };
+      
+      const start = {
+        x: enemy.radialSpawnX * this.renderWidth,
+        y: enemy.radialSpawnY * this.renderHeight
+      };
+      
+      const clamped = Math.max(0, Math.min(1, enemy.progress));
+      return {
+        x: start.x + (center.x - start.x) * clamped,
+        y: start.y + (center.y - start.y) * clamped,
+      };
     }
 
     if (enemy.pathMode === 'direct' && this.pathSegments.length) {

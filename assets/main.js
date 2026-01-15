@@ -5174,18 +5174,22 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               unlockNextInteractiveLevel(level.id);
               updateLevelCards();
               
-              // Special unlock for Prologue - Story: unlock Codex and Achievements tabs
+              // Special unlock for Prologue - Story: unlock Codex, Achievements, and first Trial
               if (level.id === 'Prologue - Story') {
                 unlockCodex();
                 unlockAchievements();
                 unlockCodexTab();
                 unlockAchievementsTab();
+                // Unlock first trial after completing prologue
+                if (isInteractiveLevel('Trial - 1')) {
+                  unlockLevel('Trial - 1');
+                }
               }
               
-              // Special unlock for chapter story levels: unlock corresponding Ladder chapter
+              // Special unlock for chapter story levels: unlock corresponding Ladder chapter and next Trial
               const chapterStoryMatch = level.id.match(/^([1-6]) - Story$/);
               if (chapterStoryMatch) {
-                const chapterNum = chapterStoryMatch[1];
+                const chapterNum = Number(chapterStoryMatch[1]);
                 // Unlock all Ladder levels for this chapter
                 for (let i = 1; i <= 5; i++) {
                   const ladderLevelId = `Ladder - ${chapterNum} - ${i}`;
@@ -5194,15 +5198,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                   }
                 }
                 
-                // Special unlock for 6 - Story: unlock Trials/Challenges campaign
-                if (level.id === '6 - Story') {
-                  // Unlock all Challenges/Trials levels
-                  interactiveLevelOrder.forEach((levelId) => {
-                    const levelInfo = levelLookup.get(levelId);
-                    if (levelInfo && levelInfo.campaign === 'Challenges') {
-                      unlockLevel(levelId);
-                    }
-                  });
+                // Unlock next trial after each chapter story (Trial 2-7 unlock after Chapters 1-6)
+                const nextTrialNum = chapterNum + 1;
+                if (nextTrialNum >= 2 && nextTrialNum <= 7) {
+                  const nextTrialId = `Trial - ${nextTrialNum}`;
+                  if (isInteractiveLevel(nextTrialId)) {
+                    unlockLevel(nextTrialId);
+                  }
                 }
               }
               
