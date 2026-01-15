@@ -50,6 +50,9 @@ const MAX_TRAIL_STARS = 50;
 /** Maximum decorative dust particle population when no stars are present. */
 const MAX_DUST_PARTICLES = 200;
 
+/** Multiplier to scale star size relative to sun mass for better visibility. */
+const STAR_SIZE_MULTIPLIER = 100;
+
 /**
  * Calculate a reduced star cap while honoring the minimum render floor.
  */
@@ -528,7 +531,8 @@ export class GravitySimulation {
       this.ctx.scale(dpr, dpr);
     }
     
-    // Initialize asteroids with new dimensions (always reinitialize to ensure correct positioning)
+    // Reinitialize asteroids whenever canvas dimensions change to ensure correct positioning.
+    // Asteroid orbits are calculated based on canvas size, so they must be recreated on resize.
     this.initializeAsteroids();
   }
   
@@ -703,8 +707,8 @@ export class GravitySimulation {
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const minimumRadius = Math.max(1, cssWidth / 900);
     const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
-    // Multiply mass ratio by 100 to make stars 100x larger relative to the sun
-    const massRatio = (normalizedMass / Math.max(this.starMass, 1e-6)) * 100;
+    // Apply size multiplier to make stars more visible relative to the sun
+    const massRatio = (normalizedMass / Math.max(this.starMass, 1e-6)) * STAR_SIZE_MULTIPLIER;
     return Math.max(minimumRadius, coreRadiusCss * massRatio);
   }
 
