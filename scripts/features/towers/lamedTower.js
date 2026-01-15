@@ -51,6 +51,19 @@ const MAX_TRAIL_STARS = 50;
 const MAX_DUST_PARTICLES = 200;
 
 /**
+ * Multiplier to scale star size relative to sun mass for better visibility.
+ * 
+ * This multiplier makes orbiting stars visible by scaling them up relative to the sun.
+ * For example, if the sun has mass 5000 and a star has mass 50:
+ * - Without multiplier: star would be 1% the size of the sun (barely visible)
+ * - With multiplier of 100: star is 100% the size of the sun (clearly visible)
+ * 
+ * This multiplier applies to all orbiting stars rendered in the simulation.
+ * It does not affect the sun's size or any UI elements.
+ */
+const STAR_SIZE_MULTIPLIER = 100;
+
+/**
  * Calculate a reduced star cap while honoring the minimum render floor.
  */
 function resolveReducedStarCap(maxStars) {
@@ -338,9 +351,6 @@ export class GravitySimulation {
     // Schedule the first shooting star once RNG is available.
     this.scheduleNextShootingStar();
     
-    // Initialize asteroids after RNG is available
-    this.initializeAsteroids();
-    
     // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
     const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
     this.setSparkBank(initialSparkBank);
@@ -531,10 +541,9 @@ export class GravitySimulation {
       this.ctx.scale(dpr, dpr);
     }
     
-    // Reinitialize asteroids with new dimensions
-    if (this.asteroids.length === 0) {
-      this.initializeAsteroids();
-    }
+    // Reinitialize asteroids whenever canvas dimensions change to ensure correct positioning.
+    // Asteroid orbits are calculated based on canvas size, so they must be recreated on resize.
+    this.initializeAsteroids();
   }
   
   /**
@@ -601,8 +610,15 @@ export class GravitySimulation {
    * Initialize 5 asteroids at random orbital distances.
    * Asteroids face upward in their sprites and should rotate to face the sun.
    * Each asteroid maintains its fixed orbit distance.
+   * 
+   * Note: This method requires this.rng to be initialized and valid canvas dimensions.
    */
   initializeAsteroids() {
+    // Ensure RNG is available before initializing asteroids
+    if (!this.rng) {
+      return;
+    }
+    
     this.asteroids = [];
     const dpr = this.getEffectiveDevicePixelRatio();
     
@@ -708,7 +724,8 @@ export class GravitySimulation {
     const cssWidth = this.cssWidth || (this.width / dpr) || 0;
     const minimumRadius = Math.max(1, cssWidth / 900);
     const normalizedMass = Math.max(0, Number.isFinite(starMass) ? starMass : 0);
-    const massRatio = normalizedMass / Math.max(this.starMass, 1e-6);
+    // Apply size multiplier to make stars more visible relative to the sun
+    const massRatio = (normalizedMass / Math.max(this.starMass, 1e-6)) * STAR_SIZE_MULTIPLIER;
     return Math.max(minimumRadius, coreRadiusCss * massRatio);
   }
 
