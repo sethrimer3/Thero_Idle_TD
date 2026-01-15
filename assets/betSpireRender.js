@@ -1127,16 +1127,19 @@ export class BetSpireRender {
       this.particles.forEach(particle => {
         if (particle.tierId !== tier.id || particle.merging) return;
         
-        // Only medium and extra-large particles can be upgraded; nullstone can be crunched at any size.
-        if (!isNullstone && particle.sizeIndex !== MEDIUM_SIZE_INDEX && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
+        // Only medium, large, and extra-large particles can be upgraded; nullstone can be crunched at any size.
+        if (!isNullstone
+          && particle.sizeIndex !== MEDIUM_SIZE_INDEX
+          && particle.sizeIndex !== LARGE_SIZE_INDEX
+          && particle.sizeIndex !== EXTRA_LARGE_SIZE_INDEX) return;
         
         // Check tier conversion limits based on particle size
         if (!isNullstone) {
           if (particle.sizeIndex === EXTRA_LARGE_SIZE_INDEX) {
             // Extra-large particles jump 2 tiers, so can't convert last two tiers
             if (tierIndex >= PARTICLE_TIERS.length - 2) return;
-          } else if (particle.sizeIndex === MEDIUM_SIZE_INDEX) {
-            // Medium particles jump 1 tier, so can't convert last tier
+          } else if (particle.sizeIndex === MEDIUM_SIZE_INDEX || particle.sizeIndex === LARGE_SIZE_INDEX) {
+            // Medium/large particles jump 1 tier, so can't convert last tier
             if (tierIndex >= PARTICLE_TIERS.length - 1) return;
           }
         }
@@ -1290,6 +1293,14 @@ export class BetSpireRender {
           targetTierIndex = tierIndex + 1;
           outputSizeIndex = SMALL_SIZE_INDEX;
           
+          // Check if we can upgrade (not at the last tier)
+          if (targetTierIndex >= PARTICLE_TIERS.length) return;
+          targetTierId = PARTICLE_TIERS[targetTierIndex].id;
+        } else if (particle.sizeIndex === LARGE_SIZE_INDEX) {
+          // Large particles: jump 1 tier up and output medium particles.
+          targetTierIndex = tierIndex + 1;
+          outputSizeIndex = MEDIUM_SIZE_INDEX;
+
           // Check if we can upgrade (not at the last tier)
           if (targetTierIndex >= PARTICLE_TIERS.length) return;
           targetTierId = PARTICLE_TIERS[targetTierIndex].id;
