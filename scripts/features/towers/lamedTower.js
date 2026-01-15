@@ -2197,7 +2197,7 @@ export class GravitySimulation {
     }
     
     if (!sunSpriteDrawn) {
-      // Final fallback to solid color when neither sprite nor procedural texture is available
+      // Final fallback to solid color when previous rendering attempts failed
       ctx.fillStyle = tier.color;
       ctx.beginPath();
       ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
