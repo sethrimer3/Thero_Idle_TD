@@ -29,6 +29,8 @@ const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
 const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).svg';
+const CACHE_MAX_SIZE = 500; // Maximum number of cached colored sprites
+const BRIGHTNESS_PRECISION = 10; // Rounding precision for brightness in cache keys
 
 // Sprite and cache management
 const shardSprites = []; // Array of loaded Image objects
@@ -97,7 +99,7 @@ function getColoredShardSprite(spriteIndex, color, brightness) {
   }
 
   // Create cache key based on sprite index, color, and brightness (rounded to reduce cache size)
-  const brightnessRounded = Math.round(brightness * 10) / 10;
+  const brightnessRounded = Math.round(brightness * BRIGHTNESS_PRECISION) / BRIGHTNESS_PRECISION;
   const cacheKey = `${spriteIndex}_${color.r}_${color.g}_${color.b}_${brightnessRounded}`;
 
   // Return cached version if available
@@ -138,7 +140,7 @@ function getColoredShardSprite(spriteIndex, color, brightness) {
   ctx.putImageData(imageData, 0, 0);
 
   // Cache the colored sprite (limit cache size)
-  if (shardSpriteCache.size > 500) {
+  if (shardSpriteCache.size > CACHE_MAX_SIZE) {
     // Remove oldest entry when cache gets too large
     const firstKey = shardSpriteCache.keys().next().value;
     shardSpriteCache.delete(firstKey);
@@ -183,7 +185,7 @@ class CrystallineCell {
     this.colorShift = colorStop; // Track the animated gradient position.
     this.alphaBase = ALPHA_BASE + Math.random() * ALPHA_VARIATION; // Cache alpha for steady translucency.
     
-    // Random sprite selection (1-based index)
+    // Random sprite selection (0-based index for the array)
     this.spriteIndex = Math.floor(Math.random() * SHARD_SPRITE_COUNT);
     
     // Random rotation for variety
