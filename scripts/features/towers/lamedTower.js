@@ -50,7 +50,17 @@ const MAX_TRAIL_STARS = 50;
 /** Maximum decorative dust particle population when no stars are present. */
 const MAX_DUST_PARTICLES = 200;
 
-/** Multiplier to scale star size relative to sun mass for better visibility. */
+/**
+ * Multiplier to scale star size relative to sun mass for better visibility.
+ * 
+ * This multiplier makes orbiting stars visible by scaling them up relative to the sun.
+ * For example, if the sun has mass 5000 and a star has mass 50:
+ * - Without multiplier: star would be 1% the size of the sun (barely visible)
+ * - With multiplier of 100: star is 100% the size of the sun (clearly visible)
+ * 
+ * This multiplier applies to all orbiting stars rendered in the simulation.
+ * It does not affect the sun's size or any UI elements.
+ */
 const STAR_SIZE_MULTIPLIER = 100;
 
 /**
@@ -600,8 +610,15 @@ export class GravitySimulation {
    * Initialize 5 asteroids at random orbital distances.
    * Asteroids face upward in their sprites and should rotate to face the sun.
    * Each asteroid maintains its fixed orbit distance.
+   * 
+   * Note: This method requires this.rng to be initialized and valid canvas dimensions.
    */
   initializeAsteroids() {
+    // Ensure RNG is available before initializing asteroids
+    if (!this.rng) {
+      return;
+    }
+    
     this.asteroids = [];
     const dpr = this.getEffectiveDevicePixelRatio();
     
