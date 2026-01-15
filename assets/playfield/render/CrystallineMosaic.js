@@ -3,6 +3,9 @@
  * Renders a mosaic of Voronoi-like polygon cells near the edge of the playing field,
  * using shades from the selected color palette gradient. Cells slowly fade in brightness
  * and drift along the color palette gradient for a dynamic crystalline effect.
+ * 
+ * Uses SVG sprites from assets/sprites/shards/ that are colored using the player's
+ * selected palette and cached for performance.
  */
 
 import { metersToPixels } from '../../gameUnits.js';
@@ -15,8 +18,6 @@ const EDGE_BAND_MIN_PIXELS = 80; // Ensure a minimum edge band thickness in pixe
 const CELL_SIZE_MIN = 28; // Minimum cell radius in pixels for polygon cells.
 const CELL_SIZE_MAX = 110; // Maximum cell radius in pixels for polygon cells.
 const CELL_DENSITY = 0.00035; // Polygon cells per square pixel (controls spacing).
-const CELL_VERTEX_MIN = 5; // Minimum number of polygon vertices per cell.
-const CELL_VERTEX_MAX = 8; // Maximum number of polygon vertices per cell.
 const CELL_SPACING_RATIO = 0.9; // Minimum spacing between seeds relative to cell size.
 const FADE_SPEED = 0.000018; // Slow the brightness/color fade animation.
 const BRIGHTNESS_MIN = 0.35; // Minimum brightness multiplier.
@@ -24,6 +25,138 @@ const BRIGHTNESS_MAX = 0.85; // Maximum brightness multiplier.
 const ALPHA_BASE = 0.16; // Base transparency for polygon cells.
 const ALPHA_VARIATION = 0.08; // Additional alpha variation for subtle depth.
 const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
+
+// Shard sprite configuration
+const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
+const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).svg';
+
+// Sprite and cache management
+const shardSprites = []; // Array of loaded Image objects
+const shardSpriteCache = new Map(); // Cache for colored sprite canvases
+let spritesLoaded = false;
+let spritesLoadingPromise = null;
+
+/**
+ * Load all shard SVG sprites
+ */
+function loadShardSprites() {
+  if (spritesLoadingPromise) {
+    return spritesLoadingPromise;
+  }
+
+  spritesLoadingPromise = new Promise((resolve) => {
+    let loadedCount = 0;
+    const totalCount = SHARD_SPRITE_COUNT;
+
+    for (let i = 1; i <= SHARD_SPRITE_COUNT; i++) {
+      const img = new Image();
+      const path = SHARD_SPRITE_PATH.replace('INDEX', i.toString());
+      
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === totalCount) {
+          spritesLoaded = true;
+          resolve();
+        }
+      };
+      
+      img.onerror = () => {
+        console.warn(`Failed to load shard sprite: ${path}`);
+        loadedCount++;
+        if (loadedCount === totalCount) {
+          spritesLoaded = true;
+          resolve();
+        }
+      };
+      
+      img.src = path;
+      img.decoding = 'async';
+      img.loading = 'eager';
+      shardSprites.push(img);
+    }
+  });
+
+  return spritesLoadingPromise;
+}
+
+/**
+ * Create a colored version of a shard sprite and cache it
+ * @param {number} spriteIndex - Index of the sprite to color
+ * @param {Object} color - RGB color object {r, g, b}
+ * @param {number} brightness - Brightness multiplier
+ * @returns {HTMLCanvasElement|null} Cached colored sprite canvas
+ */
+function getColoredShardSprite(spriteIndex, color, brightness) {
+  if (!spritesLoaded || spriteIndex < 0 || spriteIndex >= shardSprites.length) {
+    return null;
+  }
+
+  const sprite = shardSprites[spriteIndex];
+  if (!sprite || !sprite.complete || !sprite.naturalWidth) {
+    return null;
+  }
+
+  // Create cache key based on sprite index, color, and brightness (rounded to reduce cache size)
+  const brightnessRounded = Math.round(brightness * 10) / 10;
+  const cacheKey = `${spriteIndex}_${color.r}_${color.g}_${color.b}_${brightnessRounded}`;
+
+  // Return cached version if available
+  if (shardSpriteCache.has(cacheKey)) {
+    return shardSpriteCache.get(cacheKey);
+  }
+
+  // Create off-screen canvas for coloring the sprite
+  const canvas = document.createElement('canvas');
+  canvas.width = sprite.naturalWidth;
+  canvas.height = sprite.naturalHeight;
+  const ctx = canvas.getContext('2d');
+
+  // Draw the original sprite
+  ctx.drawImage(sprite, 0, 0);
+
+  // Apply color tinting using composite operations
+  // The SVG sprites are black and white, so we can colorize them
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  // Apply color and brightness to each pixel
+  const r = Math.floor(color.r * brightness);
+  const g = Math.floor(color.g * brightness);
+  const b = Math.floor(color.b * brightness);
+
+  for (let i = 0; i < data.length; i += 4) {
+    // Get the grayscale value (use red channel as they're B&W)
+    const gray = data[i] / 255;
+    
+    // Apply color based on grayscale value
+    data[i] = r * gray;     // Red
+    data[i + 1] = g * gray; // Green
+    data[i + 2] = b * gray; // Blue
+    // Alpha (data[i + 3]) remains unchanged
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  // Cache the colored sprite (limit cache size)
+  if (shardSpriteCache.size > 500) {
+    // Remove oldest entry when cache gets too large
+    const firstKey = shardSpriteCache.keys().next().value;
+    shardSpriteCache.delete(firstKey);
+  }
+  shardSpriteCache.set(cacheKey, canvas);
+
+  return canvas;
+}
+
+/**
+ * Clear the sprite cache (useful when color scheme changes)
+ */
+export function clearShardSpriteCache() {
+  shardSpriteCache.clear();
+}
+
+// Start loading sprites immediately
+loadShardSprites();
 
 // Cell health and destruction constants
 const CELL_MAX_HEALTH = 50; // Health points for each cell
@@ -36,20 +169,25 @@ let cellIdCounter = 0;
 
 /**
  * Polygon cell representing a single crystalline Voronoi-like region.
- * Now targetable and destructible by towers.
+ * Now uses SVG sprites that are colored with the palette.
+ * Targetable and destructible by towers.
  */
 class CrystallineCell {
-  constructor(x, y, size, colorStop, phase, vertexCount) {
+  constructor(x, y, size, colorStop, phase) {
     this.x = x;
     this.y = y;
     this.size = size;
     this.colorStop = colorStop; // Base position along gradient (0-1).
     this.phase = phase; // Animation phase offset.
-    this.vertexCount = vertexCount;
     this.brightness = BRIGHTNESS_MIN + Math.random() * (BRIGHTNESS_MAX - BRIGHTNESS_MIN);
-    this.vertices = this.buildCellVertices(); // Cache vertices for a stable interlocking feel.
     this.colorShift = colorStop; // Track the animated gradient position.
     this.alphaBase = ALPHA_BASE + Math.random() * ALPHA_VARIATION; // Cache alpha for steady translucency.
+    
+    // Random sprite selection (1-based index)
+    this.spriteIndex = Math.floor(Math.random() * SHARD_SPRITE_COUNT);
+    
+    // Random rotation for variety
+    this.rotation = Math.random() * Math.PI * 2;
     
     // Targetable properties
     this.id = `cell_${cellIdCounter++}`; // Unique identifier
@@ -58,24 +196,6 @@ class CrystallineCell {
     this.isDestroyed = false;
     this.destroyStartTime = null;
     this.hitRadius = size; // Use size as hit detection radius
-  }
-
-  /**
-   * Build the polygon vertices for a Voronoi-like cell silhouette.
-   */
-  buildCellVertices() {
-    // Randomize vertex angles to mimic irregular Voronoi edges.
-    const angles = [];
-    for (let i = 0; i < this.vertexCount; i += 1) {
-      angles.push(Math.random() * Math.PI * 2);
-    }
-    angles.sort((a, b) => a - b);
-
-    // Scale each radius slightly to create a faceted cell edge.
-    return angles.map((angle) => ({
-      angle,
-      radius: this.size * (0.7 + Math.random() * 0.35),
-    }));
   }
 
   /**
@@ -133,7 +253,7 @@ class CrystallineCell {
   }
 
   /**
-   * Render the polygon cell to the canvas.
+   * Render the cell using SVG sprite to the canvas.
    */
   draw(ctx, paletteColor, showHealthBar = false) {
     if (this.isDestroyed) {
@@ -148,6 +268,7 @@ class CrystallineCell {
     
     ctx.save();
     ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
 
     // Apply brightness multiplier to the palette color.
     const r = Math.floor(paletteColor.r * this.brightness);
@@ -155,26 +276,32 @@ class CrystallineCell {
     const b = Math.floor(paletteColor.b * this.brightness);
     const alpha = this.alphaBase + 0.05 * Math.sin(this.phase * 0.4);
 
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    // Get colored sprite from cache
+    const coloredSprite = getColoredShardSprite(this.spriteIndex, { r, g, b }, this.brightness);
     
-    // Draw irregular polygon to mimic a Voronoi cell.
-    ctx.beginPath();
-    this.vertices.forEach((vertex, index) => {
-      const vx = Math.cos(vertex.angle) * vertex.radius;
-      const vy = Math.sin(vertex.angle) * vertex.radius;
-      if (index === 0) {
-        ctx.moveTo(vx, vy);
-      } else {
-        ctx.lineTo(vx, vy);
-      }
-    });
-    ctx.closePath();
-    ctx.fill();
-
-    // Subtle stroke for definition - make it more visible for unified appearance.
-    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.8})`;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    if (coloredSprite) {
+      // Calculate scale to fit the desired size
+      const spriteSize = Math.max(coloredSprite.width, coloredSprite.height);
+      const scale = (this.size * 2) / spriteSize;
+      
+      // Apply alpha
+      ctx.globalAlpha *= alpha;
+      
+      // Draw the colored sprite centered
+      ctx.drawImage(
+        coloredSprite,
+        -coloredSprite.width * scale / 2,
+        -coloredSprite.height * scale / 2,
+        coloredSprite.width * scale,
+        coloredSprite.height * scale
+      );
+    } else {
+      // Fallback: draw a simple polygon if sprites aren't loaded yet
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
     // Draw health bar if requested and cell is damaged
     if (showHealthBar && this.health < this.maxHealth && !this.isDestroyed) {
@@ -350,10 +477,8 @@ export class CrystallineMosaicManager {
       }
       const colorStop = Math.random(); // Position along gradient.
       const phase = Math.random() * Math.PI * 2; // Random animation phase.
-      const vertexCount =
-        CELL_VERTEX_MIN + Math.floor(Math.random() * (CELL_VERTEX_MAX - CELL_VERTEX_MIN + 1));
       
-      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase, vertexCount));
+      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase));
     }
     
     this.needsRegeneration = false;
@@ -481,7 +606,7 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Render all polygon cells with unified appearance.
+   * Render all cells with SVG sprites using unified appearance.
    */
   render(ctx, viewBounds, pathPoints, pathVersion, focusedCellId = null) {
     if (!this.enabled) {
@@ -554,14 +679,15 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Force regeneration of triangles (e.g., when color scheme changes)
+   * Force regeneration of cells (e.g., when color scheme changes)
    */
   forceRegeneration() {
     this.needsRegeneration = true;
+    clearShardSpriteCache(); // Clear cache when color scheme changes
   }
 
   /**
-   * Clear all triangles
+   * Clear all cells
    */
   clear() {
     this.cells = [];
