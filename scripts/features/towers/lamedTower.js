@@ -2154,6 +2154,7 @@ export class GravitySimulation {
     // sunPhase1.svg = pre-Main sequence (Proto-star)
     // sunPhase2.svg = Main Sequence
     // sunPhase3-8.svg = subsequent phases
+    let sunSpriteDrawn = false;
     if (this.spritesLoaded && this.sprites.sunPhases.length > 0) {
       // Use the resolved tier index so the sun sprite lookup stays aligned with mass thresholds.
       const sunPhaseIndex = Math.min(
@@ -2174,8 +2175,11 @@ export class GravitySimulation {
           coreRadius * 2
         );
         ctx.restore();
+        sunSpriteDrawn = true;
       }
-    } else if (this.surfaceCanvas) {
+    }
+    
+    if (!sunSpriteDrawn && this.surfaceCanvas) {
       // Fallback to procedural texture
       ctx.save();
       ctx.beginPath();
@@ -2189,8 +2193,11 @@ export class GravitySimulation {
         coreRadius * 2
       );
       ctx.restore();
-    } else {
-      // Final fallback to solid color
+      sunSpriteDrawn = true;
+    }
+    
+    if (!sunSpriteDrawn) {
+      // Final fallback to solid color when previous rendering attempts failed
       ctx.fillStyle = tier.color;
       ctx.beginPath();
       ctx.arc(centerXScaled, centerYScaled, coreRadius, 0, Math.PI * 2);
