@@ -83,6 +83,8 @@ import {
   rotateNormalizedPointClockwise,
   applyLevelOrientation,
 } from './playfield/orientationController.js';
+// Offset radial spawns beyond the playfield so they begin off-screen even at max zoom out.
+const RADIAL_SPAWN_OFFSCREEN_MARGIN = 0.08;
 import {
   updateAlphaBursts as updateAlphaBurstsHelper,
 } from '../scripts/features/towers/alphaTower.js';
@@ -8322,23 +8324,25 @@ export class SimplePlayfield {
         // Spawn enemy at random edge position
         const edge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
         const offset = Math.random(); // Position along that edge
+        // Push spawns beyond the border so they originate off-screen at the widest view.
+        const spawnMargin = RADIAL_SPAWN_OFFSCREEN_MARGIN;
         
         let spawnX, spawnY;
         if (edge === 0) {
           // Top edge
           spawnX = offset;
-          spawnY = 0;
+          spawnY = -spawnMargin;
         } else if (edge === 1) {
           // Right edge
-          spawnX = 1;
+          spawnX = 1 + spawnMargin;
           spawnY = offset;
         } else if (edge === 2) {
           // Bottom edge
           spawnX = offset;
-          spawnY = 1;
+          spawnY = 1 + spawnMargin;
         } else {
           // Left edge (edge === 3)
-          spawnX = 0;
+          spawnX = -spawnMargin;
           spawnY = offset;
         }
         

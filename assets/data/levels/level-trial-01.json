@@ -19,7 +19,7 @@
     "purpose": "Unique first trial with Mind Gate in center",
     "mechanics": {
       "centerSpawn": "Mind Gate is placed at center (0.5, 0.5)",
-      "radialSpawn": "Enemies spawn from edges and move toward center",
+      "radialSpawn": "Enemies spawn from off-screen edges and move toward center",
       "path": "Single center point indicates gate position, not enemy path",
       "waves": "Progressive difficulty starting easy"
     }
