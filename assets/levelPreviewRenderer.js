@@ -168,6 +168,10 @@ export function getPreviewPointsForLevel(level, levelConfigs) {
     return null;
   }
   const config = levelConfigs?.get(level.id);
+  // Suppress track previews for radial-spawn trials that have no defined glyph lane.
+  if (config?.radialSpawn && config?.centerSpawn) {
+    return null;
+  }
   if (config && Array.isArray(config.path) && config.path.length >= 2) {
     return config.path.map((point) => ({ x: point.x, y: point.y }));
   }
@@ -568,4 +572,3 @@ export function createLevelPreviewRenderer({
     clear: clearPreview,
   };
 }
-
