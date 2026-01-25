@@ -7958,8 +7958,8 @@ body.playfield-fullscreen .playfield canvas {
 /* Firefly-style sparkles for unclaimed achievements and buttons. */
 .achievement-sparkle {
   position: absolute;
-  width: 6px;
-  height: 6px;
+  width: var(--sparkle-size, 6px);
+  height: var(--sparkle-size, 6px);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 236, 170, 0.95) 0%, rgba(255, 208, 110, 0.7) 45%, rgba(255, 208, 110, 0) 70%);
   box-shadow: 0 0 10px rgba(255, 221, 130, 0.8);

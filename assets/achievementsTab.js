@@ -123,11 +123,17 @@ function createAchievementSparkle(host) {
 
   const hostWidth = host.clientWidth || 1;
   const hostHeight = host.clientHeight || 1;
-  const size = 6;
-  const left = Math.random() * Math.max(1, hostWidth - size);
-  const top = Math.random() * Math.max(1, hostHeight - size);
-  const driftX = (Math.random() - 0.5) * 32;
-  const driftY = (Math.random() - 0.5) * 26 - 8;
+  const size = 6 * 0.75;
+  // Keep sparkles clustered near the text center for clearer menu legibility.
+  const centerX = hostWidth * 0.5;
+  const centerY = hostHeight * 0.5;
+  const offsetX = (Math.random() - 0.5) * hostWidth * 0.35;
+  const offsetY = (Math.random() - 0.5) * hostHeight * 0.35;
+  const left = Math.min(Math.max(0, centerX + offsetX - size * 0.5), hostWidth - size);
+  const top = Math.min(Math.max(0, centerY + offsetY - size * 0.5), hostHeight - size);
+  // Keep menu sparkles stationary to avoid distracting motion on menu pages.
+  const driftX = 0;
+  const driftY = 0;
   const scale = 0.6 + Math.random() * 0.7;
   const duration = SPARKLE_MIN_DURATION_MS + Math.random() * (SPARKLE_MAX_DURATION_MS - SPARKLE_MIN_DURATION_MS);
 
@@ -135,6 +141,7 @@ function createAchievementSparkle(host) {
   sparkle.style.top = `${top}px`;
   sparkle.style.setProperty('--sparkle-dx', `${driftX}px`);
   sparkle.style.setProperty('--sparkle-dy', `${driftY}px`);
+  sparkle.style.setProperty('--sparkle-size', `${size}px`);
   sparkle.style.setProperty('--sparkle-scale', scale.toFixed(2));
   sparkle.style.setProperty('--sparkle-duration', `${duration.toFixed(0)}ms`);
 
