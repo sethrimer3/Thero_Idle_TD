@@ -754,10 +754,22 @@ export class SimplePlayfield {
     const maxHp = Number.isFinite(enemy.maxHp)
       ? Math.max(1, enemy.maxHp)
       : Math.max(1, Number.isFinite(enemyHpBefore) ? enemyHpBefore : 1);
-    const relativeDamage = Math.min(1, damage / maxHp);
-    const impactScale = 1 + relativeDamage;
-    const fontSize = baseFontSize * impactScale * 0.5;
-    const outlineAlpha = relativeDamage;
+    
+    // In Remaining Life mode, use consistent visual styling without impact scaling
+    let fontSize, outlineAlpha;
+    if (mode === DAMAGE_NUMBER_MODES.REMAINING) {
+      // For remaining life, use base font size scaled by the magnitude of remaining HP
+      fontSize = baseFontSize * 0.5;
+      // Use a neutral outline alpha for remaining life display
+      outlineAlpha = 0.4;
+    } else {
+      // For damage numbers, scale by impact
+      const relativeDamage = Math.min(1, damage / maxHp);
+      const impactScale = 1 + relativeDamage;
+      fontSize = baseFontSize * impactScale * 0.5;
+      outlineAlpha = relativeDamage;
+    }
+    
     const initialSpeed = 110 + Math.random() * 45;
     const entry = {
       id: (this.damageNumberIdCounter += 1),

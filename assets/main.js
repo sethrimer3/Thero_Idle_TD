@@ -3417,6 +3417,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     handleNotationFallback: refreshNotationDisplays,
     applyGlyphEquationPreference,
     applyDamageNumberPreference,
+    applyDamageNumberMode,
     applyWaveKillTallyPreference,
     applyWaveDamageTallyPreference,
     applyTrackTracerPreference,
