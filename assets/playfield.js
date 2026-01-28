@@ -53,7 +53,7 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
+import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import {
@@ -721,7 +721,22 @@ export class SimplePlayfield {
     if (!enemyPosition) {
       return;
     }
-    const label = formatCombatNumber(damage);
+    
+    // Determine what value to display based on the mode
+    const mode = getDamageNumberMode();
+    let displayValue = damage;
+    if (mode === DAMAGE_NUMBER_MODES.REMAINING) {
+      // In "Remaining Life" mode, show the remaining HP after damage
+      displayValue = Math.max(0, Number.isFinite(enemy.hp) ? enemy.hp : 0);
+      
+      // Clear previous damage numbers for this enemy to avoid confusion
+      // This is specific to "Remaining Life" mode
+      if (enemy.id) {
+        this.damageNumbers = this.damageNumbers.filter(entry => entry.enemyId !== enemy.id);
+      }
+    }
+    
+    const label = formatCombatNumber(displayValue);
     if (!label) {
       return;
     }
@@ -733,16 +748,28 @@ export class SimplePlayfield {
       y: enemyPosition.y + direction.y * offsetDistance,
     };
     const gradientSample = samplePaletteGradient(Math.random());
-    const magnitude = Math.max(0, Math.log10(Math.max(1, damage)));
+    const magnitude = Math.max(0, Math.log10(Math.max(1, displayValue)));
     const baseFontSize = Math.min(28, 16 + magnitude * 2.6);
     // Scale the display based on how much of the enemy's total health the hit removed.
     const maxHp = Number.isFinite(enemy.maxHp)
       ? Math.max(1, enemy.maxHp)
       : Math.max(1, Number.isFinite(enemyHpBefore) ? enemyHpBefore : 1);
-    const relativeDamage = Math.min(1, damage / maxHp);
-    const impactScale = 1 + relativeDamage;
-    const fontSize = baseFontSize * impactScale * 0.5;
-    const outlineAlpha = relativeDamage;
+    
+    // In Remaining Life mode, use consistent visual styling without impact scaling
+    let fontSize, outlineAlpha;
+    if (mode === DAMAGE_NUMBER_MODES.REMAINING) {
+      // For remaining life, use base font size scaled by the magnitude of remaining HP
+      fontSize = baseFontSize * 0.5;
+      // Use a neutral outline alpha for remaining life display
+      outlineAlpha = 0.4;
+    } else {
+      // For damage numbers, scale by impact
+      const relativeDamage = Math.min(1, damage / maxHp);
+      const impactScale = 1 + relativeDamage;
+      fontSize = baseFontSize * impactScale * 0.5;
+      outlineAlpha = relativeDamage;
+    }
+    
     const initialSpeed = 110 + Math.random() * 45;
     const entry = {
       id: (this.damageNumberIdCounter += 1),
@@ -759,6 +786,8 @@ export class SimplePlayfield {
       alpha: 1,
       // Store how intense the outline highlight should be for this impact.
       outlineAlpha,
+      // Store enemy ID for "Remaining Life" mode to allow clearing previous numbers
+      enemyId: mode === DAMAGE_NUMBER_MODES.REMAINING && enemy.id ? enemy.id : null,
     };
     this.damageNumbers.push(entry);
     const maxEntries = 90;

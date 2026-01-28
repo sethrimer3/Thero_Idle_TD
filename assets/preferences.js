@@ -11,6 +11,7 @@ import {
   NOTATION_STORAGE_KEY,
   GLYPH_EQUATIONS_STORAGE_KEY,
   DAMAGE_NUMBER_TOGGLE_STORAGE_KEY,
+  DAMAGE_NUMBER_MODE_STORAGE_KEY,
   WAVE_KILL_TALLY_STORAGE_KEY,
   WAVE_DAMAGE_TALLY_STORAGE_KEY,
   GRAPHICS_MODE_STORAGE_KEY,
@@ -50,6 +51,14 @@ let glyphEquationToggleStateLabel = null;
 let damageNumbersEnabled = true;
 let damageNumberToggleInput = null;
 let damageNumberToggleStateLabel = null;
+
+// Damage number display mode: 'damage' shows damage dealt, 'remaining' shows remaining HP
+export const DAMAGE_NUMBER_MODES = Object.freeze({
+  DAMAGE: 'damage',
+  REMAINING: 'remaining',
+});
+let damageNumberMode = DAMAGE_NUMBER_MODES.DAMAGE;
+let damageNumberModeButton = null;
 
 // Toggle state for the wave kill tally overlay.
 let waveKillTalliesEnabled = true;
@@ -266,6 +275,14 @@ function updateDamageNumberToggleUi() {
   }
 }
 
+// Update the damage number mode button to reflect the current mode.
+function updateDamageNumberModeUi() {
+  if (damageNumberModeButton) {
+    const modeLabel = damageNumberMode === DAMAGE_NUMBER_MODES.REMAINING ? 'Remaining Life' : 'Damage Numbers';
+    damageNumberModeButton.textContent = `Damage Display · ${modeLabel}`;
+  }
+}
+
 // Synchronize the wave kill tally toggle control with the in-memory state.
 function updateWaveKillTallyToggleUi() {
   if (waveKillTallyToggleInput) {
@@ -367,6 +384,20 @@ export function bindDamageNumberToggle() {
   updateDamageNumberToggleUi();
 }
 
+/**
+ * Bind the damage number mode toggle button (Damage Numbers vs Remaining Life).
+ */
+export function bindDamageNumberModeToggle() {
+  damageNumberModeButton = document.getElementById('damage-number-mode-button');
+  if (!damageNumberModeButton) {
+    return;
+  }
+  damageNumberModeButton.addEventListener('click', () => {
+    toggleDamageNumberMode();
+  });
+  updateDamageNumberModeUi();
+}
+
 export function applyDamageNumberPreference(preference, { persist = true } = {}) {
   const enabled = normalizeDamageNumberPreference(preference);
   damageNumbersEnabled = enabled;
@@ -381,6 +412,40 @@ export function applyDamageNumberPreference(preference, { persist = true } = {})
     writeStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY, damageNumbersEnabled ? '1' : '0');
   }
   return damageNumbersEnabled;
+}
+
+/**
+ * Apply the damage number display mode (damage vs remaining life).
+ * @param {string} mode - 'damage' or 'remaining'
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.persist - Whether to persist to storage
+ * @returns {string} - Applied mode
+ */
+export function applyDamageNumberMode(mode, { persist = true } = {}) {
+  if (mode !== DAMAGE_NUMBER_MODES.DAMAGE && mode !== DAMAGE_NUMBER_MODES.REMAINING) {
+    mode = DAMAGE_NUMBER_MODES.DAMAGE;
+  }
+  damageNumberMode = mode;
+  updateDamageNumberModeUi();
+  // Clear existing damage numbers when switching modes to avoid confusion
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.clearDamageNumbers === 'function') {
+    playfield.clearDamageNumbers();
+  }
+  if (persist) {
+    writeStorage(DAMAGE_NUMBER_MODE_STORAGE_KEY, damageNumberMode);
+  }
+  return damageNumberMode;
+}
+
+/**
+ * Cycle to the next damage number mode.
+ */
+export function toggleDamageNumberMode() {
+  const next = damageNumberMode === DAMAGE_NUMBER_MODES.DAMAGE
+    ? DAMAGE_NUMBER_MODES.REMAINING
+    : DAMAGE_NUMBER_MODES.DAMAGE;
+  applyDamageNumberMode(next);
 }
 
 /**
@@ -868,6 +933,14 @@ export function areGlyphEquationsVisible() {
 
 export function areDamageNumbersEnabled() {
   return damageNumbersEnabled;
+}
+
+/**
+ * Get the current damage number display mode.
+ * @returns {'damage'|'remaining'} - Current mode
+ */
+export function getDamageNumberMode() {
+  return damageNumberMode;
 }
 
 /**
