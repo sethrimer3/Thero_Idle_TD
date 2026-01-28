@@ -64,7 +64,9 @@ import {
   bindGlyphEquationToggle,
   applyGlyphEquationPreference,
   applyDamageNumberPreference,
+  applyDamageNumberMode,
   bindDamageNumberToggle,
+  bindDamageNumberModeToggle,
   applyWaveKillTallyPreference,
   applyWaveDamageTallyPreference,
   bindWaveKillTallyToggle,
@@ -6173,6 +6175,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindNotationToggle();
     bindGlyphEquationToggle();
     bindDamageNumberToggle();
+    bindDamageNumberModeToggle();
     bindWaveKillTallyToggle();
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();

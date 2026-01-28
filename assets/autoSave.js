@@ -9,6 +9,8 @@ export const NOTATION_STORAGE_KEY = 'glyph-defense-idle:notation';
 export const GLYPH_EQUATIONS_STORAGE_KEY = 'glyph-defense-idle:glyph-equations';
 // Storage key used to persist combat damage number visibility.
 export const DAMAGE_NUMBER_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:damage-numbers';
+// Storage key used to persist the damage number display mode (damage vs remaining life).
+export const DAMAGE_NUMBER_MODE_STORAGE_KEY = 'glyph-defense-idle:damage-number-mode';
 // Storage key used to persist the wave kill tally overlay preference.
 export const WAVE_KILL_TALLY_STORAGE_KEY = 'glyph-defense-idle:wave-kill-tallies';
 // Storage key used to persist the wave damage tally overlay preference.
@@ -285,6 +287,13 @@ export function loadPersistentState() {
     const storedDamageNumbers = readStorage(DAMAGE_NUMBER_TOGGLE_STORAGE_KEY);
     if (storedDamageNumbers !== null) {
       dependencies.applyDamageNumberPreference(storedDamageNumbers, { persist: false });
+    }
+  }
+
+  if (typeof dependencies.applyDamageNumberMode === 'function') {
+    const storedDamageNumberMode = readStorage(DAMAGE_NUMBER_MODE_STORAGE_KEY);
+    if (storedDamageNumberMode !== null) {
+      dependencies.applyDamageNumberMode(storedDamageNumberMode, { persist: false });
     }
   }
 

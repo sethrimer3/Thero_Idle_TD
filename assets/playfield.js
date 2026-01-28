@@ -53,7 +53,7 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled, getFrameRateLimit, updateFpsCounter } from './preferences.js';
+import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import {
@@ -721,7 +721,22 @@ export class SimplePlayfield {
     if (!enemyPosition) {
       return;
     }
-    const label = formatCombatNumber(damage);
+    
+    // Determine what value to display based on the mode
+    const mode = getDamageNumberMode();
+    let displayValue = damage;
+    if (mode === DAMAGE_NUMBER_MODES.REMAINING) {
+      // In "Remaining Life" mode, show the remaining HP after damage
+      displayValue = Math.max(0, Number.isFinite(enemy.hp) ? enemy.hp : 0);
+      
+      // Clear previous damage numbers for this enemy to avoid confusion
+      // This is specific to "Remaining Life" mode
+      if (enemy.id) {
+        this.damageNumbers = this.damageNumbers.filter(entry => entry.enemyId !== enemy.id);
+      }
+    }
+    
+    const label = formatCombatNumber(displayValue);
     if (!label) {
       return;
     }
@@ -733,7 +748,7 @@ export class SimplePlayfield {
       y: enemyPosition.y + direction.y * offsetDistance,
     };
     const gradientSample = samplePaletteGradient(Math.random());
-    const magnitude = Math.max(0, Math.log10(Math.max(1, damage)));
+    const magnitude = Math.max(0, Math.log10(Math.max(1, displayValue)));
     const baseFontSize = Math.min(28, 16 + magnitude * 2.6);
     // Scale the display based on how much of the enemy's total health the hit removed.
     const maxHp = Number.isFinite(enemy.maxHp)
@@ -759,6 +774,8 @@ export class SimplePlayfield {
       alpha: 1,
       // Store how intense the outline highlight should be for this impact.
       outlineAlpha,
+      // Store enemy ID for "Remaining Life" mode to allow clearing previous numbers
+      enemyId: mode === DAMAGE_NUMBER_MODES.REMAINING && enemy.id ? enemy.id : null,
     };
     this.damageNumbers.push(entry);
     const maxEntries = 90;
