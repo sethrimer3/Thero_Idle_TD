@@ -12798,6 +12798,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   justify-self: center;
   /* Grow Kuf Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
   width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  /* Keep the desktop card bounded so the 3:4 viewport ratio doesn't flatten. */
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
 }
 
 .kuf-sim-header {
@@ -15741,8 +15743,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 }
 
 /* Shin and Kuf spires use custom viewport containers but need similar treatment */
-.shin-game-content .shin-cardinal-card,
-.kuf-grid .kuf-card--simulation {
+.shin-game-content .shin-cardinal-card {
   width: 100%;
   max-width: 100%;
 }
