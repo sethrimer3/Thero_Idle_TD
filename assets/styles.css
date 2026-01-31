@@ -4276,8 +4276,10 @@ body.playfield-fullscreen .playfield canvas {
   color: var(--text);
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
   cursor: var(--cursor-pointer);
-  /* Surround the octagon with a gentle amber glow to emphasize its energized state. */
-  box-shadow: 0 0 16px rgba(255, 228, 120, 0.28), 0 0 0 1.5px rgba(255, 228, 120, 0.22) inset;
+  /* Apply thin golden outline to equipment slots via enhanced glow and border. */
+  box-shadow: 
+    0 0 16px rgba(255, 228, 120, 0.28), 
+    0 0 0 1.5px rgba(255, 215, 0, 0.4) inset;
   transition: box-shadow var(--transition), color var(--transition), background var(--transition);
 }
 
@@ -4879,6 +4881,11 @@ body.playfield-fullscreen .playfield canvas {
   gap: 12px;
   /* Allow vertical scrolling when touching card content on mobile */
   touch-action: pan-y;
+}
+
+/* Apply thin golden outline to tower cards in the towers tab. */
+.card[data-tower-id] {
+  border: 1px solid rgba(255, 215, 0, 0.4);
 }
 
 .card[data-tower-id][data-locked='false'] {
@@ -7742,6 +7749,9 @@ body.playfield-fullscreen .playfield canvas {
   max-height: 140px;
   object-fit: contain;
   z-index: 1;
+  /* Add thin golden outline to tower icons within cards. */
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 8px;
   filter:
     drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6))
     drop-shadow(0 0 18px var(--tower-icon-primary, rgba(255, 220, 160, 0.45)));
