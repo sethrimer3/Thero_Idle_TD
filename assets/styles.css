@@ -15910,3 +15910,214 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin-top: calc(-1 * var(--shin-size-top, 0px));
 }
 */
+
+/* ==========================================================================
+   Fluid Terrarium Foundry
+   ========================================================================== */
+
+/* Foundry button placed in the terrarium */
+.fluid-terrarium-foundry {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 140, 0, 0.2);
+  border: 2px solid rgba(255, 140, 0, 0.6);
+  border-radius: 8px;
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.fluid-terrarium-foundry:hover {
+  background: rgba(255, 140, 0, 0.35);
+  border-color: rgba(255, 140, 0, 0.9);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.fluid-terrarium-foundry:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+/* Production menu overlay */
+.fluid-terrarium-foundry-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fluid-terrarium-foundry-menu__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.fluid-terrarium-foundry-menu__content {
+  position: relative;
+  background: var(--bg-alt);
+  border: 2px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow);
+}
+
+.fluid-terrarium-foundry-menu__title {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--accent-3);
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+.fluid-terrarium-foundry-menu__balance {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.foundry-balance-label {
+  color: var(--muted);
+}
+
+.foundry-balance-value {
+  color: var(--accent-3);
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Button grid - cross pattern */
+.fluid-terrarium-foundry-menu__buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 120px);
+  grid-template-rows: repeat(3, 120px);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.foundry-button {
+  background: var(--panel);
+  border: 2px solid var(--panel-border);
+  border-radius: 12px;
+  color: var(--text);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  line-height: 1.3;
+}
+
+.foundry-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.foundry-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.foundry-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Position buttons in cross pattern */
+.foundry-button--top {
+  grid-column: 2;
+  grid-row: 1;
+  background: linear-gradient(135deg, rgba(139, 247, 255, 0.1), rgba(139, 247, 255, 0.05));
+}
+
+.foundry-button--left {
+  grid-column: 1;
+  grid-row: 2;
+  background: linear-gradient(135deg, rgba(255, 125, 235, 0.1), rgba(255, 125, 235, 0.05));
+}
+
+.foundry-button--center {
+  grid-column: 2;
+  grid-row: 2;
+  background: linear-gradient(135deg, rgba(255, 228, 120, 0.15), rgba(255, 228, 120, 0.08));
+  font-size: 48px;
+  cursor: default;
+  border-color: rgba(255, 140, 0, 0.4);
+}
+
+.foundry-button--right {
+  grid-column: 3;
+  grid-row: 2;
+  background: linear-gradient(135deg, rgba(255, 125, 235, 0.1), rgba(255, 125, 235, 0.05));
+}
+
+.foundry-button--bottom {
+  grid-column: 2;
+  grid-row: 3;
+  background: linear-gradient(135deg, rgba(255, 228, 120, 0.1), rgba(255, 228, 120, 0.05));
+}
+
+/* Close button */
+.fluid-terrarium-foundry-menu__close {
+  width: 100%;
+  padding: 12px;
+  background: var(--panel);
+  border: 2px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fluid-terrarium-foundry-menu__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+.fluid-terrarium-foundry-menu__close:active {
+  transform: scale(0.98);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .fluid-terrarium-foundry-menu__buttons {
+    grid-template-columns: repeat(3, 100px);
+    grid-template-rows: repeat(3, 100px);
+    gap: 8px;
+  }
+
+  .foundry-button {
+    font-size: 12px;
+    padding: 6px;
+  }
+
+  .foundry-button--center {
+    font-size: 40px;
+  }
+
+  .fluid-terrarium-foundry {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+}
