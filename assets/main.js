@@ -170,8 +170,6 @@ import { FluidTerrariumCelestialBodies } from './fluidTerrariumCelestialBodies.j
 import { FluidTerrariumShrooms } from './fluidTerrariumShrooms.js';
 // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
 import { FluidTerrariumItemsDropdown } from './fluidTerrariumItemsDropdown.js';
-// Foundry production menu for crafting and upgrades.
-import { FluidTerrariumFoundry } from './fluidTerrariumFoundry.js';
 import { createResourceHud } from './resourceHud.js';
 import { initBetSpireRender, stopBetSpireRender, resumeBetSpireRender, getBetSpireRenderInstance } from './betSpireRender.js';
 import { initParticleInventoryDisplay } from './betParticleInventory.js';
@@ -1107,8 +1105,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let fluidTerrariumSkyCycle = null;
   // Voronoi fractal sun and moon rendered in the Bet terrarium sky.
   let fluidTerrariumCelestialBodies = null;
-  // Foundry production building for crafting and upgrades.
-  let fluidTerrariumFoundry = null;
   // Phi and Psi shrooms that grow inside cave spawn zones.
   let fluidTerrariumShrooms = null;
   // Terrarium items dropdown for managing and upgrading items in the Bet Spire.
@@ -1137,56 +1133,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       powderState.betTerrarium = {};
     }
     powderState.betTerrarium[key] = Math.max(0, Math.floor(value));
-  };
-
-  // Get current sun resource balance
-  const getSunBalance = () => {
-    const value = powderState.betTerrarium?.sunResource;
-    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-  };
-
-  // Spend sun resource (deducts amount and returns amount actually spent)
-  const spendSun = (amount) => {
-    const balance = getSunBalance();
-    const spent = Math.min(balance, Math.max(0, Math.floor(amount)));
-    if (spent > 0) {
-      if (!powderState.betTerrarium) {
-        powderState.betTerrarium = {};
-      }
-      powderState.betTerrarium.sunResource = balance - spent;
-      schedulePowderBasinSave();
-    }
-    return spent;
-  };
-
-  // Add sun resource
-  const addSun = (amount) => {
-    const current = getSunBalance();
-    if (!powderState.betTerrarium) {
-      powderState.betTerrarium = {};
-    }
-    powderState.betTerrarium.sunResource = current + Math.max(0, Math.floor(amount));
-    schedulePowderBasinSave();
-  };
-
-  // Get foundry state (all foundries)
-  const getFoundryState = () => {
-    if (!powderState.betTerrarium) {
-      powderState.betTerrarium = {};
-    }
-    if (!powderState.betTerrarium.foundries) {
-      powderState.betTerrarium.foundries = {};
-    }
-    return powderState.betTerrarium.foundries;
-  };
-
-  // Set foundry state
-  const setFoundryState = (state) => {
-    if (!powderState.betTerrarium) {
-      powderState.betTerrarium = {};
-    }
-    powderState.betTerrarium.foundries = state;
-    schedulePowderBasinSave();
   };
 
   // Expose Bet terrarium overlays to the visual settings module so the new options menu can pause heavy effects.
@@ -1423,7 +1369,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       onSlimePlace: handleSlimePlacement,
       onBirdPlace: handleBirdPlacement,
       onCelestialPlace: handleCelestialPlacement,
-      onFoundryPlace: handleFoundryPlacement,
       // Cave spawn zones enable cave-only fractal placement validation.
       caveSpawnZones: BET_CAVE_SPAWN_ZONES,
       // Terrain collision sprite enables walkable mask for Brownian growth.
@@ -1477,11 +1422,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Track sun and moon separately
     if (celestialBody === 'sun') {
       powderState.betTerrarium.sunEnabled = true;
-      // Grant initial sun resource when sun is unlocked
-      const currentSun = getSunBalance();
-      if (currentSun === 0) {
-        addSun(1000); // Give 1000 sun as starting resource
-      }
     } else if (celestialBody === 'moon') {
       powderState.betTerrarium.moonEnabled = true;
     }
@@ -1789,74 +1729,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     schedulePowderBasinSave();
     
     return true;
-  }
-
-  // Handle foundry placement from the terrarium store.
-  function handleFoundryPlacement(options = {}) {
-    if (!FLUID_STUDY_ENABLED) {
-      return false;
-    }
-    
-    // Ensure foundry system is initialized
-    ensureFluidTerrariumFoundry();
-    
-    if (!fluidTerrariumFoundry) {
-      return false;
-    }
-    
-    // Place the foundry
-    const placed = fluidTerrariumFoundry.place(options);
-    
-    if (placed) {
-      schedulePowderBasinSave();
-    }
-    
-    return placed;
-  }
-
-  // Initialize the foundry system for production and upgrades.
-  function ensureFluidTerrariumFoundry() {
-    if (!FLUID_STUDY_ENABLED) {
-      return;
-    }
-    if (fluidTerrariumFoundry || !fluidElements?.terrariumMedia) {
-      return;
-    }
-    
-    fluidTerrariumFoundry = new FluidTerrariumFoundry({
-      container: fluidElements.terrariumMedia,
-      getSunBalance,
-      spendSun,
-      addSun,
-      getFoundryState,
-      setFoundryState,
-      onUpgrade: (upgradeInfo) => {
-        // Handle upgrade notifications
-        if (upgradeInfo.type === 'solar-mirror') {
-          // Solar mirror creation logic can be added here
-          console.log('Solar mirror created');
-        }
-      },
-      onStarlingUpgrade: (upgradeInfo) => {
-        // Handle starling sprite changes
-        const { spriteLevel } = upgradeInfo;
-        // Update bird sprites based on sprite level (1-4)
-        updateStarlingSprites(spriteLevel);
-      },
-    });
-  }
-
-  // Update starling sprites based on upgrade level.
-  function updateStarlingSprites(spriteLevel) {
-    // For now, just log the sprite level change
-    // In the future, this could change the bird appearance
-    console.log(`Starlings upgraded to sprite level ${spriteLevel}`);
-    
-    // If bird system exists, we could refresh it with new sprite level
-    if (fluidTerrariumBirds) {
-      // Birds could have a setSpriteLevel method in the future
-      // fluidTerrariumBirds.setSpriteLevel(spriteLevel);
-    }
   }
 
   /**
@@ -7515,12 +7387,5 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   };
 
   window.glyphDefenseUpgrades = upgradeNamespace;
-
-  // Expose foundry testing helpers for development
-  window.foundryTest = {
-    addSun: (amount) => addSun(amount),
-    getSunBalance: () => getSunBalance(),
-    getFoundryState: () => getFoundryState(),
-  };
 
 })();

@@ -396,19 +396,6 @@ const DEFAULT_TERRARIUM_STORE_ITEMS = [
     maxY: 1,
     minSpacing: 0,
   },
-  // Foundry - Production building that creates solar mirrors and manages upgrades
-  {
-    id: 'bet-store-foundry',
-    label: 'Foundry',
-    description: 'An ancient forge that produces solar mirrors and manages upgrades. Click to open production menu.',
-    icon: '⚒️',
-    itemType: 'foundry',
-    cost: 500,
-    size: 'large',
-    minY: 0.35,
-    maxY: 0.85,
-    minSpacing: 0.1,
-  },
 ];
 
 const PLACEMENT_DIMENSIONS = {
@@ -496,7 +483,6 @@ export class FluidTerrariumTrees {
     this.onSlimePlace = typeof options.onSlimePlace === 'function' ? options.onSlimePlace : null;
     this.onBirdPlace = typeof options.onBirdPlace === 'function' ? options.onBirdPlace : null;
     this.onCelestialPlace = typeof options.onCelestialPlace === 'function' ? options.onCelestialPlace : null;
-    this.onFoundryPlace = typeof options.onFoundryPlace === 'function' ? options.onFoundryPlace : null;
     this.powderState = options.powderState || null;
 
     this.activeHold = null;
@@ -1648,16 +1634,13 @@ export class FluidTerrariumTrees {
     }
     
     // Items that need to be placed ON terrain surfaces (not inside ground or floating in water)
-    // This includes: slimes, trees, fractals, and foundries (but NOT shrooms which go in caves, or birds which fly)
+    // This includes: slimes, trees, and fractals (but NOT shrooms which go in caves, or birds which fly)
     if (this.requiresTerrainSurface(storeItem.itemType) && !this.isPointOnWalkableTerrain(point)) {
       if (storeItem.itemType === 'slime') {
         return { valid: false, reason: 'Delta slimes need a terrain surface to hop on. Try clicking on the ground or ledges.' };
       }
       if (storeItem.itemType === 'tree' || storeItem.itemType === 'fractal') {
         return { valid: false, reason: 'Trees must be rooted on solid terrain, not buried underground or floating in water.' };
-      }
-      if (storeItem.itemType === 'foundry') {
-        return { valid: false, reason: 'The foundry must be built on solid ground.' };
       }
       return { valid: false, reason: 'This item needs to be placed on a terrain surface.' };
     }
@@ -1834,28 +1817,6 @@ export class FluidTerrariumTrees {
       return false;
     }
 
-    // Check if this is a foundry item - delegate to the foundry placement callback
-    if (storeItem.itemType === 'foundry' && this.onFoundryPlace) {
-      const placementId = `foundry-${this.ephemeralIdCounter + 1}`;
-      this.ephemeralIdCounter += 1;
-      
-      const foundryPlaced = this.onFoundryPlace({
-        point,
-        storeItem,
-        placementId,
-      });
-      
-      if (foundryPlaced) {
-        this.setStoreStatus(`${storeItem.label} constructed.`);
-        this.updatePlacementPreview(point, true, storeItem);
-        this.consumeStoreItem(storeItem.id);
-        this.clearStoreSelection();
-        return true;
-      }
-      this.setStoreStatus('Could not place foundry. Try again.');
-      return false;
-    }
-
     const anchor = this.createPlacementAnchor(point, storeItem);
     this.playerPlacements.push(anchor);
     
@@ -2012,7 +1973,7 @@ export class FluidTerrariumTrees {
    * @returns {boolean}
    */
   requiresTerrainSurface(itemType) {
-    return itemType === 'slime' || itemType === 'tree' || itemType === 'fractal' || itemType === 'foundry';
+    return itemType === 'slime' || itemType === 'tree' || itemType === 'fractal';
   }
 
   /**
