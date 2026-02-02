@@ -1477,6 +1477,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Track sun and moon separately
     if (celestialBody === 'sun') {
       powderState.betTerrarium.sunEnabled = true;
+      // Grant initial sun resource when sun is unlocked
+      const currentSun = getSunBalance();
+      if (currentSun === 0) {
+        addSun(1000); // Give 1000 sun as starting resource
+      }
     } else if (celestialBody === 'moon') {
       powderState.betTerrarium.moonEnabled = true;
     }
@@ -7510,5 +7515,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   };
 
   window.glyphDefenseUpgrades = upgradeNamespace;
+
+  // Expose foundry testing helpers for development
+  window.foundryTest = {
+    addSun: (amount) => addSun(amount),
+    getSunBalance: () => getSunBalance(),
+    getFoundryState: () => getFoundryState(),
+  };
 
 })();
