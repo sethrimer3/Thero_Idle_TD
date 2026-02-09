@@ -1134,6 +1134,78 @@ function drawPathBase(ctx, points, paletteStops, trackMode) {
   ctx.restore();
 }
 
+// Build a cache key for the tunnel path precomputations so we reuse opacity and color arrays.
+function getTunnelPathCacheKey(points, paletteStops, trackMode) {
+  const levelId = this.levelConfig?.id || 'unknown-level';
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const tunnels = Array.isArray(this.tunnelSegments) ? this.tunnelSegments : [];
+  const tunnelKey = tunnels.length
+    ? tunnels.map((tunnel) => `${tunnel.startIndex ?? 0}-${tunnel.endIndex ?? 0}`).join('|')
+    : 'none';
+  const paletteKey = paletteStops
+    .map((entry) => `${entry.stop}:${entry.color.r},${entry.color.g},${entry.color.b}`)
+    .join('|');
+  const firstPoint = points[0] || { x: 0, y: 0 };
+  const lastPoint = points[points.length - 1] || { x: 0, y: 0 };
+  return [
+    levelId,
+    `points:${points.length}:${Math.round(firstPoint.x)}:${Math.round(firstPoint.y)}:${Math.round(lastPoint.x)}:${Math.round(lastPoint.y)}`,
+    `tunnels:${tunnelKey}`,
+    `palette:${paletteKey}`,
+    `mode:${trackMode}`,
+    `pr:${pixelRatio}`,
+  ].join(':');
+}
+
+// Precompute per-point tunnel opacity and palette colors to avoid per-segment work each frame.
+function buildTunnelPathCache(points, paletteStops, trackMode) {
+  if (!points || points.length < 2) {
+    return null;
+  }
+  const key = getTunnelPathCacheKey.call(this, points, paletteStops, trackMode);
+  if (this._tunnelPathCache?.key === key) {
+    return this._tunnelPathCache;
+  }
+  // Initialize opacity to fully visible for every point before tunnels cut it out.
+  const opacityByPoint = new Float32Array(points.length);
+  opacityByPoint.fill(1);
+  const tunnelSegments = Array.isArray(this.tunnelSegments) ? this.tunnelSegments : [];
+  const FADE_ZONE_RATIO = 0.2;
+  tunnelSegments.forEach((tunnel) => {
+    const startIndex = Number.isFinite(tunnel.startIndex) ? tunnel.startIndex : 0;
+    const endIndex = Number.isFinite(tunnel.endIndex) ? tunnel.endIndex : 0;
+    const clampedStart = Math.max(0, Math.min(points.length - 1, startIndex));
+    const clampedEnd = Math.max(0, Math.min(points.length - 1, endIndex));
+    const tunnelLength = clampedEnd - clampedStart;
+    // Guard against zero-length tunnels by zeroing a single point.
+    if (tunnelLength <= 0) {
+      opacityByPoint[clampedStart] = 0;
+      return;
+    }
+    for (let index = clampedStart; index <= clampedEnd; index += 1) {
+      const progressInTunnel = (index - clampedStart) / tunnelLength;
+      let opacity = 0;
+      if (progressInTunnel < FADE_ZONE_RATIO) {
+        opacity = 1 - (progressInTunnel / FADE_ZONE_RATIO);
+      } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
+        opacity = (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
+      }
+      opacityByPoint[index] = Math.min(opacityByPoint[index], opacity);
+    }
+  });
+  // Cache palette samples along the path so each segment can reuse the same color.
+  const colorByPoint = points.map((_, index) => {
+    const pathProgress = index / (points.length - 1);
+    return samplePaletteGradient(pathProgress);
+  });
+  this._tunnelPathCache = {
+    key,
+    opacityByPoint,
+    colorByPoint,
+  };
+  return this._tunnelPathCache;
+}
+
 function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
   if (!points || points.length < 2 || !this.tunnelSegments) {
     return;
@@ -1143,35 +1215,10 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
   const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
   const baseLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
   const highlightLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
-  const FADE_ZONE_RATIO = 0.2;
-
-  // Helper to get opacity for a point index based on tunnel zones
-  const getOpacityForPointIndex = (index) => {
-    for (const tunnel of this.tunnelSegments) {
-      if (index >= tunnel.startIndex && index <= tunnel.endIndex) {
-        const tunnelLength = tunnel.endIndex - tunnel.startIndex;
-        
-        // Guard against zero-length tunnels
-        if (tunnelLength <= 0) {
-          return 0; // Treat as fully transparent
-        }
-        
-        const progressInTunnel = (index - tunnel.startIndex) / tunnelLength;
-        
-        if (progressInTunnel < FADE_ZONE_RATIO) {
-          // Entry fade zone - fade from 1 to 0
-          return 1 - (progressInTunnel / FADE_ZONE_RATIO);
-        } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
-          // Exit fade zone - fade from 0 to 1
-          return (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
-        } else {
-          // Middle of tunnel - fully transparent
-          return 0;
-        }
-      }
-    }
-    return 1; // Not in tunnel, fully opaque
-  };
+  // Reuse precomputed opacity/color arrays so each segment renders with minimal per-frame work.
+  const tunnelCache = buildTunnelPathCache.call(this, points, paletteStops, trackMode);
+  const opacityByPoint = tunnelCache?.opacityByPoint;
+  const colorByPoint = tunnelCache?.colorByPoint;
 
   // Draw path segments with varying opacity
   for (let layer = 0; layer < 2; layer += 1) {
@@ -1184,8 +1231,8 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
       const nextPoint = points[i + 1];
       
       // Calculate opacity for this segment
-      const startOpacity = getOpacityForPointIndex(i);
-      const endOpacity = getOpacityForPointIndex(i + 1);
+      const startOpacity = opacityByPoint ? opacityByPoint[i] : 1;
+      const endOpacity = opacityByPoint ? opacityByPoint[i + 1] : 1;
       const segmentOpacity = (startOpacity + endOpacity) / 2;
       
       // Skip fully transparent segments
@@ -1193,9 +1240,8 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
         continue;
       }
       
-      // Sample color based on position along path
-      const pathProgress = i / (points.length - 1);
-      const color = samplePaletteGradient(pathProgress);
+      // Sample color based on position along path using cached values when available.
+      const color = colorByPoint ? colorByPoint[i] : samplePaletteGradient(i / (points.length - 1));
       const alpha = alphaMultiplier * segmentOpacity;
       
       ctx.save();
