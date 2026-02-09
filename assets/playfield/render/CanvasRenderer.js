@@ -564,9 +564,17 @@ function draw() {
   };
 
   this.drawCrystallineMosaic();
-  this.drawSketches();
+  // Draw cached sketch layer when available to minimize per-frame raster work.
+  const sketchLayerDrawn = drawSketchLayerCache.call(this);
+  if (!sketchLayerDrawn) {
+    this.drawSketches();
+  }
   this.drawFloaters();
-  this.drawPath();
+  // Draw cached path layer when available so zooming only scales a bitmap.
+  const pathLayerDrawn = drawPathLayerCache.call(this);
+  if (!pathLayerDrawn) {
+    this.drawPath();
+  }
   this.drawDeltaCommandPreview();
   this.drawMoteGems();
   this.drawArcLight();
@@ -722,6 +730,182 @@ function generateLevelSketches(levelId, width, height) {
   return sketches;
 }
 
+// Draw the cached sketch placements onto the provided context so we can reuse them in offscreen layers.
+function drawSketchesOnContext(ctx, width, height) {
+  if (!ctx || !this.levelConfig) {
+    return;
+  }
+
+  // Generate sketches for this level if not already cached or if dimensions changed.
+  if (!this._levelSketches ||
+      this._levelSketchesId !== this.levelConfig.id ||
+      this._levelSketchesWidth !== width ||
+      this._levelSketchesHeight !== height) {
+    this._levelSketches = generateLevelSketches(this.levelConfig.id, width, height);
+    this._levelSketchesId = this.levelConfig.id;
+    this._levelSketchesWidth = width;
+    this._levelSketchesHeight = height;
+  }
+
+  if (!this._levelSketches || !this._levelSketches.length) {
+    return;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.2; // 20% opacity
+
+  this._levelSketches.forEach((sketch) => {
+    if (!sketch.sprite || !sketch.sprite.complete) {
+      return;
+    }
+
+    ctx.save();
+    ctx.translate(sketch.x, sketch.y);
+    ctx.rotate(sketch.rotation);
+
+    const sketchWidth = sketch.sprite.width * sketch.scale;
+    const sketchHeight = sketch.sprite.height * sketch.scale;
+
+    ctx.drawImage(
+      sketch.sprite,
+      -sketchWidth / 2,
+      -sketchHeight / 2,
+      sketchWidth,
+      sketchHeight
+    );
+
+    ctx.restore();
+  });
+
+  ctx.restore();
+}
+
+// Build a stable cache key for the sketch layer so zoom changes don't trigger re-rasterization.
+function getSketchLayerCacheKey(width, height) {
+  const levelId = this.levelConfig?.id || 'unknown-level';
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  return `${levelId}:${width}x${height}:pr${pixelRatio}`;
+}
+
+// Rasterize the sketches into an offscreen canvas so the main render loop can reuse the layer.
+function buildSketchLayerCache(width, height) {
+  if (!width || !height || !this.levelConfig) {
+    return null;
+  }
+  const key = getSketchLayerCacheKey.call(this, width, height);
+  if (this._sketchLayerCache?.key === key) {
+    return this._sketchLayerCache;
+  }
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * pixelRatio));
+  canvas.height = Math.max(1, Math.floor(height * pixelRatio));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  drawSketchesOnContext.call(this, ctx, width, height);
+  this._sketchLayerCache = {
+    key,
+    canvas,
+    width,
+    height,
+    pixelRatio,
+  };
+  return this._sketchLayerCache;
+}
+
+// Paint the cached sketch layer onto the main canvas when available.
+function drawSketchLayerCache() {
+  if (!this.ctx) {
+    return false;
+  }
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  const cache = buildSketchLayerCache.call(this, width, height);
+  if (!cache?.canvas) {
+    return false;
+  }
+  this.ctx.drawImage(cache.canvas, 0, 0, width, height);
+  return true;
+}
+
+// Build a cache key for the static path layer to avoid re-rasterizing on zoom.
+function getPathLayerCacheKey(width, height, paletteStops, trackMode) {
+  const levelId = this.levelConfig?.id || 'unknown-level';
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const points = Array.isArray(this.pathPoints) ? this.pathPoints : [];
+  const firstPoint = points[0] || { x: 0, y: 0 };
+  const lastPoint = points[points.length - 1] || { x: 0, y: 0 };
+  const tunnelCount = Array.isArray(this.tunnelSegments) ? this.tunnelSegments.length : 0;
+  const paletteKey = paletteStops
+    .map((entry) => `${entry.stop}:${entry.color.r},${entry.color.g},${entry.color.b}`)
+    .join('|');
+  return [
+    levelId,
+    `${width}x${height}`,
+    `pr${pixelRatio}`,
+    trackMode,
+    `points:${points.length}:${Math.round(firstPoint.x)}:${Math.round(firstPoint.y)}:${Math.round(lastPoint.x)}:${Math.round(lastPoint.y)}`,
+    `tunnels:${tunnelCount}`,
+    `palette:${paletteKey}`,
+  ].join(':');
+}
+
+// Rasterize the static path into an offscreen canvas so zooming only scales the cached bitmap.
+function buildPathLayerCache(width, height) {
+  if (!width || !height || !this.levelConfig || !this.pathSegments.length || this.pathPoints.length < 2) {
+    return null;
+  }
+  const trackMode = getTrackRenderMode();
+  if (trackMode === TRACK_RENDER_MODES.RIVER) {
+    return null;
+  }
+  const paletteStops = getTrackPaletteStops();
+  const key = getPathLayerCacheKey.call(this, width, height, paletteStops, trackMode);
+  if (this._pathLayerCache?.key === key) {
+    return this._pathLayerCache;
+  }
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * pixelRatio));
+  canvas.height = Math.max(1, Math.floor(height * pixelRatio));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  if (Array.isArray(this.tunnelSegments) && this.tunnelSegments.length > 0) {
+    drawPathWithTunnels.call(this, ctx, this.pathPoints, paletteStops, trackMode);
+  } else {
+    drawPathBase.call(this, ctx, this.pathPoints, paletteStops, trackMode);
+  }
+  this._pathLayerCache = {
+    key,
+    canvas,
+    width,
+    height,
+    pixelRatio,
+  };
+  return this._pathLayerCache;
+}
+
+// Paint the cached path layer above floaters when the static path cache is available.
+function drawPathLayerCache() {
+  if (!this.ctx) {
+    return false;
+  }
+  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
+  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
+  const cache = buildPathLayerCache.call(this, width, height);
+  if (!cache?.canvas) {
+    return false;
+  }
+  this.ctx.drawImage(cache.canvas, 0, 0, width, height);
+  return true;
+}
+
 /**
  * Draw small sketches in the background with 20% opacity.
  * Sketches are randomly placed per level with a 10% chance each.
@@ -733,51 +917,11 @@ function drawSketches() {
   
   const ctx = this.ctx;
   
-  // Generate sketches for this level if not already cached or if dimensions changed
+  // Generate sketches for this level if not already cached or if dimensions changed.
   const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
   const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
-  
-  if (!this._levelSketches || 
-      this._levelSketchesId !== this.levelConfig.id ||
-      this._levelSketchesWidth !== width ||
-      this._levelSketchesHeight !== height) {
-    this._levelSketches = generateLevelSketches(this.levelConfig.id, width, height);
-    this._levelSketchesId = this.levelConfig.id;
-    this._levelSketchesWidth = width;
-    this._levelSketchesHeight = height;
-  }
-  
-  if (!this._levelSketches || !this._levelSketches.length) {
-    return;
-  }
-  
-  ctx.save();
-  ctx.globalAlpha = 0.2; // 20% opacity
-  
-  this._levelSketches.forEach((sketch) => {
-    if (!sketch.sprite || !sketch.sprite.complete) {
-      return;
-    }
-    
-    ctx.save();
-    ctx.translate(sketch.x, sketch.y);
-    ctx.rotate(sketch.rotation);
-    
-    const width = sketch.sprite.width * sketch.scale;
-    const height = sketch.sprite.height * sketch.scale;
-    
-    ctx.drawImage(
-      sketch.sprite,
-      -width / 2,
-      -height / 2,
-      width,
-      height
-    );
-    
-    ctx.restore();
-  });
-  
-  ctx.restore();
+
+  drawSketchesOnContext.call(this, ctx, width, height);
 }
 
 function drawCrystallineMosaic() {
@@ -901,8 +1045,6 @@ function drawPath() {
   }
   const ctx = this.ctx;
   const points = this.pathPoints;
-  const start = points[0];
-  const end = points[points.length - 1];
 
   const trackMode = getTrackRenderMode();
   if (trackMode === TRACK_RENDER_MODES.RIVER) {
@@ -910,11 +1052,7 @@ function drawPath() {
     return;
   }
 
-  const paletteStops = [
-    { stop: 0, color: samplePaletteGradient(0) },
-    { stop: 0.5, color: samplePaletteGradient(0.5) },
-    { stop: 1, color: samplePaletteGradient(1) },
-  ];
+  const paletteStops = getTrackPaletteStops();
   
   // If there are tunnels, we need to draw segments with varying opacity
   const hasTunnels = Array.isArray(this.tunnelSegments) && this.tunnelSegments.length > 0;
@@ -922,50 +1060,68 @@ function drawPath() {
   if (hasTunnels) {
     drawPathWithTunnels.call(this, ctx, points, paletteStops, trackMode);
   } else {
-    // Original path drawing for non-tunnel paths
-    const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-    const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-    const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
-    const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
-    paletteStops.forEach((entry) => {
-      baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
-      highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
-    });
-
-    const tracePath = () => {
-      ctx.moveTo(start.x, start.y);
-      for (let index = 1; index < points.length; index += 1) {
-        const point = points[index];
-        ctx.lineTo(point.x, point.y);
-      }
-    };
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
-    const shadowColor = colorToRgbaString(
-      paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
-      trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
-    );
-    this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
-    tracePath();
-    ctx.strokeStyle = baseGradient;
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
-    ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
-    tracePath();
-    ctx.strokeStyle = highlightGradient;
-    ctx.stroke();
-    ctx.restore();
+    drawPathBase.call(this, ctx, points, paletteStops, trackMode);
   }
+}
+
+// Resolve palette stops once so cached path layers reuse the same gradient sampling.
+function getTrackPaletteStops() {
+  return [
+    { stop: 0, color: samplePaletteGradient(0) },
+    { stop: 0.5, color: samplePaletteGradient(0.5) },
+    { stop: 1, color: samplePaletteGradient(1) },
+  ];
+}
+
+// Draw the standard (non-tunnel) track path onto the provided context.
+function drawPathBase(ctx, points, paletteStops, trackMode) {
+  if (!ctx || !points || points.length < 2) {
+    return;
+  }
+  const start = points[0];
+  const end = points[points.length - 1];
+  const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+  const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
+  const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
+  paletteStops.forEach((entry) => {
+    baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
+    highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
+  });
+
+  const tracePath = () => {
+    ctx.moveTo(start.x, start.y);
+    for (let index = 1; index < points.length; index += 1) {
+      const point = points[index];
+      ctx.lineTo(point.x, point.y);
+    }
+  };
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
+  const shadowColor = colorToRgbaString(
+    paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
+    trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
+  );
+  this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+  tracePath();
+  ctx.strokeStyle = baseGradient;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
+  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+  tracePath();
+  ctx.strokeStyle = highlightGradient;
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
