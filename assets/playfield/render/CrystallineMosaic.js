@@ -26,6 +26,8 @@ const ALPHA_BASE = 0.16; // Base transparency for polygon cells.
 const ALPHA_VARIATION = 0.08; // Additional alpha variation for subtle depth.
 const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
 const VIEW_BOUNDS_PADDING = 48; // Extra padding to keep edge crystals from popping when panning.
+// Cap expensive inter-cell edge linking when too many crystals are on screen.
+const MAX_VISIBLE_CELL_CONNECTIONS = 160;
 
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
@@ -425,6 +427,10 @@ export class CrystallineMosaicManager {
     this.needsRegeneration = true;
     this.lastViewBounds = null;
     this.lastPathVersion = null;
+    // Track cell mutations so cached visible lists stay valid.
+    this.cellStateVersion = 0;
+    // Cache the last visible-cell list to avoid rebuilding every frame.
+    this.visibleCellsCache = null;
   }
 
   /**
@@ -483,7 +489,10 @@ export class CrystallineMosaicManager {
       
       this.cells.push(new CrystallineCell(x, y, size, colorStop, phase));
     }
-    
+    // Bump the state version so render caches refresh after regeneration.
+    this.cellStateVersion += 1;
+    // Clear cached visibility lists after generating a new layout.
+    this.visibleCellsCache = null;
     this.needsRegeneration = false;
   }
 
@@ -547,6 +556,7 @@ export class CrystallineMosaicManager {
     
     // Remove fully faded destroyed cells
     const now = Date.now();
+    const previousCellCount = this.cells.length;
     this.cells = this.cells.filter(cell => {
       if (!cell.isDestroyed) {
         return true;
@@ -554,6 +564,11 @@ export class CrystallineMosaicManager {
       const elapsed = now - cell.destroyStartTime;
       return elapsed <= CELL_DESTRUCTION_FADE_TIME;
     });
+    // Refresh render caches whenever cells are culled after fading out.
+    if (this.cells.length !== previousCellCount) {
+      this.cellStateVersion += 1;
+      this.visibleCellsCache = null;
+    }
   }
   
   /**
@@ -594,7 +609,13 @@ export class CrystallineMosaicManager {
   damageCellById(cellId, damage) {
     const cell = this.cells.find(c => c.id === cellId);
     if (cell) {
-      return cell.takeDamage(damage);
+      const destroyed = cell.takeDamage(damage);
+      // Invalidate visibility cache when a cell is destroyed mid-frame.
+      if (destroyed) {
+        this.cellStateVersion += 1;
+        this.visibleCellsCache = null;
+      }
+      return destroyed;
     }
     return false;
   }
@@ -629,7 +650,12 @@ export class CrystallineMosaicManager {
     
     ctx.save();
     // Cull to visible cells so the edge mosaic stays lightweight during camera movement.
-    const visibleCells = this.cells.filter((cell) => {
+    const viewKey = viewBounds
+      ? `${Math.round(viewBounds.minX)}:${Math.round(viewBounds.minY)}:${Math.round(viewBounds.maxX)}:${Math.round(viewBounds.maxY)}`
+      : 'no-bounds';
+    const cacheKey = `${viewKey}|v${this.cellStateVersion}`;
+    const cachedCells = this.visibleCellsCache?.key === cacheKey ? this.visibleCellsCache.cells : null;
+    const visibleCells = cachedCells || this.cells.filter((cell) => {
       if (cell.isDestroyed) {
         return false;
       }
@@ -644,6 +670,10 @@ export class CrystallineMosaicManager {
         cell.y - padding <= viewBounds.maxY
       );
     });
+    // Cache the latest visibility list so subsequent frames reuse the culled set.
+    if (!cachedCells) {
+      this.visibleCellsCache = { key: cacheKey, cells: visibleCells };
+    }
     
     // First pass: Render all cell fills to create unified mass
     for (const cell of visibleCells) {
@@ -657,25 +687,27 @@ export class CrystallineMosaicManager {
     ctx.lineWidth = 2;
     ctx.globalCompositeOperation = 'source-over';
     
-    // Draw connecting lines between nearby cells to enhance unified appearance
-    for (let i = 0; i < visibleCells.length; i++) {
-      const cell1 = visibleCells[i];
-      
-      for (let j = i + 1; j < visibleCells.length; j++) {
-        const cell2 = visibleCells[j];
+    // Draw connecting lines between nearby cells to enhance unified appearance.
+    if (visibleCells.length <= MAX_VISIBLE_CELL_CONNECTIONS) {
+      for (let i = 0; i < visibleCells.length; i++) {
+        const cell1 = visibleCells[i];
         
-        const dx = cell2.x - cell1.x;
-        const dy = cell2.y - cell1.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Connect cells that are close together
-        if (distance < (cell1.size + cell2.size) * 1.5) {
-          ctx.beginPath();
-          ctx.moveTo(cell1.x, cell1.y);
-          ctx.lineTo(cell2.x, cell2.y);
-          ctx.globalAlpha = 0.1;
-          ctx.stroke();
-          ctx.globalAlpha = 1;
+        for (let j = i + 1; j < visibleCells.length; j++) {
+          const cell2 = visibleCells[j];
+          
+          const dx = cell2.x - cell1.x;
+          const dy = cell2.y - cell1.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Connect cells that are close together.
+          if (distance < (cell1.size + cell2.size) * 1.5) {
+            ctx.beginPath();
+            ctx.moveTo(cell1.x, cell1.y);
+            ctx.lineTo(cell2.x, cell2.y);
+            ctx.globalAlpha = 0.1;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
         }
       }
     }
