@@ -872,7 +872,7 @@ function buildPathLayerCache(width, height) {
   if (trackMode === TRACK_RENDER_MODES.RIVER) {
     return null;
   }
-  const paletteStops = getTrackPaletteStops();
+  const paletteStops = getCachedTrackPaletteStops.call(this);
   const key = getPathLayerCacheKey.call(this, width, height, paletteStops, trackMode);
   if (this._pathLayerCache?.key === key) {
     return this._pathLayerCache;
@@ -1062,7 +1062,7 @@ function drawPath() {
     return;
   }
 
-  const paletteStops = getTrackPaletteStops();
+  const paletteStops = getCachedTrackPaletteStops.call(this);
   
   // If there are tunnels, we need to draw segments with varying opacity
   const hasTunnels = Array.isArray(this.tunnelSegments) && this.tunnelSegments.length > 0;
@@ -1081,6 +1081,20 @@ function getTrackPaletteStops() {
     { stop: 0.5, color: samplePaletteGradient(0.5) },
     { stop: 1, color: samplePaletteGradient(1) },
   ];
+}
+
+// Cache palette stops per frame so path rendering reuses gradient sampling work.
+function getCachedTrackPaletteStops() {
+  const cachedStops = this?._frameCache?.trackPaletteStops;
+  if (cachedStops) {
+    return cachedStops;
+  }
+  const paletteStops = getTrackPaletteStops();
+  if (this?._frameCache) {
+    // Store the palette stops for the current frame to reduce repeated gradient sampling.
+    this._frameCache.trackPaletteStops = paletteStops;
+  }
+  return paletteStops;
 }
 
 // Draw the standard (non-tunnel) track path onto the provided context.
