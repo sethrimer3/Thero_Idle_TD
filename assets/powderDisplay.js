@@ -605,6 +605,35 @@ export function createPowderDisplaySystem({
     return summary;
   }
 
+  /**
+   * Derive chained idle-time conversions so each spire seeds the next by a 10:1 ratio.
+   * @param {Object} summary - Idle summary for the elapsed window.
+   * @returns {Object} Conversion totals keyed by target spire.
+   */
+  function calculateIdleSpireConversions(summary) {
+    // Normalize idle totals so conversion math runs on whole, non-negative counts.
+    const alephEarned = Math.max(0, Math.floor(summary?.aleph?.total || 0));
+    const betEarned = Math.max(0, Math.floor(summary?.bet?.total || 0));
+    const lamedEarned = Math.max(0, Math.floor(summary?.lamed?.total || 0));
+    const tsadiEarned = Math.max(0, Math.floor(summary?.tsadi?.total || 0));
+
+    // Convert idle Aleph motes into Bet scintillae once Bet is available.
+    const alephToBet = summary?.bet?.unlocked ? Math.floor(alephEarned / 10) : 0;
+    // Convert idle Bet scintillae (including Aleph-fed scintillae) into Lamed sparks.
+    const betToLamed = summary?.lamed?.unlocked ? Math.floor((betEarned + alephToBet) / 10) : 0;
+    // Convert idle Lamed sparks (including Bet-fed sparks) into Tsadi particles.
+    const lamedToTsadi = summary?.tsadi?.unlocked ? Math.floor((lamedEarned + betToLamed) / 10) : 0;
+    // Convert idle Tsadi particles (including Lamed-fed particles) into Shin iterons.
+    const tsadiToShin = summary?.shin?.unlocked ? Math.floor((tsadiEarned + lamedToTsadi) / 10) : 0;
+
+    return {
+      alephToBet,
+      betToLamed,
+      lamedToTsadi,
+      tsadiToShin,
+    };
+  }
+
   function notifyIdleTime(elapsedMs) {
     const normalizedElapsed = Number.isFinite(elapsedMs) && elapsedMs > 0 ? elapsedMs : 0;
     const summary = calculateIdleSpireSummary(normalizedElapsed);
@@ -628,6 +657,20 @@ export function createPowderDisplaySystem({
     }
     if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
       addIterons(summary.shin.total);
+    }
+    // Apply chained idle conversions so upstream spires seed their successors.
+    const conversionTotals = calculateIdleSpireConversions(summary);
+    if (conversionTotals.alephToBet > 0) {
+      addIdleMoteBank(conversionTotals.alephToBet, { target: 'bet' });
+    }
+    if (conversionTotals.betToLamed > 0) {
+      setLamedSparkBank(getLamedSparkBank() + conversionTotals.betToLamed);
+    }
+    if (conversionTotals.lamedToTsadi > 0) {
+      setTsadiParticleBank(getTsadiParticleBank() + conversionTotals.lamedToTsadi);
+    }
+    if (conversionTotals.tsadiToShin > 0 && typeof addIterons === 'function') {
+      addIterons(conversionTotals.tsadiToShin);
     }
     evaluateAchievements();
 
