@@ -562,6 +562,16 @@ function draw() {
     timestamp: getNowTimestamp(),
     enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
   };
+  // Build a fast enemy lookup map so projectile targeting avoids repeated linear searches.
+  if (Array.isArray(this.enemies) && this.enemies.length) {
+    const enemyById = new Map();
+    this.enemies.forEach((enemy) => {
+      if (enemy?.id !== undefined) {
+        enemyById.set(enemy.id, enemy);
+      }
+    });
+    this._frameCache.enemyById = enemyById;
+  }
 
   this.drawCrystallineMosaic();
   // Draw cached sketch layer when available to minimize per-frame raster work.
@@ -3472,7 +3482,11 @@ function drawProjectiles() {
           }
           let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
           if (!pos) {
-            const enemy = this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            // Prefer the per-frame lookup map so target resolution stays O(1) per projectile.
+            const enemyLookup = this._frameCache?.enemyById;
+            const enemy = enemyLookup
+              ? enemyLookup.get(projectile.targetId)
+              : this.enemies.find((candidate) => candidate.id === projectile.targetId);
             pos = enemy ? this.getEnemyPosition(enemy) : null;
             if (pos) {
               this._frameCache.enemyPositionCache.set(projectile.targetId, pos);
