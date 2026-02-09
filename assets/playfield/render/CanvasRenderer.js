@@ -349,6 +349,27 @@ function getNowTimestamp() {
   return Date.now();
 }
 
+// Lazily construct a per-frame enemy lookup map so projectile targeting avoids repeated scans.
+function getEnemyLookupMap() {
+  if (!this._frameCache) {
+    this._frameCache = {};
+  }
+  if (this._frameCache.enemyById) {
+    return this._frameCache.enemyById;
+  }
+  if (!Array.isArray(this.enemies) || !this.enemies.length) {
+    return null;
+  }
+  const enemyById = new Map();
+  this.enemies.forEach((enemy) => {
+    if (enemy?.id !== undefined) {
+      enemyById.set(enemy.id, enemy);
+    }
+  });
+  this._frameCache.enemyById = enemyById;
+  return enemyById;
+}
+
 function applyCanvasShadow(ctx, color, blur) {
   if (!ctx) {
     return;
@@ -560,18 +581,7 @@ function draw() {
     minDimension: Math.min(width, height) || 1,
     viewportBounds: getViewportBounds.call(this),
     timestamp: getNowTimestamp(),
-    enemyPositionCache: new Map(), // Cache enemy positions for projectile targeting
   };
-  // Build a fast enemy lookup map so projectile targeting avoids repeated linear searches.
-  if (Array.isArray(this.enemies) && this.enemies.length) {
-    const enemyById = new Map();
-    this.enemies.forEach((enemy) => {
-      if (enemy?.id !== undefined) {
-        enemyById.set(enemy.id, enemy);
-      }
-    });
-    this._frameCache.enemyById = enemyById;
-  }
 
   this.drawCrystallineMosaic();
   // Draw cached sketch layer when available to minimize per-frame raster work.
@@ -3543,7 +3553,8 @@ function drawProjectiles() {
           let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
           if (!pos) {
             // Prefer the per-frame lookup map so target resolution stays O(1) per projectile.
-            const enemyLookup = this._frameCache?.enemyById;
+            // Lazily build the lookup map so frames without target-based projectiles avoid extra work.
+            const enemyLookup = getEnemyLookupMap.call(this);
             const enemy = enemyLookup
               ? enemyLookup.get(projectile.targetId)
               : this.enemies.find((candidate) => candidate.id === projectile.targetId);
