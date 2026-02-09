@@ -151,7 +151,8 @@ export class WaveTallyOverlayManager {
           const killLabel = `Kills · ${formatWholeNumber(kills)}`;
           const entry = this.createWaveTallyEntry(tower, { type: 'kills', label: killLabel });
           if (entry) {
-            this.waveTallyLabels.push(entry);
+            // Replace any prior kill label for this tower to prevent stacking when waves end quickly.
+            this.upsertWaveTallyEntry(entry);
           }
         }
       }
@@ -161,7 +162,8 @@ export class WaveTallyOverlayManager {
           const damageLabel = `Dmg · ${formatCombatNumber(totalDamage)}`;
           const entry = this.createWaveTallyEntry(tower, { type: 'damage', label: damageLabel });
           if (entry) {
-            this.waveTallyLabels.push(entry);
+            // Replace any prior damage label for this tower to keep the overlay readable.
+            this.upsertWaveTallyEntry(entry);
           }
         }
       }
@@ -230,5 +232,17 @@ export class WaveTallyOverlayManager {
   replaceEntries(entries) {
     this.waveTallyLabels.length = 0;
     this.waveTallyLabels.push(...entries);
+  }
+
+  // Replace any existing tally entry for the same tower/type so rapid waves don't stack labels.
+  upsertWaveTallyEntry(entry) {
+    if (!entry) {
+      return;
+    }
+    const filtered = this.waveTallyLabels.filter(
+      (existing) => existing && !(existing.towerId === entry.towerId && existing.type === entry.type),
+    );
+    filtered.push(entry);
+    this.replaceEntries(filtered);
   }
 }
