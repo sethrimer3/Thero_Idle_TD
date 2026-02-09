@@ -25,6 +25,7 @@ const BRIGHTNESS_MAX = 0.85; // Maximum brightness multiplier.
 const ALPHA_BASE = 0.16; // Base transparency for polygon cells.
 const ALPHA_VARIATION = 0.08; // Additional alpha variation for subtle depth.
 const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
+const VIEW_BOUNDS_PADDING = 48; // Extra padding to keep edge crystals from popping when panning.
 
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
@@ -627,9 +628,25 @@ export class CrystallineMosaicManager {
     }
     
     ctx.save();
+    // Cull to visible cells so the edge mosaic stays lightweight during camera movement.
+    const visibleCells = this.cells.filter((cell) => {
+      if (cell.isDestroyed) {
+        return false;
+      }
+      if (!viewBounds) {
+        return true;
+      }
+      const padding = VIEW_BOUNDS_PADDING + cell.size;
+      return (
+        cell.x + padding >= viewBounds.minX &&
+        cell.x - padding <= viewBounds.maxX &&
+        cell.y + padding >= viewBounds.minY &&
+        cell.y - padding <= viewBounds.maxY
+      );
+    });
     
     // First pass: Render all cell fills to create unified mass
-    for (const cell of this.cells) {
+    for (const cell of visibleCells) {
       const paletteColor = samplePaletteGradient(cell.colorShift);
       const showHealthBar = focusedCellId && cell.id === focusedCellId;
       cell.draw(ctx, paletteColor, showHealthBar);
@@ -641,13 +658,11 @@ export class CrystallineMosaicManager {
     ctx.globalCompositeOperation = 'source-over';
     
     // Draw connecting lines between nearby cells to enhance unified appearance
-    for (let i = 0; i < this.cells.length; i++) {
-      const cell1 = this.cells[i];
-      if (cell1.isDestroyed) continue;
+    for (let i = 0; i < visibleCells.length; i++) {
+      const cell1 = visibleCells[i];
       
-      for (let j = i + 1; j < this.cells.length; j++) {
-        const cell2 = this.cells[j];
-        if (cell2.isDestroyed) continue;
+      for (let j = i + 1; j < visibleCells.length; j++) {
+        const cell2 = visibleCells[j];
         
         const dx = cell2.x - cell1.x;
         const dy = cell2.y - cell1.y;
