@@ -2944,7 +2944,10 @@ function drawEnemies() {
 
   const fallbackRendering = shouldUseEnemyFallbackRendering.call(this);
   const timestamp = fallbackRendering ? 0 : (this._frameCache?.timestamp || getNowTimestamp());
-  const activeEnemies = fallbackRendering ? null : new Set();
+  // Only track active enemies when swirl caches exist to avoid per-frame set work.
+  const shouldTrackActiveEnemies = !fallbackRendering
+    && ((this.enemySwirlParticles && this.enemySwirlParticles.size) || (this.enemySwirlImpacts && this.enemySwirlImpacts.length));
+  const activeEnemies = shouldTrackActiveEnemies ? new Set() : null;
   if (fallbackRendering && this.enemySwirlParticles) {
     this.enemySwirlParticles.clear();
   }
@@ -3322,8 +3325,6 @@ function drawProjectiles() {
   const ctx = this.ctx;
   // Use cached viewport bounds to reduce redundant calculations
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
-  let renderedCount = 0;
-  let culledCount = 0;
 
   if (this.projectiles.length) {
     ctx.save();
@@ -3346,12 +3347,9 @@ function drawProjectiles() {
                         PROJECTILE_CULL_RADIUS_DEFAULT;
       
       if (!isInViewport(projectilePosition, viewportBounds, cullRadius)) {
-        culledCount++;
         return;
       }
     }
-    
-    renderedCount++;
 
     if (projectile.patternType === 'supply') {
       const position = projectile.currentPosition || projectile.target || projectile.source;
