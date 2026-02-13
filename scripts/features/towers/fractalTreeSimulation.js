@@ -28,7 +28,6 @@ import {
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI * 0.5;
 const DEG_TO_RAD = Math.PI / 180;
-const INV_255 = 1 / 255; // For color normalization
 
 /**
  * Simple seeded random number generator for consistent organic variation.
