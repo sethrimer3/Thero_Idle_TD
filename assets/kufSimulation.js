@@ -126,6 +126,9 @@ function getKufSprite(spritePath) {
   KUF_SPRITE_CACHE.set(spritePath, record);
   return record;
 }
+// Pre-calculated constants for performance optimization in rendering loops
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
 // Define baseline spin behavior for splayer units.
 const SPLAYER_BASE_SPIN_SPEED = 0.6;
 // Define the spin boost multiplier while the splayer is attacking.
@@ -752,7 +755,7 @@ export class KufBattlefieldSimulation {
       radius = SPLAYER_RADIUS;
       moveSpeed = MARINE_MOVE_SPEED * 0.9;
       range = SPLAYER_RANGE;
-      rotation = Math.random() * Math.PI * 2;
+      rotation = Math.random() * TWO_PI;
       rotationSpeed = SPLAYER_BASE_SPIN_SPEED;
     } else if (type === 'laser') {
       // Tune piercing lasers to sit between marines and snipers.
@@ -1310,7 +1313,7 @@ export class KufBattlefieldSimulation {
       if (marine.type === 'splayer') {
         const boostedSpin = marine.rotationBoostTimer > 0 ? SPLAYER_SPIN_BOOST_MULTIPLIER : 1;
         marine.rotationBoostTimer = Math.max(0, marine.rotationBoostTimer - delta);
-        marine.rotation = (marine.rotation + marine.rotationSpeed * boostedSpin * delta) % (Math.PI * 2);
+        marine.rotation = (marine.rotation + marine.rotationSpeed * boostedSpin * delta) % TWO_PI;
       }
       marine.cooldown = Math.max(0, marine.cooldown - delta);
       // Prioritize the focused enemy when one is set, only firing when it is in range.
@@ -1337,7 +1340,7 @@ export class KufBattlefieldSimulation {
           const rocketCount = 8;
           const rocketDamage = marine.attack * 0.25;
           for (let i = 0; i < rocketCount; i++) {
-            const launchAngle = Math.random() * Math.PI * 2;
+            const launchAngle = Math.random() * TWO_PI;
             this.spawnBullet({
               owner: 'marine',
               type: 'splayer',
@@ -1500,7 +1503,7 @@ export class KufBattlefieldSimulation {
       if (this.coreShip.droneSpawnTimer >= this.coreShip.droneSpawnRate) {
         this.coreShip.droneSpawnTimer = 0;
         // Spawn a drone near the core ship
-        const angle = Math.random() * Math.PI * 2;
+        const angle = Math.random() * TWO_PI;
         const spawnDist = this.coreShip.radius + 15;
         const droneX = this.coreShip.x + Math.cos(angle) * spawnDist;
         const droneY = this.coreShip.y + Math.sin(angle) * spawnDist;
@@ -1631,7 +1634,7 @@ export class KufBattlefieldSimulation {
           );
           if (nearbyPlayerTarget) {
             // Spawn a unit near the barracks
-            const angle = Math.random() * Math.PI * 2;
+            const angle = Math.random() * TWO_PI;
             const dist = turret.radius + 10;
             const spawnX = turret.x + Math.cos(angle) * dist;
             const spawnY = turret.y + Math.sin(angle) * dist;
@@ -1751,8 +1754,8 @@ export class KufBattlefieldSimulation {
         let angleDiff = angle - currentAngle;
         
         // Normalize angle difference
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        while (angleDiff > Math.PI) angleDiff -= TWO_PI;
+        while (angleDiff < -Math.PI) angleDiff += TWO_PI;
         
         const turnAmount = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate * delta);
         const newAngle = currentAngle + turnAmount;
@@ -2213,13 +2216,15 @@ export class KufBattlefieldSimulation {
   drawTrianglePattern() {
     const ctx = this.ctx;
     const size = 90;
+    const halfSize = size * 0.5;
+    const doubleSize = size * 2;
     for (let y = -size; y < this.bounds.height + size; y += size) {
       for (let x = -size; x < this.bounds.width + size; x += size) {
-        ctx.fillStyle = y % (size * 2) === 0 ? 'rgba(20, 30, 70, 0.35)' : 'rgba(10, 15, 40, 0.4)';
+        ctx.fillStyle = y % doubleSize === 0 ? 'rgba(20, 30, 70, 0.35)' : 'rgba(10, 15, 40, 0.4)';
         ctx.beginPath();
         ctx.moveTo(x, y + size);
         ctx.lineTo(x + size, y + size);
-        ctx.lineTo(x + size / 2, y);
+        ctx.lineTo(x + halfSize, y);
         ctx.closePath();
         ctx.fill();
       }
@@ -2291,13 +2296,13 @@ export class KufBattlefieldSimulation {
         ctx.strokeStyle = 'rgba(100, 255, 100, 0.8)';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(marine.x, marine.y, marine.radius + 4, 0, Math.PI * 2);
+        ctx.arc(marine.x, marine.y, marine.radius + 4, 0, TWO_PI);
         ctx.stroke();
         // Show the selected unit's firing range as a thin halo.
         ctx.strokeStyle = 'rgba(120, 255, 180, 0.35)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(marine.x, marine.y, marine.range, 0, Math.PI * 2);
+        ctx.arc(marine.x, marine.y, marine.range, 0, TWO_PI);
         ctx.stroke();
       }
 
@@ -2306,15 +2311,15 @@ export class KufBattlefieldSimulation {
       const useSplayerSprite = marine.type === 'splayer' && splayerSprite && splayerSprite.loaded;
       if (useSplayerSprite) {
         const spriteSize = marine.radius * 6;
+        const halfSpriteSize = spriteSize * 0.5;
         const marineGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 24) : 0;
         ctx.save();
         ctx.translate(marine.x, marine.y);
         ctx.rotate(marine.rotation || 0);
         ctx.shadowBlur = marineGlow;
         ctx.shadowColor = glowsEnabled ? 'rgba(255, 66, 180, 0.8)' : 'transparent';
-        ctx.drawImage(splayerSprite.image, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+        ctx.drawImage(splayerSprite.image, -halfSpriteSize, -halfSpriteSize, spriteSize, spriteSize);
         ctx.shadowBlur = 0;
-        ctx.restore();
         ctx.restore();
         return;
       }
@@ -2345,7 +2350,7 @@ export class KufBattlefieldSimulation {
       ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = mainColor;
       ctx.beginPath();
-      ctx.arc(marine.x, marine.y, marine.radius, 0, Math.PI * 2);
+      ctx.arc(marine.x, marine.y, marine.radius, 0, TWO_PI);
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.lineWidth = this.renderProfile === 'light' ? 2 : 3;
@@ -2353,7 +2358,7 @@ export class KufBattlefieldSimulation {
       ctx.stroke();
       ctx.fillStyle = 'rgba(15, 20, 40, 0.65)';
       ctx.beginPath();
-      ctx.arc(marine.x, marine.y, marine.radius * 0.5, 0, Math.PI * 2);
+      ctx.arc(marine.x, marine.y, marine.radius * 0.5, 0, TWO_PI);
       ctx.fill();
       ctx.restore();
     });
@@ -2364,7 +2369,6 @@ export class KufBattlefieldSimulation {
     const glowsEnabled = this.glowOverlaysEnabled;
     this.drones.forEach((drone) => {
       const healthRatio = drone.health / drone.maxHealth;
-      ctx.save();
       
       // Drones use a teal/cyan glow to distinguish them from other units
       const mainColor = 'rgba(100, 220, 255, 0.9)';
@@ -2375,13 +2379,12 @@ export class KufBattlefieldSimulation {
       ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = mainColor;
       ctx.beginPath();
-      ctx.arc(drone.x, drone.y, drone.radius, 0, Math.PI * 2);
+      ctx.arc(drone.x, drone.y, drone.radius, 0, TWO_PI);
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.lineWidth = this.renderProfile === 'light' ? 1.5 : 2;
       ctx.strokeStyle = `rgba(${80 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.85)`;
       ctx.stroke();
-      ctx.restore();
     });
   }
 
@@ -2405,9 +2408,9 @@ export class KufBattlefieldSimulation {
         gradient.addColorStop(0, 'rgba(120, 200, 255, 0.25)');
         gradient.addColorStop(1, 'rgba(20, 40, 70, 0)');
         ctx.fillStyle = gradient;
-        ctx.globalAlpha = 0.45 + 0.25 * Math.sin((turret.fieldPulse || 0) * Math.PI * 2);
+        ctx.globalAlpha = 0.45 + 0.25 * Math.sin((turret.fieldPulse || 0) * TWO_PI);
         ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.slowRadius, 0, Math.PI * 2);
+        ctx.arc(turret.x, turret.y, turret.slowRadius, 0, TWO_PI);
         ctx.fill();
         ctx.restore();
       }
@@ -2418,7 +2421,7 @@ export class KufBattlefieldSimulation {
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 6]);
         ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.buffRadius, 0, Math.PI * 2);
+        ctx.arc(turret.x, turret.y, turret.buffRadius, 0, TWO_PI);
         ctx.stroke();
         ctx.restore();
       }
@@ -2505,7 +2508,7 @@ export class KufBattlefieldSimulation {
       ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
       ctx.fillStyle = mainColor;
       ctx.beginPath();
-      ctx.arc(turret.x, turret.y, turret.radius, 0, Math.PI * 2);
+      ctx.arc(turret.x, turret.y, turret.radius, 0, TWO_PI);
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.strokeStyle = strokeColor;
@@ -2517,10 +2520,11 @@ export class KufBattlefieldSimulation {
       const bossSprite = turret.type === 'big_turret' ? getKufSprite(KUF_SPRITE_PATHS.ENEMY_BOSS) : null;
       if (bossSprite && bossSprite.loaded) {
         const spriteSize = turret.radius * 6.5;
+        const halfSpriteSize = spriteSize * 0.5;
         ctx.drawImage(
           bossSprite.image,
-          turret.x - spriteSize / 2,
-          turret.y - spriteSize / 2,
+          turret.x - halfSpriteSize,
+          turret.y - halfSpriteSize,
           spriteSize,
           spriteSize
         );
@@ -2542,7 +2546,7 @@ export class KufBattlefieldSimulation {
         ctx.strokeStyle = 'rgba(255, 255, 100, 0.9)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.radius + 4, 0, Math.PI * 2);
+        ctx.arc(turret.x, turret.y, turret.radius + 4, 0, TWO_PI);
         ctx.stroke();
         // Add a target reticle to emphasize the focused enemy.
         ctx.strokeStyle = 'rgba(255, 230, 120, 0.85)';
@@ -2571,8 +2575,6 @@ export class KufBattlefieldSimulation {
     const useBulletSprite = bulletSprite && bulletSprite.loaded && !bulletSprite.error;
     
     this.bullets.forEach((bullet) => {
-      ctx.save();
-      
       let color, shadowColor, size;
       if (bullet.owner === 'marine') {
         if (bullet.type === 'sniper') {
@@ -2612,20 +2614,21 @@ export class KufBattlefieldSimulation {
       // Draw sprite if available for marine bullets, otherwise draw circle.
       if (useBulletSprite && bullet.owner === 'marine') {
         const spriteSize = size * 2.5;
+        const halfSpriteSize = spriteSize * 0.5;
         const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
         ctx.shadowBlur = bulletGlow;
         ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-        ctx.drawImage(bulletSprite.image, bullet.x - spriteSize / 2, bullet.y - spriteSize / 2, spriteSize, spriteSize);
+        ctx.drawImage(bulletSprite.image, bullet.x - halfSpriteSize, bullet.y - halfSpriteSize, spriteSize, spriteSize);
       } else {
         const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
         ctx.shadowBlur = bulletGlow;
         ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, size, 0, Math.PI * 2);
+        ctx.arc(bullet.x, bullet.y, size, 0, TWO_PI);
         ctx.fill();
       }
-      ctx.restore();
+      ctx.shadowBlur = 0;
     });
   }
 
@@ -2636,18 +2639,17 @@ export class KufBattlefieldSimulation {
     this.marines.forEach((marine) => {
       if (marine.health < marine.maxHealth) {
         const barWidth = marine.radius * 2;
+        const halfBarWidth = barWidth * 0.5;
         const barHeight = 3;
         const barY = marine.y - marine.radius - 6;
         const healthRatio = marine.health / marine.maxHealth;
         
-        ctx.save();
         // Background
         ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
-        ctx.fillRect(marine.x - barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillRect(marine.x - halfBarWidth, barY, barWidth, barHeight);
         // Health
         ctx.fillStyle = 'rgba(100, 255, 100, 0.9)';
-        ctx.fillRect(marine.x - barWidth / 2, barY, barWidth * healthRatio, barHeight);
-        ctx.restore();
+        ctx.fillRect(marine.x - halfBarWidth, barY, barWidth * healthRatio, barHeight);
       }
     });
 
@@ -2655,18 +2657,17 @@ export class KufBattlefieldSimulation {
     this.turrets.forEach((turret) => {
       if (turret.health < turret.maxHealth) {
         const barWidth = turret.radius * 2;
+        const halfBarWidth = barWidth * 0.5;
         const barHeight = 3;
         const barY = turret.y - turret.radius - 6;
         const healthRatio = turret.health / turret.maxHealth;
         
-        ctx.save();
         // Background
         ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
-        ctx.fillRect(turret.x - barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillRect(turret.x - halfBarWidth, barY, barWidth, barHeight);
         // Health
         ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
-        ctx.fillRect(turret.x - barWidth / 2, barY, barWidth * healthRatio, barHeight);
-        ctx.restore();
+        ctx.fillRect(turret.x - halfBarWidth, barY, barWidth * healthRatio, barHeight);
       }
     });
   }
@@ -2694,15 +2695,13 @@ export class KufBattlefieldSimulation {
     
     this.explosions.forEach((explosion) => {
       const alpha = explosion.life / explosion.maxLife;
-      ctx.save();
       ctx.strokeStyle = `rgba(255, 150, 50, ${alpha * 0.8})`;
       ctx.fillStyle = `rgba(255, 100, 30, ${alpha * 0.3})`;
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+      ctx.arc(explosion.x, explosion.y, explosion.radius, 0, TWO_PI);
       ctx.fill();
       ctx.stroke();
-      ctx.restore();
     });
   }
 
@@ -2720,7 +2719,7 @@ export class KufBattlefieldSimulation {
     // Draw semi-transparent box above the enemy
     const boxWidth = 120;
     const boxHeight = 60;
-    const boxX = enemy.x - boxWidth / 2;
+    const boxX = enemy.x - boxWidth * 0.5;
     const boxY = enemy.y - enemy.radius - boxHeight - 10;
     
     ctx.fillStyle = 'rgba(20, 20, 40, 0.8)';
@@ -2783,7 +2782,7 @@ export class KufBattlefieldSimulation {
     gradient.addColorStop(1, 'rgba(40, 80, 140, 0.08)');
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, Math.PI * 2);
+    ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, TWO_PI);
     ctx.fill();
 
     // Draw healing aura if active (level 3+)
@@ -2801,7 +2800,7 @@ export class KufBattlefieldSimulation {
       healingGradient.addColorStop(1, 'rgba(100, 255, 150, 0)');
       ctx.fillStyle = healingGradient;
       ctx.beginPath();
-      ctx.arc(baseCenter.x, baseCenter.y, this.coreShip.healingAuraRadius, 0, Math.PI * 2);
+      ctx.arc(baseCenter.x, baseCenter.y, this.coreShip.healingAuraRadius, 0, TWO_PI);
       ctx.fill();
       ctx.restore();
     }
@@ -2810,10 +2809,11 @@ export class KufBattlefieldSimulation {
     const coreSprite = getKufSprite(KUF_SPRITE_PATHS.CORE_SHIP);
     if (coreSprite && coreSprite.loaded) {
       const spriteSize = baseRadius * 2.2 * scale;
+      const halfSpriteSize = spriteSize * 0.5;
       ctx.drawImage(
         coreSprite.image,
-        baseCenter.x - spriteSize / 2,
-        baseCenter.y - spriteSize / 2,
+        baseCenter.x - halfSpriteSize,
+        baseCenter.y - halfSpriteSize,
         spriteSize,
         spriteSize
       );
@@ -2830,7 +2830,7 @@ export class KufBattlefieldSimulation {
         baseCenter.y,
         (baseRadius + 10) * scale,
         0,
-        Math.PI * 2
+        TWO_PI
       );
       ctx.stroke();
     }
@@ -2843,8 +2843,8 @@ export class KufBattlefieldSimulation {
       baseCenter.x,
       baseCenter.y,
       (baseRadius + 3) * scale,
-      -Math.PI / 2,
-      -Math.PI / 2 + Math.PI * 2 * coreShipHealthRatio
+      -HALF_PI,
+      -HALF_PI + TWO_PI * coreShipHealthRatio
     );
     ctx.stroke();
 
@@ -2853,12 +2853,12 @@ export class KufBattlefieldSimulation {
       const cannonCount = this.coreShip.cannons;
       const orbitRadius = (baseRadius + 6) * scale;
       for (let i = 0; i < cannonCount; i++) {
-        const angle = (Math.PI * 2 * i) / cannonCount - Math.PI / 2;
+        const angle = (TWO_PI * i) / cannonCount - HALF_PI;
         const cannonX = baseCenter.x + Math.cos(angle) * orbitRadius;
         const cannonY = baseCenter.y + Math.sin(angle) * orbitRadius;
         ctx.fillStyle = 'rgba(255, 210, 150, 0.9)';
         ctx.beginPath();
-        ctx.arc(cannonX, cannonY, 2.6, 0, Math.PI * 2);
+        ctx.arc(cannonX, cannonY, 2.6, 0, TWO_PI);
         ctx.fill();
       }
     }
@@ -2982,14 +2982,14 @@ export class KufBattlefieldSimulation {
     ctx.strokeStyle = `rgba(100, 255, 100, ${pulse * 0.6})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(wp.x, wp.y, 15, 0, Math.PI * 2);
+    ctx.arc(wp.x, wp.y, 15, 0, TWO_PI);
     ctx.stroke();
     
     // Draw inner circle
     ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(wp.x, wp.y, 8, 0, Math.PI * 2);
+    ctx.arc(wp.x, wp.y, 8, 0, TWO_PI);
     ctx.stroke();
     
     // Draw crosshair
