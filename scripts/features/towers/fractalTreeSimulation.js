@@ -28,6 +28,7 @@ import {
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI * 0.5;
 const DEG_TO_RAD = Math.PI / 180;
+const MAX_COLOR_CACHE_SIZE = 1000; // Limit color interpolation cache to prevent memory issues
 
 /**
  * Simple seeded random number generator for consistent organic variation.
@@ -196,7 +197,8 @@ export class FractalTreeSimulation {
     factor = this.clamp(factor, 0, 1);
     
     // Create cache key from the two colors and rounded factor (to limit cache size)
-    const roundedFactor = Math.round(factor * 100) * 0.01;
+    // Use higher precision (1000) to reduce visible banding in smooth color transitions
+    const roundedFactor = Math.floor(factor * 1000) * 0.001;
     const cacheKey = `${color1}|${color2}|${roundedFactor}`;
     
     // Check cache first
@@ -223,7 +225,7 @@ export class FractalTreeSimulation {
     const result = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     
     // Store in cache (limit cache size to prevent memory issues)
-    if (this.colorCache.size < 1000) {
+    if (this.colorCache.size < MAX_COLOR_CACHE_SIZE) {
       this.colorCache.set(cacheKey, result);
     }
     
