@@ -32,6 +32,7 @@ const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpir
 
 // Pre-calculated constants for performance optimization
 const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
 
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
@@ -2713,7 +2714,7 @@ export class ParticleFusionSimulation {
           : 'rgba(180, 200, 255, 0.7)';
       const triangleRadius = radius * 1.5;
       const cornerRadius = radius * 0.55;
-      const angleOffset = -Math.PI * 0.5;
+      const angleOffset = -HALF_PI;
       const corners = [0, 1, 2].map((index) => {
         const theta = angleOffset + (index * TWO_PI) / 3;
         return {
