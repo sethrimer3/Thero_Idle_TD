@@ -1157,7 +1157,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     powderState.simulationMode = 'sand';
     powderState.pendingFluidDrops = [];
     powderState.loadedFluidState = null;
-    powderState.fluidIdleBank = 0;
     powderState.fluidIdleDrainRate = 0;
     powderState.fluidBankHydrated = false;
     powderState.fluidInitialLoadRestored = true;
@@ -1746,17 +1745,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       dropdownContainer: fluidElements.terrariumItemsDropdown,
       emptyMessage: fluidElements.terrariumItemsEmpty,
       itemsList: fluidElements.terrariumItemsList,
-      getSerendipityBalance: () => Math.max(0, Math.floor(powderState.fluidIdleBank || 0)),
+      getSerendipityBalance: () => 0,
       spendScintillae: (amount) => {
-        const cost = Math.max(0, Math.round(amount));
-        const balance = Math.max(0, powderState.fluidIdleBank || 0);
-        if (balance < cost) {
-          return 0;
-        }
-        powderState.fluidIdleBank = Math.max(0, balance - cost);
-        updatePowderDisplay();
-        schedulePowderBasinSave();
-        return cost;
+        return 0;
       },
       getProducerCount: (id) => {
         if (id === 'slime') {
@@ -1832,17 +1823,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let spireGemMenuController = null;
 
   const {
-    getLamedSparkBank,
-    setLamedSparkBank,
     ensureLamedBankSeeded,
-    getTsadiParticleBank,
-    setTsadiParticleBank,
     getTsadiBindingAgents,
     setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
-    getBetSandBank,
-    setBetSandBank,
   } = createSpireResourceBanks({
     spireResourceState,
     getSpireMenuController: () => spireMenuController,
@@ -1857,8 +1842,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     formatWholeNumber,
     getCurrentIdleMoteBank,
     getCurrentFluidDropBank,
-    getLamedSparkBank,
-    getTsadiParticleBank,
     getShinGlyphs,
     getKufGlyphs,
     isFluidUnlocked: () => Boolean(spireResourceState.fluid?.unlocked || powderState.fluidUnlocked),
@@ -2122,10 +2105,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getPowderSimulation: () => powderSimulation,
     spireResourceState,
     addIdleMoteBank,
-    getLamedSparkBank,
-    setLamedSparkBank,
-    getTsadiParticleBank,
-    setTsadiParticleBank,
     getTsadiBindingAgents,
     setTsadiBindingAgents,
     addIterons,
@@ -2573,9 +2552,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     spireResourceState.lamed.simulationSnapshot = snapshot;
-    if (Number.isFinite(snapshot.sparkBank)) {
-      setLamedSparkBank(snapshot.sparkBank);
-    }
     if (snapshot.stats) {
       spireResourceState.lamed.stats = snapshot.stats;
     }
@@ -2602,9 +2578,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     spireResourceState.tsadi.simulationSnapshot = snapshot;
-    if (Number.isFinite(snapshot.particleBank)) {
-      setTsadiParticleBank(snapshot.particleBank);
-    }
     if (Number.isFinite(snapshot.bindingAgentBank)) {
       syncTsadiBindingAgents(snapshot.bindingAgentBank);
     }
@@ -2963,18 +2936,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       ...(spireResourceState.fluid || {}),
       unlocked: true,
     };
-    const startingReservoir = FLUID_UNLOCK_BASE_RESERVOIR_DROPS; // Base reservoir grant for the newly unlocked study.
-    const currentFluidBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
-    if (currentFluidBank < startingReservoir) {
-      handlePowderIdleBankChange(startingReservoir, 'fluid'); // Surface the seeded reservoir through the shared idle handler.
-      if (fluidSimulationInstance) {
-        const simulationBank = Number.isFinite(fluidSimulationInstance.idleBank) ? Math.max(0, fluidSimulationInstance.idleBank) : 0;
-        if (simulationBank < startingReservoir) {
-          fluidSimulationInstance.idleBank = startingReservoir;
-          fluidSimulationInstance.notifyIdleBankChange(); // Sync the live simulation with the seeded reservoir total.
-        }
-      }
-    }
     updateFluidTabAvailability();
     updatePowderModeButton();
     const normalizedCost = Number.isFinite(glyphCost) ? Math.max(0, Math.floor(glyphCost)) : getFluidUnlockGlyphCost();
@@ -3282,7 +3243,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       },
       lamed: {
         unlocked: Boolean(lamedState.unlocked),
-        sparkBank: getLamedSparkBank(),
         dragLevel: clampPersistedValue(lamedState.dragLevel, 0),
         starMass: Number.isFinite(lamedState.starMass) ? lamedState.starMass : 10,
         storySeen: Boolean(lamedState.storySeen),
@@ -3298,7 +3258,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       tsadi: {
         unlocked: Boolean(tsadiState.unlocked),
         storySeen: Boolean(tsadiState.storySeen),
-        particleBank: getTsadiParticleBank(),
         bindingAgents: getTsadiBindingAgents(),
         discoveredMolecules: normalizeDiscoveredMolecules(tsadiState.discoveredMolecules),
         stats: {
@@ -3351,7 +3310,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     const lamedState = spireResourceState.lamed || {};
     lamedState.unlocked = Boolean(lamedBranch.unlocked || lamedState.unlocked);
-    setLamedSparkBank(clampPersistedValue(lamedBranch.sparkBank, getLamedSparkBank()));
     lamedState.dragLevel = clampPersistedValue(lamedBranch.dragLevel, lamedState.dragLevel || 0);
     lamedState.starMass = Number.isFinite(lamedBranch.starMass) ? lamedBranch.starMass : lamedState.starMass || 10;
     lamedState.storySeen = Boolean(lamedBranch.storySeen || lamedState.storySeen);
@@ -3372,7 +3330,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const tsadiState = spireResourceState.tsadi || {};
     tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
     tsadiState.storySeen = Boolean(tsadiBranch.storySeen || tsadiState.storySeen);
-    setTsadiParticleBank(clampPersistedValue(tsadiBranch.particleBank, getTsadiParticleBank()));
     const bindingStock = clampPersistedValue(tsadiBranch.bindingAgents, getTsadiBindingAgents());
     syncTsadiBindingAgents(bindingStock);
     tsadiState.stats = {
@@ -3703,8 +3660,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       simulation.pendingDrops.length = 0;
     }
     if (Number.isFinite(simulation.idleBank)) {
-      powderState[bankKey] = Math.max(0, simulation.idleBank);
-      powderState[hydratedKey] = false;
+      if (!isFluid) {
+        powderState[bankKey] = Math.max(0, simulation.idleBank);
+        powderState[hydratedKey] = false;
+      }
     }
     if (Number.isFinite(simulation.idleDrainRate)) {
       if (isFluid) {
@@ -3753,11 +3712,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       return;
     }
     powderState[stateKey] = null;
-    powderState[bankKey] = Math.max(
-      0,
-      Number.isFinite(snapshot.idleBank) ? snapshot.idleBank : simulation.idleBank || 0,
-    );
-    powderState[hydratedKey] = true;
+    if (!isFluid) {
+      powderState[bankKey] = Math.max(
+        0,
+        Number.isFinite(snapshot.idleBank) ? snapshot.idleBank : simulation.idleBank || 0,
+      );
+      powderState[hydratedKey] = true;
+    }
     powderState[drainKey] = simulation.idleDrainRate;
     powderState.motePalette = simulation.getEffectiveMotePalette();
     // Apply the restored palette so the Towers tab matches the revived basin state.
@@ -3916,13 +3877,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   }
 
   function getCurrentFluidDropBank() {
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
-      const bank = Math.max(0, fluidSimulationInstance.idleBank);
-      powderState.fluidIdleBank = bank;
-      powderState.fluidBankHydrated = true;
-      return bank;
-    }
-    return Math.max(0, powderState.fluidIdleBank || 0);
+    return 0;
   }
 
   /**
@@ -3931,24 +3886,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
    * @returns {number} - Actual Scintillae spent
    */
   function spendFluidSerendipity(amount) {
-    const normalized = Math.max(0, Math.floor(amount));
-    if (!normalized) {
-      return 0;
-    }
-    const available = getCurrentFluidDropBank();
-    const spend = Math.min(normalized, available);
-    if (!spend) {
-      return 0;
-    }
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleBank)) {
-      fluidSimulationInstance.idleBank = Math.max(0, fluidSimulationInstance.idleBank - spend);
-    }
-    const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-    powderState.fluidIdleBank = Math.max(0, current - spend);
-    powderState.fluidBankHydrated = false;
-    schedulePowderBasinSave();
-    updateStatusDisplays();
-    return spend;
+    return 0;
   }
 
   function getCurrentFluidDispenseRate() {
@@ -3981,18 +3919,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (simulationTarget && typeof simulationTarget.addIdleMotes === 'function') {
       simulationTarget.addIdleMotes(amount);
-      if (targetIsFluid) {
-        powderState.fluidIdleBank = Math.max(0, simulationTarget.idleBank);
-        powderState.fluidBankHydrated = simulationTarget === powderSimulation;
-      } else {
+      if (!targetIsFluid) {
         powderState.idleMoteBank = Math.max(0, simulationTarget.idleBank);
         powderState.idleBankHydrated = simulationTarget === powderSimulation;
       }
-    } else if (targetIsFluid) {
-      const current = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-      powderState.fluidIdleBank = Math.max(0, current + amount);
-      powderState.fluidBankHydrated = false;
-    } else {
+    } else if (!targetIsFluid) {
       const current = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
       powderState.idleMoteBank = Math.max(0, current + amount);
       powderState.idleBankHydrated = false;
@@ -4025,19 +3956,21 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
     const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
-    const pendingBank = Math.max(0, Number.isFinite(powderState[bankKey]) ? powderState[bankKey] : 0);
-    if (pendingBank > 0) {
-      const simulationBank = Number.isFinite(powderSimulation.idleBank)
-        ? Math.max(0, powderSimulation.idleBank)
-        : 0;
-      const shouldInject = !powderState[hydratedKey] || Math.abs(simulationBank - pendingBank) > 0.5;
-      if (shouldInject) {
-        powderSimulation.addIdleMotes(pendingBank);
-        powderState[bankKey] = 0;
-      } else {
-        powderState[bankKey] = simulationBank;
+    if (!isFluid) {
+      const pendingBank = Math.max(0, Number.isFinite(powderState[bankKey]) ? powderState[bankKey] : 0);
+      if (pendingBank > 0) {
+        const simulationBank = Number.isFinite(powderSimulation.idleBank)
+          ? Math.max(0, powderSimulation.idleBank)
+          : 0;
+        const shouldInject = !powderState[hydratedKey] || Math.abs(simulationBank - pendingBank) > 0.5;
+        if (shouldInject) {
+          powderSimulation.addIdleMotes(pendingBank);
+          powderState[bankKey] = 0;
+        } else {
+          powderState[bankKey] = simulationBank;
+        }
+        powderState[hydratedKey] = true;
       }
-      powderState[hydratedKey] = true;
     }
     // Flushes change the basin layout, so capture them for the next resume.
     schedulePowderBasinSave();
@@ -5851,7 +5784,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
-    const idleBank = Number.isFinite(powderState.fluidIdleBank) ? Math.max(0, powderState.fluidIdleBank) : 0;
+    const idleBank = 0;
     if (fluidElements.reservoirValue) {
       fluidElements.reservoirValue.textContent = `${formatGameNumber(idleBank)} Scintillae`;
     }
@@ -5885,21 +5818,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const normalized = Number.isFinite(bankValue) ? Math.max(0, bankValue) : 0;
     const origin = source || (powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand');
     if (origin === 'fluid') {
-      const previous = Number.isFinite(powderState.fluidIdleBank) ? powderState.fluidIdleBank : 0;
-      powderState.fluidIdleBank = normalized;
-      powderState.fluidBankHydrated = powderSimulation === fluidSimulationInstance;
-      if (resourceElements.tabFluidBadge) {
-        const tabStoredLabel = formatGameNumber(normalized);
-        resourceElements.tabFluidBadge.textContent = tabStoredLabel;
-        resourceElements.tabFluidBadge.setAttribute('aria-label', `${tabStoredLabel} Scintillae in reserve`);
-        if (powderState.fluidUnlocked) {
-          resourceElements.tabFluidBadge.removeAttribute('hidden');
-          resourceElements.tabFluidBadge.setAttribute('aria-hidden', 'false');
-        }
-      }
-      if (Math.abs(previous - normalized) >= 0.0001) {
-        schedulePowderBasinSave();
-      }
+      // Fluid idle bank is no longer tracked
       updateFluidDisplay();
       return;
     }
@@ -6507,11 +6426,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               ensureLamedBankSeeded();
               lamedSimulationInstance = new GravitySimulation({
                 canvas: lamedCanvas,
-                initialSparkBank: getLamedSparkBank(),
                 isLowGraphicsMode: () => isLowGraphicsModeActive(),
-                onSparkBankChange: (value) => {
-                  setLamedSparkBank(value);
-                },
                 onStarMassChange: (value) => {
                   // Update state persistence
                   spireResourceState.lamed.starMass = value;
@@ -6521,7 +6436,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
               const lamedSnapshot = spireResourceState.lamed.simulationSnapshot || {
                 starMass: spireResourceState.lamed.starMass || 10,
-                sparkBank: getLamedSparkBank(),
                 dragLevel: spireResourceState.lamed.dragLevel || 0,
                 upgrades: {
                   starMass: spireResourceState.lamed.upgrades?.starMass || 0,
@@ -6624,14 +6538,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               ensureTsadiBankSeeded();
               tsadiSimulationInstance = new ParticleFusionSimulation({
                 canvas: tsadiCanvas,
-                initialParticleBank: getTsadiParticleBank(),
                 initialBindingAgents: getTsadiBindingAgents(),
                 initialDiscoveredMolecules: spireResourceState.tsadi?.discoveredMolecules || [],
                 assignMoleculeName: (recipe) => tsadiMoleculeNameGenerator.assignName(recipe),
                 samplePaletteGradient: samplePaletteGradient,
-                onParticleBankChange: (value) => {
-                  setTsadiParticleBank(value);
-                },
                 onBindingAgentStockChange: (value) => {
                   syncTsadiBindingAgents(value);
                 },
@@ -6713,7 +6623,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 onMoleculeDiscovered: handleMoleculeDiscovery,
               });
               const tsadiSnapshot = {
-                particleBank: getTsadiParticleBank(),
                 bindingAgentBank: getTsadiBindingAgents(),
                 discoveredMolecules: spireResourceState.tsadi?.discoveredMolecules || [],
                 highestTierReached: spireResourceState.tsadi?.stats?.highestTier,

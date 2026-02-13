@@ -1,10 +1,9 @@
 // Spire resource banking helpers extracted from main.js to keep the orchestration file lean.
 
 /**
- * Factory that provides helper functions for managing the individual spire resource banks
- * and reconciling glyph currency derived from powder progression. The returned helpers wrap
- * state mutations with consistent normalization and UI refresh logic so call sites in
- * main.js only need to import a lightweight API surface.
+ * Factory that provides helper functions for managing glyph currency reconciliation
+ * and spire state management. The idle bank concept has been removed in favor of
+ * generation-per-minute mechanics handled by spireIdleGeneration.js.
  *
  * @param {Object} options - Dependency injection container.
  * @param {Object} options.spireResourceState - Live state references for each spire.
@@ -12,7 +11,7 @@
  * @param {Object} options.powderState - Powder progression state used to reconcile glyph currency.
  * @param {Function} options.calculateInvestedGlyphs - Computes invested glyph totals from tower upgrades.
  * @param {Function} options.setGlyphCurrency - Persists the latest available glyph currency value.
- * @returns {Object} Helper functions for manipulating spire resource banks.
+ * @returns {Object} Helper functions for manipulating spire resources.
  */
 export function createSpireResourceBanks({
   spireResourceState,
@@ -33,16 +32,6 @@ export function createSpireResourceBanks({
 
   const lamedState = spireResourceState.lamed;
   const tsadiState = spireResourceState.tsadi;
-  const fluidState = spireResourceState.fluid;
-
-  /**
-   * Utility to coerce a numeric input into a non-negative finite value.
-   * @param {number} value - Raw numeric value.
-   * @returns {number} Normalized value.
-   */
-  function normalizeBankValue(value) {
-    return Number.isFinite(value) ? Math.max(0, value) : 0;
-  }
 
   /**
    * Trigger the spire menu to refresh displayed resource counts if supported.
@@ -54,58 +43,12 @@ export function createSpireResourceBanks({
     }
   }
 
-  function getLamedSparkBank() {
-    return normalizeBankValue(lamedState.sparkBank);
-  }
-
-  function setLamedSparkBank(value) {
-    const normalized = normalizeBankValue(value);
-    if (normalized === getLamedSparkBank()) {
-      return normalized;
-    }
-    lamedState.sparkBank = normalized;
-    updateSpireMenuCounts();
-    return normalized;
-  }
-
   function ensureLamedBankSeeded() {
     if (lamedState.unlocked) {
       return;
     }
     lamedState.unlocked = true;
-    if (getLamedSparkBank() < 100) {
-      setLamedSparkBank(100);
-    } else {
-      updateSpireMenuCounts();
-    }
-  }
-
-  function getTsadiParticleBank() {
-    return normalizeBankValue(tsadiState.particleBank);
-  }
-
-  function setTsadiParticleBank(value) {
-    const normalized = normalizeBankValue(value);
-    if (normalized === getTsadiParticleBank()) {
-      return normalized;
-    }
-    tsadiState.particleBank = normalized;
     updateSpireMenuCounts();
-    return normalized;
-  }
-
-  function getTsadiBindingAgents() {
-    return normalizeBankValue(tsadiState.bindingAgents);
-  }
-
-  function setTsadiBindingAgents(value) {
-    const normalized = normalizeBankValue(value);
-    if (normalized === getTsadiBindingAgents()) {
-      return normalized;
-    }
-    tsadiState.bindingAgents = normalized;
-    updateSpireMenuCounts();
-    return normalized;
   }
 
   function ensureTsadiBankSeeded() {
@@ -113,11 +56,7 @@ export function createSpireResourceBanks({
       return;
     }
     tsadiState.unlocked = true;
-    if (getTsadiParticleBank() < 100) {
-      setTsadiParticleBank(100);
-    } else {
-      updateSpireMenuCounts();
-    }
+    updateSpireMenuCounts();
   }
 
   function reconcileGlyphCurrencyFromState() {
@@ -130,34 +69,9 @@ export function createSpireResourceBanks({
     return { awarded, invested, available };
   }
 
-  function getBetSandBank() {
-    // Use the fluidIdleBank from powderState for BET spire sand
-    return normalizeBankValue(powderState?.fluidIdleBank);
-  }
-
-  function setBetSandBank(value) {
-    const normalized = normalizeBankValue(value);
-    if (normalized === getBetSandBank()) {
-      return normalized;
-    }
-    if (powderState) {
-      powderState.fluidIdleBank = normalized;
-    }
-    updateSpireMenuCounts();
-    return normalized;
-  }
-
   return {
-    getLamedSparkBank,
-    setLamedSparkBank,
     ensureLamedBankSeeded,
-    getTsadiParticleBank,
-    setTsadiParticleBank,
-    getTsadiBindingAgents,
-    setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
-    getBetSandBank,
-    setBetSandBank,
   };
 }

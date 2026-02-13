@@ -159,7 +159,6 @@ export function createPowderPersistence({
       idleMoteBank: Math.max(0, clampFiniteNumber(powderState.idleMoteBank, 0)),
       idleDrainRate: Math.max(0, clampFiniteNumber(powderState.idleDrainRate, 0)),
       pendingMoteDrops: pendingDrops,
-      fluidIdleBank: Math.max(0, clampFiniteNumber(powderState.fluidIdleBank, 0)),
       fluidIdleDrainRate: Math.max(0, clampFiniteNumber(powderState.fluidIdleDrainRate, 0)),
       pendingFluidDrops,
       motePalette: palette,
@@ -253,10 +252,6 @@ export function createPowderPersistence({
         powderState.pendingMoteDrops = base.pendingMoteDrops.map(cloneStoredMoteDrop).filter(Boolean);
       } else {
         powderState.pendingMoteDrops = [];
-      }
-      if (Number.isFinite(base.fluidIdleBank)) {
-        powderState.fluidIdleBank = Math.max(0, base.fluidIdleBank);
-        powderState.fluidBankHydrated = false;
       }
       if (Number.isFinite(base.fluidIdleDrainRate)) {
         powderState.fluidIdleDrainRate = Math.max(0, base.fluidIdleDrainRate);

@@ -35,7 +35,6 @@ export function createPowderStateContext() {
     idleDrainRate: 0,
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
-    fluidIdleBank: 0,
     fluidIdleDrainRate: 0,
     pendingFluidDrops: [],
     fluidBankHydrated: false,

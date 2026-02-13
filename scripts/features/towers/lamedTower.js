@@ -100,7 +100,6 @@ export class GravitySimulation {
     this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
     
     // Callbacks
-    this.onSparkBankChange = typeof options.onSparkBankChange === 'function' ? options.onSparkBankChange : null;
     this.onStarMassChange = typeof options.onStarMassChange === 'function' ? options.onStarMassChange : null;
     this.samplePaletteGradient = typeof options.samplePaletteGradient === 'function' ? options.samplePaletteGradient : null;
     
@@ -142,7 +141,6 @@ export class GravitySimulation {
     
     // Star management (renamed from sparks)
     this.stars = [];
-    this.sparkBank = 0; // Idle currency reserve that spawns stars into the simulation
     this.maxStars = MAX_RENDERED_STARS; // Maximum number of active orbiting stars visible at once.
     this.sparkSpawnRate = 0; // Stars spawned per second (starts at 0)
     this.spawnAccumulator = 0;
@@ -355,10 +353,6 @@ export class GravitySimulation {
     // Schedule the first shooting star once RNG is available.
     this.scheduleNextShootingStar();
     
-    // Seed the spark bank with any provided initial reserve so UI callbacks hydrate immediately.
-    const initialSparkBank = Number.isFinite(options.initialSparkBank) ? options.initialSparkBank : 0;
-    this.setSparkBank(initialSparkBank);
-
     // Initialize if canvas is provided
     if (this.canvas) {
       this.resize();
@@ -574,10 +568,10 @@ export class GravitySimulation {
       this.sprites.asteroids.push(img);
     }
     
-    // Load 8 sun phase sprites (SVG with PNG fallback)
+    // Load 8 sun phase sprites (PNG version only)
     for (let i = 1; i <= 8; i++) {
       const img = new Image();
-      img.src = `${basePath}sunPhases/sunPhase${i}.svg`;
+      img.src = `${basePath}sunPhases/sunPhase${i}.png`;
       this.sprites.sunPhases.push(img);
     }
     
@@ -1281,8 +1275,6 @@ export class GravitySimulation {
    * Uses near-circular orbital velocity.
    */
   spawnStar(options = {}) {
-    if (this.sparkBank <= 0) return false;
-
     const dpr = this.getEffectiveDevicePixelRatio();
     const massMultiplier = Number.isFinite(options.massMultiplier)
       ? Math.max(1, options.massMultiplier)
@@ -1360,7 +1352,6 @@ export class GravitySimulation {
           elapsed: 0,
         });
       }
-      this.setSparkBank(this.sparkBank - 1);
       return true;
     }
     
@@ -1397,10 +1388,26 @@ export class GravitySimulation {
       });
     }
 
-    // Deduct from the idle bank when a new star is introduced to the simulation.
-    this.setSparkBank(this.sparkBank - 1);
-
     return true;
+  }
+
+  /**
+   * Spawn multiple stars for catch-up after idle time.
+   * This is used when the player returns from being idle to "fast forward" the simulation.
+   * 
+   * @param {number} starCount - Number of stars to spawn
+   * @returns {number} Number of stars actually spawned
+   */
+  spawnMultipleStars(starCount) {
+    let spawned = 0;
+    for (let i = 0; i < starCount; i++) {
+      if (this.spawnStar()) {
+        spawned++;
+      } else {
+        break;
+      }
+    }
+    return spawned;
   }
 
   /**
@@ -1679,7 +1686,7 @@ export class GravitySimulation {
 
     // Spawn new stars
     this.spawnAccumulator += dt * this.sparkSpawnRate;
-    while (this.spawnAccumulator >= 1 && this.sparkBank > 0) {
+    while (this.spawnAccumulator >= 1) {
       const spawned = this.spawnStar();
       if (!spawned) {
         break;
@@ -2161,9 +2168,9 @@ export class GravitySimulation {
 
     // Draw the sun using sprite or procedural texture
     // Map tier index to sun phase sprite (with pre-Main sequence at index 0)
-    // sunPhase1.svg = pre-Main sequence (Proto-star)
-    // sunPhase2.svg = Main Sequence
-    // sunPhase3-8.svg = subsequent phases
+    // sunPhase1.png = pre-Main sequence (Proto-star)
+    // sunPhase2.png = Main Sequence
+    // sunPhase3-8.png = subsequent phases
     let sunSpriteDrawn = false;
     if (this.spritesLoaded && this.sprites.sunPhases.length > 0) {
       // Use the resolved tier index so the sun sprite lookup stays aligned with mass thresholds.
@@ -2544,31 +2551,6 @@ export class GravitySimulation {
   }
   
   /**
-   * Add sparks to the bank
-   */
-  addToSparkBank(amount) {
-    if (!Number.isFinite(amount)) {
-      return;
-    }
-    this.setSparkBank(this.sparkBank + amount);
-  }
-
-  /**
-   * Overwrite the spark bank and notify listeners when the value changes.
-   * @param {number} amount - New spark reserve value
-   */
-  setSparkBank(amount) {
-    const normalized = Number.isFinite(amount) ? Math.max(0, amount) : 0;
-    if (normalized === this.sparkBank) {
-      return;
-    }
-    this.sparkBank = normalized;
-    if (this.onSparkBankChange) {
-      this.onSparkBankChange(this.sparkBank);
-    }
-  }
-  
-  /**
    * Set the last click position for star spawning.
    * @param {number} x - X coordinate in CSS pixels
    * @param {number} y - Y coordinate in CSS pixels
@@ -2591,7 +2573,7 @@ export class GravitySimulation {
    * @returns {boolean}
    */
   canUpgradeDrag() {
-    return this.dragLevel < this.maxDragLevel && this.sparkBank >= this.getDragUpgradeCost();
+    return this.dragLevel < this.maxDragLevel;
   }
   
   /**
@@ -2604,8 +2586,6 @@ export class GravitySimulation {
       return false;
     }
     
-    const cost = this.getDragUpgradeCost();
-    this.setSparkBank(this.sparkBank - cost);
     this.dragLevel++;
     this.dragCoefficient = 0.002 + this.dragLevel * 0.002;
     
@@ -2625,7 +2605,7 @@ export class GravitySimulation {
    * @returns {boolean}
    */
   canUpgradeStarMass() {
-    return this.sparkBank >= this.getStarMassUpgradeCost();
+    return true; // Always upgradeable now that sparkBank is removed
   }
   
   /**
@@ -2638,8 +2618,6 @@ export class GravitySimulation {
       return false;
     }
     
-    const cost = this.getStarMassUpgradeCost();
-    this.setSparkBank(this.sparkBank - cost);
     this.upgrades.starMass++;
     
     return true;
@@ -2676,7 +2654,6 @@ export class GravitySimulation {
     const { tierIndex } = this.getCurrentTier();
     return {
       starMass: this.starMass,
-      sparkBank: this.sparkBank,
       dragLevel: this.dragLevel,
       dragCoefficient: this.dragCoefficient,
       upgrades: {
@@ -2914,9 +2891,6 @@ export class GravitySimulation {
     if (state && typeof state === 'object') {
       if (Number.isFinite(state.starMass)) {
         this.starMass = Math.max(0, state.starMass);
-      }
-      if (Number.isFinite(state.sparkBank)) {
-        this.setSparkBank(state.sparkBank);
       }
       if (Number.isFinite(state.dragLevel)) {
         this.dragLevel = Math.max(0, Math.min(state.dragLevel, this.maxDragLevel));

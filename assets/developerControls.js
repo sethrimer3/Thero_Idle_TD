@@ -453,15 +453,8 @@ function setDeveloperIterationRate(value) {
 }
 
 function setDeveloperLamedBank(value) {
-  if (!Number.isFinite(value)) {
-    return;
-  }
-  const normalized = Math.max(0, Math.floor(value));
-  const lamedSimulation = getLamedSimulation();
-  if (lamedSimulation && typeof lamedSimulation.sparkBank !== 'undefined') {
-    lamedSimulation.sparkBank = normalized;
-  }
-  recordDeveloperAdjustment('lamedBank', normalized);
+  // No-op: Lamed sparkBank has been removed in favor of generation-per-minute system
+  recordDeveloperAdjustment('lamedBank', 0);
 }
 
 function setDeveloperLamedRate(value) {
@@ -477,15 +470,8 @@ function setDeveloperLamedRate(value) {
 }
 
 function setDeveloperTsadiBank(value) {
-  if (!Number.isFinite(value)) {
-    return;
-  }
-  const normalized = Math.max(0, Math.floor(value));
-  const tsadiSimulation = getTsadiSimulation();
-  if (tsadiSimulation && typeof tsadiSimulation.particleBank !== 'undefined') {
-    tsadiSimulation.particleBank = normalized;
-  }
-  recordDeveloperAdjustment('tsadiBank', normalized);
+  // No-op: Tsadi particleBank has been removed in favor of generation-per-minute system
+  recordDeveloperAdjustment('tsadiBank', 0);
 }
 
 function setDeveloperTsadiRate(value) {
