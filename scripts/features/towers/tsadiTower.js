@@ -477,9 +477,6 @@ export class ParticleFusionSimulation {
     this.onTierChange = typeof options.onTierChange === 'function' ? options.onTierChange : null;
     this.onParticleCountChange = typeof options.onParticleCountChange === 'function' ? options.onParticleCountChange : null;
     this.onGlyphChange = typeof options.onGlyphChange === 'function' ? options.onGlyphChange : null;
-    this.onParticleBankChange = typeof options.onParticleBankChange === 'function'
-      ? options.onParticleBankChange
-      : null;
     this.onReset = typeof options.onReset === 'function' ? options.onReset : null;
     this.samplePaletteGradient = typeof options.samplePaletteGradient === 'function'
       ? options.samplePaletteGradient
@@ -498,10 +495,9 @@ export class ParticleFusionSimulation {
     // Particle management
     this.particles = [];
     this.maxParticles = 100;
-    this.spawnRate = 0; // Particles per second (consumes particle bank, starts at 0)
+    this.spawnRate = 0; // Particles per second (starts at 0)
     this.spawnAccumulator = 0;
     this.nullParticleRadius = 5; // Reference size for null particle (recalculated on resize)
-    this.particleBank = 0; // Reserve that feeds the simulation with new particles
     
     // Glyph tracking
     this.highestTierReached = NULL_TIER; // Tracks the highest tier ever reached
@@ -619,11 +615,6 @@ export class ParticleFusionSimulation {
       this.resize();
     }
 
-    // Hydrate the simulation with any preloaded particle reserve before seeding the initial swarm.
-    const initialParticleBank = Number.isFinite(options.initialParticleBank)
-      ? options.initialParticleBank
-      : 0;
-    this.setParticleBank(initialParticleBank);
     this.spawnInitialParticles();
   }
   
@@ -802,7 +793,6 @@ export class ParticleFusionSimulation {
    */
   spawnParticle(config = NULL_TIER) {
     if (this.particles.length >= this.maxParticles) return false;
-    if (this.particleBank <= 0) return false;
 
     // Ensure valid dimensions before spawning to prevent particles spawning at origin
     if (!Number.isFinite(this.width) || this.width <= 0 || !Number.isFinite(this.height) || this.height <= 0) {
@@ -887,13 +877,27 @@ export class ParticleFusionSimulation {
       );
     }
 
-    // Deduct a particle from the idle bank when it materializes inside the simulation.
-    this.setParticleBank(this.particleBank - 1);
-
     if (this.onParticleCountChange) {
       this.onParticleCountChange(this.particles.length);
     }
     return true;
+  }
+  
+  /**
+   * Spawn multiple particles at once
+   * @param {number} count - Number of particles to spawn
+   * @returns {number} Number of particles successfully spawned
+   */
+  spawnMultipleParticles(count) {
+    let spawned = 0;
+    for (let i = 0; i < count; i++) {
+      if (this.spawnParticle()) {
+        spawned++;
+      } else {
+        break;
+      }
+    }
+    return spawned;
   }
   
   /**
@@ -1054,7 +1058,7 @@ export class ParticleFusionSimulation {
     // Spawn new particles (always spawn at null tier, upgrade will adjust)
     const effectiveSpawnRate = this.spawnRate * (1 + this.moleculeBonuses.spawnRateBonus);
     this.spawnAccumulator += dt * effectiveSpawnRate;
-    while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles && this.particleBank > 0) {
+    while (this.spawnAccumulator >= 1 && this.particles.length < this.maxParticles) {
       const spawned = this.spawnParticle(NULL_TIER);
       if (!spawned) {
         break;
@@ -1927,31 +1931,7 @@ export class ParticleFusionSimulation {
     return entries;
   }
 
-  /**
-   * Add particles to the idle bank that feeds the simulation.
-   * @param {number} amount - Number of particles to add
-   */
-  addToParticleBank(amount) {
-    if (!Number.isFinite(amount)) {
-      return;
-    }
-    this.setParticleBank(this.particleBank + amount);
-  }
 
-  /**
-   * Overwrite the particle bank and notify observers when it changes.
-   * @param {number} amount - New particle reserve value
-   */
-  setParticleBank(amount) {
-    const normalized = Number.isFinite(amount) ? Math.max(0, amount) : 0;
-    if (normalized === this.particleBank) {
-      return;
-    }
-    this.particleBank = normalized;
-    if (this.onParticleBankChange) {
-      this.onParticleBankChange(this.particleBank);
-    }
-  }
 
   /**
    * Handle particle-particle collisions and fusion with tier progression
@@ -2887,12 +2867,6 @@ export class ParticleFusionSimulation {
    * @returns {boolean} True if purchase was successful
    */
   purchaseRepellingForceReduction() {
-    const cost = this.getRepellingForceReductionCost();
-    if (this.particleBank < cost) {
-      return false;
-    }
-    
-    this.setParticleBank(this.particleBank - cost);
     this.upgrades.repellingForceReduction++;
     
     // Update repelling force for all existing particles
@@ -2918,12 +2892,6 @@ export class ParticleFusionSimulation {
    * @returns {boolean} True if purchase was successful
    */
   purchaseWaveForceUpgrade() {
-    const cost = this.getWaveForceUpgradeCost();
-    if (this.particleBank < cost) {
-      return false;
-    }
-
-    this.setParticleBank(this.particleBank - cost);
     this.upgrades.waveForce += 1;
     return true;
   }
@@ -2941,12 +2909,6 @@ export class ParticleFusionSimulation {
    * @returns {boolean} True if purchase was successful
    */
   purchaseStartingTierUpgrade() {
-    const cost = this.getStartingTierUpgradeCost();
-    if (this.particleBank < cost) {
-      return false;
-    }
-    
-    this.setParticleBank(this.particleBank - cost);
     this.upgrades.startingTier++;
     
     return true;
@@ -2970,7 +2932,7 @@ export class ParticleFusionSimulation {
         level: this.upgrades.repellingForceReduction,
         cost: this.getRepellingForceReductionCost(),
         effect: `${this.upgrades.repellingForceReduction * 50}% force reduction`,
-        canAfford: this.particleBank >= this.getRepellingForceReductionCost(),
+        canAfford: true,
       },
       waveForce: {
         level: this.upgrades.waveForce,
@@ -2978,7 +2940,7 @@ export class ParticleFusionSimulation {
         effect: currentWaveStats.force > 0
           ? `Push radius ~${Math.round(currentWaveStats.maxRadius)}px, peak force ${Math.round(currentWaveStats.force)}`
           : 'Wave of force is inactive until upgraded.',
-        canAfford: this.particleBank >= this.getWaveForceUpgradeCost(),
+        canAfford: true,
       },
       startingTier: {
         level: this.upgrades.startingTier,
@@ -2986,7 +2948,7 @@ export class ParticleFusionSimulation {
         effect: this.upgrades.startingTier > 0
           ? `Spawn ${getGreekTierInfo(NULL_TIER + this.upgrades.startingTier).name} particles`
           : 'Spawn Null particles',
-        canAfford: this.particleBank >= this.getStartingTierUpgradeCost(),
+        canAfford: true,
       },
     };
   }
@@ -3006,7 +2968,6 @@ export class ParticleFusionSimulation {
       })),
       highestTierReached: this.highestTierReached,
       glyphCount: this.glyphCount,
-      particleBank: this.particleBank,
       bindingAgentBank: this.availableBindingAgents,
       bindingAgents: this.bindingAgents.map((agent) => ({
         id: agent.id,
@@ -3128,10 +3089,6 @@ export class ParticleFusionSimulation {
     // preserve the old glyphCount until the simulation naturally updates the tier
     if (typeof state.highestTierReached !== 'number' && typeof state.glyphCount === 'number') {
       this.glyphCount = state.glyphCount;
-    }
-
-    if (Number.isFinite(state.particleBank)) {
-      this.setParticleBank(state.particleBank);
     }
 
     if (Number.isFinite(state.bindingAgentBank)) {
