@@ -2321,7 +2321,6 @@ export class KufBattlefieldSimulation {
         ctx.drawImage(splayerSprite.image, -halfSpriteSize, -halfSpriteSize, spriteSize, spriteSize);
         ctx.shadowBlur = 0;
         ctx.restore();
-        ctx.restore();
         return;
       }
       
@@ -2620,7 +2619,6 @@ export class KufBattlefieldSimulation {
         ctx.shadowBlur = bulletGlow;
         ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
         ctx.drawImage(bulletSprite.image, bullet.x - halfSpriteSize, bullet.y - halfSpriteSize, spriteSize, spriteSize);
-        ctx.shadowBlur = 0;
       } else {
         const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
         ctx.shadowBlur = bulletGlow;
@@ -2629,8 +2627,8 @@ export class KufBattlefieldSimulation {
         ctx.beginPath();
         ctx.arc(bullet.x, bullet.y, size, 0, TWO_PI);
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
+      ctx.shadowBlur = 0;
     });
   }
 
@@ -2704,7 +2702,6 @@ export class KufBattlefieldSimulation {
       ctx.arc(explosion.x, explosion.y, explosion.radius, 0, TWO_PI);
       ctx.fill();
       ctx.stroke();
-    });
     });
   }
 
