@@ -2012,11 +2012,6 @@ export class GravitySimulation {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // Cache for gradient reuse within the same frame
-    let lastGradient = null;
-    let lastGradientSize = 0;
-    let lastGradientColor = '';
-
     for (const particle of this.geyserParticles) {
       const size = Math.max(0, particle.size);
       if (size <= 0) {
@@ -2043,21 +2038,14 @@ export class GravitySimulation {
 
       const innerAlpha = GravitySimulation.clamp(baseAlpha + flashAlpha * 0.6, 0, 1);
 
-      // Optimization: Reuse gradient if size and color match the previous particle
-      const colorKey = `${particle.color.r},${particle.color.g},${particle.color.b}`;
-      const sizeChanged = Math.abs(size - lastGradientSize) > 0.1;
-      const colorChanged = colorKey !== lastGradientColor;
-      
-      if (!lastGradient || sizeChanged || colorChanged) {
-        lastGradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size);
-        lastGradient.addColorStop(0, `rgba(255, 255, 255, ${innerAlpha})`);
-        lastGradient.addColorStop(0.2, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, ${Math.max(0, baseAlpha)})`);
-        lastGradient.addColorStop(1, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0)`);
-        lastGradientSize = size;
-        lastGradientColor = colorKey;
-      }
+      // Note: Gradient caching removed because alpha values vary per particle
+      // Creating gradients with changing alpha values would require cache invalidation
+      const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size);
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${innerAlpha})`);
+      gradient.addColorStop(0.2, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, ${Math.max(0, baseAlpha)})`);
+      gradient.addColorStop(1, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, 0)`);
 
-      ctx.fillStyle = lastGradient;
+      ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
       ctx.fill();
@@ -2358,7 +2346,7 @@ export class GravitySimulation {
       // Use star sprite for shooting stars
       if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
         const shootingStarSize = 8; // Size for shooting stars
-        const shootingStarSizeHalf = 4;
+        const shootingStarSizeHalf = shootingStarSize / 2;
         ctx.save();
         ctx.globalAlpha = 0.9;
         ctx.drawImage(
