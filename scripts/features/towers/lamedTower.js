@@ -2217,7 +2217,7 @@ export class GravitySimulation {
     if (this.spritesLoaded && this.sprites.spaceDust && this.sprites.spaceDust.complete) {
       const dustSprite = this.sprites.spaceDust;
       const spriteSize = 4; // Size to draw each dust particle
-      const spriteSizeHalf = spriteSize / 2;
+      const spriteSizeHalf = spriteSize * 0.5;
       
       for (const dust of this.dustParticles) {
         const dustX = dust.x * invDpr;
@@ -2306,7 +2306,7 @@ export class GravitySimulation {
 
     // Draw shooting stars with luminous trails.
     const shootingStarSize = 8; // Size for shooting stars (constant for all)
-    const shootingStarSizeHalf = shootingStarSize / 2;
+    const shootingStarSizeHalf = shootingStarSize * 0.5;
     
     for (const shard of this.shootingStars) {
       // Guard ensures trail.length > 1, preventing division by zero in trailLengthInv
