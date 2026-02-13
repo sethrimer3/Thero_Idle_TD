@@ -2219,13 +2219,12 @@ export class GravitySimulation {
       const spriteSize = 4; // Size to draw each dust particle
       const spriteSizeHalf = spriteSize / 2;
       
-      // Optimization: Batch render all dust particles with a single save/restore
-      ctx.save();
       for (const dust of this.dustParticles) {
         const dustX = dust.x * invDpr;
         const dustY = dust.y * invDpr;
         const dustAlpha = dust.life * 0.5;
         
+        ctx.save();
         ctx.globalAlpha = dustAlpha;
         ctx.drawImage(
           dustSprite,
@@ -2234,8 +2233,8 @@ export class GravitySimulation {
           spriteSize,
           spriteSize
         );
+        ctx.restore();
       }
-      ctx.restore();
     } else {
       // Fallback to procedural dust
       for (const dust of this.dustParticles) {
@@ -2292,7 +2291,7 @@ export class GravitySimulation {
           ctx.rotate(angle + Math.PI / 2);
           
           const size = asteroid.size;
-          const sizeHalf = size / 2;
+          const sizeHalf = size * 0.5; // Each asteroid has unique size, so calculate per asteroid
           ctx.drawImage(
             asteroidSprite,
             -sizeHalf,
@@ -2306,6 +2305,9 @@ export class GravitySimulation {
     }
 
     // Draw shooting stars with luminous trails.
+    const shootingStarSize = 8; // Size for shooting stars (constant for all)
+    const shootingStarSizeHalf = shootingStarSize / 2;
+    
     for (const shard of this.shootingStars) {
       // Guard ensures trail.length > 1, preventing division by zero in trailLengthInv
       if (shard.trail.length > 1) {
@@ -2337,8 +2339,6 @@ export class GravitySimulation {
       
       // Use star sprite for shooting stars
       if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
-        const shootingStarSize = 8; // Size for shooting stars
-        const shootingStarSizeHalf = shootingStarSize / 2;
         ctx.save();
         ctx.globalAlpha = 0.9;
         ctx.drawImage(
