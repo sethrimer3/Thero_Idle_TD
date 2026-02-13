@@ -574,10 +574,10 @@ export class GravitySimulation {
       this.sprites.asteroids.push(img);
     }
     
-    // Load 8 sun phase sprites (SVG with PNG fallback)
+    // Load 8 sun phase sprites (PNG version only)
     for (let i = 1; i <= 8; i++) {
       const img = new Image();
-      img.src = `${basePath}sunPhases/sunPhase${i}.svg`;
+      img.src = `${basePath}sunPhases/sunPhase${i}.png`;
       this.sprites.sunPhases.push(img);
     }
     
@@ -2161,9 +2161,9 @@ export class GravitySimulation {
 
     // Draw the sun using sprite or procedural texture
     // Map tier index to sun phase sprite (with pre-Main sequence at index 0)
-    // sunPhase1.svg = pre-Main sequence (Proto-star)
-    // sunPhase2.svg = Main Sequence
-    // sunPhase3-8.svg = subsequent phases
+    // sunPhase1.png = pre-Main sequence (Proto-star)
+    // sunPhase2.png = Main Sequence
+    // sunPhase3-8.png = subsequent phases
     let sunSpriteDrawn = false;
     if (this.spritesLoaded && this.sprites.sunPhases.length > 0) {
       // Use the resolved tier index so the sun sprite lookup stays aligned with mass thresholds.
