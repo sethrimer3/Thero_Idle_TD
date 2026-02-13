@@ -1,6 +1,5 @@
 // Centralized builder for advanced spire resource banks.
 const DEFAULT_LAMED_STATE = {
-  sparkBank: 0,
   unlocked: false,
   storySeen: false,
   dragLevel: 0,
@@ -16,7 +15,6 @@ const DEFAULT_LAMED_STATE = {
 };
 
 const DEFAULT_TSADI_STATE = {
-  particleBank: 0,
   unlocked: false,
   storySeen: false,
   bindingAgents: 0,
