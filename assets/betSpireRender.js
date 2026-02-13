@@ -3,6 +3,13 @@
 
 import { moteGemState, resolveGemDefinition } from './enemies.js';
 
+// Pre-calculated Math constants for performance optimization in render loops
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
+const QUARTER_PI = Math.PI * 0.25;
+const PI_OVER_SIX = Math.PI / 6;
+const HALF = 0.5; // Pre-calculated reciprocal for multiplication instead of division by 2
+
 // Canvas dimensions matching Aleph Spire render
 const CANVAS_WIDTH = 240;
 const CANVAS_HEIGHT = 320;
@@ -53,8 +60,8 @@ const SHOCKWAVE_DURATION = 500; // milliseconds for shockwave animation
 const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to nearby particles by shockwave
 const SHOCKWAVE_EDGE_THICKNESS = 10; // Thickness of shockwave edge for force application (pixels)
 
-// Forge position at center of canvas
-const FORGE_POSITION = { x: CANVAS_WIDTH * 0.5, y: CANVAS_HEIGHT * 0.5 };
+// Forge position at center of canvas (using HALF constant for optimization)
+const FORGE_POSITION = { x: CANVAS_WIDTH * HALF, y: CANVAS_HEIGHT * HALF };
 
 // Particle spawner configuration (mini forges for each unlocked particle type)
 const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than before)
@@ -96,8 +103,8 @@ const createTintedSpriteCanvas = (sourceImage, color, size) => {
 // All 11 generators are equidistant from each other on a circle around the forge
 const GENERATOR_CIRCLE_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.35; // Circle radius for generators
 const SPAWNER_POSITIONS = Array.from({ length: 11 }, (_, i) => {
-  // Start at top (12 o'clock = -90 degrees), then proceed clockwise
-  const angle = (-Math.PI / 2) + (i * 2 * Math.PI / 11);
+  // Start at top (12 o'clock = -90 degrees), then proceed clockwise (using pre-calculated constants)
+  const angle = -HALF_PI + (i * TWO_PI / 11);
   return {
     x: FORGE_POSITION.x + Math.cos(angle) * GENERATOR_CIRCLE_RADIUS,
     y: FORGE_POSITION.y + Math.sin(angle) * GENERATOR_CIRCLE_RADIUS
@@ -205,7 +212,7 @@ class Particle {
   constructor(tierId = 'sand', sizeIndex = 0, spawnPosition = null) {
     // Spawn at generator position if provided, otherwise at random location
     if (spawnPosition) {
-      const spawnAngle = Math.random() * Math.PI * 2; // Jitter the spawn angle so particles cluster near the generator center.
+      const spawnAngle = Math.random() * TWO_PI; // Jitter the spawn angle so particles cluster near the generator center (using pre-calculated constant)
       const spawnRadius = Math.random() * 3; // Keep new particles close to the generator so they stay within its influence.
       this.x = spawnPosition.x + Math.cos(spawnAngle) * spawnRadius;
       this.y = spawnPosition.y + Math.sin(spawnAngle) * spawnRadius;
@@ -286,7 +293,7 @@ class Particle {
         // Add tangential (perpendicular) velocity for swirl effect
         // The swirl gets stronger as particles get closer to the target
         const swirl_strength = 0.3 * (1 - Math.min(dist / 50, 1)); // Stronger when closer
-        const tangentAngle = angle + Math.PI / 2; // Perpendicular to radial direction
+        const tangentAngle = angle + HALF_PI; // Perpendicular to radial direction (using pre-calculated constant)
         
         // Combine radial (toward target) and tangential (swirl) velocities
         this.vx = Math.cos(angle) * gatherSpeed + Math.cos(tangentAngle) * swirl_strength * gatherSpeed;
@@ -423,7 +430,7 @@ class Particle {
       this.vy = (this.vy / speed) * minVelocity;
     } else if (speed === 0) {
       // Give particles a random initial velocity if they're stopped
-      const randomAngle = Math.random() * Math.PI * 2;
+      const randomAngle = Math.random() * TWO_PI; // Use pre-calculated constant
       this.vx = Math.cos(randomAngle) * minVelocity;
       this.vy = Math.sin(randomAngle) * minVelocity;
     }
@@ -488,7 +495,7 @@ class Particle {
       this.vx = (this.vx / speed) * minVelocity;
       this.vy = (this.vy / speed) * minVelocity;
     } else {
-      const randomAngle = Math.random() * Math.PI * 2;
+      const randomAngle = Math.random() * TWO_PI; // Use pre-calculated constant
       this.vx = Math.cos(randomAngle) * minVelocity;
       this.vy = Math.sin(randomAngle) * minVelocity;
     }
@@ -496,6 +503,7 @@ class Particle {
 
   draw(ctx) {
     const size = this._size;
+    const halfSize = size * HALF; // Use pre-calculated HALF constant for optimization
     
     // Draw particle
     ctx.fillStyle = this._colorString;
@@ -509,8 +517,8 @@ class Particle {
     }
     
     ctx.fillRect(
-      Math.floor(this.x - size / 2),
-      Math.floor(this.y - size / 2),
+      Math.floor(this.x - halfSize),
+      Math.floor(this.y - halfSize),
       Math.ceil(size),
       Math.ceil(size)
     );
@@ -701,7 +709,7 @@ export class BetSpireRender {
       
       // Initialize rotation for the spawner
       if (!this.spawnerRotations.has(tierId)) {
-        this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
+        this.spawnerRotations.set(tierId, Math.random() * TWO_PI); // Use pre-calculated constant
       }
       
       // Start fade-in animation for the newly unlocked generator
@@ -1407,14 +1415,14 @@ export class BetSpireRender {
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, Math.PI * 2);
+    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, TWO_PI); // Use pre-calculated constant
     ctx.stroke();
     
     // Draw inner glow
     ctx.strokeStyle = `rgba(200, 200, 255, ${alpha * 0.5})`;
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, Math.PI * 2);
+    ctx.arc(this.forge.x, this.forge.y, currentRadius, 0, TWO_PI); // Use pre-calculated constant
     ctx.stroke();
   }
 
@@ -1500,7 +1508,8 @@ export class BetSpireRender {
       ctx.fillText(text, START_X, currentY);
 
       // Draw gem icon (simple diamond shape as fallback)
-      const iconX = START_X + textWidth + spacing + iconSize / 2;
+      const halfIconSize = iconSize * HALF; // Pre-calculate for optimization
+      const iconX = START_X + textWidth + spacing + halfIconSize;
       const iconY = currentY;
 
       ctx.globalAlpha = opacity;
@@ -1508,10 +1517,10 @@ export class BetSpireRender {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(iconX, iconY - iconSize / 2);
-      ctx.lineTo(iconX + iconSize / 2, iconY);
-      ctx.lineTo(iconX, iconY + iconSize / 2);
-      ctx.lineTo(iconX - iconSize / 2, iconY);
+      ctx.moveTo(iconX, iconY - halfIconSize);
+      ctx.lineTo(iconX + halfIconSize, iconY);
+      ctx.lineTo(iconX, iconY + halfIconSize);
+      ctx.lineTo(iconX - halfIconSize, iconY);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -1669,7 +1678,7 @@ export class BetSpireRender {
         if (!this.unlockedTiers.has(merge.tierId)) {
           this.unlockedTiers.add(merge.tierId);
           if (!this.spawnerRotations.has(merge.tierId)) {
-            this.spawnerRotations.set(merge.tierId, Math.random() * Math.PI * 2);
+            this.spawnerRotations.set(merge.tierId, Math.random() * TWO_PI); // Use pre-calculated constant
           }
           
           // Start fade-in animation for the newly unlocked generator
@@ -1816,7 +1825,7 @@ export class BetSpireRender {
     if (!this.unlockedTiers.has('sand')) {
       this.unlockedTiers.add('sand');
       if (!this.spawnerRotations.has('sand')) {
-        this.spawnerRotations.set('sand', Math.random() * Math.PI * 2);
+        this.spawnerRotations.set('sand', Math.random() * TWO_PI); // Use pre-calculated constant
       }
     }
     
@@ -2043,7 +2052,7 @@ export class BetSpireRender {
       this.ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${shockwave.alpha})`;
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
-      this.ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, Math.PI * 2);
+      this.ctx.arc(shockwave.x, shockwave.y, shockwave.radius, 0, TWO_PI); // Use pre-calculated constant
       this.ctx.stroke();
       
       return true; // Keep shockwave for next frame
@@ -2065,7 +2074,7 @@ export class BetSpireRender {
       this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
-      this.ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+      this.ctx.arc(circle.x, circle.y, circle.radius, 0, TWO_PI); // Use pre-calculated constant
       this.ctx.stroke();
       
       return true; // Keep circle for next frame
@@ -2157,7 +2166,7 @@ export class BetSpireRender {
     const ctx = this.ctx;
 
     drawBuckets.forEach(({ style, positions }) => {
-      const halfSize = style.size * 0.5;
+      const halfSize = style.size * HALF; // Use pre-calculated HALF constant
       const drawSize = Math.ceil(style.size);
 
       ctx.fillStyle = style.colorString;
@@ -2208,6 +2217,7 @@ export class BetSpireRender {
     const ctx = this.ctx;
     const forgeSize = 36; // Size of triangles (50% larger so the forge sprites read clearly).
     const forgeSpriteSize = forgeSize * 2; // Scale sprites to match the existing triangle footprint.
+    const halfForgeSpriteSize = forgeSpriteSize * HALF; // Pre-calculate half size for optimization
     const forgeSpriteReady = this.forgeSpriteClockwise.complete && this.forgeSpriteClockwise.naturalWidth > 0;
     const forgeCounterSpriteReady = this.forgeSpriteCounterClockwise.complete && this.forgeSpriteCounterClockwise.naturalWidth > 0;
     const forgeSpriteOpacity = 0.5; // Keep the center forge sprites at 50% opacity.
@@ -2220,7 +2230,7 @@ export class BetSpireRender {
     if (forgeCounterSpriteReady) {
       // Draw the counter-clockwise forge sprite once the image has finished loading.
       ctx.globalAlpha = forgeSpriteOpacity;
-      ctx.drawImage(this.forgeSpriteCounterClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+      ctx.drawImage(this.forgeSpriteCounterClockwise, -halfForgeSpriteSize, -halfForgeSpriteSize, forgeSpriteSize, forgeSpriteSize);
       ctx.globalAlpha = 1;
     } else {
       // Fallback to vector triangles if the sprite has not loaded yet.
@@ -2228,8 +2238,8 @@ export class BetSpireRender {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, forgeSize);
-      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
-      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), -forgeSize * Math.sin(Math.PI / 6));
+      ctx.lineTo(forgeSize * Math.cos(PI_OVER_SIX), -forgeSize * Math.sin(PI_OVER_SIX));
+      ctx.lineTo(-forgeSize * Math.cos(PI_OVER_SIX), -forgeSize * Math.sin(PI_OVER_SIX));
       ctx.closePath();
       ctx.stroke();
     }
@@ -2239,7 +2249,7 @@ export class BetSpireRender {
     if (forgeSpriteReady) {
       // Draw the clockwise forge sprite once the image has finished loading.
       ctx.globalAlpha = forgeSpriteOpacity;
-      ctx.drawImage(this.forgeSpriteClockwise, -forgeSpriteSize / 2, -forgeSpriteSize / 2, forgeSpriteSize, forgeSpriteSize);
+      ctx.drawImage(this.forgeSpriteClockwise, -halfForgeSpriteSize, -halfForgeSpriteSize, forgeSpriteSize, forgeSpriteSize);
       ctx.globalAlpha = 1;
     } else {
       // Fallback to vector triangles if the sprite has not loaded yet.
@@ -2247,8 +2257,8 @@ export class BetSpireRender {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, -forgeSize);
-      ctx.lineTo(forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
-      ctx.lineTo(-forgeSize * Math.cos(Math.PI / 6), forgeSize * Math.sin(Math.PI / 6));
+      ctx.lineTo(forgeSize * Math.cos(PI_OVER_SIX), forgeSize * Math.sin(PI_OVER_SIX));
+      ctx.lineTo(-forgeSize * Math.cos(PI_OVER_SIX), forgeSize * Math.sin(PI_OVER_SIX));
       ctx.closePath();
       ctx.stroke();
     }
@@ -2261,7 +2271,7 @@ export class BetSpireRender {
       gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(0, 0, forgeSize, 0, Math.PI * 2);
+      ctx.arc(0, 0, forgeSize, 0, TWO_PI); // Use pre-calculated constant
       ctx.fill();
     }
     
@@ -2276,7 +2286,7 @@ export class BetSpireRender {
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]); // Dashed line for subtlety
     ctx.beginPath();
-    ctx.arc(this.forge.x, this.forge.y, MAX_FORGE_ATTRACTION_DISTANCE, 0, Math.PI * 2);
+    ctx.arc(this.forge.x, this.forge.y, MAX_FORGE_ATTRACTION_DISTANCE, 0, TWO_PI); // Use pre-calculated constant
     ctx.stroke();
     ctx.setLineDash([]); // Reset to solid lines
   }
@@ -2325,14 +2335,14 @@ export class BetSpireRender {
       ctx.lineWidth = 1;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.arc(0, 0, SPAWNER_GRAVITY_RADIUS, 0, Math.PI * 2);
+      ctx.arc(0, 0, SPAWNER_GRAVITY_RADIUS, 0, TWO_PI); // Use pre-calculated constant
       ctx.stroke();
       ctx.setLineDash([]);
 
       // Draw cached generator sprites when available so they render as tinted art instead of vectors.
       const spriteSet = this.generatorSpriteCache.get(tierId);
       if (spriteSet) {
-        const halfSize = spriteSet.size * 0.5;
+        const halfSize = spriteSet.size * HALF; // Use pre-calculated HALF constant
         // Draw first sprite (clockwise spin).
         ctx.rotate(rotation);
         ctx.drawImage(spriteSet.clockwise, -halfSize, -halfSize, spriteSet.size, spriteSet.size);
@@ -2346,8 +2356,8 @@ export class BetSpireRender {
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(0, -SPAWNER_SIZE);
-        ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
-        ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.lineTo(SPAWNER_SIZE * Math.cos(PI_OVER_SIX), SPAWNER_SIZE * Math.sin(PI_OVER_SIX)); // Use pre-calculated constant
+        ctx.lineTo(-SPAWNER_SIZE * Math.cos(PI_OVER_SIX), SPAWNER_SIZE * Math.sin(PI_OVER_SIX)); // Use pre-calculated constant
         ctx.closePath();
         ctx.stroke();
         
@@ -2356,8 +2366,8 @@ export class BetSpireRender {
         ctx.strokeStyle = lightColorString;
         ctx.beginPath();
         ctx.moveTo(0, SPAWNER_SIZE);
-        ctx.lineTo(SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
-        ctx.lineTo(-SPAWNER_SIZE * Math.cos(Math.PI / 6), -SPAWNER_SIZE * Math.sin(Math.PI / 6));
+        ctx.lineTo(SPAWNER_SIZE * Math.cos(PI_OVER_SIX), -SPAWNER_SIZE * Math.sin(PI_OVER_SIX)); // Use pre-calculated constant
+        ctx.lineTo(-SPAWNER_SIZE * Math.cos(PI_OVER_SIX), -SPAWNER_SIZE * Math.sin(PI_OVER_SIX)); // Use pre-calculated constant
         ctx.closePath();
         ctx.stroke();
       }
@@ -2370,7 +2380,7 @@ export class BetSpireRender {
         gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(0, 0, SPAWNER_SIZE, 0, Math.PI * 2);
+        ctx.arc(0, 0, SPAWNER_SIZE, 0, TWO_PI); // Use pre-calculated constant
         ctx.fill();
       }
       
