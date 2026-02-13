@@ -70,6 +70,9 @@ const STAR_MAX_LIFETIME_SECONDS = 12;
 const STAR_FADE_MIN_SECONDS = 1.25;
 const STAR_FADE_MAX_SECONDS = 2.4;
 
+// Pre-calculate PI constants to avoid repeated Math.PI calculations in render loops.
+const TWO_PI = Math.PI * 2;
+
 function randomInRange(min, max) {
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
     return min;
@@ -1230,8 +1233,8 @@ export class PowderSimulation {
       return null;
     }
     return {
-      x: (localX - width / 2) / scale + center.x,
-      y: (localY - height / 2) / scale + center.y,
+      x: (localX - width * 0.5) / scale + center.x,
+      y: (localY - height * 0.5) / scale + center.y,
     };
   }
 
@@ -1263,8 +1266,8 @@ export class PowderSimulation {
         if (width && height && rect) {
           const localX = anchorPoint.clientX - rect.left;
           const localY = anchorPoint.clientY - rect.top;
-          const centerWorldX = (width / 2 - localX) / clamped + anchorWorld.x;
-          const centerWorldY = (height / 2 - localY) / clamped + anchorWorld.y;
+          const centerWorldX = (width * 0.5 - localX) / clamped + anchorWorld.x;
+          const centerWorldY = (height * 0.5 - localY) / clamped + anchorWorld.y;
           this.setViewCenterFromWorld({ x: centerWorldX, y: centerWorldY });
         }
       }
@@ -1297,7 +1300,7 @@ export class PowderSimulation {
 
     const center = this.getViewCenterWorld();
     this.ctx.save();
-    this.ctx.translate(width / 2, height / 2);
+    this.ctx.translate(width * 0.5, height * 0.5);
     this.ctx.scale(this.viewScale, this.viewScale);
     this.ctx.translate(-center.x, -center.y);
 
@@ -1346,7 +1349,7 @@ export class PowderSimulation {
         }
 
         this.ctx.beginPath();
-        this.ctx.arc(starX, starY, star.size, 0, Math.PI * 2);
+        this.ctx.arc(starX, starY, star.size, 0, TWO_PI);
         this.ctx.fill();
         this.ctx.restore();
       }
@@ -1363,7 +1366,7 @@ export class PowderSimulation {
       const baseSizePx = visualSize * cellSizePx;
       const colliderSizePx = colliderSize * cellSizePx;
       const sizePx = Math.max(colliderSizePx, baseSizePx * MOTE_RENDER_SCALE);
-      const offsetPx = (sizePx - colliderSizePx) / 2;
+      const offsetPx = (sizePx - colliderSizePx) * 0.5;
       const px = grain.x * cellSizePx - offsetPx;
       const py = grain.y * cellSizePx - offsetPx;
 
@@ -1568,7 +1571,7 @@ export class PowderSimulation {
     star.speedX = (Math.random() - 0.5) * STAR_MAX_SPEED;
     star.speedY = (Math.random() - 0.5) * STAR_MAX_SPEED;
     star.opacity = Math.random() * 0.6 + 0.2;
-    star.twinklePhase = Math.random() * Math.PI * 2;
+    star.twinklePhase = Math.random() * TWO_PI;
     star.twinkleSpeed = Math.random() * 0.02 + 0.01;
     star.isGold = Math.random() < GOLD_STAR_PROBABILITY;
     const life = randomInRange(STAR_MIN_LIFETIME_SECONDS, STAR_MAX_LIFETIME_SECONDS);
