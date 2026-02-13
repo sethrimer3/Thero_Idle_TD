@@ -30,6 +30,10 @@ const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiS
 // Sprite asset for Waals binding agents to match the new Tsadi spire art drop.
 const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/waalsParticle.png', import.meta.url).href;
 
+// Pre-calculated constants for performance optimization
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
+
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
  * @param {Array<number>} tiers - Raw tier list.
@@ -2378,14 +2382,14 @@ export class ParticleFusionSimulation {
 
           ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.arc(effect.x, effect.y, effect.radius, 0, TWO_PI);
           ctx.fill();
         } else if (effect.type === 'wave') {
           // Expanding wave ring
           ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.5})`;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.arc(effect.x, effect.y, effect.radius, 0, TWO_PI);
           ctx.stroke();
         }
       }
@@ -2437,7 +2441,7 @@ export class ParticleFusionSimulation {
         ctx.strokeStyle = `rgba(100, 200, 255, ${wave.alpha * 0.7})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.arc(wave.x, wave.y, wave.radius, 0, TWO_PI);
         ctx.stroke();
         
         // Add inner glow effect
@@ -2451,7 +2455,7 @@ export class ParticleFusionSimulation {
         
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+        ctx.arc(wave.x, wave.y, wave.radius, 0, TWO_PI);
         ctx.fill();
       }
     }
@@ -2471,38 +2475,69 @@ export class ParticleFusionSimulation {
 
           ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.arc(effect.x, effect.y, effect.radius, 0, TWO_PI);
           ctx.fill();
         } else if (effect.type === 'ring') {
           // Expanding ring
           ctx.strokeStyle = `rgba(255, 255, 255, ${effect.alpha * 0.6})`;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(effect.x, effect.y, effect.radius, 0, Math.PI * 2);
+          ctx.arc(effect.x, effect.y, effect.radius, 0, TWO_PI);
           ctx.stroke();
         }
       }
     }
     
     // Draw blurred filaments between particles experiencing interaction forces.
+    // Batch by link type to reduce context state changes
     if (this.visualSettings.renderForceLinks) {
+      // Group links by type (repelling vs attracting) to batch rendering
+      const repellingLinks = [];
+      const attractingLinks = [];
+      
       for (const link of this.forceLinks) {
-        const baseRgb = link.isRepelling ? '255, 140, 190' : '130, 190, 255';
-        // Smooth opacity gradient from 0 (at max distance) to 1 (when touching)
-        // link.intensity already represents this gradient (1 - distance/maxDistance)
-        const alpha = link.intensity;
-
+        if (link.isRepelling) {
+          repellingLinks.push(link);
+        } else {
+          attractingLinks.push(link);
+        }
+      }
+      
+      // Render all repelling links with shared shadow settings
+      if (repellingLinks.length > 0) {
         ctx.save();
-        ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
-        // Increased line width from 1.2 to 3.0 for thicker, more visible lines
         ctx.lineWidth = 3.0;
-        // Increased shadow alpha for brighter glow
-        ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.8, alpha * 2.0)})`;
         ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.moveTo(link.x1, link.y1);
-        ctx.lineTo(link.x2, link.y2);
-        ctx.stroke();
+        
+        for (const link of repellingLinks) {
+          const alpha = link.intensity;
+          const baseRgb = '255, 140, 190';
+          ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
+          ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.8, alpha * 2.0)})`;
+          ctx.beginPath();
+          ctx.moveTo(link.x1, link.y1);
+          ctx.lineTo(link.x2, link.y2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      
+      // Render all attracting links with shared shadow settings
+      if (attractingLinks.length > 0) {
+        ctx.save();
+        ctx.lineWidth = 3.0;
+        ctx.shadowBlur = 8;
+        
+        for (const link of attractingLinks) {
+          const alpha = link.intensity;
+          const baseRgb = '130, 190, 255';
+          ctx.strokeStyle = `rgba(${baseRgb}, ${alpha})`;
+          ctx.shadowColor = `rgba(${baseRgb}, ${Math.min(0.8, alpha * 2.0)})`;
+          ctx.beginPath();
+          ctx.moveTo(link.x1, link.y1);
+          ctx.lineTo(link.x2, link.y2);
+          ctx.stroke();
+        }
         ctx.restore();
       }
     }
@@ -2510,6 +2545,9 @@ export class ParticleFusionSimulation {
     this.renderBindingAgents(ctx);
 
     // Draw particles with sub-pixel precision and glow
+    // Batch operations to reduce context state changes
+    const particleSpriteEnabled = this.particleSpriteReady && this.particleSprite;
+    
     for (const particle of this.particles) {
       const classification = getTierClassification(particle.tier);
       
@@ -2544,7 +2582,7 @@ export class ParticleFusionSimulation {
         
         ctx.fillStyle = brightGlowGradient;
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, glowRadius, 0, Math.PI * 2);
+        ctx.arc(particle.x, particle.y, glowRadius, 0, TWO_PI);
         ctx.fill();
       }
       
@@ -2561,7 +2599,7 @@ export class ParticleFusionSimulation {
 
       ctx.fillStyle = glowGradient;
       ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius * 1.5, 0, Math.PI * 2);
+      ctx.arc(particle.x, particle.y, particle.radius * 1.5, 0, TWO_PI);
       ctx.fill();
 
       if (particle.shimmer) {
@@ -2575,7 +2613,7 @@ export class ParticleFusionSimulation {
           Math.max(2, particle.radius * 0.6),
         ]);
         ctx.beginPath();
-        ctx.arc(particle.x, particle.y, particle.radius * 1.25, 0, Math.PI * 2);
+        ctx.arc(particle.x, particle.y, particle.radius * 1.25, 0, TWO_PI);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.restore();
@@ -2584,7 +2622,7 @@ export class ParticleFusionSimulation {
       // Main particle body
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+      ctx.arc(particle.x, particle.y, particle.radius, 0, TWO_PI);
       ctx.fill();
 
       // Inner highlight for 3D effect
@@ -2602,11 +2640,11 @@ export class ParticleFusionSimulation {
       
       ctx.fillStyle = highlightGradient;
       ctx.beginPath();
-      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+      ctx.arc(particle.x, particle.y, particle.radius, 0, TWO_PI);
       ctx.fill();
 
       // Overlay the Tsadi particle sprite to introduce the new sprite artwork.
-      if (this.particleSpriteReady && this.particleSprite) {
+      if (particleSpriteEnabled) {
         // Blend the sprite softly so tier colors remain dominant.
         ctx.save();
         ctx.globalAlpha = 0.7;
@@ -2614,8 +2652,8 @@ export class ParticleFusionSimulation {
         const spriteSize = particle.radius * 2.8;
         ctx.drawImage(
           this.particleSprite,
-          particle.x - spriteSize / 2,
-          particle.y - spriteSize / 2,
+          particle.x - spriteSize * 0.5,
+          particle.y - spriteSize * 0.5,
           spriteSize,
           spriteSize
         );
@@ -2631,7 +2669,7 @@ export class ParticleFusionSimulation {
         
         // Draw black outline for visibility
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.lineWidth = Math.max(2, fontSize / 8);
+        ctx.lineWidth = Math.max(2, fontSize * 0.125);
         ctx.strokeText(particle.label, particle.x, particle.y);
         
         // Draw white text
@@ -2676,9 +2714,9 @@ export class ParticleFusionSimulation {
           : 'rgba(180, 200, 255, 0.7)';
       const triangleRadius = radius * 1.5;
       const cornerRadius = radius * 0.55;
-      const angleOffset = -Math.PI / 2;
+      const angleOffset = -HALF_PI;
       const corners = [0, 1, 2].map((index) => {
-        const theta = angleOffset + (index * (Math.PI * 2)) / 3;
+        const theta = angleOffset + (index * TWO_PI) / 3;
         return {
           x: agent.x + Math.cos(theta) * triangleRadius,
           y: agent.y + Math.sin(theta) * triangleRadius,
@@ -2698,13 +2736,14 @@ export class ParticleFusionSimulation {
       ctx.closePath();
       ctx.stroke();
 
+      // Batch corner rendering - create gradients and draw all corners
       corners.forEach((corner) => {
         const glow = ctx.createRadialGradient(corner.x, corner.y, cornerRadius * 0.2, corner.x, corner.y, cornerRadius);
         glow.addColorStop(0, bondColor);
         glow.addColorStop(1, baseColor);
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(corner.x, corner.y, cornerRadius, 0, Math.PI * 2);
+        ctx.arc(corner.x, corner.y, cornerRadius, 0, TWO_PI);
         ctx.fill();
         ctx.strokeStyle = bondColor;
         ctx.lineWidth = 1.2;
