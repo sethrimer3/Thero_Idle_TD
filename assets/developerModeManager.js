@@ -175,18 +175,12 @@ export function createDeveloperModeManager(options = {}) {
     });
     const lamedSimulation = typeof getLamedSimulation === 'function' ? getLamedSimulation() : null;
     if (lamedSimulation) {
-      if (typeof lamedSimulation.sparkBank !== 'undefined') {
-        lamedSimulation.sparkBank = DEVELOPER_RESOURCE_GRANT;
-      }
       if (typeof lamedSimulation.sparkSpawnRate !== 'undefined') {
         lamedSimulation.sparkSpawnRate = 0;
       }
     }
     const tsadiSimulation = typeof getTsadiSimulation === 'function' ? getTsadiSimulation() : null;
     if (tsadiSimulation) {
-      if (typeof tsadiSimulation.particleBank !== 'undefined') {
-        tsadiSimulation.particleBank = DEVELOPER_RESOURCE_GRANT;
-      }
       if (typeof tsadiSimulation.spawnRate !== 'undefined') {
         tsadiSimulation.spawnRate = 0;
       }
@@ -233,17 +227,14 @@ export function createDeveloperModeManager(options = {}) {
     if (powderState) {
       powderState.fluidUnlocked = true;
       powderState.idleMoteBank = DEVELOPER_RESOURCE_GRANT;
-      powderState.fluidIdleBank = DEVELOPER_RESOURCE_GRANT;
       powderState.idleDrainRate = 0;
       powderState.fluidIdleDrainRate = 0;
     }
     if (spireResourceState?.lamed) {
       spireResourceState.lamed.unlocked = true;
-      spireResourceState.lamed.sparkBank = DEVELOPER_RESOURCE_GRANT;
     }
     if (spireResourceState?.tsadi) {
       spireResourceState.tsadi.unlocked = true;
-      spireResourceState.tsadi.particleBank = DEVELOPER_RESOURCE_GRANT;
       spireResourceState.tsadi.bindingAgents = DEVELOPER_RESOURCE_GRANT;
     }
     if (spireResourceState?.shin) {
@@ -534,7 +525,6 @@ export function createDeveloperModeManager(options = {}) {
       powderState.idleDrainRate = 0;
       powderState.pendingMoteDrops = [];
       powderState.idleBankHydrated = false;
-      powderState.fluidIdleBank = 0;
       powderState.fluidIdleDrainRate = 0;
       powderState.pendingFluidDrops = [];
       powderState.fluidBankHydrated = false;
@@ -558,7 +548,6 @@ export function createDeveloperModeManager(options = {}) {
       // Reinitialize advanced spire branches so the tab stack hides any spires that should be locked.
       if (spireResourceState.lamed) {
         spireResourceState.lamed.unlocked = false;
-        spireResourceState.lamed.sparkBank = 0;
         spireResourceState.lamed.dragLevel = 0;
         spireResourceState.lamed.starMass = 10;
         spireResourceState.lamed.upgrades = { starMass: 0 };
@@ -567,7 +556,6 @@ export function createDeveloperModeManager(options = {}) {
       }
       if (spireResourceState.tsadi) {
         spireResourceState.tsadi.unlocked = false;
-        spireResourceState.tsadi.particleBank = 0;
         spireResourceState.tsadi.bindingAgents = 0;
         spireResourceState.tsadi.discoveredMolecules = [];
         spireResourceState.tsadi.stats = { totalParticles: 0, totalGlyphs: 0, highestTier: 0 };
