@@ -252,5 +252,5 @@ The idle bank removal is **complete and functional**. The game will work without
 
 All code changes were surgical and minimal, preserving existing functionality while removing the bank concept cleanly.
 
-Build progression: 427 → 431 (4 builds)
-Total commits: 5 (including initial plan)
+Build progression: 427 → 432 (5 builds)
+Total commits: 6 (including initial plan)

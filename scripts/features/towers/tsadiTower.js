@@ -888,9 +888,9 @@ export class ParticleFusionSimulation {
    * @param {number} count - Number of particles to spawn
    * @returns {number} Number of particles successfully spawned
    */
-  spawnMultipleParticles(count) {
+  spawnMultipleParticles(particleCount) {
     let spawned = 0;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < particleCount; i++) {
       if (this.spawnParticle()) {
         spawned++;
       } else {

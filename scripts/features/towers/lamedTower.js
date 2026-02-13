@@ -1395,12 +1395,12 @@ export class GravitySimulation {
    * Spawn multiple stars for catch-up after idle time.
    * This is used when the player returns from being idle to "fast forward" the simulation.
    * 
-   * @param {number} count - Number of stars to spawn
+   * @param {number} starCount - Number of stars to spawn
    * @returns {number} Number of stars actually spawned
    */
-  spawnMultipleStars(count) {
+  spawnMultipleStars(starCount) {
     let spawned = 0;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < starCount; i++) {
       if (this.spawnStar()) {
         spawned++;
       } else {
