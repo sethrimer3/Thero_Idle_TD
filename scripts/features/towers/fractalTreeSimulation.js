@@ -24,6 +24,12 @@ import {
   ANIMATION_DEFAULTS,
 } from './fractalTreeSimulationConfig.js';
 
+// Pre-calculated constants for performance optimization
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
+const DEG_TO_RAD = Math.PI / 180;
+const MAX_COLOR_CACHE_SIZE = 1000; // Limit color interpolation cache to prevent memory issues
+
 /**
  * Simple seeded random number generator for consistent organic variation.
  * Uses a Linear Congruential Generator (LCG) algorithm.
@@ -159,6 +165,9 @@ export class FractalTreeSimulation {
     this.segmentsGrown = 0; // Count of segments that have been grown
     this.maxSegments = this.computeMaxSegments();
 
+    // Color interpolation cache for performance
+    this.colorCache = new Map();
+
     // Initialize pan and zoom
     this.initPanZoom(this.canvas);
 
@@ -173,19 +182,31 @@ export class FractalTreeSimulation {
   }
 
   /**
-   * Converts degrees to radians.
+   * Converts degrees to radians using pre-calculated constant.
    */
   degToRad(deg) {
-    return deg * Math.PI / 180;
+    return deg * DEG_TO_RAD;
   }
 
   /**
    * Interpolates between two colors based on a factor (0 to 1).
    * Colors should be in hex format like '#rrggbb'.
+   * Cached for performance when called repeatedly with the same inputs.
    */
   interpolateColor(color1, color2, factor) {
     factor = this.clamp(factor, 0, 1);
     
+    // Create cache key from the two colors and rounded factor (to limit cache size)
+    // Use higher precision (1000) to reduce visible banding in smooth color transitions
+    const roundedFactor = Math.floor(factor * 1000) * 0.001;
+    const cacheKey = `${color1}|${color2}|${roundedFactor}`;
+    
+    // Check cache first
+    if (this.colorCache.has(cacheKey)) {
+      return this.colorCache.get(cacheKey);
+    }
+    
+    // Parse colors only once
     const hex1 = color1.replace('#', '');
     const hex2 = color2.replace('#', '');
     
@@ -201,7 +222,14 @@ export class FractalTreeSimulation {
     const g = Math.round(g1 + (g2 - g1) * factor);
     const b = Math.round(b1 + (b2 - b1) * factor);
     
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    const result = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    
+    // Store in cache (limit cache size to prevent memory issues)
+    if (this.colorCache.size < MAX_COLOR_CACHE_SIZE) {
+      this.colorCache.set(cacheKey, result);
+    }
+    
+    return result;
   }
 
   /**
@@ -230,13 +258,14 @@ export class FractalTreeSimulation {
     this.isComplete = false;
     this.segmentsGrown = 0;
     this.maxSegments = this.computeMaxSegments();
+    this.colorCache.clear(); // Clear color cache on reset
 
     if (!this.canvas) return;
 
     // Create root segment
     const startX = this.canvas.width * this.rootX;
     const startY = this.canvas.height * this.rootY;
-    const rootAngle = -Math.PI / 2; // Pointing upward
+    const rootAngle = -HALF_PI; // Pointing upward
     const rootWidth = this.baseWidth;
 
     const root = new BranchSegment(
@@ -475,11 +504,11 @@ export class FractalTreeSimulation {
     this.ctx.globalAlpha = 0.9;
 
     // Calculate control point with slight perpendicular offset using cached values
-    const midX = (segment.x + segment.endX) / 2;
-    const midY = (segment.y + segment.endY) / 2;
+    const midX = (segment.x + segment.endX) * 0.5;
+    const midY = (segment.y + segment.endY) * 0.5;
 
     // Perpendicular offset for curve (10% of length) using cached bezierOffset
-    const perpAngle = segment.angle + Math.PI / 2;
+    const perpAngle = segment.angle + HALF_PI;
     const offsetMag = segment.length * 0.1;
     const controlX = midX + Math.cos(perpAngle) * offsetMag * segment.bezierOffset.x;
     const controlY = midY + Math.sin(perpAngle) * offsetMag * segment.bezierOffset.y;
@@ -524,7 +553,7 @@ export class FractalTreeSimulation {
     this.ctx.globalAlpha = alpha;
     this.ctx.fillStyle = this.twigColor;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    this.ctx.arc(x, y, radius, 0, TWO_PI);
     this.ctx.fill();
     this.ctx.globalAlpha = 1.0;
   }
@@ -538,7 +567,7 @@ export class FractalTreeSimulation {
     this.ctx.globalAlpha = this.leafAlpha;
     this.ctx.fillStyle = this.leafColor;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, leafRadius, 0, Math.PI * 2);
+    this.ctx.arc(x, y, leafRadius, 0, TWO_PI);
     this.ctx.fill();
     this.ctx.globalAlpha = 1.0;
   }
