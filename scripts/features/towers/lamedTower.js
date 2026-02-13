@@ -333,15 +333,6 @@ export class GravitySimulation {
       historyMaxLength: 60, // Keep last 60 samples
     };
 
-    // Gradient cache for rendering optimization
-    // Reuse gradients instead of creating new ones every frame
-    this.gradientCache = {
-      star: null,
-      starParams: { radius: 0, colorKey: '' },
-      flash: null,
-      flashParams: { radius: 0 },
-    };
-
     // Performance tracking optimization - cache sum to avoid reduce() on every frame
     this.frameTimeSamplesSum = 0;
     
@@ -2316,12 +2307,13 @@ export class GravitySimulation {
 
     // Draw shooting stars with luminous trails.
     for (const shard of this.shootingStars) {
+      // Guard ensures trail.length > 1, preventing division by zero in trailLengthInv
       if (shard.trail.length > 1) {
         ctx.save();
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.globalCompositeOperation = 'source-over'; // Keep shooting star trails cheap while preserving readability.
-        const trailLengthInv = 1 / shard.trail.length; // Cache reciprocal
+        const trailLengthInv = 1 / shard.trail.length; // Cache reciprocal (safe: length > 1)
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
