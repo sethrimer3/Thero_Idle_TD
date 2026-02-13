@@ -184,7 +184,7 @@ export class GravitySimulation {
     this.lowGraphicsMode = typeof options.lowGraphicsMode === 'boolean' ? options.lowGraphicsMode : false;
 
     // Performance safeguards to automatically dial back heavy effects when frame times spike.
-    this.frameTimeSamples = [];
+    this.frameTimeSamples = []; // Initialized empty
     this.frameSampleLimit = 45;
     this.performanceMode = 'balanced';
     this.performanceThresholds = {
@@ -332,6 +332,10 @@ export class GravitySimulation {
       massHistory: [], // For sparkline
       historyMaxLength: 60, // Keep last 60 samples
     };
+
+    // Performance tracking optimization - cache sum to avoid reduce() on every frame
+    // Initialized to 0 since frameTimeSamples starts empty
+    this.frameTimeSamplesSum = 0;
     
     // Animation state
     this.running = false;
@@ -421,13 +425,15 @@ export class GravitySimulation {
       return;
     }
 
+    // Optimization: Maintain running sum instead of using reduce() every frame
+    this.frameTimeSamplesSum += deltaTimeMs;
     this.frameTimeSamples.push(deltaTimeMs);
     if (this.frameTimeSamples.length > this.frameSampleLimit) {
-      this.frameTimeSamples.shift();
+      const removed = this.frameTimeSamples.shift();
+      this.frameTimeSamplesSum -= removed;
     }
 
-    const sum = this.frameTimeSamples.reduce((acc, value) => acc + value, 0);
-    const average = sum / Math.max(1, this.frameTimeSamples.length);
+    const average = this.frameTimeSamplesSum / Math.max(1, this.frameTimeSamples.length);
 
     if (average > this.performanceThresholds.degradeMs && this.performanceMode !== 'reduced') {
       this.applyPerformanceMode('reduced');
@@ -2024,6 +2030,8 @@ export class GravitySimulation {
 
       const innerAlpha = GravitySimulation.clamp(baseAlpha + flashAlpha * 0.6, 0, 1);
 
+      // Note: Gradient caching removed because alpha values vary per particle
+      // Creating gradients with changing alpha values would require cache invalidation
       const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, size);
       gradient.addColorStop(0, `rgba(255, 255, 255, ${innerAlpha})`);
       gradient.addColorStop(0.2, `rgba(${particle.color.r}, ${particle.color.g}, ${particle.color.b}, ${Math.max(0, baseAlpha)})`);
@@ -2079,8 +2087,10 @@ export class GravitySimulation {
     ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(0, 0, this.width / dpr, this.height / dpr);
     
+    // Pre-calculate scaled values used throughout rendering
     const centerXScaled = this.centerX / dpr;
     const centerYScaled = this.centerY / dpr;
+    const invDpr = 1 / dpr; // Cache reciprocal for multiplication instead of division
     
     // Get current tier information
     const { tier, nextTier, progress, tierIndex } = this.getCurrentTier();
@@ -2208,18 +2218,19 @@ export class GravitySimulation {
     if (this.spritesLoaded && this.sprites.spaceDust && this.sprites.spaceDust.complete) {
       const dustSprite = this.sprites.spaceDust;
       const spriteSize = 4; // Size to draw each dust particle
+      const spriteSizeHalf = spriteSize * 0.5;
       
       for (const dust of this.dustParticles) {
-        const dustX = dust.x / dpr;
-        const dustY = dust.y / dpr;
+        const dustX = dust.x * invDpr;
+        const dustY = dust.y * invDpr;
         const dustAlpha = dust.life * 0.5;
         
         ctx.save();
         ctx.globalAlpha = dustAlpha;
         ctx.drawImage(
           dustSprite,
-          dustX - spriteSize / 2,
-          dustY - spriteSize / 2,
+          dustX - spriteSizeHalf,
+          dustY - spriteSizeHalf,
           spriteSize,
           spriteSize
         );
@@ -2228,8 +2239,8 @@ export class GravitySimulation {
     } else {
       // Fallback to procedural dust
       for (const dust of this.dustParticles) {
-        const dustX = dust.x / dpr;
-        const dustY = dust.y / dpr;
+        const dustX = dust.x * invDpr;
+        const dustY = dust.y * invDpr;
         const dustAlpha = dust.life * 0.3;
 
         if (dust.color) {
@@ -2249,9 +2260,10 @@ export class GravitySimulation {
     // Draw asteroids (always facing the sun)
     // Opacity: 100% near sun, 10% at edge based on distance
     if (this.spritesLoaded && this.sprites.asteroids.length > 0) {
+      const maxRenderDistanceDefault = this.calculateMaxSpawnRadiusCss();
       for (const asteroid of this.asteroids) {
-        const asteroidX = asteroid.x / dpr;
-        const asteroidY = asteroid.y / dpr;
+        const asteroidX = asteroid.x * invDpr;
+        const asteroidY = asteroid.y * invDpr;
         const asteroidSprite = this.sprites.asteroids[asteroid.spriteIndex];
         
         if (asteroidSprite && asteroidSprite.complete) {
@@ -2266,7 +2278,7 @@ export class GravitySimulation {
           // Calculate distance from sun for opacity
           const distFromSun = Math.sqrt(dx * dx + dy * dy);
           const sunRadius = coreRadius;
-          const maxRenderDistance = asteroid.maxRenderDistance ? asteroid.maxRenderDistance / dpr : this.calculateMaxSpawnRadiusCss();
+          const maxRenderDistance = asteroid.maxRenderDistance ? asteroid.maxRenderDistance * invDpr : maxRenderDistanceDefault;
           
           // Calculate opacity: 100% at sun surface, 10% at edge
           // distFromSun ranges from sunRadius to maxRenderDistance
@@ -2280,10 +2292,11 @@ export class GravitySimulation {
           ctx.rotate(angle + Math.PI / 2);
           
           const size = asteroid.size;
+          const sizeHalf = size * 0.5; // Each asteroid has unique size, so calculate per asteroid
           ctx.drawImage(
             asteroidSprite,
-            -size / 2,
-            -size / 2,
+            -sizeHalf,
+            -sizeHalf,
             size,
             size
           );
@@ -2293,16 +2306,21 @@ export class GravitySimulation {
     }
 
     // Draw shooting stars with luminous trails.
+    const shootingStarSize = 8; // Size for shooting stars (constant for all)
+    const shootingStarSizeHalf = shootingStarSize * 0.5;
+    
     for (const shard of this.shootingStars) {
+      // Guard ensures trail has at least 2 points to draw segments between
       if (shard.trail.length > 1) {
         ctx.save();
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.globalCompositeOperation = 'source-over'; // Keep shooting star trails cheap while preserving readability.
+        const trailLengthInv = 1 / shard.trail.length; // Cache reciprocal (safe: length >= 2)
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
-          const progress = i / shard.trail.length || 0; // Normalize segment position so the head stays brightest.
+          const progress = i * trailLengthInv; // Normalize segment position so the head stays brightest.
           const fadeAlpha = Math.max(0, curr.alpha * (1 - progress * 0.5)); // Keep more opacity near the leading edge of the streak.
           const brightness = 0.7 + (1 - progress) * 0.3; // Boost color intensity at the head for a radiant taper.
           const boostedR = Math.min(255, Math.round(shard.color.r * brightness));
@@ -2310,25 +2328,24 @@ export class GravitySimulation {
           const boostedB = Math.min(255, Math.round(shard.color.b * brightness));
           ctx.strokeStyle = `rgba(${boostedR}, ${boostedG}, ${boostedB}, ${fadeAlpha})`;
           ctx.beginPath();
-          ctx.moveTo(prev.x / dpr, prev.y / dpr);
-          ctx.lineTo(curr.x / dpr, curr.y / dpr);
+          ctx.moveTo(prev.x * invDpr, prev.y * invDpr);
+          ctx.lineTo(curr.x * invDpr, curr.y * invDpr);
           ctx.stroke();
         }
         ctx.restore();
       }
 
-      const shardX = shard.x / dpr;
-      const shardY = shard.y / dpr;
+      const shardX = shard.x * invDpr;
+      const shardY = shard.y * invDpr;
       
       // Use star sprite for shooting stars
       if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
-        const shootingStarSize = 8; // Size for shooting stars
         ctx.save();
         ctx.globalAlpha = 0.9;
         ctx.drawImage(
           this.sprites.star,
-          shardX - shootingStarSize / 2,
-          shardY - shootingStarSize / 2,
+          shardX - shootingStarSizeHalf,
+          shardY - shootingStarSizeHalf,
           shootingStarSize,
           shootingStarSize
         );
@@ -2346,6 +2363,19 @@ export class GravitySimulation {
     }
 
     // Draw orbiting stars with trails
+    // Optimization: Pre-fetch palette colors outside the loop if available
+    let slowColor, fastColor;
+    if (this.samplePaletteGradient) {
+      slowColor = this.samplePaletteGradient(0);
+      fastColor = this.samplePaletteGradient(1);
+    } else {
+      slowColor = { r: 100, g: 150, b: 255 }; // Blueish
+      fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
+    }
+    const colorDiffR = fastColor.r - slowColor.r;
+    const colorDiffG = fastColor.g - slowColor.g;
+    const colorDiffB = fastColor.b - slowColor.b;
+
     for (const star of this.stars) {
       // Draw trail with color gradient from palette
       if (trailMode !== 'none' && star.hasTrail && star.trail.length > 1) {
@@ -2354,15 +2384,16 @@ export class GravitySimulation {
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
           const firstPoint = star.trail[0];
           ctx.beginPath();
-          ctx.moveTo(firstPoint.x / dpr, firstPoint.y / dpr);
+          ctx.moveTo(firstPoint.x * invDpr, firstPoint.y * invDpr);
           for (let i = 1; i < star.trail.length; i++) {
             const point = star.trail[i];
-            ctx.lineTo(point.x / dpr, point.y / dpr);
+            ctx.lineTo(point.x * invDpr, point.y * invDpr);
           }
           ctx.stroke();
         } else {
           ctx.lineWidth = 1.5;
 
+          // Optimization: Use pre-calculated color differences
           for (let i = 1; i < star.trail.length; i++) {
             const prev = star.trail[i - 1];
             const curr = star.trail[i];
@@ -2370,35 +2401,24 @@ export class GravitySimulation {
             // Color based on speed (slow = lower palette color, fast = upper palette color)
             const normalizedSpeed = Math.min(1, curr.speed / 200);
 
-            let slowColor, fastColor;
-            if (this.samplePaletteGradient) {
-              // Use the color palette gradient
-              slowColor = this.samplePaletteGradient(0);
-              fastColor = this.samplePaletteGradient(1);
-            } else {
-              // Fallback to default colors
-              slowColor = { r: 100, g: 150, b: 255 }; // Blueish
-              fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
-            }
-
-            const r = Math.floor(slowColor.r + (fastColor.r - slowColor.r) * normalizedSpeed);
-            const g = Math.floor(slowColor.g + (fastColor.g - slowColor.g) * normalizedSpeed);
-            const b = Math.floor(slowColor.b + (fastColor.b - slowColor.b) * normalizedSpeed);
+            const r = Math.floor(slowColor.r + colorDiffR * normalizedSpeed);
+            const g = Math.floor(slowColor.g + colorDiffG * normalizedSpeed);
+            const b = Math.floor(slowColor.b + colorDiffB * normalizedSpeed);
 
             const alpha = curr.alpha * 0.5;
             ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
 
             ctx.beginPath();
-            ctx.moveTo(prev.x / dpr, prev.y / dpr);
-            ctx.lineTo(curr.x / dpr, curr.y / dpr);
+            ctx.moveTo(prev.x * invDpr, prev.y * invDpr);
+            ctx.lineTo(curr.x * invDpr, curr.y * invDpr);
             ctx.stroke();
           }
         }
       }
       
       // Draw star using sprite or procedural fallback
-      const starX = star.x / dpr;
-      const starY = star.y / dpr;
+      const starX = star.x * invDpr;
+      const starY = star.y * invDpr;
       const starSize = this.calculateStarRadiusCss(star.mass, starVisualRadius);
       
       if (this.spritesLoaded && this.sprites.star && this.sprites.star.complete) {
