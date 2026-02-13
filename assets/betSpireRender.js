@@ -554,7 +554,7 @@ export class BetSpireRender {
 
     // Initialize rotation entries for any tiers that start unlocked so their forge triangles counter-rotate immediately.
     this.unlockedTiers.forEach((tierId) => {
-      this.spawnerRotations.set(tierId, Math.random() * Math.PI * 2);
+      this.spawnerRotations.set(tierId, Math.random() * TWO_PI); // Use pre-calculated constant
     });
     
     // Track generator fade-in animations (tierId -> {startTime, duration})
