@@ -196,7 +196,7 @@ export class FractalTreeSimulation {
     factor = this.clamp(factor, 0, 1);
     
     // Create cache key from the two colors and rounded factor (to limit cache size)
-    const roundedFactor = Math.round(factor * 100) / 100;
+    const roundedFactor = Math.round(factor * 100) * 0.01;
     const cacheKey = `${color1}|${color2}|${roundedFactor}`;
     
     // Check cache first
