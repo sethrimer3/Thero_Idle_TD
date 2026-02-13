@@ -184,7 +184,7 @@ export class GravitySimulation {
     this.lowGraphicsMode = typeof options.lowGraphicsMode === 'boolean' ? options.lowGraphicsMode : false;
 
     // Performance safeguards to automatically dial back heavy effects when frame times spike.
-    this.frameTimeSamples = [];
+    this.frameTimeSamples = []; // Initialized empty
     this.frameSampleLimit = 45;
     this.performanceMode = 'balanced';
     this.performanceThresholds = {
@@ -334,6 +334,7 @@ export class GravitySimulation {
     };
 
     // Performance tracking optimization - cache sum to avoid reduce() on every frame
+    // Initialized to 0 since frameTimeSamples starts empty
     this.frameTimeSamplesSum = 0;
     
     // Animation state
@@ -2309,13 +2310,13 @@ export class GravitySimulation {
     const shootingStarSizeHalf = shootingStarSize * 0.5;
     
     for (const shard of this.shootingStars) {
-      // Guard ensures trail.length > 1, preventing division by zero in trailLengthInv
+      // Guard ensures trail has at least 2 points to draw segments between
       if (shard.trail.length > 1) {
         ctx.save();
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
         ctx.globalCompositeOperation = 'source-over'; // Keep shooting star trails cheap while preserving readability.
-        const trailLengthInv = 1 / shard.trail.length; // Cache reciprocal (safe: length > 1)
+        const trailLengthInv = 1 / shard.trail.length; // Cache reciprocal (safe: length >= 2)
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
