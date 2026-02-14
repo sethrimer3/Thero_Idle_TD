@@ -3,7 +3,7 @@ import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // α shot sprite path points at the white particle art that will be tinted by the active palette.
-const ALPHA_SHOT_SPRITE_PATH = '../../../assets/sprites/towers/alpha/shots/alphaShotParticle.png';
+const ALPHA_SHOT_SPRITE_PATH = '../../../assets/sprites/towers/alpha/projectiles/alphaProjectile.png';
 
 // Cache 12 tinted variants so palette swaps only pay the recolor cost once.
 const ALPHA_SHOT_SPRITE_SAMPLE_COUNT = 12;
