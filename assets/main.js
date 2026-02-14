@@ -182,6 +182,11 @@ import { createSpireResourceState } from './state/spireResourceState.js';
 import { createPowderStateContext } from './powder/powderState.js';
 import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
 import { createSpireResourceBanks } from './spireResourceBanks.js';
+import {
+  applyBetIdleParticles,
+  applyLamedIdleStars,
+  applyTsadiIdleParticles,
+} from './spireIdleApplication.js';
 // Alpha tower sprite tint cache builder for palette-synced shot particles.
 import { refreshAlphaShotSpritePaletteCache } from '../scripts/features/towers/alphaTower.js';
 // Beta tower sprite tint cache builder for palette-synced shot particles.
@@ -1842,6 +1847,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     formatWholeNumber,
     getCurrentIdleMoteBank,
     getCurrentFluidDropBank,
+    getLamedSparkBank,
+    getTsadiParticleBank,
     getShinGlyphs,
     getKufGlyphs,
     isFluidUnlocked: () => Boolean(spireResourceState.fluid?.unlocked || powderState.fluidUnlocked),
@@ -2105,6 +2112,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getPowderSimulation: () => powderSimulation,
     spireResourceState,
     addIdleMoteBank,
+    getLamedSparkBank,
+    setLamedSparkBank,
+    getTsadiParticleBank,
+    setTsadiParticleBank,
     getTsadiBindingAgents,
     setTsadiBindingAgents,
     addIterons,
@@ -3932,6 +3943,34 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Persist idle bank adjustments so offline rewards survive tab closures.
     schedulePowderBasinSave();
     updateStatusDisplays();
+  }
+
+  // Lamed spire spark bank getter/setter functions
+  function getLamedSparkBank() {
+    return Math.max(0, powderState.lamedSparkBank || 0);
+  }
+
+  function setLamedSparkBank(amount) {
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+    powderState.lamedSparkBank = Math.max(0, amount);
+    schedulePowderBasinSave();
+    return powderState.lamedSparkBank;
+  }
+
+  // Tsadi spire particle bank getter/setter functions
+  function getTsadiParticleBank() {
+    return Math.max(0, powderState.tsadiParticleBank || 0);
+  }
+
+  function setTsadiParticleBank(amount) {
+    if (!Number.isFinite(amount)) {
+      return;
+    }
+    powderState.tsadiParticleBank = Math.max(0, amount);
+    schedulePowderBasinSave();
+    return powderState.tsadiParticleBank;
   }
 
   function flushPendingMoteDrops() {
@@ -6450,6 +6489,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               }
 
               lamedSimulationInstance.resize();
+              
+              // Apply idle stars from bank if any
+              const idleStars = getLamedSparkBank();
+              if (idleStars > 0) {
+                applyLamedIdleStars(lamedSimulationInstance, idleStars);
+                setLamedSparkBank(0); // Clear the bank after applying
+              }
+              
               const growthRateEl = document.getElementById('lamed-growth-rate');
               if (growthRateEl) {
                 growthRateEl.textContent = `${lamedSimulationInstance.sparkSpawnRate.toFixed(2)} sparks/sec`;
@@ -6642,6 +6689,14 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
                 tsadiSimulationInstance.importState(tsadiSnapshot, { preserveLayout: true });
               }
               tsadiSimulationInstance.setAvailableBindingAgents(getTsadiBindingAgents());
+              
+              // Apply idle particles from bank if any
+              const idleParticles = getTsadiParticleBank();
+              if (idleParticles > 0) {
+                applyTsadiIdleParticles(tsadiSimulationInstance, idleParticles);
+                setTsadiParticleBank(0); // Clear the bank after applying
+              }
+              
               const generationRateEl = document.getElementById('tsadi-generation-rate');
               if (generationRateEl) {
                 generationRateEl.textContent = `${tsadiSimulationInstance.spawnRate.toFixed(2)} atoms/sec`;
@@ -7182,6 +7237,17 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Initialize Bet Spire particle physics render and inventory display
     initBetSpireRender(spireResourceState.fluid);
     setBetSpireRenderGetter(getBetSpireRenderInstance);
+    
+    // Apply idle particles from bank if any (bet spire is always running)
+    const betIdleParticles = getCurrentFluidDropBank(); // Using the idle bank for bet
+    if (betIdleParticles > 0) {
+      const betInstance = getBetSpireRenderInstance();
+      if (betInstance) {
+        applyBetIdleParticles(betInstance, betIdleParticles);
+        // Bank will be cleared by the bet spire's internal logic
+      }
+    }
+    
     initParticleInventoryDisplay();
     
     // Initialize BET spire upgrade menu

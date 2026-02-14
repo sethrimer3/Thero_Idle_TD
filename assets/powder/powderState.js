@@ -38,6 +38,9 @@ export function createPowderStateContext() {
     fluidIdleDrainRate: 0,
     pendingFluidDrops: [],
     fluidBankHydrated: false,
+    // Idle banks for advanced spires
+    lamedSparkBank: 0, // Idle stars earned in Lamed spire
+    tsadiParticleBank: 0, // Idle particles earned in Tsadi spire
     motePalette: mergeMotePalette(DEFAULT_MOTE_PALETTE),
     simulationMode: 'sand',
     wallGapTarget: powderConfig.wallBaseGapMotes,

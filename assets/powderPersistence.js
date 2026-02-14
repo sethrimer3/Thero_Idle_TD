@@ -161,6 +161,8 @@ export function createPowderPersistence({
       pendingMoteDrops: pendingDrops,
       fluidIdleDrainRate: Math.max(0, clampFiniteNumber(powderState.fluidIdleDrainRate, 0)),
       pendingFluidDrops,
+      lamedSparkBank: Math.max(0, clampFiniteNumber(powderState.lamedSparkBank, 0)),
+      tsadiParticleBank: Math.max(0, clampFiniteNumber(powderState.tsadiParticleBank, 0)),
       motePalette: palette,
       simulationMode: powderState.simulationMode === 'fluid' ? 'fluid' : 'sand',
       wallGapTarget: Number.isFinite(powderState.wallGapTarget)
@@ -260,6 +262,12 @@ export function createPowderPersistence({
         powderState.pendingFluidDrops = base.pendingFluidDrops.map(cloneStoredMoteDrop).filter(Boolean);
       } else {
         powderState.pendingFluidDrops = [];
+      }
+      if (Number.isFinite(base.lamedSparkBank)) {
+        powderState.lamedSparkBank = Math.max(0, base.lamedSparkBank);
+      }
+      if (Number.isFinite(base.tsadiParticleBank)) {
+        powderState.tsadiParticleBank = Math.max(0, base.tsadiParticleBank);
       }
       if (base.motePalette) {
         powderState.motePalette = mergePalette(base.motePalette);
