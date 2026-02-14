@@ -789,6 +789,17 @@ export class SimplePlayfield {
       // Store enemy ID for "Remaining Life" mode to allow clearing previous numbers
       enemyId: mode === DAMAGE_NUMBER_MODES.REMAINING && enemy.id ? enemy.id : null,
     };
+    
+    // Special handling for divisors: show equation "1/[damage] = [actual damage]"
+    if (enemy && enemy.typeId === 'divisor' && mode !== DAMAGE_NUMBER_MODES.REMAINING) {
+      // Format the reciprocal part (1/damage) using the same notation
+      const reciprocalLabel = formatCombatNumber(damage);
+      entry.isDivisorEquation = true;
+      entry.reciprocalText = `1/${reciprocalLabel}`;
+      entry.equalsText = ' = ';
+      entry.resultText = label;
+    }
+    
     this.damageNumbers.push(entry);
     const maxEntries = 90;
     if (this.damageNumbers.length > maxEntries) {

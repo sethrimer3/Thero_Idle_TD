@@ -3212,20 +3212,87 @@ function drawDamageNumbers() {
       : 0;
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, entry.alpha));
-    ctx.font = `600 ${fontSize}px "Cormorant Garamond", serif`;
-    const outlineWidth = Math.max(1, fontSize * 0.12);
-    ctx.lineWidth = outlineWidth;
-    ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
-    ctx.fillStyle = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 0.92);
-    ctx.strokeText(entry.text, entry.position.x, entry.position.y);
-    if (highlightAlpha > 0.01) {
-      const brightOutlineWidth = Math.max(1, outlineWidth * 0.8);
-      ctx.lineWidth = brightOutlineWidth;
-      ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
-      ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+    
+    // Special rendering for divisor equations
+    if (entry.isDivisorEquation && entry.reciprocalText && entry.equalsText && entry.resultText) {
+      // Render the equation: "1/[damage] = [actual damage]"
+      // The "1/[damage]" part should be in smaller font
+      const smallFontSize = fontSize * 0.5;
+      const smallFont = `600 ${smallFontSize}px "Cormorant Garamond", serif`;
+      const regularFont = `600 ${fontSize}px "Cormorant Garamond", serif`;
+      
+      // Measure text widths to position elements
+      ctx.font = smallFont;
+      const reciprocalWidth = ctx.measureText(entry.reciprocalText).width;
+      ctx.font = regularFont;
+      const equalsWidth = ctx.measureText(entry.equalsText).width;
+      const resultWidth = ctx.measureText(entry.resultText).width;
+      
+      // Calculate total width and starting position
+      const totalWidth = reciprocalWidth + equalsWidth + resultWidth;
+      const startX = entry.position.x - totalWidth * 0.5;
+      
+      // Render reciprocal part (small font)
+      ctx.font = smallFont;
+      const smallOutlineWidth = Math.max(1, smallFontSize * 0.12);
+      ctx.lineWidth = smallOutlineWidth;
+      ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
+      ctx.fillStyle = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 0.92);
+      const reciprocalX = startX + reciprocalWidth * 0.5;
+      ctx.strokeText(entry.reciprocalText, reciprocalX, entry.position.y);
+      if (highlightAlpha > 0.01) {
+        const brightOutlineWidth = Math.max(1, smallOutlineWidth * 0.8);
+        ctx.lineWidth = brightOutlineWidth;
+        ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
+        ctx.strokeText(entry.reciprocalText, reciprocalX, entry.position.y);
+        ctx.lineWidth = smallOutlineWidth;
+      }
+      ctx.fillText(entry.reciprocalText, reciprocalX, entry.position.y);
+      
+      // Render equals sign (regular font)
+      ctx.font = regularFont;
+      const outlineWidth = Math.max(1, fontSize * 0.12);
       ctx.lineWidth = outlineWidth;
+      const equalsX = startX + reciprocalWidth + equalsWidth * 0.5;
+      ctx.strokeText(entry.equalsText, equalsX, entry.position.y);
+      if (highlightAlpha > 0.01) {
+        const brightOutlineWidth = Math.max(1, outlineWidth * 0.8);
+        ctx.lineWidth = brightOutlineWidth;
+        ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
+        ctx.strokeText(entry.equalsText, equalsX, entry.position.y);
+        ctx.lineWidth = outlineWidth;
+        ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
+      }
+      ctx.fillText(entry.equalsText, equalsX, entry.position.y);
+      
+      // Render result (regular font)
+      const resultX = startX + reciprocalWidth + equalsWidth + resultWidth * 0.5;
+      ctx.strokeText(entry.resultText, resultX, entry.position.y);
+      if (highlightAlpha > 0.01) {
+        const brightOutlineWidth = Math.max(1, outlineWidth * 0.8);
+        ctx.lineWidth = brightOutlineWidth;
+        ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
+        ctx.strokeText(entry.resultText, resultX, entry.position.y);
+        ctx.lineWidth = outlineWidth;
+      }
+      ctx.fillText(entry.resultText, resultX, entry.position.y);
+    } else {
+      // Standard rendering for non-divisor damage
+      ctx.font = `600 ${fontSize}px "Cormorant Garamond", serif`;
+      const outlineWidth = Math.max(1, fontSize * 0.12);
+      ctx.lineWidth = outlineWidth;
+      ctx.strokeStyle = 'rgba(6, 8, 14, 0.7)';
+      ctx.fillStyle = colorToRgbaString(entry.color || { r: 255, g: 228, b: 120 }, 0.92);
+      ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+      if (highlightAlpha > 0.01) {
+        const brightOutlineWidth = Math.max(1, outlineWidth * 0.8);
+        ctx.lineWidth = brightOutlineWidth;
+        ctx.strokeStyle = `rgba(255, 255, 236, ${highlightAlpha})`;
+        ctx.strokeText(entry.text, entry.position.x, entry.position.y);
+        ctx.lineWidth = outlineWidth;
+      }
+      ctx.fillText(entry.text, entry.position.x, entry.position.y);
     }
-    ctx.fillText(entry.text, entry.position.x, entry.position.y);
     ctx.restore();
   });
 
