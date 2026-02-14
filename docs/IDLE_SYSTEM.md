@@ -51,6 +51,7 @@ distributeTsadiIdleParticles(totalParticles)
 ```
 Converts particles into pre-merged tiers using binary representation:
 - Example: 259 particles → 1 tier 7 (2^8=256) + 1 tier 0 (2^1=2) + 1 tier -1 (2^0=1)
+- Note: Tier numbers are adjusted by -1 because null tier is -1 in the code
 
 ### Application Flow
 
@@ -98,7 +99,7 @@ node /tmp/test-idle.mjs
 
 Expected output:
 - Bet: 1,234,567 → 67 sand, 45 quartz, 23 ruby, 1 sunstone
-- Tsadi: 259 → 1 tier 7, 1 tier 0, 1 tier -1
+- Tsadi: 259 → 1 tier 7, 1 tier 0, 1 tier -1 (tier numbers adjusted for null tier at -1)
 - Lamed: 100 stars × 5 mass = 500 mass
 
 ### Manual Testing Checklist

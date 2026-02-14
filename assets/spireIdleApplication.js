@@ -92,14 +92,9 @@ export function calculateLamedIdleMassGain(idleStars, starMass = 1) {
  * During idle time, we pre-merge particles using binary decomposition.
  * 
  * For example: 259 particles becomes:
- * - 1 tier 8 particle (2^8 = 256)
- * - 0 tier 7 particles
- * - 0 tier 6 particles
- * - 0 tier 5 particles
- * - 0 tier 4 particles
- * - 0 tier 3 particles
- * - 1 tier 2 particle (2^1 = 2)
- * - 1 tier 1 particle (2^0 = 1)
+ * - 1 tier 7 particle (2^8 = 256) - tierPower 8 adjusts to tier 7 (null is -1)
+ * - 1 tier 0 particle (2^1 = 2) - tierPower 1 adjusts to tier 0
+ * - 1 tier -1 particle (2^0 = 1) - tierPower 0 adjusts to tier -1 (null tier)
  * 
  * @param {number} totalParticles - Total number of particles earned during idle time
  * @returns {Array<{tier: number, count: number}>} Distribution of particles by tier
