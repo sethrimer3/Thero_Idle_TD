@@ -69,8 +69,32 @@ export function createSpireResourceBanks({
     return { awarded, invested, available };
   }
 
+  /**
+   * Get the current binding agent count for Tsadi spire.
+   * @returns {number} Current binding agent count.
+   */
+  function getTsadiBindingAgents() {
+    return Number.isFinite(tsadiState.bindingAgents)
+      ? Math.max(0, Math.floor(tsadiState.bindingAgents))
+      : 0;
+  }
+
+  /**
+   * Set the binding agent count for Tsadi spire.
+   * @param {number} value - New binding agent count.
+   * @returns {number} Normalized binding agent count.
+   */
+  function setTsadiBindingAgents(value) {
+    const normalized = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+    tsadiState.bindingAgents = normalized;
+    updateSpireMenuCounts();
+    return normalized;
+  }
+
   return {
     ensureLamedBankSeeded,
+    getTsadiBindingAgents,
+    setTsadiBindingAgents,
     ensureTsadiBankSeeded,
     reconcileGlyphCurrencyFromState,
   };
