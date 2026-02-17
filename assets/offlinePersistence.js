@@ -311,6 +311,10 @@ function hideOfflineOverlay() {
   }
   offlineOverlayAnimating = true;
   container.classList.remove('active');
+  // Move focus out of the overlay before hiding it from assistive tech to avoid aria-hidden focus warnings.
+  if (container.contains(document.activeElement) && document.body && typeof document.body.focus === 'function') {
+    document.body.focus({ preventScroll: true });
+  }
   container.setAttribute('aria-hidden', 'true');
   offlineOverlayFadeHandle = setTimeout(() => {
     container.setAttribute('hidden', '');
