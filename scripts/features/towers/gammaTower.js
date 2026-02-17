@@ -10,7 +10,7 @@ import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // γ shot sprite path points at the white particle art that will be tinted by the active palette.
 // Note: Gamma projectile sprite is oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
-const GAMMA_SHOT_SPRITE_PATH = '../../../assets/sprites/towers/gamma/projectiles/gammaProjectile.png';
+const GAMMA_SHOT_SPRITE_PATH = './assets/sprites/towers/gamma/projectiles/gammaProjectile.png';
 
 // Cache 12 tinted variants so palette swaps only pay the recolor cost once.
 const GAMMA_SHOT_SPRITE_SAMPLE_COUNT = 12;
