@@ -3,6 +3,9 @@
 
 import { getGemSpriteImage } from '../../enemies.js';
 
+// Pre-calculated constants for performance optimization in tight render loops
+const HALF = 0.5;
+
 // Animation configuration
 const FLOAT_DURATION_MS = 1500; // Total duration of floating animation
 const FLOAT_DISTANCE_PX = 80; // Distance to move upward in pixels
@@ -141,12 +144,12 @@ export function createFloatingFeedbackController({ canvas, ctx, getCanvasPositio
 
     // Calculate total width (text + spacing + icon)
     const totalWidth = textWidth + spacing + iconSize;
-    const startX = x - totalWidth / 2;
+    const startX = x - totalWidth * HALF;
 
     // Draw drop shadow for better visibility
     ctx.globalAlpha = opacity * 0.4;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillText(text, startX + textWidth / 2 + 2, y + 2);
+    ctx.fillText(text, startX + textWidth * HALF + 2, y + 2);
 
     // Draw text
     ctx.globalAlpha = opacity;
@@ -156,8 +159,8 @@ export function createFloatingFeedbackController({ canvas, ctx, getCanvasPositio
     ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${Math.min(95, lightness + 30)}%)`;
     ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${Math.max(20, lightness - 20)}%)`;
     ctx.lineWidth = 3;
-    ctx.strokeText(text, startX + textWidth / 2, y);
-    ctx.fillText(text, startX + textWidth / 2, y);
+    ctx.strokeText(text, startX + textWidth * HALF, y);
+    ctx.fillText(text, startX + textWidth * HALF, y);
 
     // Draw gem icon
     const iconX = startX + textWidth + spacing;
@@ -167,8 +170,8 @@ export function createFloatingFeedbackController({ canvas, ctx, getCanvasPositio
     if (sprite && sprite.complete) {
       ctx.drawImage(
         sprite,
-        iconX - iconSize / 2,
-        iconY - iconSize / 2,
+        iconX - iconSize * HALF,
+        iconY - iconSize * HALF,
         iconSize,
         iconSize
       );
@@ -178,10 +181,10 @@ export function createFloatingFeedbackController({ canvas, ctx, getCanvasPositio
       ctx.strokeStyle = `hsl(${hue}, ${saturation}%, ${Math.max(20, lightness - 20)}%)`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(iconX, iconY - iconSize / 2);
-      ctx.lineTo(iconX + iconSize / 2, iconY);
-      ctx.lineTo(iconX, iconY + iconSize / 2);
-      ctx.lineTo(iconX - iconSize / 2, iconY);
+      ctx.moveTo(iconX, iconY - iconSize * HALF);
+      ctx.lineTo(iconX + iconSize * HALF, iconY);
+      ctx.lineTo(iconX, iconY + iconSize * HALF);
+      ctx.lineTo(iconX - iconSize * HALF, iconY);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
