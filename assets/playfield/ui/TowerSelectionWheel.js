@@ -4,6 +4,9 @@ import {
   isTowerUnlocked,
 } from '../../towersTab.js';
 
+// Pre-calculated constant for performance
+const HALF = 0.5;
+
 // Grace period to prevent hold release from being treated as an outside click.
 const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
 
@@ -156,7 +159,7 @@ export function positionTowerSelectionWheel(tower) {
   
   // Position the wheel to the right of the tower, centered vertically on it
   const baseLeft = canvasRect.left + screen.x + 40; // Offset to the right
-  const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) / 2;
+  const baseTop = canvasRect.top + screen.y - (wheel.container.offsetHeight || 0) * HALF;
   
   // Keep within canvas bounds
   const maxLeft = canvasRect.left + canvasRect.width - (wheel.container.offsetWidth || 0) - 8;
