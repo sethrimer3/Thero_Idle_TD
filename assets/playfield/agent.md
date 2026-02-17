@@ -7,16 +7,28 @@ Specialized modules for the core playfield system, managing towers, enemies, pro
 
 ```
 playfield/
-├── constants.js         # Playfield constants (grid size, colors, etc.)
+├── constants.js                      # Playfield constants (grid size, colors, etc.)
 ├── managers/
-│   └── TowerManager.js  # Tower placement and upgrade logic
+│   ├── CombatStateManager.js        # Combat state (waves, enemies, victory/defeat) [Build 444]
+│   ├── TowerManager.js              # Tower placement and upgrade logic
+│   ├── DeveloperCrystalManager.js   # Developer crystal system
+│   └── DeveloperTowerManager.js     # Developer tower tools
 ├── ui/
-│   └── HudBindings.js   # HUD updates and stat display
+│   ├── HudBindings.js               # HUD updates and stat display
+│   ├── TowerSelectionWheel.js       # Tower selection UI
+│   ├── FloatingFeedback.js          # Floating damage/feedback numbers
+│   └── WaveTallyOverlays.js         # Wave completion overlays
 ├── input/
-│   └── InputController.js # Touch and mouse input handling
-├── render/              # (Future) Rendering systems
-├── utils/               # (Future) Shared utilities
-└── agent.md            # This file
+│   └── InputController.js           # Touch and mouse input handling
+├── render/
+│   ├── CanvasRenderer.js            # Main canvas rendering system
+│   └── CrystallineMosaic.js         # Crystalline visual effects
+├── utils/
+│   ├── formatting.js                # Number formatting utilities
+│   └── math.js                      # Math/easing utilities
+├── orientationController.js         # Device orientation handling
+├── playfieldPreferences.js          # Playfield-specific preferences
+└── agent.md                         # This file
 ```
 
 ## Architecture Overview
@@ -63,6 +75,110 @@ import { GRID_SIZE, PLAYFIELD_WIDTH } from '../constants.js';
 - Use SCREAMING_SNAKE_CASE for all constants
 - Group related constants together
 - Document units (pixels, meters, seconds)
+
+### `managers/CombatStateManager.js`
+**Purpose:** Manage combat state including wave progression, enemy lifecycle, and victory/defeat conditions
+
+**Added:** Build 444-446 (Refactoring Phase 1.1.1)
+
+**Responsibilities:**
+- Wave progression (currentWave, waveTimer, waveIndex, waveNumber)
+- Enemy spawning and lifecycle (enemies array, spawn timing, death handling)
+- Victory/defeat condition checking
+- Resource tracking (energy rewards, lives/health)
+- Endless mode support (cycle multipliers, speed scaling)
+
+**Factory Pattern:**
+```javascript
+import { createCombatStateManager } from './managers/CombatStateManager.js';
+
+// Create manager with dependency injection
+const combatManager = createCombatStateManager({
+  levelConfig: { waves: [...], lives: 20 },
+  audio: audioManager,
+  onVictory: (levelId, stats) => { /* handle victory */ },
+  onDefeat: (levelId, stats) => { /* handle defeat */ },
+  onCombatStart: (levelId) => { /* combat started */ },
+  recordKillEvent: (towerId) => { /* track tower kills */ },
+  tryConvertEnemyToChiThrall: (enemy) => { /* chi conversion */ },
+  triggerPsiClusterAoE: (enemy) => { /* psi cluster */ },
+  notifyEnemyDeath: (enemy) => { /* death callback */ }
+});
+
+// Use manager API
+combatManager.startCombat({
+  startingWaveIndex: 0,
+  startingLives: 20,
+  startingEnergy: 100,
+  endless: false
+});
+
+// Spawn and update enemies
+combatManager.spawnEnemies(deltaTime, {
+  pathPoints: [...],
+  radialSpawn: false,
+  registerEnemy: (enemy) => { /* register */ }
+});
+
+combatManager.updateEnemies(deltaTime, {
+  applyDebuffs: (enemy, delta) => { /* slow, sparkle */ },
+  updateMovement: (enemy, delta) => { /* path progress */ }
+});
+
+// Handle enemy death
+combatManager.handleEnemyDeath(enemy, {
+  spawnDeathParticles: (enemy) => { /* visuals */ },
+  dropGems: (enemy) => { /* loot */ }
+});
+
+// Query state
+const enemies = combatManager.getEnemies();
+const waveNum = combatManager.getWaveNumber();
+const lives = combatManager.getLives();
+const energy = combatManager.getEnergy();
+const isVictory = combatManager.checkVictoryCondition();
+```
+
+**Integration Pattern:**
+- **SimplePlayfield delegates** combat state to manager via property getters/setters
+- **Manager owns authoritative state** (waves, enemies, outcome)
+- **Playfield owns presentation** (rendering, visuals, UI updates)
+- **Clean separation** enables testing manager in isolation
+
+**Property Delegation Example:**
+```javascript
+// In SimplePlayfield class
+get enemies() {
+  return this.combatStateManager ? this.combatStateManager.getEnemies() : [];
+}
+
+get currentWaveNumber() {
+  return this.combatStateManager ? this.combatStateManager.getWaveNumber() : 1;
+}
+
+get resolvedOutcome() {
+  return this.combatStateManager ? this.combatStateManager.getOutcome() : null;
+}
+
+// No-op setters for backward compatibility
+set currentWaveNumber(value) {
+  // Manager owns state; this is a no-op
+}
+```
+
+**Benefits:**
+- ✅ Combat logic isolated and testable
+- ✅ Reduced playfield.js complexity (~600 lines extracted)
+- ✅ Clear API boundaries
+- ✅ Reusable pattern for other systems
+- ✅ No functionality changes
+
+**Important Notes:**
+- Always use manager API, never manipulate internal state directly
+- Manager handles state, playfield handles visuals/UI
+- Getters delegate to manager for authoritative state
+- Setters are no-ops for backward compatibility
+- Dependencies injected via factory config object
 
 ### `managers/TowerManager.js`
 **Purpose:** Tower placement, targeting, upgrade application

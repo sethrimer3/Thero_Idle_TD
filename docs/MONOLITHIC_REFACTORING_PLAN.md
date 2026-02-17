@@ -1127,7 +1127,7 @@ Track these metrics to measure progress:
 Update this section as refactoring progresses:
 
 #### Phase 1: Critical Infrastructure
-- [ ] Playfield Combat State Manager extracted
+- [x] Playfield Combat State Manager extracted (Build 444-446)
 - [ ] Playfield Tower Orchestration Controller extracted
 - [ ] Playfield Rendering Coordinator extracted
 - [ ] Playfield Developer Tools Service extracted
@@ -1226,6 +1226,41 @@ When the project adds automated testing:
    - Verify test coverage unchanged or improved
    - Run extended integration test suite
 
+## Completed Extractions
+
+### Phase 1.1.1: Combat State Manager (Build 444-446)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/managers/CombatStateManager.js` (~600 lines)
+
+**Responsibilities Extracted:**
+- Wave progression state (waveIndex, waveTimer, currentWaveNumber, etc.)
+- Enemy lifecycle management (spawning, updating, death handling)
+- Victory/defeat condition checking
+- Resource tracking (energy, lives)
+- Endless mode support (cycle multipliers, speed scaling)
+
+**Integration Approach:**
+- Factory function pattern with dependency injection
+- Property getters/setters for transparent delegation
+- Backward-compatible no-op setters for legacy assignments
+- Clean API: `startCombat()`, `spawnEnemies()`, `updateEnemies()`, `handleEnemyDeath()`, etc.
+
+**Impact:**
+- Playfield.js complexity reduced
+- Combat state logic testable in isolation
+- Clear separation between state management and presentation
+- Zero functionality changes or regressions
+
+**Lessons Learned:**
+1. Property getters need corresponding setters even if no-ops for backward compatibility
+2. Factory pattern with DI cleanly separates concerns without breaking existing code
+3. Manager pattern works well for stateful subsystems
+4. Thorough property access analysis critical to avoid runtime errors
+
+---
+
 ## Conclusion
 
 This refactoring plan provides a comprehensive, incremental approach to breaking down monolithic files in Thero Idle TD. By following the phased strategy, validating at each step, and maintaining strict performance requirements, we can improve code maintainability without degrading the player experience.
@@ -1246,7 +1281,7 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Created:** Build 443  
-**Last Updated:** Build 443  
-**Status:** Ready for Review
+**Last Updated:** Build 446  
+**Status:** Phase 1 In Progress (1/9 milestones complete)
