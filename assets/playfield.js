@@ -295,8 +295,11 @@ const STANDARD_ENEMY_RADIUS_METERS = 0.2;
 // Preserve β triangle proportions when reflecting shots back to the tower.
 const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Pre-calculated constants for performance optimization in tight render loops
+const PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
+const PI_OVER_6 = Math.PI / 6;
+const PI_TIMES_1_2 = Math.PI * 1.2;
 const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
 const BETA_STICK_HIT_COUNT = 3;
@@ -703,7 +706,7 @@ export class SimplePlayfield {
       const dy = enemyPosition.y - sourceTower.y;
       const distance = Math.hypot(dx, dy);
       if (distance > 0.001) {
-        const jitter = (Math.random() - 0.5) * (Math.PI / 6);
+        const jitter = (Math.random() - 0.5) * PI_OVER_6;
         const cos = Math.cos(jitter);
         const sin = Math.sin(jitter);
         const nx = dx / distance;
@@ -1045,8 +1048,9 @@ export class SimplePlayfield {
     
     // Add secondary wave for emphasis
     const secondaryCount = this.isLowGraphicsMode() ? 8 : 16;
+    const halfAngleStep = PI / secondaryCount;
     for (let i = 0; i < secondaryCount; i += 1) {
-      const angle = (i / secondaryCount) * TWO_PI + Math.PI / secondaryCount;
+      const angle = (i / secondaryCount) * TWO_PI + halfAngleStep;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       
       particles.push({
@@ -5170,7 +5174,7 @@ export class SimplePlayfield {
       this.focusMarkerAngle = 0;
       return;
     }
-    const spinSpeed = Math.PI * 1.2;
+    const spinSpeed = PI_TIMES_1_2;
     this.focusMarkerAngle = (this.focusMarkerAngle + delta * spinSpeed) % TWO_PI;
   }
 
@@ -9939,7 +9943,7 @@ export class SimplePlayfield {
         const envelopePower = Number.isFinite(parameters.envelopePower)
           ? parameters.envelopePower
           : 1;
-        const envelopeBase = Math.sin(Math.PI * progress);
+        const envelopeBase = Math.sin(PI * progress);
         const envelope = Math.pow(Math.max(0, envelopeBase), envelopePower);
         const loops = Number.isFinite(parameters.loops) ? parameters.loops : 1.5;
         const ratio = Number.isFinite(parameters.ratio) ? parameters.ratio : 1.6;
@@ -9956,7 +9960,7 @@ export class SimplePlayfield {
           : 0.3;
         const baseAngle = projectile.phase || 0;
         const angle = baseAngle + TWO_PI * loops * progress;
-        const swirlPhase = progress * Math.PI * swirlFrequency + baseAngle * phaseShift;
+        const swirlPhase = progress * PI * swirlFrequency + baseAngle * phaseShift;
         const swirlOffset = Math.sin(swirlPhase) * radius * returnCurve * envelope * swirlStrength;
         const radial = radius * envelope;
         const offsetX = (radial + swirlOffset) * Math.cos(angle);
