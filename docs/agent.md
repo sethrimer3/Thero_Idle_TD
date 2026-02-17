@@ -126,6 +126,43 @@ Design documents and technical guides that describe game systems, progression, a
 - Planning large refactors
 - Researching historical decisions
 
+### `MONOLITHIC_REFACTORING_PLAN.md`
+**Purpose:** Comprehensive strategy for refactoring large files
+
+**When to update:**
+- Starting a new refactoring phase
+- Completing a major file extraction
+- Updating performance baselines
+- Documenting lessons learned from refactoring
+
+**Key sections:**
+- File size analysis and priorities
+- Performance baseline requirements
+- Phase-by-phase refactoring strategies
+- Testing and validation guidelines
+- Risk mitigation strategies
+- Progress tracking metrics
+
+**Read this when:**
+- Planning to extract code from large files (playfield.js, main.js, etc.)
+- Understanding refactoring priorities and dependencies
+- Setting up performance benchmarks
+- Coordinating multiple refactoring efforts
+- Ensuring refactoring doesn't degrade functionality
+
+### `REFACTORING_GUIDE.md`
+**Purpose:** Living document tracking ongoing main.js refactoring progress
+
+**When to update:**
+- Extracting modules from main.js or other tracked files
+- Updating line counts after refactoring
+- Recording progress on specific extraction tasks
+
+**Read this when:**
+- Working on main.js refactoring tasks
+- Tracking what has been extracted and what remains
+- Understanding current refactoring priorities
+
 ## Documentation Update Workflow
 
 ### When Adding a New Feature
@@ -342,6 +379,7 @@ When updating docs:
 | Mobile optimization | `PLATFORM_SUPPORT.md` - performance section |
 | Iota/Aleph changes | `iota-aleph-upgrades.md` - specific sections |
 | Major refactor | `main_refactor_contexts.md` - add context notes |
+| Refactoring large files | `MONOLITHIC_REFACTORING_PLAN.md` - strategy and progress; `REFACTORING_GUIDE.md` - detailed tracking |
 
 ## Token Efficiency Tips
 
