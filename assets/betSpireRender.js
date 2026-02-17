@@ -44,6 +44,8 @@ const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent fre
 const PERFORMANCE_THRESHOLD = 1500; // Start aggressive merging above this count
 const MAX_FRAME_TIME_MS = 16; // Target 60fps, skip updates if frame takes longer
 const TARGET_FRAME_TIME_MS = 1000 / 60; // Normalize physics updates so taps don't change simulation speed
+const PERF_WARN_MIN_PARTICLES = 250; // Skip heavy-frame warnings for tiny swarms to avoid noisy false positives during tab resume.
+const PERF_WARN_COOLDOWN_MS = 5000; // Limit heavy-frame warnings to once per cooldown window for cleaner diagnostics.
 
 // User interaction configuration
 const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
@@ -635,6 +637,7 @@ export class BetSpireRender {
     // Track frame progression so merge attempts can throttle themselves between frames.
     this.frameCounter = 0;
     this.mergeCooldownFrames = 0; // Prevents back-to-back merge launches in the same frame
+    this.lastPerformanceWarningAt = 0; // Timestamp used to throttle expensive-frame console warnings.
     
     // Forge crunch effect state
     this.forgeValidParticlesTimer = null; // Timestamp when valid particles first entered forge
@@ -2155,9 +2158,15 @@ export class BetSpireRender {
     
     // Track frame time for performance monitoring
     const frameTime = performance.now() - frameStartTime;
-    if (frameTime > MAX_FRAME_TIME_MS * 2) {
-      // If frame took too long (more than 2x target), log warning
-      console.warn(`Bet Spire frame took ${frameTime.toFixed(2)}ms with ${this.particles.length} particles`);
+    const shouldWarnForFrameTime = frameTime > MAX_FRAME_TIME_MS * 2
+      && this.particles.length >= PERF_WARN_MIN_PARTICLES;
+    if (shouldWarnForFrameTime) {
+      const nowMs = Date.now();
+      // Throttle frame warnings so intermittent spikes do not flood the console.
+      if (nowMs - this.lastPerformanceWarningAt >= PERF_WARN_COOLDOWN_MS) {
+        this.lastPerformanceWarningAt = nowMs;
+        console.warn(`Bet Spire frame took ${frameTime.toFixed(2)}ms with ${this.particles.length} particles`);
+      }
     }
     
     this.animationId = requestAnimationFrame(this.animate);
