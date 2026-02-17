@@ -11,6 +11,10 @@
 import { metersToPixels } from '../../gameUnits.js';
 import { samplePaletteGradient } from '../../colorSchemeUtils.js';
 
+// Pre-calculated constants for performance optimization in tight render loops
+const TWO_PI = Math.PI * 2;
+const HALF = 0.5;
+
 // Configuration constants
 const MINIMUM_DISTANCE_FROM_TRACK_METERS = 7; // Only render cells 7+ meters from the track.
 const EDGE_BAND_FRACTION = 0.22; // Keep the mosaic concentrated around the playfield edges.
@@ -192,7 +196,7 @@ class CrystallineCell {
     this.spriteIndex = Math.floor(Math.random() * SHARD_SPRITE_COUNT);
     
     // Random rotation for variety
-    this.rotation = Math.random() * Math.PI * 2;
+    this.rotation = Math.random() * TWO_PI;
     
     // Targetable properties
     this.id = `cell_${cellIdCounter++}`; // Unique identifier
@@ -295,8 +299,8 @@ class CrystallineCell {
       // Draw the colored sprite centered
       ctx.drawImage(
         coloredSprite,
-        -coloredSprite.width * scale / 2,
-        -coloredSprite.height * scale / 2,
+        -coloredSprite.width * scale * HALF,
+        -coloredSprite.height * scale * HALF,
         coloredSprite.width * scale,
         coloredSprite.height * scale
       );
@@ -304,7 +308,7 @@ class CrystallineCell {
       // Fallback: draw a simple polygon if sprites aren't loaded yet
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
       ctx.beginPath();
-      ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+      ctx.arc(0, 0, this.size, 0, TWO_PI);
       ctx.fill();
     }
     
@@ -324,7 +328,7 @@ class CrystallineCell {
    * Draw health bar above the cell.
    */
   drawHealthBar(ctx) {
-    const barX = -CELL_HEALTH_BAR_WIDTH / 2;
+    const barX = -CELL_HEALTH_BAR_WIDTH * HALF;
     const barY = -this.size - 10; // Position above cell
     const healthPercent = this.health / this.maxHealth;
     
@@ -485,7 +489,7 @@ export class CrystallineMosaicManager {
         continue;
       }
       const colorStop = Math.random(); // Position along gradient.
-      const phase = Math.random() * Math.PI * 2; // Random animation phase.
+      const phase = Math.random() * TWO_PI; // Random animation phase.
       
       this.cells.push(new CrystallineCell(x, y, size, colorStop, phase));
     }
@@ -529,10 +533,10 @@ export class CrystallineMosaicManager {
       return true;
     }
     
-    const deltaX = Math.abs((viewBounds.minX + viewBounds.maxX) / 2 - 
-                            (this.lastViewBounds.minX + this.lastViewBounds.maxX) / 2);
-    const deltaY = Math.abs((viewBounds.minY + viewBounds.maxY) / 2 - 
-                            (this.lastViewBounds.minY + this.lastViewBounds.maxY) / 2);
+    const deltaX = Math.abs((viewBounds.minX + viewBounds.maxX) * HALF - 
+                            (this.lastViewBounds.minX + this.lastViewBounds.maxX) * HALF);
+    const deltaY = Math.abs((viewBounds.minY + viewBounds.maxY) * HALF - 
+                            (this.lastViewBounds.minY + this.lastViewBounds.maxY) * HALF);
     
     if (deltaX > lastWidth * threshold || deltaY > lastHeight * threshold) {
       return true;

@@ -40,6 +40,12 @@ import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rende
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
 import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
 
+// Pre-calculated constants for performance optimization in tight render loops
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI * 0.5;
+const QUARTER_PI = Math.PI * 0.25;
+const HALF = 0.5;
+
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
 const mindGateSprite = new Image();
 mindGateSprite.src = MIND_GATE_SPRITE_URL;
@@ -197,8 +203,8 @@ function getViewportBounds() {
   const scale = this.viewScale || 1;
   
   // Calculate world-space bounds with margin
-  const halfWidth = (width / scale / 2) + VIEWPORT_CULL_MARGIN;
-  const halfHeight = (height / scale / 2) + VIEWPORT_CULL_MARGIN;
+  const halfWidth = (width * HALF / scale) + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height * HALF / scale) + VIEWPORT_CULL_MARGIN;
   
   return {
     minX: viewCenter.x - halfWidth,
@@ -332,12 +338,11 @@ function resolveHighGraphicsSpawnParticleBudget() {
 }
 
 function lerpAngle(start, end, t) {
-  const tau = Math.PI * 2;
-  let delta = (end - start) % tau;
+  let delta = (end - start) % TWO_PI;
   if (delta > Math.PI) {
-    delta -= tau;
+    delta -= TWO_PI;
   } else if (delta < -Math.PI) {
-    delta += tau;
+    delta += TWO_PI;
   }
   return start + delta * t;
 }
@@ -415,7 +420,7 @@ function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
   applyCanvasShadow.call(this, ctx, RHO_SPARKLE_GLOW, Math.max(2, metrics.scale * 2));
   for (let index = 0; index < sparkleCount; index += 1) {
     const angle =
-      (index / sparkleCount) * Math.PI * 2 + timeSeconds * 0.9 + (enemy.id || 0) * 0.07;
+      (index / sparkleCount) * TWO_PI + timeSeconds * 0.9 + (enemy.id || 0) * 0.07;
     const wobble = Math.sin(timeSeconds * 2.4 + index * 1.3) * 1.6 * metrics.scale;
     const radius = baseRadius + wobble;
     const x = radius * Math.cos(angle);
@@ -429,7 +434,7 @@ function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
 
     ctx.fillStyle = colorToRgbaString(RHO_SPARKLE_COLOR, alpha);
     ctx.beginPath();
-    ctx.arc(x, y, sparkleSize, 0, Math.PI * 2);
+    ctx.arc(x, y, sparkleSize, 0, TWO_PI);
     ctx.fill();
   }
   clearCanvasShadow.call(this, ctx);
@@ -437,8 +442,8 @@ function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
 }
 
 function drawDebuffBarBackground(ctx, width, height) {
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
+  const halfWidth = width * HALF;
+  const halfHeight = height * HALF;
   const radius = Math.min(halfHeight, 8);
   ctx.beginPath();
   ctx.moveTo(-halfWidth + radius, -halfHeight);
@@ -480,7 +485,7 @@ function drawEnemyDebuffBar(ctx, metrics, debuffs) {
 
   debuffs.forEach((entry, index) => {
     const color = DEBUFF_ICON_COLORS[entry?.type] || DEBUFF_ICON_COLORS.default;
-    const x = -width / 2 + paddingX + iconSize / 2 + index * (iconSize + spacing);
+    const x = -width * HALF + paddingX + iconSize * HALF + index * (iconSize + spacing);
     ctx.lineWidth = Math.max(1, iconSize * 0.08);
     ctx.strokeStyle = color.stroke;
     ctx.fillStyle = color.fill;
@@ -570,7 +575,7 @@ function draw() {
   const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
   const viewCenter = this.getViewCenter();
-  ctx.translate(width / 2, height / 2);
+  ctx.translate(width * HALF, height * HALF);
   ctx.scale(this.viewScale, this.viewScale);
   ctx.translate(-viewCenter.x, -viewCenter.y);
 
@@ -655,7 +660,7 @@ function drawFloaters() {
       const size = baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
       ctx.beginPath();
       ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
-      ctx.arc(swimmer.x, swimmer.y, size, 0, Math.PI * 2);
+      ctx.arc(swimmer.x, swimmer.y, size, 0, TWO_PI);
       ctx.fill();
     });
     ctx.restore();
@@ -696,7 +701,7 @@ function drawFloaters() {
     ctx.beginPath();
     ctx.lineWidth = strokeWidth;
     ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.25})`;
-    ctx.arc(floater.x, floater.y, radius, 0, Math.PI * 2);
+    ctx.arc(floater.x, floater.y, radius, 0, TWO_PI);
     ctx.stroke();
   });
 
@@ -732,7 +737,7 @@ function generateLevelSketches(levelId, width, height) {
       const y = margin + seededRandom() * (height - 2 * margin);
       
       // Random rotation (0 to 360 degrees)
-      const rotation = seededRandom() * Math.PI * 2;
+      const rotation = seededRandom() * TWO_PI;
       
       // Random scale variation (80% to 120% of original size)
       const scale = 0.8 + seededRandom() * 0.4;
@@ -1316,12 +1321,12 @@ function drawTrackParticleRiver() {
     const phase = Number.isFinite(particle.phase) ? particle.phase : 0;
     const pulse = Math.sin(phase + (this.trackRiverPulse || 0)) * 0.5 + 0.5;
     const alpha = 0.18 + pulse * 0.32;
-    const offsetX = Math.cos(tangent + Math.PI / 2) * lateral;
-    const offsetY = Math.sin(tangent + Math.PI / 2) * lateral;
+    const offsetX = Math.cos(tangent + HALF_PI) * lateral;
+    const offsetY = Math.sin(tangent + HALF_PI) * lateral;
     ctx.fillStyle = colorToRgbaString(progressColor, alpha);
     this.applyCanvasShadow(ctx, colorToRgbaString(progressColor, alpha * 0.65), radius * 3.2);
     ctx.beginPath();
-    ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, Math.PI * 2);
+    ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, TWO_PI);
     ctx.fill();
   });
 
@@ -1344,8 +1349,8 @@ function drawTrackParticleRiver() {
       }
       const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
       const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
-      const offsetX = Math.cos(tangent + Math.PI / 2) * lateral;
-      const offsetY = Math.sin(tangent + Math.PI / 2) * lateral;
+      const offsetX = Math.cos(tangent + HALF_PI) * lateral;
+      const offsetY = Math.sin(tangent + HALF_PI) * lateral;
       const phase = Number.isFinite(particle.phase) ? particle.phase : 0;
       const pulse = Math.sin(phase + (this.trackRiverPulse || 0) * 1.4) * 0.5 + 0.5;
       const glowAlpha = 0.45 + pulse * 0.45;
@@ -1361,7 +1366,7 @@ function drawTrackParticleRiver() {
       );
       ctx.beginPath();
       ctx.fillStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, TWO_PI);
       ctx.fill();
       ctx.lineWidth = Math.max(radius * 0.55, 1.2);
       ctx.strokeStyle = colorToRgbaString(
@@ -1449,7 +1454,7 @@ function drawDeltaCommandPreview() {
     ctx.fillStyle = 'rgba(139, 247, 255, 0.16)';
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
     ctx.lineWidth = Math.max(2.4, anchorRadius * 0.14);
-    ctx.arc(anchor.x, anchor.y, anchorRadius, 0, Math.PI * 2);
+    ctx.arc(anchor.x, anchor.y, anchorRadius, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
   } else if (target) {
@@ -1457,7 +1462,7 @@ function drawDeltaCommandPreview() {
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.42)';
     ctx.lineWidth = Math.max(1.2, anchorRadius * 0.08);
     ctx.setLineDash([4, 4]);
-    ctx.arc(target.x, target.y, anchorRadius * 0.55, 0, Math.PI * 2);
+    ctx.arc(target.x, target.y, anchorRadius * 0.55, 0, TWO_PI);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -1486,7 +1491,7 @@ function drawEnemyGateSymbol(ctx, position) {
   glow.addColorStop(1, 'rgba(15, 27, 63, 0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.1, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
   ctx.fill();
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
@@ -1529,14 +1534,14 @@ function drawMindGateSymbol(ctx, position) {
   glow.addColorStop(1, 'rgba(139, 247, 255, 0.18)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius, 0, TWO_PI);
   ctx.fill();
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
   ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
   ctx.lineWidth = Math.max(2, radius * 0.12);
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.88, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 0.88, 0, TWO_PI);
   ctx.stroke();
 
   // Draw the consciousness wavelength - a sine wave that fluctuates through the gate.
@@ -1562,14 +1567,14 @@ function drawMindGateSymbol(ctx, position) {
   // Generate sine wave with varying amplitudes for each peak.
   for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
     const x = -waveWidth / 2 + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
-    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * Math.PI * 2;
+    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
 
     // Base sine wave.
     let y = Math.sin(normalizedX + waveOffset) * waveHeight;
 
     // Add amplitude variation per peak to create dynamic effect.
     const peakIndex = Math.floor((i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS);
-    const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (Math.PI * 2);
+    const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (TWO_PI);
     const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
     y *= peakAmplitudeMod;
 
@@ -1742,7 +1747,7 @@ function drawDeveloperPathMarkers() {
     } else {
       this.clearCanvasShadow(ctx);
     }
-    ctx.arc(marker.x, marker.y, radius, 0, Math.PI * 2);
+    ctx.arc(marker.x, marker.y, radius, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
 
@@ -1793,7 +1798,7 @@ function drawDeveloperCrystals() {
       ctx.beginPath();
       outline.forEach((scale, index) => {
         const ratio = index / outline.length;
-        const angle = ratio * Math.PI * 2;
+        const angle = ratio * TWO_PI;
         const radial = radius * (0.72 + scale * 0.28);
         const x = Math.cos(angle) * radial;
         const y = Math.sin(angle) * radial;
@@ -1863,7 +1868,7 @@ function drawDeveloperCrystals() {
         ctx.setLineDash([6, 6]);
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(0, 0, radius * 1.12, 0, Math.PI * 2);
+        ctx.arc(0, 0, radius * 1.12, 0, TWO_PI);
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -1914,7 +1919,7 @@ function drawTowerPressGlow(playfield, tower, bodyRadius, intensity, visuals, gl
   ctx.lineWidth = 2.6 + clamped * 2.8;
   ctx.strokeStyle = ringColor;
   ctx.beginPath();
-  ctx.arc(tower.x, tower.y, ringRadius, 0, Math.PI * 2);
+  ctx.arc(tower.x, tower.y, ringRadius, 0, TWO_PI);
   ctx.stroke();
   ctx.restore();
 
@@ -1963,7 +1968,7 @@ function drawPlacementPreview() {
   ctx.fillStyle = fillColor;
   ctx.strokeStyle = strokeColor;
   ctx.lineWidth = valid ? 2 : 3;
-  ctx.arc(position.x, position.y, Math.max(12, radius), 0, Math.PI * 2);
+  ctx.arc(position.x, position.y, Math.max(12, radius), 0, TWO_PI);
   ctx.fill();
   ctx.stroke();
 
@@ -1991,7 +1996,7 @@ function drawPlacementPreview() {
     ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(255, 236, 128, 0.85)';
     ctx.beginPath();
-    ctx.arc(mergeTarget.x, mergeTarget.y, Math.max(16, (radius || 24) * 0.6), 0, Math.PI * 2);
+    ctx.arc(mergeTarget.x, mergeTarget.y, Math.max(16, (radius || 24) * 0.6), 0, TWO_PI);
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -2032,7 +2037,7 @@ function drawPlacementPreview() {
   ctx.fillStyle = bodyFill;
   ctx.strokeStyle = bodyStroke;
   ctx.lineWidth = valid ? 2.4 : 2.6;
-  ctx.arc(position.x, position.y, bodyRadius, 0, Math.PI * 2);
+  ctx.arc(position.x, position.y, bodyRadius, 0, TWO_PI);
   ctx.fill();
   ctx.stroke();
   ctx.restore();
@@ -2060,7 +2065,7 @@ function drawPlacementPreview() {
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.4)';
     ctx.beginPath();
     const anchorRadius = Math.max(bodyRadius * 1.15, bodyRadius + 4, 16);
-    ctx.arc(position.x, position.y, anchorRadius, 0, Math.PI * 2);
+    ctx.arc(position.x, position.y, anchorRadius, 0, TWO_PI);
     ctx.stroke();
   }
 
@@ -2145,7 +2150,7 @@ function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direct
     ctx.fillStyle = colorToRgbaString(color, 1);
     const size = Math.max(1.2, particle.size || bodyRadius * 0.08);
     ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.arc(x, y, size, 0, TWO_PI);
     ctx.fill();
     ctx.restore();
   });
@@ -2202,7 +2207,7 @@ function drawTowerGlyphFlash(ctx, tower, bodyRadius, transition, now) {
   gradient.addColorStop(1, colorToRgbaString(baseColor, 0));
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(tower.x, tower.y, radius, 0, Math.PI * 2);
+  ctx.arc(tower.x, tower.y, radius, 0, TWO_PI);
   ctx.fill();
   ctx.restore();
 }
@@ -2291,7 +2296,7 @@ function drawTowers() {
       ctx.strokeStyle = strokeColor;
       ctx.setLineDash([isHovered ? 6 : 4, isHovered ? 6 : 8]);
       ctx.beginPath();
-      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, Math.PI * 2);
+      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
@@ -2302,7 +2307,7 @@ function drawTowers() {
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = visuals.rangeStroke || 'rgba(139, 247, 255, 0.2)';
       ctx.setLineDash([8, 6]);
-      ctx.arc(tower.x, tower.y, rangeRadius, 0, Math.PI * 2);
+      ctx.arc(tower.x, tower.y, rangeRadius, 0, TWO_PI);
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -2363,7 +2368,7 @@ function drawTowers() {
     ctx.fillStyle = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
     ctx.strokeStyle = visuals.outerStroke || 'rgba(139, 247, 255, 0.75)';
     ctx.lineWidth = 2.4;
-    ctx.arc(tower.x, tower.y, bodyRadius, 0, Math.PI * 2);
+    ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
     ctx.restore();
@@ -2439,7 +2444,7 @@ function drawTowers() {
       ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, Math.PI * 2);
+      ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, TWO_PI);
       ctx.stroke();
       this.clearCanvasShadow(ctx);
     }
@@ -2448,7 +2453,7 @@ function drawTowers() {
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(139, 247, 255, 0.9)';
       ctx.lineWidth = 2.6;
-      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, Math.PI * 2);
+      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
       ctx.stroke();
     }
   });
@@ -2640,7 +2645,7 @@ function ensureEnemySwirlState(enemy, metrics) {
 function spawnEnemySwirlParticle(metrics, now) {
   const duration = randomBetween(ENEMY_SWIRL_MIN_DURATION_MS, ENEMY_SWIRL_MAX_DURATION_MS);
   const holdDuration = randomBetween(ENEMY_SWIRL_MIN_HOLD_MS, ENEMY_SWIRL_MAX_HOLD_MS);
-  const angle = Math.random() * Math.PI * 2;
+  const angle = Math.random() * TWO_PI;
   const scale = Math.max(0.65, Math.min(1.45, metrics.scale || 1));
   const size = randomBetween(0.9, 2.3) * scale;
   const jitter = Math.random();
@@ -2660,7 +2665,7 @@ function spawnEnemySwirlParticle(metrics, now) {
     startedAt: now - jitter * duration,
     holdUntil: 0,
     size,
-    rotation: Math.random() * Math.PI * 2, // Initial random rotation angle
+    rotation: Math.random() * TWO_PI, // Initial random rotation angle
     rotationSpeed,
     rotationDirection,
   };
@@ -2684,9 +2689,9 @@ function advanceEnemySwirlParticle(particle, metrics, now) {
     const deltaTime = 16; // Assume ~60fps (16ms per frame)
     particle.rotation += (particle.rotationSpeed * particle.rotationDirection * deltaTime) / 1000;
     // Keep rotation normalized between 0 and 2π
-    particle.rotation = particle.rotation % (Math.PI * 2);
+    particle.rotation = particle.rotation % (TWO_PI);
     if (particle.rotation < 0) {
-      particle.rotation += Math.PI * 2;
+      particle.rotation += TWO_PI;
     }
   }
   
@@ -2703,7 +2708,7 @@ function advanceEnemySwirlParticle(particle, metrics, now) {
     if (!particle.holdUntil || now >= particle.holdUntil) {
       particle.state = 'out';
       particle.startAngle = particle.currentAngle;
-      particle.targetAngle = Math.random() * Math.PI * 2;
+      particle.targetAngle = Math.random() * TWO_PI;
       particle.startedAt = now;
       particle.duration = randomBetween(ENEMY_SWIRL_MIN_DURATION_MS, ENEMY_SWIRL_MAX_DURATION_MS);
     }
@@ -2743,7 +2748,7 @@ function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
   }
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius, 0, TWO_PI);
   ctx.fill();
   ctx.restore();
 }
@@ -2822,7 +2827,7 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
       ctx.beginPath();
       ctx.fillStyle = colorToRgbaString(particle.color || sampleEnemyParticleColor(), alpha);
       const size = Math.max(0.6, particle.size || 1.2);
-      ctx.arc(position.x, position.y, size, 0, Math.PI * 2);
+      ctx.arc(position.x, position.y, size, 0, TWO_PI);
       ctx.fill();
       // Outline each mote with a bright gate-gold halo so the swirl reads clearly against dark bodies.
       ctx.lineWidth = Math.max(0.2, size * 0.25);
@@ -2840,13 +2845,13 @@ function drawEnemyFallbackBody(ctx, metrics, inversionActive) {
   ctx.fillStyle = inversionActive ? 'rgba(240, 244, 255, 0.88)' : ENEMY_GATE_DARK_BLUE;
   ctx.strokeStyle = inversionActive ? 'rgba(12, 16, 24, 0.55)' : 'rgba(80, 130, 190, 0.55)';
   ctx.lineWidth = 2;
-  ctx.arc(0, 0, metrics.ringRadius, 0, Math.PI * 2);
+  ctx.arc(0, 0, metrics.ringRadius, 0, TWO_PI);
   ctx.fill();
   ctx.stroke();
 
   ctx.beginPath();
   ctx.fillStyle = inversionActive ? 'rgba(12, 18, 28, 0.42)' : ENEMY_GATE_DARK_BLUE_CORE;
-  ctx.arc(0, 0, metrics.coreRadius, 0, Math.PI * 2);
+  ctx.arc(0, 0, metrics.coreRadius, 0, TWO_PI);
   ctx.fill();
 }
 
@@ -3098,7 +3103,7 @@ function drawEnemyDeathParticles() {
 
     ctx.beginPath();
     ctx.fillStyle = colorToRgbaString(color, alpha * 0.9);
-    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.arc(x, y, size, 0, TWO_PI);
     ctx.fill();
     ctx.lineWidth = Math.max(0.4, size * 0.35);
     ctx.strokeStyle = colorToRgbaString(color, alpha * 0.65);
@@ -3163,7 +3168,7 @@ function drawSwarmClouds() {
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(x, y, effectiveRadius, 0, Math.PI * 2);
+    ctx.arc(x, y, effectiveRadius, 0, TWO_PI);
     ctx.fill();
     
     // Draw inner core
@@ -3174,7 +3179,7 @@ function drawSwarmClouds() {
     
     ctx.fillStyle = coreGradient;
     ctx.beginPath();
-    ctx.arc(x, y, coreRadius, 0, Math.PI * 2);
+    ctx.arc(x, y, coreRadius, 0, TWO_PI);
     ctx.fill();
   });
 
@@ -3436,14 +3441,14 @@ function drawProjectiles() {
           const size = Number.isFinite(seed.size) ? seed.size : 2.2;
           ctx.fillStyle = colorToRgbaString(glowColor, 0.85);
           ctx.beginPath();
-          ctx.arc(seed.position.x, seed.position.y, size, 0, Math.PI * 2);
+          ctx.arc(seed.position.x, seed.position.y, size, 0, TWO_PI);
           ctx.fill();
         });
       } else {
         const color = normalizeProjectileColor(projectile.color, 1);
         ctx.fillStyle = colorToRgbaString(color, 0.85);
         ctx.beginPath();
-        ctx.arc(position.x, position.y, 4, 0, Math.PI * 2);
+        ctx.arc(position.x, position.y, 4, 0, TWO_PI);
         ctx.fill();
       }
       return;
@@ -3464,7 +3469,7 @@ function drawProjectiles() {
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+      ctx.arc(position.x, position.y, radius, 0, TWO_PI);
       ctx.fill();
       return;
     }
@@ -3514,7 +3519,7 @@ function drawProjectiles() {
       ctx.lineWidth = 2.6;
       ctx.strokeStyle = colorToRgbaString(color, alpha);
       ctx.beginPath();
-      ctx.arc(origin.x, origin.y, currentRadius, 0, Math.PI * 2);
+      ctx.arc(origin.x, origin.y, currentRadius, 0, TWO_PI);
       ctx.stroke();
       ctx.restore();
       return;
@@ -3538,7 +3543,7 @@ function drawProjectiles() {
       ctx.translate(position.x, position.y);
       // Rotate the sprite to point in the direction of travel
       // Since sprite is oriented upward, add π/2 to align with heading
-      ctx.rotate(heading + Math.PI / 2);
+      ctx.rotate(heading + HALF_PI);
       ctx.globalAlpha = alpha;
       if (tintedSprite) {
         // Scale the needle sprite to roughly match the legacy vector length.
@@ -3552,7 +3557,7 @@ function drawProjectiles() {
       } else {
         // Fallback vector needle (already rotated by the ctx.rotate above)
         // Adjust rotation to point along x-axis before ctx.rotate applied the heading
-        ctx.rotate(-Math.PI / 2);
+        ctx.rotate(-HALF_PI);
         ctx.fillStyle = `rgba(139, 247, 255, ${0.85 * alpha})`;
         ctx.strokeStyle = `rgba(12, 16, 26, ${0.9 * alpha})`;
         ctx.lineWidth = 0.9;
@@ -3597,7 +3602,7 @@ function drawProjectiles() {
       ctx.fillStyle = colorToRgbaString(beamColor, 0.8);
       ctx.shadowBlur = 12;
       ctx.beginPath();
-      ctx.arc(position.x, position.y, 5, 0, Math.PI * 2);
+      ctx.arc(position.x, position.y, 5, 0, TWO_PI);
       ctx.fill();
       ctx.restore();
       return;
@@ -3655,7 +3660,7 @@ function drawProjectiles() {
 
     ctx.fillStyle = colorToRgbaString(beamEnd, 0.9);
     ctx.beginPath();
-    ctx.arc(targetPosition.x, targetPosition.y, 4, 0, Math.PI * 2);
+    ctx.arc(targetPosition.x, targetPosition.y, 4, 0, TWO_PI);
     ctx.fill();
   });
 
@@ -3715,7 +3720,7 @@ function drawGammaStarBursts() {
     // Calculate pentagram star points
     const angles = [];
     for (let step = 0; step < 5; step += 1) {
-      angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+      angles.push(-HALF_PI + (step * TWO_PI) / 5);
     }
     const starPoints = angles.map((angle) => ({
       x: center.x + Math.cos(angle) * radius,
@@ -3759,7 +3764,7 @@ function drawGammaStarBursts() {
         // Draw a glow at current position
         ctx.fillStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.7)`;
         ctx.beginPath();
-        ctx.arc(burst.currentPosition.x, burst.currentPosition.y, 4, 0, Math.PI * 2);
+        ctx.arc(burst.currentPosition.x, burst.currentPosition.y, 4, 0, TWO_PI);
         ctx.fill();
       }
     }
@@ -3807,14 +3812,14 @@ function drawAnimatedTowerMenu(ctx, config = {}) {
   ctx.beginPath();
   ctx.strokeStyle = 'rgba(139, 247, 255, 0.35)';
   ctx.lineWidth = Math.max(1.2, scaledOptionRadius * 0.14);
-  ctx.arc(position.x, position.y, scaledRingRadius, 0, Math.PI * 2);
+  ctx.arc(position.x, position.y, scaledRingRadius, 0, TWO_PI);
   ctx.stroke();
 
   options.forEach((option) => {
     if (!option) {
       return;
     }
-    const angle = ((Number.isFinite(option.angle) ? option.angle : 0) + rotationOffset) % (Math.PI * 2);
+    const angle = ((Number.isFinite(option.angle) ? option.angle : 0) + rotationOffset) % (TWO_PI);
     const optionX = position.x + Math.cos(angle) * scaledRingRadius;
     const optionY = position.y + Math.sin(angle) * scaledRingRadius;
     const selected = Boolean(option.selected);
@@ -3827,7 +3832,7 @@ function drawAnimatedTowerMenu(ctx, config = {}) {
     ctx.fillStyle = disabled ? disabledFill : baseFill;
     ctx.strokeStyle = disabled ? disabledStroke : baseStroke;
     ctx.lineWidth = Math.max(1.4, scaledOptionRadius * 0.16);
-    ctx.arc(optionX, optionY, scaledOptionRadius, 0, Math.PI * 2);
+    ctx.arc(optionX, optionY, scaledOptionRadius, 0, TWO_PI);
     ctx.fill();
     ctx.stroke();
 
