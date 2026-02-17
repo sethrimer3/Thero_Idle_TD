@@ -20,6 +20,7 @@ conventions for all AI collaborators working anywhere inside this repository.
 - `/docs/JAVASCRIPT_MODULE_SYSTEM.md` - Module organization rules
 - `/docs/PROGRESSION.md` - Game progression, levels, formulas
 - `/docs/PLATFORM_SUPPORT.md` - Mobile-first development approach
+- `/docs/MONOLITHIC_REFACTORING_PLAN.md` - Comprehensive refactoring strategy for large files
 - `.github/copilot-instructions.md` - GitHub Copilot specific guidelines
 
 **Quick Navigation Rules:**

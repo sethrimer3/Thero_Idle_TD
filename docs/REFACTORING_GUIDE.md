@@ -4,6 +4,8 @@
 
 This document outlines the strategy for refactoring `assets/main.js` (originally 10,002 lines) into smaller, more maintainable modules without changing any game functionality.
 
+> **New:** For a comprehensive, actionable plan covering all monolithic files in the project (not just main.js), see **[MONOLITHIC_REFACTORING_PLAN.md](./MONOLITHIC_REFACTORING_PLAN.md)**. This document provides detailed strategies, performance requirements, testing guidelines, and risk mitigation for refactoring the largest files including `playfield.js`, `cardinalWardenSimulation.js`, `CanvasRenderer.js`, and more.
+
 ## Largest-file refactor roadmap (line-count snapshot)
 
 **Agent note:** Re-run `find assets scripts docs -type f \( -name '*.js' -o -name '*.html' -o -name '*.md' -o -name '*.css' \) -print0 | xargs -0 wc -l | sort -nr | head` before starting any tranche. Update the line counts and append adjustments to the bullets below so this remains a living plan as files shrink or new monoliths appear.
