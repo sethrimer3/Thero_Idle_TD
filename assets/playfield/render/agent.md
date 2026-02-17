@@ -4,8 +4,8 @@ This directory contains rendering-related modules for the playfield system.
 
 ## Modules
 
-### RenderCoordinator.js (Build 450+)
-**Purpose:** Manages the animation frame loop and frame timing.
+### RenderCoordinator.js (Build 450-453)
+**Purpose:** Manages the animation frame loop and frame timing (123 lines).
 
 **Responsibilities:**
 - Frame scheduling via `requestAnimationFrame`
