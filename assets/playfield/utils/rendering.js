@@ -1,5 +1,8 @@
 import { samplePaletteGradient } from '../../colorSchemeUtils.js';
 
+// Pre-calculated constants for performance optimization in tight render loops
+const TWO_PI = Math.PI * 2;
+
 // Normalize projectile color data so beam rendering can rely on palette-aware RGB objects.
 export function normalizeProjectileColor(candidate, fallbackPosition = 1) {
   if (
@@ -38,6 +41,6 @@ export function drawConnectionMoteGlow(ctx, x, y, radius, color, opacity = 1) {
   gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+  ctx.arc(x, y, glowRadius, 0, TWO_PI);
   ctx.fill();
 }

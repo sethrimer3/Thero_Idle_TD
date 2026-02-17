@@ -1,5 +1,8 @@
 import { samplePaletteGradient } from '../../colorSchemeUtils.js';
 
+// Pre-calculated constants for performance optimization
+const TWO_PI = Math.PI * 2;
+
 /**
  * Compute a developer crystal's render radius relative to the active canvas bounds.
  * @this {SimplePlayfield}
@@ -59,7 +62,7 @@ export function addDeveloperCrystal(normalized, options = {}) {
     fractures: [],
     integrity,
     maxIntegrity: integrity,
-    orientation: Math.random() * Math.PI * 2,
+    orientation: Math.random() * TWO_PI,
     theroReward: thero,
     theroMultiplier,
   };
@@ -206,7 +209,7 @@ export function createCrystalFracture(crystal, options = {}) {
   if (crystal.fractures.length >= maxFractures) {
     return;
   }
-  const angle = Number.isFinite(options.angle) ? options.angle : Math.random() * Math.PI * 2;
+  const angle = Number.isFinite(options.angle) ? options.angle : Math.random() * TWO_PI;
   const width = 0.35 + Math.random() * 0.55;
   const depth = 0.25 + Math.random() * 0.45;
   const segments = 5;
@@ -237,7 +240,7 @@ export function spawnCrystalShards(origin, baseRadius, options = {}) {
   const count = Math.max(4, Math.round(intensity * 6));
   const palette = samplePaletteGradient(options.paletteRatio ?? 0.5) || { r: 188, g: 236, b: 255 };
   for (let index = 0; index < count; index += 1) {
-    const angle = Math.random() * Math.PI * 2;
+    const angle = Math.random() * TWO_PI;
     const speed = 120 + Math.random() * 90;
     const shard = {
       id: `crystal-shard-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -245,7 +248,7 @@ export function spawnCrystalShards(origin, baseRadius, options = {}) {
       y: origin.y + Math.sin(angle) * baseRadius * 0.6,
       vx: Math.cos(angle) * speed * 0.6,
       vy: Math.sin(angle) * speed * 0.4 - 40,
-      rotation: Math.random() * Math.PI * 2,
+      rotation: Math.random() * TWO_PI,
       spin: (Math.random() - 0.5) * 6,
       size: 5 + Math.random() * 6,
       life: 0,
@@ -276,7 +279,7 @@ export function applyCrystalHit(crystal, damage, options = {}) {
   const intensity = Math.min(1, damage / Math.max(1, crystal.maxIntegrity || 1));
   const fractureCount = Math.max(1, Math.round(intensity * 3));
   for (let index = 0; index < fractureCount; index += 1) {
-    this.createCrystalFracture(crystal, { angle: Math.random() * Math.PI * 2 });
+    this.createCrystalFracture(crystal, { angle: Math.random() * TWO_PI });
   }
   if (position && radius) {
     this.spawnCrystalShards(position, radius, {
