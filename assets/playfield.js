@@ -294,6 +294,10 @@ const STANDARD_SHOT_RADIUS_METERS = 0.15;
 const STANDARD_ENEMY_RADIUS_METERS = 0.2;
 // Preserve β triangle proportions when reflecting shots back to the tower.
 const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
+// Pre-calculated constants for performance optimization in tight render loops
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI / 2;
+const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
 const BETA_STICK_HIT_COUNT = 3;
 const BETA_STICK_HIT_INTERVAL = 0.18;
@@ -693,7 +697,7 @@ export class SimplePlayfield {
   }
 
   resolveDamageNumberDirection(enemyPosition, sourceTower) {
-    const fallbackAngle = Math.random() * Math.PI * 2;
+    const fallbackAngle = Math.random() * TWO_PI;
     if (sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)) {
       const dx = enemyPosition.x - sourceTower.x;
       const dy = enemyPosition.y - sourceTower.y;
@@ -862,7 +866,7 @@ export class SimplePlayfield {
       };
     }
     if (!direction) {
-      const fallbackAngle = Math.random() * Math.PI * 2;
+      const fallbackAngle = Math.random() * TWO_PI;
       direction = { x: Math.cos(fallbackAngle), y: Math.sin(fallbackAngle) };
     }
     const magnitude = Math.hypot(direction.x, direction.y) || 1;
@@ -902,7 +906,7 @@ export class SimplePlayfield {
     const baseSpeed = Math.max(60, ringRadius * 5);
     const maxEntries = 180;
     for (let index = 0; index < count; index += 1) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = Math.random() * TWO_PI;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       const perpendicular = { x: -direction.y, y: direction.x };
       const wobbleAmplitude = ringRadius * (0.25 + Math.random() * 0.45);
@@ -917,7 +921,7 @@ export class SimplePlayfield {
         speed,
         wobbleAmplitude,
         wobbleFrequency,
-        phase: Math.random() * Math.PI * 2,
+        phase: Math.random() * TWO_PI,
         elapsed: 0,
         lifetime,
         alpha: 1,
@@ -968,7 +972,7 @@ export class SimplePlayfield {
           speed: distance * 3.5, // Fast enough to reach center quickly
           wobbleAmplitude: 2,
           wobbleFrequency: 8,
-          phase: Math.random() * Math.PI * 2,
+          phase: Math.random() * TWO_PI,
           elapsed: 0,
           lifetime: 0.35, // Short-lived for quick implosion effect
           alpha: 1,
@@ -981,7 +985,7 @@ export class SimplePlayfield {
     // Add central implosion particles at cluster position
     const implosionCount = this.isLowGraphicsMode() ? 8 : 16;
     for (let i = 0; i < implosionCount; i += 1) {
-      const angle = (i / implosionCount) * Math.PI * 2;
+      const angle = (i / implosionCount) * TWO_PI;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       particles.push({
         position: { ...clusterPosition },
@@ -1019,7 +1023,7 @@ export class SimplePlayfield {
     const baseSpeed = radius * 1.8; // Speed proportional to radius for consistent visual
     
     for (let i = 0; i < ringCount; i += 1) {
-      const angle = (i / ringCount) * Math.PI * 2;
+      const angle = (i / ringCount) * TWO_PI;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       const perpendicular = { x: -direction.y, y: direction.x };
       
@@ -1030,7 +1034,7 @@ export class SimplePlayfield {
         speed: baseSpeed * (0.8 + Math.random() * 0.4),
         wobbleAmplitude: 4,
         wobbleFrequency: 6,
-        phase: Math.random() * Math.PI * 2,
+        phase: Math.random() * TWO_PI,
         elapsed: 0,
         lifetime: 0.7,
         alpha: 1,
@@ -1042,7 +1046,7 @@ export class SimplePlayfield {
     // Add secondary wave for emphasis
     const secondaryCount = this.isLowGraphicsMode() ? 8 : 16;
     for (let i = 0; i < secondaryCount; i += 1) {
-      const angle = (i / secondaryCount) * Math.PI * 2 + Math.PI / secondaryCount;
+      const angle = (i / secondaryCount) * TWO_PI + Math.PI / secondaryCount;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       
       particles.push({
@@ -2261,7 +2265,7 @@ export class SimplePlayfield {
       offsetTarget: (Math.random() - 0.5) * 0.8,
       driftRate: 0.5 + Math.random() * 0.9,
       driftTimer: 0.6 + Math.random() * 1.2,
-      phase: Math.random() * Math.PI * 2,
+      phase: Math.random() * TWO_PI,
       phaseSpeed: 0.6 + Math.random() * 1.3,
     });
 
@@ -2273,7 +2277,7 @@ export class SimplePlayfield {
       offsetTarget: (Math.random() - 0.5) * 0.3,
       driftRate: 2 + Math.random() * 2.2,
       driftTimer: 0.25 + Math.random() * 0.45,
-      phase: Math.random() * Math.PI * 2,
+      phase: Math.random() * TWO_PI,
       phaseSpeed: 1.6 + Math.random() * 1.4,
     });
 
@@ -2314,7 +2318,7 @@ export class SimplePlayfield {
     const margin = Math.min(width, height) * 0.05;
     const usableWidth = Math.max(1, width - margin * 2);
     const usableHeight = Math.max(1, height - margin * 2);
-    const angle = Math.random() * Math.PI * 2;
+    const angle = Math.random() * TWO_PI;
     const drift = 8 + Math.random() * 6;
     return {
       x: margin + Math.random() * usableWidth,
@@ -2324,7 +2328,7 @@ export class SimplePlayfield {
       ax: 0,
       ay: 0,
       // Seed a subtle pulsation so tiny swimmers feel alive even at low speed.
-      flicker: Math.random() * Math.PI * 2,
+      flicker: Math.random() * TWO_PI,
       sizeScale: 0.5 + Math.random() * 0.8,
     };
   }
@@ -4346,8 +4350,8 @@ export class SimplePlayfield {
     const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
     const optionRadius = Math.max(22, minDimension * 0.04);
     const ringRadius = Math.max(optionRadius * 2.4, minDimension * 0.12);
-    const startAngle = -Math.PI / 2;
-    const angleStep = (Math.PI * 2) / options.length;
+    const startAngle = -HALF_PI;
+    const angleStep = TWO_PI / options.length;
     const layout = options.map((option, index) => {
       const angle = startAngle + index * angleStep;
       return {
@@ -5167,7 +5171,7 @@ export class SimplePlayfield {
       return;
     }
     const spinSpeed = Math.PI * 1.2;
-    this.focusMarkerAngle = (this.focusMarkerAngle + delta * spinSpeed) % (Math.PI * 2);
+    this.focusMarkerAngle = (this.focusMarkerAngle + delta * spinSpeed) % TWO_PI;
   }
 
   findEnemyAt(position) {
@@ -6570,12 +6574,12 @@ export class SimplePlayfield {
       : defaultOrbit + Math.random() * baseRange * 0.35;
     const particle = {
       type,
-      angle: Number.isFinite(options.angle) ? options.angle : Math.random() * Math.PI * 2,
+      angle: Number.isFinite(options.angle) ? options.angle : Math.random() * TWO_PI,
       speed: Number.isFinite(options.speed) ? options.speed : 1.6 + Math.random() * 0.7,
       distance: orbitRadius - (bodyRadius + 6),
       orbitRadius,
       size: Number.isFinite(options.size) ? options.size : type === 'beta' ? 3.4 : 2.6,
-      pulse: Math.random() * Math.PI * 2,
+      pulse: Math.random() * TWO_PI,
       state: options.state || 'orbit',
     };
     if (particle.state === 'arrive') {
@@ -6666,7 +6670,7 @@ export class SimplePlayfield {
       particle.state = 'swarm';
       particle.swarmTime = 0;
       particle.swarmCenter = { ...target };
-      particle.swarmAngle = Math.random() * Math.PI * 2;
+      particle.swarmAngle = Math.random() * TWO_PI;
       particle.swarmSpeed = 2 + Math.random() * 1.5;
       particle.swarmRadius = 8 + Math.random() * 12;
       // Mark for swarm cloud creation (handled by tower update logic)
@@ -6924,7 +6928,7 @@ export class SimplePlayfield {
           type,
           progressOffset: Math.random() * 0.18 + (index / Math.max(1, count)) * 0.1,
           perpendicular: (Math.random() - 0.5) * 10,
-          phaseOffset: Math.random() * Math.PI * 2,
+          phaseOffset: Math.random() * TWO_PI,
           sway: 3 + Math.random() * 2,
           size: type === 'beta' ? 2.8 : 2.2,
         });
@@ -7276,9 +7280,9 @@ export class SimplePlayfield {
     if (!Number.isFinite(angle)) {
       return 0;
     }
-    let normalized = angle % (Math.PI * 2);
+    let normalized = angle % TWO_PI;
     if (normalized < 0) {
-      normalized += Math.PI * 2;
+      normalized += TWO_PI;
     }
     return normalized;
   }
@@ -7291,7 +7295,7 @@ export class SimplePlayfield {
     const angleB = this.normalizeAngle(b);
     let diff = Math.abs(angleA - angleB);
     if (diff > Math.PI) {
-      diff = Math.abs(diff - Math.PI * 2);
+      diff = Math.abs(diff - TWO_PI);
     }
     return diff;
   }
@@ -7717,7 +7721,7 @@ export class SimplePlayfield {
         swimmer.vx *= scale;
         swimmer.vy *= scale;
       } else if (speed < speedFloor) {
-        const nudgeAngle = Math.random() * Math.PI * 2;
+        const nudgeAngle = Math.random() * TWO_PI;
         swimmer.vx = Math.cos(nudgeAngle) * speedFloor * 0.65 + swimmer.vx * blend;
         swimmer.vy = Math.sin(nudgeAngle) * speedFloor * 0.65 + swimmer.vy * blend;
       }
@@ -7928,7 +7932,7 @@ export class SimplePlayfield {
     const dt = Math.max(0, Math.min(delta, 0.08));
     this.trackRiverPulse = Number.isFinite(this.trackRiverPulse) ? this.trackRiverPulse : 0;
     this.trackRiverPulse += dt * 0.6;
-    const fullTurn = Math.PI * 2;
+    const fullTurn = TWO_PI;
     if (this.trackRiverPulse >= fullTurn) {
       this.trackRiverPulse -= fullTurn;
     }
@@ -8670,7 +8674,7 @@ export class SimplePlayfield {
       const radius = burst.starRadius || 22;
       const angles = [];
       for (let step = 0; step < 5; step += 1) {
-        angles.push(-Math.PI / 2 + (step * Math.PI * 2) / 5);
+        angles.push(-HALF_PI + (step * TWO_PI) / 5);
       }
       const starPoints = angles.map((angle) => ({
         x: burst.center.x + Math.cos(angle) * radius,
@@ -9543,7 +9547,7 @@ export class SimplePlayfield {
     const maxLifetime = Math.max(0.8, pattern.duration || 2);
 
     for (let index = 0; index < count; index += 1) {
-      const phase = (Math.PI * 2 * index) / count;
+      const phase = (TWO_PI * index) / count;
       const ratioJitter = Math.sin(phase) * jitterStrength;
       const swirlJitter = Math.cos(phase * 1.5) * jitterStrength * 1.2;
       const radiusJitter = Math.sin(phase * 2) * stage * 4;
@@ -9951,7 +9955,7 @@ export class SimplePlayfield {
           ? parameters.phaseShift
           : 0.3;
         const baseAngle = projectile.phase || 0;
-        const angle = baseAngle + Math.PI * 2 * loops * progress;
+        const angle = baseAngle + TWO_PI * loops * progress;
         const swirlPhase = progress * Math.PI * swirlFrequency + baseAngle * phaseShift;
         const swirlOffset = Math.sin(swirlPhase) * radius * returnCurve * envelope * swirlStrength;
         const radial = radius * envelope;
@@ -10144,7 +10148,7 @@ export class SimplePlayfield {
           const triangleOrientation = Number.isFinite(projectile.triangleOrientation)
             ? Math.sign(projectile.triangleOrientation) || 1
             : 1;
-          const baseAngle = Math.atan2(dy, dx) + triangleOrientation * (Math.PI / 2);
+          const baseAngle = Math.atan2(dy, dx) + triangleOrientation * HALF_PI;
           const distance = Math.hypot(dx, dy);
           const height = distance * EQUILATERAL_TRIANGLE_HEIGHT_RATIO;
           const thirdVertex = {
@@ -10332,7 +10336,7 @@ export class SimplePlayfield {
         const dvy = desiredVy - vy;
         const dmag = Math.hypot(dvx, dvy);
         const maxTurn =
-          Math.max(0, Number.isFinite(projectile.turnRate) ? projectile.turnRate : Math.PI * 2) * delta * speed /
+          Math.max(0, Number.isFinite(projectile.turnRate) ? projectile.turnRate : TWO_PI) * delta * speed /
           Math.max(1, speed);
         let nextVx = vx;
         let nextVy = vy;
@@ -11356,8 +11360,8 @@ export class SimplePlayfield {
     }
     const center = this.getViewCenter();
     return {
-      x: center.x + (point.x - width / 2) / scale,
-      y: center.y + (point.y - height / 2) / scale,
+      x: center.x + (point.x - width * HALF) / scale,
+      y: center.y + (point.y - height * HALF) / scale,
     };
   }
 
@@ -11373,8 +11377,8 @@ export class SimplePlayfield {
     }
     const center = this.getViewCenter();
     return {
-      x: width / 2 + (point.x - center.x) * scale,
-      y: height / 2 + (point.y - center.y) * scale,
+      x: width * HALF + (point.x - center.x) * scale,
+      y: height * HALF + (point.y - center.y) * scale,
     };
   }
 
@@ -11726,7 +11730,7 @@ export class SimplePlayfield {
       const rangePixels = getInfinityRange() * metersToPixels(1);
       ctx.save();
       ctx.beginPath();
-      ctx.arc(infinityTower.x, infinityTower.y, rangePixels, 0, Math.PI * 2);
+      ctx.arc(infinityTower.x, infinityTower.y, rangePixels, 0, TWO_PI);
       ctx.strokeStyle = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, 0.15)`;
       ctx.lineWidth = 1;
       ctx.stroke();

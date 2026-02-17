@@ -5,6 +5,9 @@ import {
 import { metersToPixels } from '../../gameUnits.js';
 import { PLAYFIELD_VIEW_DRAG_THRESHOLD } from '../constants.js';
 
+// Pre-calculated constants for performance optimization
+const HALF = 0.5;
+
 // Input controller routines extracted from SimplePlayfield for modularized input handling.
 
 function attachCanvasInteractions() {
@@ -256,8 +259,8 @@ function performPinchZoom() {
     return;
   }
   const midpoint = {
-    clientX: (first.clientX + second.clientX) / 2,
-    clientY: (first.clientY + second.clientY) / 2,
+    clientX: (first.clientX + second.clientX) * HALF,
+    clientY: (first.clientY + second.clientY) * HALF,
   };
   const anchor = this.getCanvasRelativeFromClient(midpoint);
   if (!anchor) {
@@ -747,15 +750,15 @@ function setZoom(targetScale, anchor) {
   }
   const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const screenPoint = anchor || { x: width / 2, y: height / 2 };
+  const screenPoint = anchor || { x: width * HALF, y: height * HALF };
   const anchorWorld = this.screenToWorld(screenPoint);
   const clampedScale = Math.min(this.maxViewScale, Math.max(this.minViewScale, targetScale));
   const previousScale = this.viewScale;
   this.viewScale = clampedScale;
   this.applyViewConstraints();
   if (anchorWorld) {
-    const offsetX = (screenPoint.x - width / 2) / this.viewScale;
-    const offsetY = (screenPoint.y - height / 2) / this.viewScale;
+    const offsetX = (screenPoint.x - width * HALF) / this.viewScale;
+    const offsetY = (screenPoint.y - height * HALF) / this.viewScale;
     this.setViewCenterFromWorld({
       x: anchorWorld.x - offsetX,
       y: anchorWorld.y - offsetY,
