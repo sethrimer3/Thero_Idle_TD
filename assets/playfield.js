@@ -69,6 +69,7 @@ import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
 import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
 import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
+import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   beginPerformanceFrame,
@@ -379,6 +380,8 @@ export class SimplePlayfield {
     this.arcOffset = 0;
     // Combat state manager will be initialized when levelConfig is set
     this.combatStateManager = null;
+    // Tower orchestration controller will be initialized when levelConfig is set
+    this.towerOrchestrationController = null;
     // Track baseline gate defense so breach previews can factor in mitigation.
     this.gateDefense = 0;
     this.initialSpawnDelay = 0;
@@ -2727,6 +2730,17 @@ export class SimplePlayfield {
       triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
       notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
     });
+
+    // Initialize tower orchestration controller
+    this.towerOrchestrationController = createTowerOrchestrationController({
+      playfield: this,
+      combatState: this.combatStateManager,
+      towerManager: TowerManager,
+      audio: this.audio,
+      messageEl: this.messageEl,
+      dependencies: this.dependencies,
+      theroSymbol: this.theroSymbol,
+    });
     
     // Store endless mode flag for when combat starts
     this.startInEndlessMode = startInEndless;
@@ -2975,6 +2989,18 @@ export class SimplePlayfield {
         });
       } else {
         this.combatStateManager.reset();
+      }
+      // Initialize tower orchestration controller if it doesn't exist
+      if (!this.towerOrchestrationController) {
+        this.towerOrchestrationController = createTowerOrchestrationController({
+          playfield: this,
+          combatState: this.combatStateManager,
+          towerManager: TowerManager,
+          audio: this.audio,
+          messageEl: this.messageEl,
+          dependencies: this.dependencies,
+          theroSymbol: this.theroSymbol,
+        });
       }
       // Normalize any gate defense value supplied by the level configuration.
       const configuredDefense = Number.isFinite(this.levelConfig.gateDefense)
@@ -5578,243 +5604,11 @@ export class SimplePlayfield {
   }
 
   addTowerAt(normalized, options = {}) {
-    const {
-      slot = null,
-      allowPathOverlap = false,
-      silent = false,
-      towerType = null,
-    } = options;
-
-    if (!this.levelConfig || !normalized) {
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.addTowerAt(normalized, options);
     }
-
-    const selectedType = towerType || this.draggingTowerType || this.availableTowers[0];
-    const definition = getTowerDefinition(selectedType);
-    if (!definition) {
-      if (this.messageEl && !silent) {
-        this.messageEl.textContent = 'Select a tower from your loadout to lattice it.';
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    // Allow autoAnchors with explicit tower types to bypass loadout restrictions
-    const isAutoAnchorPlacement = towerType && options.silent;
-    if (!isAutoAnchorPlacement && !this.availableTowers.includes(selectedType)) {
-      if (this.messageEl && !silent) {
-        this.messageEl.textContent = `${definition.symbol} is not prepared in your loadout.`;
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    const canvasPosition = this.getCanvasPosition(normalized);
-    const existingTower = this.findTowerAt(canvasPosition);
-    let placement = { valid: true, position: canvasPosition };
-    let mergeTarget = null;
-    let nextDefinition = null;
-    let merging = false;
-    let mergeCost = 0;
-
-    if (existingTower && existingTower.type === selectedType) {
-      const nextId = getNextTowerId(selectedType);
-      if (!nextId) {
-        if (this.messageEl && !silent) {
-          this.messageEl.textContent = `${definition.symbol} already resonates at its peak tier.`;
-        }
-        if (this.audio && !silent) {
-          this.audio.playSfx('error');
-        }
-        return false;
-      }
-      nextDefinition = getTowerDefinition(nextId);
-      if (!nextDefinition) {
-        if (this.messageEl && !silent) {
-          this.messageEl.textContent = `${definition.symbol} upgrade path is unavailable.`;
-        }
-        if (this.audio && !silent) {
-          this.audio.playSfx('error');
-        }
-        return false;
-      }
-      mergeTarget = existingTower;
-      merging = true;
-      placement.position = { x: mergeTarget.x, y: mergeTarget.y };
-      mergeCost = this.getCurrentTowerCost(nextDefinition.id);
-    } else {
-      placement = this.validatePlacement(normalized, { allowPathOverlap });
-      if (!placement.valid) {
-        if (this.messageEl && placement.reason && !silent) {
-          this.messageEl.textContent = placement.reason;
-        }
-        if (this.audio && !silent) {
-          this.audio.playSfx('error');
-        }
-        return false;
-      }
-    }
-
-    if (!isTowerUnlocked(selectedType)) {
-      unlockTower(selectedType, { silent: true });
-    }
-
-    const baseCost = this.getCurrentTowerCost(selectedType);
-    if (!merging && nextDefinition) {
-      mergeCost = this.getCurrentTowerCost(nextDefinition.id);
-    }
-    const actionCost = merging ? mergeCost : baseCost;
-
-    if (this.energy < actionCost) {
-      const needed = Math.max(0, actionCost - this.energy);
-      const neededLabel = formatCombatNumber(needed);
-      if (this.messageEl && !silent) {
-        if (merging && nextDefinition) {
-          this.messageEl.textContent = `Need ${neededLabel} ${this.theroSymbol} more to merge into ${nextDefinition.symbol}.`;
-        } else {
-          this.messageEl.textContent = `Need ${neededLabel} ${this.theroSymbol} more to lattice ${definition.symbol}.`;
-        }
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    this.energy = Math.max(0, this.energy - actionCost);
-
-    if (merging && mergeTarget && nextDefinition) {
-      const wasInfinity = mergeTarget.type === 'infinity';
-      if (wasInfinity) {
-        this.handleInfinityTowerRemoved(mergeTarget);
-      }
-
-      const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
-      const baseDamage = Number.isFinite(nextDefinition.damage) ? nextDefinition.damage : 0;
-      const baseRate = Number.isFinite(nextDefinition.rate) ? nextDefinition.rate : 1;
-      mergeTarget.type = nextDefinition.id;
-      mergeTarget.definition = nextDefinition;
-      mergeTarget.symbol = nextDefinition.symbol;
-      mergeTarget.tier = nextDefinition.tier;
-      mergeTarget.damage = baseDamage;
-      mergeTarget.rate = baseRate;
-      mergeTarget.range = range;
-      mergeTarget.baseDamage = baseDamage;
-      mergeTarget.baseRate = baseRate;
-      mergeTarget.baseRange = range;
-      mergeTarget.cooldown = 0;
-      this.applyTowerBehaviorDefaults(mergeTarget);
-      if (this.combatStats?.active) {
-        this.ensureTowerStatsEntry(mergeTarget);
-        this.scheduleStatsPanelRefresh();
-      }
-      const nextIsInfinity = nextDefinition.id === 'infinity';
-      if (nextIsInfinity) {
-        this.handleInfinityTowerAdded(mergeTarget);
-      } else if (wasInfinity) {
-        this.applyInfinityBonuses();
-      }
-      this.spawnTowerEquationScribble(mergeTarget, {
-        towerType: nextDefinition.id,
-        silent,
-      });
-      this.recordTowerCost(mergeTarget, mergeCost);
-      const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
-        ? unlockTower(nextDefinition.id, { silent: true })
-        : false;
-      if (this.messageEl && !silent) {
-        const unlockNote = newlyUnlocked ? ` ${nextDefinition.symbol} is now available in your loadout.` : '';
-        this.messageEl.textContent = `${definition.symbol} lattices fused into ${nextDefinition.symbol}.${unlockNote}`;
-      }
-      notifyTowerPlaced(this.towers.length);
-      this.updateTowerPositions();
-      this.updateHud();
-      this.draw();
-      refreshTowerLoadoutDisplay();
-      this.dependencies.updateStatusDisplays();
-      if (this.audio && !silent) {
-        this.audio.playSfx('towerMerge');
-      }
-      // Clear the placement preview so successful tier merges do not keep the placement reticle active.
-      this.clearPlacementPreview();
-      return true;
-    }
-
-    const baseRange = Math.min(this.renderWidth, this.renderHeight) * definition.range;
-    const baseDamage = Number.isFinite(definition.damage) ? definition.damage : 0;
-    const baseRate = Number.isFinite(definition.rate) ? definition.rate : 1;
-    const tower = {
-      id: `tower-${(this.towerIdCounter += 1)}`,
-      type: selectedType,
-      definition,
-      symbol: definition.symbol,
-      tier: definition.tier,
-      normalized: { ...normalized },
-      x: placement.position.x,
-      y: placement.position.y,
-      range: baseRange,
-      damage: baseDamage,
-      rate: baseRate,
-      baseRange,
-      baseDamage,
-      baseRate,
-      cooldown: 0,
-      slot,
-      // Track η merge progress so the lattice can unfold additional rings.
-      etaPrime: 0,
-      // Flag prestige status when η ascends into Η.
-      isPrestigeEta: false,
-      linkTargetId: null,
-      linkSources: new Set(),
-      storedAlphaShots: 0,
-      storedBetaShots: 0,
-      storedAlphaSwirl: 0,
-      storedBetaSwirl: 0,
-      storedGammaShots: 0,
-      connectionParticles: [],
-      costHistory: [],
-      costHistoryInitialized: true,
-    };
-
-    this.applyTowerBehaviorDefaults(tower);
-    this.towers.push(tower);
-    this.recordTowerCost(tower, actionCost);
-    this.handleInfinityTowerAdded(tower);
-    notifyTowerPlaced(this.towers.length);
-    if (this.combatStats?.active) {
-      this.ensureTowerStatsEntry(tower);
-      this.scheduleStatsPanelRefresh();
-    }
-
-    if (slot) {
-      slot.tower = tower;
-      if (slot.button) {
-        slot.button.classList.add('tower-built');
-        slot.button.setAttribute('aria-pressed', 'true');
-      }
-    }
-
-    this.hoverPlacement = null;
-    if (this.messageEl && !silent) {
-      this.messageEl.textContent = `${definition.symbol} lattice anchored—harmonics align.`;
-    }
-    this.spawnTowerEquationScribble(tower, { towerType: selectedType, silent });
-    this.updateHud();
-    this.draw();
-    refreshTowerLoadoutDisplay();
-    this.dependencies.updateStatusDisplays();
-    if (this.audio && !silent) {
-      this.audio.playSfx('towerPlace');
-      playTowerPlacementNotes(this.audio, 1);
-    }
-    return true;
+    return false;
   }
 
   /**
@@ -5824,303 +5618,25 @@ export class SimplePlayfield {
     tower,
     { silent = false, expectedNextId = null, quotedCost = null, swipeVector = null } = {},
   ) {
-    if (!tower) {
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.upgradeTowerTier(tower, { silent, expectedNextId, quotedCost, swipeVector });
     }
-
-    const nextId = expectedNextId || getNextTowerId(tower.type);
-    const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
-    if (!nextDefinition) {
-      if (this.messageEl && !silent) {
-        this.messageEl.textContent = 'Peak lattice tier reached—further upgrades unavailable.';
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    const cost = Number.isFinite(quotedCost) ? quotedCost : this.getCurrentTowerCost(nextDefinition.id);
-    if (this.energy < cost) {
-      if (this.messageEl && !silent) {
-        const deficit = Math.max(0, cost - this.energy);
-        const deficitLabel = formatCombatNumber(deficit);
-        this.messageEl.textContent = `Need ${deficitLabel} ${this.theroSymbol} more to merge into ${nextDefinition.symbol}.`;
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    this.energy = Math.max(0, this.energy - cost);
-    this.recordTowerCost(tower, cost);
-
-    const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
-    const wasInfinity = tower.type === 'infinity';
-    if (wasInfinity) {
-      this.handleInfinityTowerRemoved(tower);
-    }
-
-    const range = Math.min(this.renderWidth, this.renderHeight) * nextDefinition.range;
-    const baseDamage = Number.isFinite(nextDefinition.damage) ? nextDefinition.damage : 0;
-    const baseRate = Number.isFinite(nextDefinition.rate) ? nextDefinition.rate : 1;
-
-    tower.type = nextDefinition.id;
-    tower.definition = nextDefinition;
-    tower.symbol = nextDefinition.symbol;
-    tower.tier = nextDefinition.tier;
-    tower.damage = baseDamage;
-    tower.rate = baseRate;
-    tower.range = range;
-    tower.baseDamage = baseDamage;
-    tower.baseRate = baseRate;
-    tower.baseRange = range;
-    tower.cooldown = 0;
-
-    this.applyTowerBehaviorDefaults(tower);
-
-    this.queueTowerGlyphTransition(tower, {
-      fromSymbol: previousSymbol,
-      toSymbol: nextDefinition.symbol,
-      mode: 'promote',
-      swipeVector,
-    });
-
-    const nextIsInfinity = nextDefinition.id === 'infinity';
-    if (nextIsInfinity) {
-      this.handleInfinityTowerAdded(tower);
-    } else if (wasInfinity) {
-      this.applyInfinityBonuses();
-    }
-
-    this.spawnTowerEquationScribble(tower, { towerType: nextDefinition.id, silent });
-    const newlyUnlocked = !isTowerUnlocked(nextDefinition.id)
-      ? unlockTower(nextDefinition.id, { silent: true })
-      : false;
-
-    if (this.messageEl && !silent) {
-      const costLabel = formatCombatNumber(Math.max(0, cost));
-      const unlockNote = newlyUnlocked ? ` ${nextDefinition.symbol} is now available in your loadout.` : '';
-      this.messageEl.textContent = `${previousSymbol} lattice ascended into ${nextDefinition.symbol} for ${costLabel} ${this.theroSymbol}.${unlockNote}`;
-    }
-
-    notifyTowerPlaced(this.towers.length);
-    this.updateHud();
-    this.draw();
-    refreshTowerLoadoutDisplay();
-    this.dependencies.updateStatusDisplays();
-    if (this.audio && !silent) {
-      this.audio.playSfx('towerMerge');
-    }
-
-    this.openTowerMenu(tower, { silent: true });
-    return true;
+    return false;
   }
 
   demoteTowerTier(tower, { silent = false, swipeVector = null } = {}) {
-    if (!tower) {
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.demoteTowerTier(tower, { silent, swipeVector });
     }
-
-    const previousId = getPreviousTowerId(tower.type);
-    if (!previousId) {
-      if (tower.type === 'alpha') {
-        this.sellTower(tower, { silent });
-        return true;
-      }
-      if (this.messageEl && !silent) {
-        this.messageEl.textContent = 'Base lattice tier cannot be demoted further.';
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    const previousDefinition = getTowerDefinition(previousId);
-    if (!previousDefinition) {
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    const history = this.ensureTowerCostHistory(tower);
-    const removedCost = history.length ? history.pop() : null;
-    const currentCost = Number.isFinite(removedCost) ? removedCost : this.getCurrentTowerCost(tower.type);
-    const charge = this.getCurrentTowerCost(previousDefinition.id);
-    const cap = this.getEnergyCap();
-    const refundAmount = Math.max(0, Number.isFinite(currentCost) ? currentCost : 0);
-    const cappedEnergy = Math.min(cap, this.energy + refundAmount);
-
-    if (cappedEnergy < charge) {
-      if (removedCost !== null && removedCost !== undefined) {
-        history.push(removedCost);
-      }
-      if (this.messageEl && !silent) {
-        const deficit = Math.max(0, charge - cappedEnergy);
-        const deficitLabel = formatCombatNumber(deficit);
-        this.messageEl.textContent = `Need ${deficitLabel} ${this.theroSymbol} more to stabilize a demotion.`;
-      }
-      if (this.audio && !silent) {
-        this.audio.playSfx('error');
-      }
-      return false;
-    }
-
-    const chargeAmount = Math.max(0, Number.isFinite(charge) ? charge : 0);
-    this.energy = Math.max(0, cappedEnergy - chargeAmount);
-    if (history.length) {
-      history[history.length - 1] = chargeAmount;
-    } else if (chargeAmount > 0) {
-      history.push(chargeAmount);
-    }
-    tower.costHistoryInitialized = true;
-
-    const previousSymbol = tower.symbol || tower.definition?.symbol || 'Tower';
-    const wasInfinity = tower.type === 'infinity';
-    if (wasInfinity) {
-      this.handleInfinityTowerRemoved(tower);
-    }
-
-    const range = Math.min(this.renderWidth, this.renderHeight) * previousDefinition.range;
-    const baseDamage = Number.isFinite(previousDefinition.damage) ? previousDefinition.damage : 0;
-    const baseRate = Number.isFinite(previousDefinition.rate) ? previousDefinition.rate : 1;
-
-    tower.type = previousDefinition.id;
-    tower.definition = previousDefinition;
-    tower.symbol = previousDefinition.symbol;
-    tower.tier = previousDefinition.tier;
-    tower.damage = baseDamage;
-    tower.rate = baseRate;
-    tower.range = range;
-    tower.baseDamage = baseDamage;
-    tower.baseRate = baseRate;
-    tower.baseRange = range;
-    tower.cooldown = 0;
-
-    this.applyTowerBehaviorDefaults(tower);
-
-    this.queueTowerGlyphTransition(tower, {
-      fromSymbol: previousSymbol,
-      toSymbol: previousDefinition.symbol,
-      mode: 'demote',
-      swipeVector,
-    });
-
-    const nextIsInfinity = previousDefinition.id === 'infinity';
-    if (nextIsInfinity) {
-      this.handleInfinityTowerAdded(tower);
-    } else if (wasInfinity) {
-      this.applyInfinityBonuses();
-    }
-
-    this.spawnTowerEquationScribble(tower, { towerType: previousDefinition.id, silent });
-
-    if (this.messageEl && !silent) {
-      const refundLabel = formatCombatNumber(refundAmount);
-      const chargeLabel = formatCombatNumber(chargeAmount);
-      this.messageEl.textContent = `${previousSymbol} lattice relaxed into ${previousDefinition.symbol}—refunded ${refundLabel} ${this.theroSymbol} and spent ${chargeLabel} ${this.theroSymbol}.`;
-    }
-
-    notifyTowerPlaced(this.towers.length);
-    this.updateHud();
-    this.draw();
-    refreshTowerLoadoutDisplay();
-    this.dependencies.updateStatusDisplays();
-    if (this.combatStats?.active) {
-      this.scheduleStatsPanelRefresh();
-    }
-    if (this.audio && !silent) {
-      this.audio.playSfx('towerSell');
-    }
-
-    this.openTowerMenu(tower, { silent: true });
-    return true;
+    return false;
   }
 
   sellTower(tower, { slot, silent = false } = {}) {
-    if (!tower) {
-      return;
-    }
-
-    if (this.towerHoldState?.towerId === tower.id) {
-      this.cancelTowerHoldGesture();
-    }
-
-    if (this.towerGlyphTransitions?.size) {
-      this.towerGlyphTransitions.delete(tower.id);
-    }
-
-    this.removeAllConnectionsForTower(tower);
-
-    if (this.activeTowerMenu?.towerId === tower.id) {
-      this.closeTowerMenu();
-    }
-
-    this.teardownAlphaTower(tower);
-    this.teardownBetaTower(tower);
-    this.teardownGammaTower(tower);
-    this.teardownKappaTower(tower);
-    this.teardownLambdaTower(tower);
-    this.teardownMuTower(tower);
-    this.teardownNuTower(tower);
-    this.teardownIotaTower(tower);
-    this.teardownDeltaTower(tower);
-    this.teardownZetaTower(tower);
-    this.teardownEtaTower(tower);
-    this.teardownXiTower(tower);
-    this.teardownOmicronTower(tower);
-    this.teardownPiTower(tower);
-    this.teardownTauTower(tower);
-    this.teardownSigmaTower(tower);
-    this.teardownPsiTower(tower);
-    this.handleInfinityTowerRemoved(tower);
-
-    const index = this.towers.indexOf(tower);
-    if (index >= 0) {
-      this.towers.splice(index, 1);
-    }
-    if (this.combatStats?.towerInstances instanceof Map) {
-      // Flag the stats entry as retired immediately so the panel reflects the change before the next tick.
-      const entry = this.combatStats.towerInstances.get(tower.id);
-      if (entry) {
-        entry.isActive = false;
-        entry.retiredAt = Number.isFinite(this.combatStats.elapsed)
-          ? Math.max(0, this.combatStats.elapsed)
-          : 0;
-      }
-    }
-    if (this.combatStats?.active) {
-      this.scheduleStatsPanelRefresh();
-    }
-
-    const resolvedSlot = slot || tower.slot || null;
-    if (resolvedSlot) {
-      resolvedSlot.tower = null;
-      if (resolvedSlot.button) {
-        resolvedSlot.button.classList.remove('tower-built');
-        resolvedSlot.button.setAttribute('aria-pressed', 'false');
-      }
-    }
-
-    if (this.levelConfig) {
-      const cap = this.getEnergyCap();
-      const refund = Math.max(0, this.calculateTowerSellRefund(tower));
-      this.energy = Math.min(cap, this.energy + refund);
-      if (this.messageEl && !silent) {
-        const refundLabel = formatCombatNumber(refund);
-        this.messageEl.textContent = `Lattice dissolved—refunded ${refundLabel} ${this.theroSymbol}.`;
-      }
-    }
-
-    this.updateHud();
-    this.draw();
-    refreshTowerLoadoutDisplay();
-    this.dependencies.updateStatusDisplays();
-    if (this.audio && !silent) {
-      this.audio.playSfx('towerSell');
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.sellTower(tower, { slot, silent });
     }
   }
 
@@ -6128,6 +5644,10 @@ export class SimplePlayfield {
    * Retrieve a lattice reference by identifier.
    */
   getTowerById(towerId) {
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.getTowerById(towerId);
+    }
     if (!towerId) {
       return null;
     }
@@ -6171,116 +5691,43 @@ export class SimplePlayfield {
    * Evaluate whether two towers can share a connection based on tier rules and range.
    */
   areTowersConnectionCompatible(source, target) {
-    if (!source || !target || source.id === target.id) {
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.areTowersConnectionCompatible(source, target);
     }
-    const pairingKey = `${source.type}->${target.type}`;
-    const allowedPairings = ['alpha->beta', 'beta->gamma', 'alpha->iota', 'beta->iota', 'gamma->iota'];
-    if (!allowedPairings.includes(pairingKey)) {
-      return false;
-    }
-    const sourceRange = Number.isFinite(source.range) ? Math.max(0, source.range) : 0;
-    const targetRange = Number.isFinite(target.range) ? Math.max(0, target.range) : 0;
-    if (!sourceRange || !targetRange) {
-      return false;
-    }
-    const dx = target.x - source.x;
-    const dy = target.y - source.y;
-    const distance = Math.hypot(dx, dy);
-    if (!Number.isFinite(distance)) {
-      return false;
-    }
-    return distance <= sourceRange && distance <= targetRange;
+    return false;
   }
 
   /**
    * Remove every connection touching the provided lattice.
    */
   removeAllConnectionsForTower(tower) {
-    if (!tower) {
-      return;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.removeAllConnectionsForTower(tower);
     }
-    if (tower.linkTargetId) {
-      this.removeTowerConnection(tower.id, tower.linkTargetId);
-    }
-    const incoming = this.towerConnectionSources.get(tower.id);
-    if (incoming && incoming.size) {
-      Array.from(incoming).forEach((sourceId) => {
-        this.removeTowerConnection(sourceId, tower.id);
-      });
-    }
-    tower.linkSources?.clear?.();
   }
 
   /**
    * Register a directed resource link between two lattices.
    */
   addTowerConnection(source, target) {
-    const resolvedSource = typeof source === 'string' ? this.getTowerById(source) : source;
-    const resolvedTarget = typeof target === 'string' ? this.getTowerById(target) : target;
-    if (!this.areTowersConnectionCompatible(resolvedSource, resolvedTarget)) {
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.addTowerConnection(source, target);
     }
-    if (resolvedSource.linkTargetId === resolvedTarget.id) {
-      return true;
-    }
-    if (resolvedSource.linkTargetId && resolvedSource.linkTargetId !== resolvedTarget.id) {
-      this.removeTowerConnection(resolvedSource.id, resolvedSource.linkTargetId);
-    }
-    this.towerConnectionMap.set(resolvedSource.id, resolvedTarget.id);
-    resolvedSource.linkTargetId = resolvedTarget.id;
-    if (!resolvedTarget.linkSources) {
-      resolvedTarget.linkSources = new Set();
-    }
-    resolvedTarget.linkSources.add(resolvedSource.id);
-    if (!this.towerConnectionSources.has(resolvedTarget.id)) {
-      this.towerConnectionSources.set(resolvedTarget.id, new Set());
-    }
-    this.towerConnectionSources.get(resolvedTarget.id).add(resolvedSource.id);
-    resolvedSource.cooldown = 0;
-    if (resolvedTarget.type === 'beta') {
-      this.ensureBetaState(resolvedTarget);
-    } else if (resolvedTarget.type === 'gamma') {
-      this.ensureGammaState(resolvedTarget);
-    } else if (resolvedTarget.type === 'iota') {
-      this.ensureIotaState(resolvedTarget);
-    }
-    return true;
+    return false;
   }
 
   /**
    * Tear down an existing resource link between two lattices.
    */
   removeTowerConnection(source, target) {
-    const resolvedSource = typeof source === 'string' ? this.getTowerById(source) : source;
-    const resolvedTarget = typeof target === 'string' ? this.getTowerById(target) : target;
-    if (!resolvedSource || !resolvedTarget) {
-      return false;
+    // Delegate to TowerOrchestrationController
+    if (this.towerOrchestrationController) {
+      return this.towerOrchestrationController.removeTowerConnection(source, target);
     }
-    if (resolvedSource.linkTargetId !== resolvedTarget.id) {
-      return false;
-    }
-    this.towerConnectionMap.delete(resolvedSource.id);
-    resolvedSource.linkTargetId = null;
-    resolvedSource.cooldown = 0;
-    if (resolvedTarget.linkSources instanceof Set) {
-      resolvedTarget.linkSources.delete(resolvedSource.id);
-    }
-    const sourceSet = this.towerConnectionSources.get(resolvedTarget.id);
-    if (sourceSet) {
-      sourceSet.delete(resolvedSource.id);
-      if (!sourceSet.size) {
-        this.towerConnectionSources.delete(resolvedTarget.id);
-      }
-    }
-    if (resolvedTarget.type === 'beta') {
-      this.ensureBetaState(resolvedTarget);
-    } else if (resolvedTarget.type === 'gamma') {
-      this.ensureGammaState(resolvedTarget);
-    } else if (resolvedTarget.type === 'iota') {
-      this.ensureIotaState(resolvedTarget);
-    }
-    return true;
+    return false;
   }
 
   /**
@@ -7540,6 +6987,70 @@ export class SimplePlayfield {
     // Setting this directly is a no-op, but we allow it for backward compatibility
     // with code that sets this.resolvedOutcome = 'victory' or 'defeat'.
     // The manager should have already set the outcome through its own logic.
+  }
+
+  // ==================== TowerOrchestrationController Property Delegation ====================
+  // Property delegation pattern: Provide getters/setters that forward to the tower orchestration controller
+  // to maintain backward compatibility while extracting state management.
+  
+  get towers() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.towers : [];
+  }
+  
+  set towers(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.towers = value;
+    }
+  }
+  
+  get infinityTowers() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.infinityTowers : [];
+  }
+  
+  set infinityTowers(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.infinityTowers = value;
+    }
+  }
+  
+  get towerIdCounter() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.towerIdCounter : 0;
+  }
+  
+  set towerIdCounter(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.towerIdCounter = value;
+    }
+  }
+  
+  get towerConnectionMap() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.towerConnectionMap : new Map();
+  }
+  
+  set towerConnectionMap(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.towerConnectionMap = value;
+    }
+  }
+  
+  get towerConnectionSources() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.towerConnectionSources : new Map();
+  }
+  
+  set towerConnectionSources(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.towerConnectionSources = value;
+    }
+  }
+  
+  get towerGlyphTransitions() {
+    return this.towerOrchestrationController ? this.towerOrchestrationController.towerGlyphTransitions : new Map();
+  }
+  
+  set towerGlyphTransitions(value) {
+    if (this.towerOrchestrationController) {
+      this.towerOrchestrationController.towerGlyphTransitions = value;
+    }
   }
   
   get baseWaveCount() {
