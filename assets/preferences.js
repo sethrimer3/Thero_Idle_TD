@@ -839,6 +839,9 @@ export function initializeDesktopCursorPreference() {
     // Use modern addEventListener API; deprecated addListener removed to fix console error
     if (typeof desktopCursorMediaQuery.addEventListener === 'function') {
       desktopCursorMediaQuery.addEventListener('change', listener);
+    } else {
+      // addEventListener not available - log and use static detection
+      console.warn('MediaQueryList.addEventListener not available; using static cursor detection.');
     }
   } catch (error) {
     console.warn('Desktop cursor media query failed; falling back to user agent detection.', error);
