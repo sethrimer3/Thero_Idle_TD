@@ -56,6 +56,7 @@ import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
 import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
+import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
 import {
   PLAYFIELD_VIEW_DRAG_THRESHOLD,
   PLAYFIELD_VIEW_PAN_MARGIN_METERS,
@@ -505,8 +506,12 @@ export class SimplePlayfield {
     // Infinity towers are tracked separately for their aura effects
     this.infinityTowers = [];
 
-    this.animationId = null;
-    this.lastTimestamp = 0;
+    // Initialize render coordinator to manage animation frame loop
+    this.renderCoordinator = createRenderCoordinator({
+      update: (delta) => this.update(delta),
+      draw: () => this.draw(),
+      shouldAnimate: () => this.shouldAnimate,
+    });
 
     this.resizeObserver = null;
     this.resizeHandler = () => this.syncCanvasSize();
@@ -2526,62 +2531,11 @@ export class SimplePlayfield {
   }
 
   ensureLoop() {
-    if (this.animationId || !this.shouldAnimate) {
-      return;
-    }
-    this.animationId = requestAnimationFrame((timestamp) => this.tick(timestamp));
+    this.renderCoordinator.startRenderLoop();
   }
 
   stopLoop() {
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
-    this.lastTimestamp = 0;
-  }
-
-  tick(timestamp) {
-    if (!this.shouldAnimate) {
-      this.animationId = null;
-      this.lastTimestamp = 0;
-      return;
-    }
-
-    // Frame rate limiting: skip frames if running faster than the configured limit.
-    const frameRateLimit = getFrameRateLimit();
-    const minFrameTime = 1000 / frameRateLimit;
-    if (this.lastTimestamp && timestamp - this.lastTimestamp < minFrameTime) {
-      this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
-      return;
-    }
-
-    const delta = this.lastTimestamp ? (timestamp - this.lastTimestamp) / 1000 : 0;
-    this.lastTimestamp = timestamp;
-
-    const safeDelta = Math.min(delta, 0.12);
-    // Wrap the frame lifecycle with performance markers so diagnostics can attribute work.
-    beginPerformanceFrame();
-    try {
-      const finishUpdateSegment = beginPerformanceSegment('update');
-      try {
-        this.update(safeDelta);
-      } finally {
-        finishUpdateSegment();
-      }
-      const finishDrawSegment = beginPerformanceSegment('draw');
-      try {
-        this.draw();
-      } finally {
-        finishDrawSegment();
-      }
-    } finally {
-      endPerformanceFrame();
-    }
-
-    // Update the FPS counter after the frame completes.
-    updateFpsCounter(timestamp);
-
-    this.animationId = requestAnimationFrame((nextTimestamp) => this.tick(nextTimestamp));
+    this.renderCoordinator.stopRenderLoop();
   }
 
   enterLevel(level, options = {}) {
