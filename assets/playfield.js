@@ -7480,6 +7480,10 @@ export class SimplePlayfield {
   get waveIndex() {
     return this.combatStateManager ? this.combatStateManager.getWaveIndex() : 0;
   }
+
+  set waveIndex(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
   
   get waveTimer() {
     return this.combatStateManager ? this.combatStateManager.getWaveTimer() : 0;
@@ -7488,13 +7492,25 @@ export class SimplePlayfield {
   get activeWave() {
     return this.combatStateManager ? this.combatStateManager.getCurrentWave() : null;
   }
+
+  set activeWave(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
   
   get currentWaveNumber() {
     return this.combatStateManager ? this.combatStateManager.getWaveNumber() : 1;
   }
+
+  set currentWaveNumber(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
   
   get maxWaveReached() {
     return this.combatStateManager ? this.combatStateManager.getMaxWaveReached() : 0;
+  }
+
+  set maxWaveReached(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
   }
   
   get isEndlessMode() {
@@ -7517,6 +7533,13 @@ export class SimplePlayfield {
   
   get resolvedOutcome() {
     return this.combatStateManager ? this.combatStateManager.getOutcome() : null;
+  }
+
+  set resolvedOutcome(value) {
+    // The combat state manager owns the outcome state.
+    // Setting this directly is a no-op, but we allow it for backward compatibility
+    // with code that sets this.resolvedOutcome = 'victory' or 'defeat'.
+    // The manager should have already set the outcome through its own logic.
   }
   
   get baseWaveCount() {
