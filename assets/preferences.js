@@ -840,8 +840,8 @@ export function initializeDesktopCursorPreference() {
     if (typeof desktopCursorMediaQuery.addEventListener === 'function') {
       desktopCursorMediaQuery.addEventListener('change', listener);
     } else {
-      // addEventListener not available - initial cursor class already set, but won't update dynamically
-      console.warn('MediaQueryList.addEventListener not available; cursor detection will not update dynamically.');
+      // Extremely rare - addEventListener has been supported since 2013. Suggest browser update.
+      console.warn('MediaQueryList.addEventListener not available. Consider updating your browser; cursor detection will not update dynamically.');
     }
   } catch (error) {
     console.warn('Desktop cursor media query failed; falling back to user agent detection.', error);

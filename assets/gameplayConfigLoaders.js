@@ -47,13 +47,13 @@ export async function fetchJsonWithFallback(urlPrimary, relativePath) {
     try {
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) {
-        // Store error but don't log expected fetch failures (fallback pattern)
+        // Store error for diagnostic logging if all URLs fail; expected when primary server unavailable
         lastError = new Error(`Failed to load JSON from ${url}: ${response.status}`);
         continue;
       }
       return response.json();
     } catch (error) {
-      // Store error silently - expected when primary URL unavailable
+      // Store error for diagnostic logging if all URLs fail; expected when fetch not available or network issues
       lastError = error;
     }
   }
