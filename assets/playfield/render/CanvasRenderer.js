@@ -46,6 +46,8 @@ const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const QUARTER_PI = Math.PI / 4;
 const PI_OVER_3 = Math.PI / 3;
+const PI_TIMES_0_75 = Math.PI * 0.75;
+const PI_TIMES_0_65 = Math.PI * 0.65;
 const HALF = 0.5;
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
@@ -168,8 +170,8 @@ const GLYPH_FLASH_RAMP_MS = 120;
 // Radial tower menu animation tuning keeps the command lattice feeling responsive yet readable.
 const TOWER_MENU_OPEN_DURATION_MS = 360;
 const TOWER_MENU_DISMISS_DURATION_MS = 220;
-const TOWER_MENU_OPEN_SPIN_RADIANS = Math.PI * 0.75;
-const TOWER_MENU_DISMISS_SPIN_RADIANS = Math.PI * 0.65;
+const TOWER_MENU_OPEN_SPIN_RADIANS = PI_TIMES_0_75;
+const TOWER_MENU_DISMISS_SPIN_RADIANS = PI_TIMES_0_65;
 const TOWER_MENU_DISMISS_SCALE = 1.25;
 
 // Viewport culling margin: buffer zone beyond visible area to prevent pop-in
@@ -2143,7 +2145,7 @@ function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direct
       return;
     }
     const distance = (particle.maxDistance || bodyRadius) * progress;
-    const wobble = (particle.lateral || 0) * Math.sin(progress * Math.PI);
+    const wobble = (particle.lateral || 0) * Math.sin(progress * PI);
     const x = tower.x + (particle.offsetX || 0) + direction.x * distance + perpendicular.x * wobble;
     const y = tower.y + (particle.offsetY || 0) + direction.y * distance + perpendicular.y * wobble;
     ctx.save();
@@ -2579,7 +2581,7 @@ function applyEnemySwirlImpactOffset(entry, particle, position, now, jitterSeed 
     return position;
   }
   const progress = clamp(elapsed / duration, 0, 1);
-  const impulse = Math.sin(progress * Math.PI);
+  const impulse = Math.sin(progress * PI);
   const direction = impact.direction || { x: 0, y: 0 };
   const magnitude = Math.hypot(direction.x, direction.y) || 1;
   const normalized = { x: direction.x / magnitude, y: direction.y / magnitude };
@@ -3047,7 +3049,7 @@ function drawEnemies() {
       ctx.arc(0, 0, markerRadius, angle, angle + span);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(0, 0, markerRadius, angle + Math.PI, angle + Math.PI + span);
+      ctx.arc(0, 0, markerRadius, angle + PI, angle + PI + span);
       ctx.stroke();
     }
 

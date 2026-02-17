@@ -4,10 +4,12 @@
 import { moteGemState, resolveGemDefinition } from './enemies.js';
 
 // Pre-calculated Math constants for performance optimization in render loops
+const PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI * 0.5;
 const QUARTER_PI = Math.PI * 0.25;
 const PI_OVER_SIX = Math.PI / 6;
+const DEG_TO_RAD = Math.PI / 180;
 const HALF = 0.5; // Pre-calculated reciprocal for multiplication instead of division by 2
 
 // Canvas dimensions matching Aleph Spire render
@@ -394,7 +396,7 @@ class Particle {
       const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
       if (speed > 0) {
         const veerDegrees = getRandomInRange(VEER_ANGLE_MIN_DEG, VEER_ANGLE_MAX_DEG);
-        const veerAngle = (veerDegrees * Math.PI) / 180;
+        const veerAngle = veerDegrees * DEG_TO_RAD;
         const direction = Math.random() < 0.5 ? -1 : 1;
         const rotation = veerAngle * direction;
         const cosTheta = Math.cos(rotation);
@@ -1408,7 +1410,7 @@ export class BetSpireRender {
     
     // Calculate alpha (goes from 0 to 0.8 to 0)
     // Peak at middle of animation
-    const alphaCurve = Math.sin(this.forgeCrunchProgress * Math.PI);
+    const alphaCurve = Math.sin(this.forgeCrunchProgress * PI);
     const alpha = alphaCurve * 0.8;
     
     // Draw shrinking circle
