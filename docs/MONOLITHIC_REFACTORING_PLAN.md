@@ -1114,19 +1114,21 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 448) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 450) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 11,399 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 11,353 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~122 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~124 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 448):**
-- Playfield.js reduced from 11,888 to 11,399 lines (489 line reduction, -4.1%)
-- TowerOrchestrationController.js created: 785 lines
-- Extracted tower placement, upgrade/downgrade, removal, and connection management
-- Maintained backward compatibility through property delegation
+**Progress Notes (Build 450):**
+- Playfield.js reduced from 11,888 to 11,353 lines (535 line reduction, -4.5%)
+- CombatStateManager.js created: ~600 lines (Build 444-446)
+- TowerOrchestrationController.js created: 785 lines (Build 448-449)
+- RenderCoordinator.js created: 132 lines (Build 450)
+- Extracted combat state, tower orchestration, and render loop management
+- Maintained backward compatibility through property delegation and wrapper methods
 
 ### Milestone Tracking
 
@@ -1134,8 +1136,8 @@ Update this section as refactoring progresses:
 
 #### Phase 1: Critical Infrastructure
 - [x] Playfield Combat State Manager extracted (Build 444-446)
-- [x] Playfield Tower Orchestration Controller extracted (Build 448)
-- [ ] Playfield Rendering Coordinator extracted
+- [x] Playfield Tower Orchestration Controller extracted (Build 448-449)
+- [x] Playfield Rendering Coordinator extracted (Build 450)
 - [ ] Playfield Developer Tools Service extracted
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
@@ -1267,6 +1269,72 @@ When the project adds automated testing:
 
 ---
 
+### Phase 1.1.2: Tower Orchestration Controller (Build 448-449)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/controllers/TowerOrchestrationController.js` (~785 lines)
+
+**Responsibilities Extracted:**
+- Tower placement and slot selection handling
+- Tower upgrade/downgrade/tier change logic
+- Tower removal and energy refund calculations
+- Connection management between towers (e.g., zeta links, gamma chains)
+- Tower menu state coordination
+
+**Integration Approach:**
+- Factory function pattern with dependency injection
+- Property getters/setters for transparent delegation (towers, slots, etc.)
+- Complex cost calculation logic preserved (demotion refund/charge)
+- Clean API: `placeTower()`, `upgradeTower()`, `demoteTowerTier()`, `removeTower()`, etc.
+
+**Impact:**
+- Tower lifecycle logic isolated from main playfield orchestration
+- Complex upgrade economics maintainable in dedicated module
+- Clear separation between tower state and combat state
+- Zero functionality changes or regressions
+
+**Lessons Learned:**
+1. Two-phase cost calculations (refund + charge) need careful validation
+2. Property delegation pattern scales well to multiple extractors
+3. Connection management between towers requires explicit state sharing
+4. Backward compatibility maintained through getter/setter wrappers
+
+---
+
+### Phase 1.1.3: Render Coordinator (Build 450)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/RenderCoordinator.js` (132 lines)
+
+**Responsibilities Extracted:**
+- Animation frame scheduling (`requestAnimationFrame` management)
+- Frame timing calculations (delta time, safeDelta capping)
+- Frame rate limiting based on user preferences
+- Performance monitoring integration (frame markers)
+- FPS counter updates
+
+**Integration Approach:**
+- Factory function with callback configuration
+- Configured with `update()`, `draw()`, and `shouldAnimate()` functions
+- Simple delegation: `ensureLoop()` → `startRenderLoop()`, `stopLoop()` → `stopRenderLoop()`
+- API: `startRenderLoop()`, `stopRenderLoop()`, `isRunning()`
+
+**Impact:**
+- Render loop logic testable in isolation
+- Frame timing calculations centralized
+- Clear separation between game logic and render scheduling
+- Zero performance overhead (maintains existing patterns)
+
+**Lessons Learned:**
+1. Render loop extraction is straightforward with callback pattern
+2. Performance monitoring integration must be preserved exactly
+3. Delta capping (0.12s) critical for stability during tab backgrounding
+4. Simple wrapper methods maintain backward compatibility with zero cost
+
+---
+
 ## Conclusion
 
 This refactoring plan provides a comprehensive, incremental approach to breaking down monolithic files in Thero Idle TD. By following the phased strategy, validating at each step, and maintaining strict performance requirements, we can improve code maintainability without degrading the player experience.
@@ -1287,7 +1355,7 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 1.1  
+**Document Version:** 1.2  
 **Created:** Build 443  
-**Last Updated:** Build 446  
-**Status:** Phase 1 In Progress (1/9 milestones complete)
+**Last Updated:** Build 450  
+**Status:** Phase 1 In Progress (3/9 milestones complete)
