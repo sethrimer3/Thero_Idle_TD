@@ -68,6 +68,7 @@ import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedbac
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
 import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
+import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   beginPerformanceFrame,
@@ -376,20 +377,18 @@ export class SimplePlayfield {
     }
 
     this.arcOffset = 0;
-    this.energy = 0;
-    this.lives = 0;
+    // Combat state manager will be initialized when levelConfig is set
+    this.combatStateManager = null;
     // Track baseline gate defense so breach previews can factor in mitigation.
     this.gateDefense = 0;
-    this.waveIndex = 0;
-    this.waveTimer = 0;
-    this.activeWave = null;
-    this.enemyIdCounter = 0;
-    this.baseWaveCount = 0;
-    this.currentWaveNumber = 1;
-    this.maxWaveReached = 0;
-    this.isEndlessMode = false;
-    this.endlessCycle = 0;
     this.initialSpawnDelay = 0;
+    this.autoWaveEnabled = true;
+    this.autoStartLeadTime = 5;
+    this.autoStartTimer = null;
+    this.autoStartDeadline = 0;
+    // Track the most recent endless checkpoint so defeat screens can offer a retry.
+    this.endlessCheckpoint = null;
+    this.endlessCheckpointUsed = false;
     this.autoWaveEnabled = true;
     this.autoStartLeadTime = 5;
     this.autoStartTimer = null;
@@ -425,7 +424,6 @@ export class SimplePlayfield {
 
     this.slots = new Map();
     this.towers = [];
-    this.enemies = [];
     this.projectiles = [];
     this.damageNumbers = [];
     this.damageNumberIdCounter = 0;
@@ -2612,13 +2610,14 @@ export class SimplePlayfield {
     if (!isInteractive) {
       this.levelActive = false;
       this.levelConfig = null;
+      
+      // Reset combat state manager
+      if (this.combatStateManager) {
+        this.combatStateManager.reset();
+      }
+      
       this.combatActive = false;
       this.shouldAnimate = false;
-      this.isEndlessMode = false;
-      this.endlessCycle = 0;
-      this.baseWaveCount = 0;
-      this.currentWaveNumber = 1;
-      this.maxWaveReached = 0;
       this.stopLoop();
       this.resetCombatStats();
       this.setStatsPanelEnabled(false);
@@ -2715,11 +2714,23 @@ export class SimplePlayfield {
 
     this.levelActive = true;
     this.levelConfig = clonedConfig;
-    this.baseWaveCount = clonedConfig.waves.length;
-    this.isEndlessMode = startInEndless;
-    this.endlessCycle = 0;
-    this.currentWaveNumber = 1;
-    this.maxWaveReached = 0;
+    
+    // Initialize combat state manager with level configuration
+    this.combatStateManager = createCombatStateManager({
+      levelConfig: clonedConfig,
+      audio: this.audio,
+      onVictory: this.onVictory,
+      onDefeat: this.onDefeat,
+      onCombatStart: this.onCombatStart,
+      recordKillEvent: (towerId) => this.recordKillEvent(towerId),
+      tryConvertEnemyToChiThrall: (enemy, context) => this.tryConvertEnemyToChiThrall(enemy, context),
+      triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
+      notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
+    });
+    
+    // Store endless mode flag for when combat starts
+    this.startInEndlessMode = startInEndless;
+    
     // Clear any stored checkpoint when a fresh state is requested.
     this.endlessCheckpoint = null;
     this.endlessCheckpointUsed = false;
@@ -2790,12 +2801,12 @@ export class SimplePlayfield {
       this.autoWaveCheckbox.checked = this.autoWaveEnabled;
     }
     if (this.messageEl) {
-      this.messageEl.textContent = this.isEndlessMode
+      this.messageEl.textContent = startInEndless
         ? 'Endless defense unlocked—survive as the waves loop.'
         : 'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
     }
     if (this.progressEl) {
-      this.progressEl.textContent = this.isEndlessMode
+      this.progressEl.textContent = startInEndless
         ? 'Waves loop infinitely. Each completed cycle multiplies enemy strength ×10.'
         : 'Wave prep underway.';
     }
@@ -2820,6 +2831,12 @@ export class SimplePlayfield {
     if (this.previewOnly) {
       this.levelActive = false;
       this.levelConfig = null;
+      
+      // Reset combat state manager
+      if (this.combatStateManager) {
+        this.combatStateManager.reset();
+      }
+      
       this.combatActive = false;
       this.shouldAnimate = false;
       this.stopLoop();
@@ -2861,6 +2878,12 @@ export class SimplePlayfield {
 
     this.levelActive = false;
     this.levelConfig = null;
+    
+    // Reset combat state manager
+    if (this.combatStateManager) {
+      this.combatStateManager.reset();
+    }
+    
     this.combatActive = false;
     this.shouldAnimate = false;
     this.cancelAutoStart();
@@ -2896,13 +2919,6 @@ export class SimplePlayfield {
     this.lives = 0;
     // Drop any cached gate defense when the battlefield fully resets.
     this.gateDefense = 0;
-    this.resolvedOutcome = null;
-    this.arcOffset = 0;
-    this.isEndlessMode = false;
-    this.endlessCycle = 0;
-    this.baseWaveCount = 0;
-    this.currentWaveNumber = 1;
-    this.maxWaveReached = 0;
     // Clear cached portrait geometry so the next level can determine orientation anew.
     this.basePathPoints = [];
     this.baseAutoAnchors = [];
@@ -2938,13 +2954,28 @@ export class SimplePlayfield {
 
   resetState() {
     if (!this.levelConfig) {
-      this.energy = 0;
-      this.lives = 0;
-      // Clear defense when no active level is attached to the playfield.
+      // When no level is loaded, reset to null state
+      if (this.combatStateManager) {
+        this.combatStateManager.reset();
+      }
       this.gateDefense = 0;
     } else {
-      this.energy = this.levelConfig.startThero || 0;
-      this.lives = this.levelConfig.lives;
+      // Initialize manager if it doesn't exist
+      if (!this.combatStateManager) {
+        this.combatStateManager = createCombatStateManager({
+          levelConfig: this.levelConfig,
+          audio: this.audio,
+          onVictory: this.onVictory,
+          onDefeat: this.onDefeat,
+          onCombatStart: this.onCombatStart,
+          recordKillEvent: (towerId) => this.recordKillEvent(towerId),
+          tryConvertEnemyToChiThrall: (enemy, context) => this.tryConvertEnemyToChiThrall(enemy, context),
+          triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
+          notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
+        });
+      } else {
+        this.combatStateManager.reset();
+      }
       // Normalize any gate defense value supplied by the level configuration.
       const configuredDefense = Number.isFinite(this.levelConfig.gateDefense)
         ? this.levelConfig.gateDefense
@@ -2953,18 +2984,8 @@ export class SimplePlayfield {
         : 0;
       this.gateDefense = Math.max(0, configuredDefense);
     }
-    this.waveIndex = 0;
-    this.waveTimer = 0;
-    this.activeWave = null;
-    this.enemyIdCounter = 0;
     this.towerIdCounter = 0;
     this.arcOffset = 0;
-    this.combatActive = false;
-    this.resolvedOutcome = null;
-    this.endlessCycle = 0;
-    this.currentWaveNumber = 1;
-    this.maxWaveReached = 0;
-    this.enemies = [];
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
@@ -7369,7 +7390,10 @@ export class SimplePlayfield {
     if (this.audio) {
       this.audio.unlock();
     }
-    if (!this.levelActive || !this.levelConfig || this.combatActive) {
+    if (!this.levelActive || !this.levelConfig || !this.combatStateManager) {
+      return;
+    }
+    if (this.combatStateManager.isCombatActive()) {
       return;
     }
     if (!this.towers.length) {
@@ -7384,12 +7408,18 @@ export class SimplePlayfield {
     }
 
     this.cancelAutoStart();
-    this.combatActive = true;
-    this.resolvedOutcome = null;
-    this.waveIndex = 0;
-    this.waveTimer = 0;
-    this.enemyIdCounter = 0;
-    this.enemies = [];
+    
+    // Start combat through the manager
+    this.combatStateManager.startCombat({
+      startingWaveIndex: 0,
+      startingLives: this.levelConfig.lives,
+      startingEnergy: this.levelConfig.startThero || 0,
+      endless: this.startInEndlessMode || false,
+      endlessCycleStart: 0,
+      initialSpawnDelay: this.initialSpawnDelay,
+    });
+    
+    // Reset non-combat-state systems
     this.resetChiSystems();
     this.projectiles = [];
     this.alphaBursts = [];
@@ -7399,9 +7429,6 @@ export class SimplePlayfield {
     this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
-    this.activeWave = this.createWaveState(this.levelConfig.waves[0], { initialWave: true });
-    this.lives = this.levelConfig.lives;
-    this.markWaveStart();
     this.startCombatStatsSession();
 
     if (this.startButton) {
@@ -7409,43 +7436,146 @@ export class SimplePlayfield {
       this.startButton.textContent = 'Wave Running';
     }
     if (this.messageEl) {
-      this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label} advance.`;
+      const activeWave = this.combatStateManager.getCurrentWave();
+      const waveNumber = this.combatStateManager.getWaveNumber();
+      this.messageEl.textContent = `Wave ${waveNumber} — ${activeWave.config.label} advance.`;
     }
     this.updateHud();
     this.updateProgress();
+  }
 
-    if (this.onCombatStart) {
-      this.onCombatStart(this.levelConfig.id);
+  // Delegate to combat state manager for combat state properties
+  get enemies() {
+    return this.combatStateManager ? this.combatStateManager.getEnemies() : [];
+  }
+  
+  set enemies(value) {
+    // Allow direct assignment in preview mode or when manager doesn't exist
+    if (!this.combatStateManager) {
+      // No-op when no manager exists (preview mode)
+      return;
     }
+  }
+  
+  get energy() {
+    return this.combatStateManager ? this.combatStateManager.getEnergy() : 0;
+  }
+  
+  set energy(value) {
+    if (this.combatStateManager) {
+      this.combatStateManager.setEnergy(value);
+    }
+  }
+  
+  get lives() {
+    return this.combatStateManager ? this.combatStateManager.getLives() : 0;
+  }
+  
+  set lives(value) {
+    if (this.combatStateManager) {
+      this.combatStateManager.setLives(value);
+    }
+  }
+  
+  get waveIndex() {
+    return this.combatStateManager ? this.combatStateManager.getWaveIndex() : 0;
+  }
+
+  set waveIndex(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
+  
+  get waveTimer() {
+    return this.combatStateManager ? this.combatStateManager.getWaveTimer() : 0;
+  }
+  
+  get activeWave() {
+    return this.combatStateManager ? this.combatStateManager.getCurrentWave() : null;
+  }
+
+  set activeWave(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
+  
+  get currentWaveNumber() {
+    return this.combatStateManager ? this.combatStateManager.getWaveNumber() : 1;
+  }
+
+  set currentWaveNumber(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
+  
+  get maxWaveReached() {
+    return this.combatStateManager ? this.combatStateManager.getMaxWaveReached() : 0;
+  }
+
+  set maxWaveReached(value) {
+    // No-op setter for backward compatibility. The combat manager owns this state.
+  }
+  
+  get isEndlessMode() {
+    return this.combatStateManager ? this.combatStateManager.isEndless() : false;
+  }
+  
+  get endlessCycle() {
+    return this.combatStateManager ? this.combatStateManager.getEndlessCycle() : 0;
+  }
+  
+  get combatActive() {
+    return this.combatStateManager ? this.combatStateManager.isCombatActive() : false;
+  }
+  
+  set combatActive(value) {
+    if (this.combatStateManager) {
+      this.combatStateManager.setCombatActive(value);
+    }
+  }
+  
+  get resolvedOutcome() {
+    return this.combatStateManager ? this.combatStateManager.getOutcome() : null;
+  }
+
+  set resolvedOutcome(value) {
+    // The combat state manager owns the outcome state.
+    // Setting this directly is a no-op, but we allow it for backward compatibility
+    // with code that sets this.resolvedOutcome = 'victory' or 'defeat'.
+    // The manager should have already set the outcome through its own logic.
+  }
+  
+  get baseWaveCount() {
+    return this.levelConfig?.waves?.length || 0;
   }
 
   getCycleMultiplier() {
-    return this.isEndlessMode ? 10 ** this.endlessCycle : 1;
+    return this.combatStateManager
+      ? this.combatStateManager.getCycleMultiplier()
+      : 1;
   }
 
   // Derive an additive 10% speed scalar for each endless cycle to keep pacing approachable.
   getCycleSpeedScalar() {
-    return this.isEndlessMode ? 1 + this.endlessCycle * 0.1 : 1;
+    return this.combatStateManager
+      ? this.combatStateManager.getCycleSpeedScalar()
+      : 1;
   }
 
-  computeWaveNumber(index = this.waveIndex) {
-    if (!this.levelConfig) {
-      return 0;
-    }
-    const total = this.baseWaveCount || this.levelConfig.waves.length || 0;
-    if (!this.isEndlessMode) {
-      return index + 1;
-    }
-    return this.endlessCycle * total + index + 1;
+  computeWaveNumber(index) {
+    return this.combatStateManager
+      ? this.combatStateManager.computeWaveNumber(index)
+      : 0;
   }
 
   markWaveStart() {
-    const waveNumber = this.computeWaveNumber();
-    this.currentWaveNumber = waveNumber > 0 ? waveNumber : 1;
-    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
+    // This method is no longer needed as the manager handles wave start marking
+    // Keep it for compatibility but delegate to manager
+    if (this.combatStateManager) {
+      // Manager handles this internally
+    }
   }
 
   createWaveState(config, options = {}) {
+    // This method is no longer needed as the manager creates wave states internally
+    // Keep it for backward compatibility during migration
     if (!config) {
       return null;
     }
@@ -8060,11 +8190,10 @@ export class SimplePlayfield {
 
     // Update enemies and spawn logic only while combat is active
     if (this.combatActive) {
-      this.waveTimer += speedDelta;
       // Group enemy spawning and marching updates to weigh pathfinding cost.
       const finishEnemySegment = beginPerformanceSegment('update:enemies');
       try {
-        this.spawnEnemies();
+        this.spawnEnemies(speedDelta);
         this.updateEnemies(speedDelta);
         this.updateChiThralls(speedDelta);
         this.updateChiLightTrails(speedDelta);
@@ -8276,143 +8405,64 @@ export class SimplePlayfield {
     return '◈';
   }
 
-  spawnEnemies() {
-    if (!this.activeWave || !this.levelConfig) {
+  spawnEnemies(delta) {
+    if (!this.combatStateManager || !this.levelConfig) {
       return;
     }
-
-    const { config } = this.activeWave;
-    if (!config) {
-      return;
-    }
-
-    const groups = this.resolveWaveGroups(config);
-    const hasBoss = Boolean(config.boss && typeof config.boss === 'object');
-    const totalMinionCount = groups.reduce(
-      (sum, group) => sum + Math.max(0, Math.floor(group.count || 0)),
-      0,
-    );
-    const totalSpawnCount = totalMinionCount + (hasBoss ? 1 : 0);
-
-    while (
-      this.activeWave.spawned < totalSpawnCount &&
-      this.waveTimer >= this.activeWave.nextSpawn
-    ) {
-      const spawnIndex = this.activeWave.spawned;
-      const spawningBoss = hasBoss && spawnIndex >= totalMinionCount;
-      let sourceConfig = null;
-
-      if (spawningBoss) {
-        sourceConfig = { ...config, ...(config.boss || {}) };
-      } else {
-        let remainingIndex = spawnIndex;
-        for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-          const group = groups[groupIndex];
-          const groupCount = Math.max(0, Math.floor(group.count || 0));
-          if (remainingIndex < groupCount) {
-            sourceConfig = group;
-            break;
+    
+    // Delegate to combat state manager for spawning
+    const spawnContext = {
+      pathPoints: this.pathPoints,
+      radialSpawn: this.levelConfig.radialSpawn && this.levelConfig.centerSpawn,
+      registerEnemy: (enemy) => {
+        // Enhance enemy with playfield-specific properties
+        const polygonSides = this.resolvePolygonSides(enemy);
+        const symbol = this.resolveEnemySymbol({ ...enemy, polygonSides });
+        const maxHp = Number.isFinite(enemy.hp) ? Math.max(1, enemy.hp) : 1;
+        const hpExponent = this.calculateHealthExponent(maxHp);
+        const gemDropMultiplier = resolveEnemyGemDropMultiplier(enemy);
+        
+        Object.assign(enemy, {
+          progress: 0,
+          baseSpeed: enemy.speed,
+          moteFactor: this.calculateMoteFactor(enemy),
+          symbol,
+          polygonSides,
+          hpExponent,
+          gemDropMultiplier,
+        });
+        
+        // Handle radial spawn positioning
+        if (spawnContext.radialSpawn) {
+          const edge = Math.floor(Math.random() * 4);
+          const offset = Math.random();
+          const spawnMargin = RADIAL_SPAWN_OFFSCREEN_MARGIN;
+          
+          let spawnX, spawnY;
+          if (edge === 0) {
+            spawnX = offset;
+            spawnY = -spawnMargin;
+          } else if (edge === 1) {
+            spawnX = 1 + spawnMargin;
+            spawnY = offset;
+          } else if (edge === 2) {
+            spawnX = offset;
+            spawnY = 1 + spawnMargin;
+          } else {
+            spawnX = -spawnMargin;
+            spawnY = offset;
           }
-          remainingIndex -= groupCount;
-        }
-        if (!sourceConfig) {
-          // No suitable group found; treat minions as fully spawned and continue to boss if present.
-          this.activeWave.spawned = totalMinionCount;
-          continue;
-        }
-      }
-
-      const spawnConfig = {
-        ...config,
-        ...sourceConfig,
-      };
-      delete spawnConfig.enemyGroups;
-      delete spawnConfig.minionCount;
-
-      const interval = Number.isFinite(sourceConfig.interval)
-        ? sourceConfig.interval
-        : Number.isFinite(config.interval)
-          ? config.interval
-          : 1.5;
-      spawnConfig.interval = interval;
-      spawnConfig.hp = Number.isFinite(sourceConfig.hp) ? sourceConfig.hp : config.hp;
-      spawnConfig.speed = Number.isFinite(sourceConfig.speed) ? sourceConfig.speed : config.speed;
-      spawnConfig.reward = Number.isFinite(sourceConfig.reward) ? sourceConfig.reward : config.reward;
-      spawnConfig.color = sourceConfig.color || config.color;
-      spawnConfig.label = sourceConfig.label || config.label;
-      spawnConfig.codexId = sourceConfig.codexId || config.codexId || null;
-
-      const polygonSides = this.resolvePolygonSides(spawnConfig);
-      const pathMode = (spawnConfig.pathMode === 'direct' ? 'direct' : 'path');
-      const symbol = this.resolveEnemySymbol({ ...spawnConfig, polygonSides });
-      const maxHp = Number.isFinite(spawnConfig.hp) ? Math.max(1, spawnConfig.hp) : 1;
-      const hpExponent = this.calculateHealthExponent(maxHp);
-      const gemDropMultiplier = resolveEnemyGemDropMultiplier(spawnConfig);
-      const enemy = {
-        id: this.enemyIdCounter += 1,
-        progress: 0,
-        hp: spawnConfig.hp,
-        maxHp: spawnConfig.hp,
-        speed: spawnConfig.speed,
-        baseSpeed: spawnConfig.speed,
-        reward: spawnConfig.reward,
-        color: spawnConfig.color,
-        label: spawnConfig.label,
-        typeId: spawnConfig.codexId || null,
-        pathMode,
-        moteFactor: this.calculateMoteFactor(spawnConfig),
-        symbol,
-        polygonSides,
-        hpExponent,
-        gemDropMultiplier,
-      };
-      
-      // Support radial spawn mode for special trials where enemies spawn from edges
-      if (this.levelConfig.radialSpawn && this.levelConfig.centerSpawn) {
-        // Spawn enemy at random edge position
-        const edge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
-        const offset = Math.random(); // Position along that edge
-        // Push spawns beyond the border so they originate off-screen at the widest view.
-        const spawnMargin = RADIAL_SPAWN_OFFSCREEN_MARGIN;
-        
-        let spawnX, spawnY;
-        if (edge === 0) {
-          // Top edge
-          spawnX = offset;
-          spawnY = -spawnMargin;
-        } else if (edge === 1) {
-          // Right edge
-          spawnX = 1 + spawnMargin;
-          spawnY = offset;
-        } else if (edge === 2) {
-          // Bottom edge
-          spawnX = offset;
-          spawnY = 1 + spawnMargin;
-        } else {
-          // Left edge (edge === 3)
-          spawnX = -spawnMargin;
-          spawnY = offset;
+          
+          enemy.radialSpawnX = spawnX;
+          enemy.radialSpawnY = spawnY;
+          enemy.pathMode = 'direct';
         }
         
-        // Store absolute spawn position for radial enemies
-        enemy.radialSpawnX = spawnX;
-        enemy.radialSpawnY = spawnY;
-        // Use direct path mode to move straight to center
-        enemy.pathMode = 'direct';
-      }
-      
-      if (spawningBoss) {
-        enemy.isBoss = true;
-      }
-      assignRandomShell(enemy);
-      this.enemies.push(enemy);
-      this.activeWave.spawned += 1;
-      this.activeWave.nextSpawn += interval;
-      this.scheduleStatsPanelRefresh();
-      if (spawnConfig.codexId) {
-        registerEnemyEncounter(spawnConfig.codexId);
-      }
-    }
+        this.scheduleStatsPanelRefresh();
+      },
+    };
+    
+    this.combatStateManager.spawnEnemies(delta, spawnContext);
   }
 
   updateTowers(delta) {
@@ -9801,15 +9851,6 @@ export class SimplePlayfield {
         this.handleEnemyBreach(enemy);
       }
     }
-
-    if (
-      this.combatActive &&
-      this.activeWave &&
-      this.activeWave.spawned >= this.activeWave.config.count &&
-      !this.enemies.length
-    ) {
-      this.advanceWave();
-    }
   }
 
   // Maintain derivative shield coverage so the mitigation state follows the projector as it marches down the path.
@@ -10848,15 +10889,10 @@ export class SimplePlayfield {
     const targetIndex = Math.max(0, Math.min(totalWaves - 1, Number(snapshot.waveIndex) || 0));
 
     this.cancelAutoStart();
-    this.combatActive = true;
-    this.resolvedOutcome = null;
     this.shouldAnimate = true;
     this.ensureLoop();
 
-    this.waveIndex = targetIndex;
-      this.waveTimer = 0;
-      this.enemyIdCounter = 0;
-    this.enemies = [];
+    // Reset non-combat-state systems
     this.resetChiSystems();
     this.projectiles = [];
     this.resetDamageNumbers();
@@ -10873,11 +10909,19 @@ export class SimplePlayfield {
     // Refresh ambient swimmers so checkpoint restores regenerate the soft background motion.
     this.backgroundSwimmers = [];
     this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    this.endlessCycle = Math.max(0, Number(snapshot.endlessCycle) || 0);
-    this.currentWaveNumber = snapshot.waveNumber || this.computeWaveNumber(targetIndex);
-    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
-    this.energy = Number.isFinite(snapshot.energy) ? snapshot.energy : this.energy;
-    this.lives = Number.isFinite(snapshot.lives) ? snapshot.lives : this.lives;
+    
+    // Restore combat state through the manager
+    if (this.combatStateManager) {
+      this.combatStateManager.startCombat({
+        startingWaveIndex: targetIndex,
+        startingLives: Number.isFinite(snapshot.lives) ? snapshot.lives : this.levelConfig.lives,
+        startingEnergy: Number.isFinite(snapshot.energy) ? snapshot.energy : 0,
+        endless: true,
+        endlessCycleStart: Math.max(0, Number(snapshot.endlessCycle) || 0),
+        initialSpawnDelay: 0,
+      });
+    }
+    
     this.autoWaveEnabled = snapshot.autoWaveEnabled ?? this.autoWaveEnabled;
     if (this.autoWaveCheckbox) {
       this.autoWaveCheckbox.checked = this.autoWaveEnabled;
@@ -10888,12 +10932,6 @@ export class SimplePlayfield {
 
     this.infinityTowers = [];
     this.restoreTowersFromCheckpoint(snapshot.towers);
-
-    const waveConfig = this.levelConfig.waves[targetIndex];
-    this.activeWave = this.createWaveState(waveConfig);
-    this.markWaveStart();
-    this.currentWaveNumber = snapshot.waveNumber || this.currentWaveNumber;
-    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
 
     if (this.startButton) {
       this.startButton.disabled = true;
@@ -10910,54 +10948,34 @@ export class SimplePlayfield {
     this.dependencies.updateStatusDisplays();
     this.endlessCheckpointUsed = true;
 
-    if (this.onCombatStart && this.levelConfig?.id) {
-      this.onCombatStart(this.levelConfig.id);
-    }
-
     return true;
   }
 
   advanceWave() {
-    if (!this.levelConfig) {
+    if (!this.levelConfig || !this.combatStateManager) {
       return;
     }
 
     // Surface end-of-wave tallies before the next wave (or victory) begins.
     this.spawnWaveCompletionTallies();
 
-    if (this.waveIndex + 1 >= this.levelConfig.waves.length) {
-      if (this.isEndlessMode) {
-        this.endlessCycle += 1;
-        this.waveIndex = 0;
-        this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
-        this.waveTimer = 0;
-        this.markWaveStart();
-        this.captureEndlessCheckpoint();
-        if (this.messageEl) {
-          this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${
-            this.activeWave.config.label
-          }.`;
-        }
-        this.updateHud();
-        this.updateProgress();
-        // Refresh the queue previews so the endless cycle rollover is reflected immediately.
-        this.scheduleStatsPanelRefresh();
-        return;
-      }
-      this.handleVictory();
-      return;
+    // For endless checkpoint capture
+    if (this.isEndlessMode && this.waveIndex + 1 >= this.levelConfig.waves.length) {
+      this.captureEndlessCheckpoint();
     }
 
-    this.waveIndex += 1;
-    this.activeWave = this.createWaveState(this.levelConfig.waves[this.waveIndex]);
-    this.waveTimer = 0;
-    this.markWaveStart();
-    if (this.messageEl) {
-      this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label}.`;
+    // Delegate wave advancement to the combat state manager
+    this.combatStateManager.advanceWave();
+
+    // Update UI to reflect the new wave
+    if (this.messageEl && this.activeWave) {
+      this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${
+        this.activeWave.config.label
+      }.`;
     }
     this.updateHud();
     this.updateProgress();
-    // Update wave previews for the newly activated wave.
+    // Refresh the queue previews so the wave change is reflected immediately.
     this.scheduleStatsPanelRefresh();
   }
 
@@ -11013,6 +11031,7 @@ export class SimplePlayfield {
   processEnemyDefeat(enemy) {
     const defeatPosition = this.getEnemyPosition(enemy);
     
+    // First, handle playfield-specific defeat logic
     // Trigger PsiCluster AoE if this is a Psi cluster
     if (enemy.isPsiCluster) {
       this.triggerPsiClusterAoE(enemy, defeatPosition);
@@ -11020,14 +11039,10 @@ export class SimplePlayfield {
     
     // Emit a burst of collapse motes before removing the enemy from active lists.
     this.spawnEnemyDeathParticles(enemy);
-    this.tryConvertEnemyToChiThrall(enemy, { position: defeatPosition });
     this.captureEnemyHistory(enemy);
     this.clearEnemySlowEffects(enemy);
     this.clearEnemyDamageAmplifiers(enemy);
-    const index = this.enemies.indexOf(enemy);
-    if (index >= 0) {
-      this.enemies.splice(index, 1);
-    }
+    
     if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
       this.clearEnemyHover();
     }
@@ -11047,6 +11062,19 @@ export class SimplePlayfield {
       const gainLabel = formatCombatNumber(baseGain);
       this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${gainLabel} ${this.theroSymbol}.`;
     }
+    
+    // Spawn mote gem drops
+    this.spawnMoteGemFromEnemy(enemy);
+
+    // Now delegate to combat state manager to handle enemy removal and wave progression
+    if (this.combatStateManager) {
+      const deathContext = {
+        spawnDeathParticles: () => {}, // Already handled above
+        dropGems: () => {}, // Already handled above
+      };
+      this.combatStateManager.handleEnemyDeath(enemy, deathContext);
+    }
+    
     this.updateHud();
     this.updateProgress();
     this.dependencies.updateStatusDisplays();
@@ -11054,8 +11082,6 @@ export class SimplePlayfield {
     if (this.audio) {
       this.audio.playSfx('enemyDefeat');
     }
-
-    this.spawnMoteGemFromEnemy(enemy);
 
     this.dependencies.notifyEnemyDefeated();
     // Remove the defeated enemy from the live lists immediately.
