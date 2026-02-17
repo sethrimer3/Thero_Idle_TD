@@ -42,8 +42,8 @@ import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
 const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI * 0.5;
-const QUARTER_PI = Math.PI * 0.25;
+const HALF_PI = Math.PI / 2;
+const QUARTER_PI = Math.PI / 4;
 const HALF = 0.5;
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
@@ -203,8 +203,8 @@ function getViewportBounds() {
   const scale = this.viewScale || 1;
   
   // Calculate world-space bounds with margin
-  const halfWidth = (width * HALF / scale) + VIEWPORT_CULL_MARGIN;
-  const halfHeight = (height * HALF / scale) + VIEWPORT_CULL_MARGIN;
+  const halfWidth = (width / scale) * HALF + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale) * HALF + VIEWPORT_CULL_MARGIN;
   
   return {
     minX: viewCenter.x - halfWidth,
