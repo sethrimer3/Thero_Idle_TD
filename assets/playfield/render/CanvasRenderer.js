@@ -41,9 +41,11 @@ import { easeInCubic, easeOutCubic } from '../utils/math.js';
 import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
+const PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const QUARTER_PI = Math.PI / 4;
+const PI_OVER_3 = Math.PI / 3;
 const HALF = 0.5;
 
 const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
@@ -339,9 +341,9 @@ function resolveHighGraphicsSpawnParticleBudget() {
 
 function lerpAngle(start, end, t) {
   let delta = (end - start) % TWO_PI;
-  if (delta > Math.PI) {
+  if (delta > PI) {
     delta -= TWO_PI;
-  } else if (delta < -Math.PI) {
+  } else if (delta < -PI) {
     delta += TWO_PI;
   }
   return start + delta * t;
@@ -793,8 +795,8 @@ function drawSketchesOnContext(ctx, width, height) {
 
     ctx.drawImage(
       sketch.sprite,
-      -sketchWidth / 2,
-      -sketchHeight / 2,
+      -sketchWidth * HALF,
+      -sketchHeight * HALF,
       sketchWidth,
       sketchHeight
     );
@@ -1043,10 +1045,10 @@ function drawMoteGems() {
       const spriteWidth = (sprite.width || reference) * scale;
       const spriteHeight = (sprite.height || reference) * scale;
       ctx.globalAlpha = opacity;
-      ctx.drawImage(sprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight);
+      ctx.drawImage(sprite, -spriteWidth * HALF, -spriteHeight * HALF, spriteWidth, spriteHeight);
     } else {
       const squareSize = Math.max(moteUnit * 0.6, size + pulse);
-      const half = squareSize / 2;
+      const half = squareSize * HALF;
       ctx.fillStyle = fill;
       ctx.strokeStyle = stroke;
       ctx.lineWidth = Math.max(moteUnit * 0.12, 1.2);
@@ -1262,7 +1264,7 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
       // Calculate opacity for this segment
       const startOpacity = opacityByPoint ? opacityByPoint[i] : 1;
       const endOpacity = opacityByPoint ? opacityByPoint[i + 1] : 1;
-      const segmentOpacity = (startOpacity + endOpacity) / 2;
+      const segmentOpacity = (startOpacity + endOpacity) * HALF;
       
       // Skip fully transparent segments
       if (segmentOpacity <= 0.01) {
@@ -1499,7 +1501,7 @@ function drawEnemyGateSymbol(ctx, position) {
     const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.95;
-    ctx.drawImage(enemyGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+    ctx.drawImage(enemyGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
     ctx.restore();
   } else {
     this.applyCanvasShadow(ctx, 'rgba(74, 240, 255, 0.6)', radius * 0.6);
@@ -1566,7 +1568,7 @@ function drawMindGateSymbol(ctx, position) {
 
   // Generate sine wave with varying amplitudes for each peak.
   for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
-    const x = -waveWidth / 2 + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
+    const x = -waveWidth * HALF + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
     const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
 
     // Base sine wave.
@@ -1597,7 +1599,7 @@ function drawMindGateSymbol(ctx, position) {
   const waveColor = { r: 255, g: 120, b: 0 };
 
   // Create gradient for the wave.
-  const waveGradient = ctx.createLinearGradient(-waveWidth / 2, 0, waveWidth / 2, 0);
+  const waveGradient = ctx.createLinearGradient(-waveWidth * HALF, 0, waveWidth * HALF, 0);
   waveGradient.addColorStop(0, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
   waveGradient.addColorStop(0.2, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
   waveGradient.addColorStop(0.5, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`);
@@ -1629,7 +1631,7 @@ function drawMindGateSymbol(ctx, position) {
     const spriteSize = Math.max(baseSize * 2.1, 46) * 2 * TRACK_GATE_SIZE_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.96;
-    ctx.drawImage(mindGateSprite, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+    ctx.drawImage(mindGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
     ctx.restore();
   } else {
     this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
@@ -1713,7 +1715,7 @@ function drawDeveloperMapSpeedLabel(ctx, mapSpeedMultiplier, renderWidth) {
   ctx.textBaseline = 'top';
   ctx.fillStyle = 'rgba(139, 247, 255, 0.85)';
   const speedText = `Map Speed: ×${mapSpeedMultiplier.toFixed(2)}`;
-  ctx.fillText(speedText, renderWidth / 2, 12);
+  ctx.fillText(speedText, renderWidth * HALF, 12);
   ctx.restore();
 }
 
@@ -2543,7 +2545,7 @@ function selectImpactedSwirlParticles(entry, damageFraction) {
     const [pickedParticle] = candidates.splice(pickIndex, 1);
     if (pickedParticle) {
       // Lock in an independent angular deviation so nearby motes scatter instead of moving as one mass.
-      impacted.set(pickedParticle, randomBetween(-Math.PI / 3, Math.PI / 3));
+      impacted.set(pickedParticle, randomBetween(-PI_OVER_3, PI_OVER_3));
     }
   }
   return impacted;
@@ -2807,7 +2809,7 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
       // Make particles small and transparent
       const size = Math.max(0.6, particle.size || 1.2);
       const spriteSize = size * 4; // Scale sprite to reasonable size
-      const halfSize = spriteSize / 2;
+      const halfSize = spriteSize * HALF;
       
       // Apply transparency
       ctx.globalAlpha = alpha * 0.6; // Make it more transparent
@@ -2898,7 +2900,7 @@ function drawEnemyShellSprite(ctx, image, metrics) {
   
   // Scale shell to match enemy size (slightly larger than the ring radius)
   const shellSize = metrics.ringRadius * 2.2;
-  const halfSize = shellSize / 2;
+  const halfSize = shellSize * HALF;
   
   ctx.drawImage(
     image,
@@ -3038,7 +3040,7 @@ function drawEnemies() {
     if (this.focusedEnemyId === enemy.id) {
       const markerRadius = metrics.focusRadius || metrics.ringRadius + 8;
       const angle = this.focusMarkerAngle || 0;
-      const span = Math.PI / 3;
+      const span = PI_OVER_3;
       ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -3352,7 +3354,7 @@ function drawWaveTallies() {
       ? Math.max(0, Math.min(1, entry.eraseProgress))
       : 0;
     let clipWidth = Math.max(0, fullWidth * drawProgress);
-    let clipX = entry.position.x - fullWidth / 2;
+    let clipX = entry.position.x - fullWidth * HALF;
     if (entry.isErasing && eraseProgress > 0) {
       clipX += fullWidth * eraseProgress;
       clipWidth = Math.max(0, fullWidth * (1 - eraseProgress));

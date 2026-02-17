@@ -2165,7 +2165,7 @@ export class SimplePlayfield {
       let speedMultiplier = 1;
       if (Number.isFinite(start.speedMultiplier) && Number.isFinite(end.speedMultiplier)) {
         // Average the speed multipliers at the start and end of this segment
-        speedMultiplier = (start.speedMultiplier + end.speedMultiplier) / 2;
+        speedMultiplier = (start.speedMultiplier + end.speedMultiplier) * HALF;
       } else if (Number.isFinite(start.speedMultiplier)) {
         speedMultiplier = start.speedMultiplier;
       } else if (Number.isFinite(end.speedMultiplier)) {
