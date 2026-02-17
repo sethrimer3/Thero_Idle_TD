@@ -115,18 +115,9 @@ export function createRenderCoordinator(config) {
     return animationId !== null;
   }
 
-  /**
-   * Get the last calculated delta time (for debugging/diagnostics).
-   * @returns {number} Last delta time in seconds
-   */
-  function getLastDelta() {
-    return lastTimestamp ? 0 : 0; // Not tracked persistently in current implementation
-  }
-
   return {
     startRenderLoop,
     stopRenderLoop,
     isRunning,
-    getLastDelta,
   };
 }
