@@ -10,7 +10,7 @@ import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // β shot sprite path points at the white particle art that will be tinted by the active palette.
 // Note: Beta projectile sprite is oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
-const BETA_SHOT_SPRITE_PATH = '../../../assets/sprites/towers/bet/projectiles/betProjectile.png';
+const BETA_SHOT_SPRITE_PATH = './assets/sprites/towers/bet/projectiles/betProjectile.png';
 
 // Cache 12 tinted variants so palette swaps only pay the recolor cost once.
 const BETA_SHOT_SPRITE_SAMPLE_COUNT = 12;
