@@ -836,10 +836,12 @@ export function initializeDesktopCursorPreference() {
     const listener = (event) => {
       updateDesktopCursorClass(event.matches);
     };
+    // Use modern addEventListener API; deprecated addListener removed to fix console error
     if (typeof desktopCursorMediaQuery.addEventListener === 'function') {
       desktopCursorMediaQuery.addEventListener('change', listener);
-    } else if (typeof desktopCursorMediaQuery.addListener === 'function') {
-      desktopCursorMediaQuery.addListener(listener);
+    } else {
+      // Extremely rare - addEventListener has been supported since 2013. Suggest browser update.
+      console.warn('MediaQueryList.addEventListener not available. Consider updating your browser; cursor detection will not update dynamically.');
     }
   } catch (error) {
     console.warn('Desktop cursor media query failed; falling back to user agent detection.', error);
