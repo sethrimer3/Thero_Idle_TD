@@ -80,6 +80,7 @@ import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycle
 import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
 import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
 import { createWaveUIFormatter } from './playfield/ui/WaveUIFormatter.js';
+import { createTowerMenuSystem } from './playfield/ui/TowerMenuSystem.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   beginPerformanceFrame,
@@ -643,6 +644,9 @@ export class SimplePlayfield {
       buildNextWaveQueue: () => this.buildNextWaveQueue(),
       buildActiveEnemyEntries: () => this.buildActiveEnemyEntries(),
     });
+    
+    // Initialize tower menu system after all methods are available
+    this.towerMenuSystem = createTowerMenuSystem(this);
   }
 
   // Property getter for backward compatibility - combatStats is now managed by combatStatsManager
@@ -2290,39 +2294,15 @@ export class SimplePlayfield {
    * Locate the currently selected tower so option clicks can mutate its settings.
    */
   getActiveMenuTower() {
-    if (!this.activeTowerMenu?.towerId) {
-      return null;
-    }
-    const tower = this.towers.find((candidate) => candidate?.id === this.activeTowerMenu.towerId);
-    if (!tower) {
-      this.activeTowerMenu = null;
-      this.towerMenuExitAnimation = null;
-    }
-    return tower || null;
+    return this.towerMenuSystem ? this.towerMenuSystem.getActiveMenuTower() : null;
   }
 
   /**
    * Present the radial command menu for the supplied tower.
    */
   openTowerMenu(tower, options = {}) {
-    if (!tower) {
-      return;
-    }
-    const timestamp =
-      typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
-    this.activeTowerMenu = {
-      towerId: tower.id,
-      openedAt: timestamp,
-      anchor: { x: tower.x, y: tower.y },
-      geometrySnapshot: null,
-    };
-    // Opening a fresh lattice menu cancels any lingering dismissal animation.
-    this.towerMenuExitAnimation = null;
-    if (this.messageEl && !options.silent) {
-      const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
-      this.messageEl.textContent = `${label} command lattice ready.`;
+    if (this.towerMenuSystem) {
+      this.towerMenuSystem.openTowerMenu(tower, options);
     }
   }
 
@@ -2330,289 +2310,38 @@ export class SimplePlayfield {
    * Hide any open radial tower menu.
    */
   closeTowerMenu() {
-    const currentMenu = this.activeTowerMenu;
-    if (!currentMenu) {
-      this.towerMenuExitAnimation = null;
-      this.activeTowerMenu = null;
-      return;
+    if (this.towerMenuSystem) {
+      this.towerMenuSystem.closeTowerMenu();
     }
-    const timestamp = this.getCurrentTimestamp();
-    const tower = this.getActiveMenuTower();
-    const geometry = tower ? this.getTowerMenuGeometry(tower) : currentMenu.geometrySnapshot || null;
-    const anchor = tower
-      ? { x: tower.x, y: tower.y }
-      : currentMenu.anchor
-      ? { x: currentMenu.anchor.x, y: currentMenu.anchor.y }
-      : null;
-    if (
-      geometry &&
-      anchor &&
-      Number.isFinite(geometry.optionRadius) &&
-      Number.isFinite(geometry.ringRadius) &&
-      Array.isArray(geometry.options) &&
-      geometry.options.length
-    ) {
-      // Snapshot the current lattice layout so the renderer can animate the dismissal even after the tower reference clears.
-      this.towerMenuExitAnimation = {
-        anchor,
-        startedAt: timestamp,
-        optionRadius: geometry.optionRadius,
-        ringRadius: geometry.ringRadius,
-        options: geometry.options.map((option) => ({
-          angle: option.angle,
-          icon: option.icon,
-          costLabel: option.costLabel,
-          selected: option.selected,
-          disabled: option.disabled,
-        })),
-      };
-    } else {
-      this.towerMenuExitAnimation = null;
-    }
-    this.activeTowerMenu = null;
   }
 
   /**
    * Generate option metadata for the active tower menu.
    */
   buildTowerMenuOptions(tower) {
-    if (!tower) {
-      return [];
-    }
-    const options = [];
-    const nextId = getNextTowerId(tower.type);
-    const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
-    const upgradeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
-    const upgradeAffordable = nextDefinition ? this.energy >= upgradeCost : false;
-    const upgradeCostLabel = nextDefinition
-      ? `${formatCombatNumber(Math.max(0, upgradeCost))} ${this.theroSymbol}`
-      : '—';
-    // Surface an upgrade command that mirrors the merge flow and displays the next tier cost inside the radial lattice.
-    options.push({
-      id: 'upgrade',
-      type: 'upgrade',
-      icon: nextDefinition?.symbol || '·',
-      label: nextDefinition ? `Upgrade to ${nextDefinition.symbol}` : 'Upgrade unavailable',
-      costLabel: upgradeCostLabel,
-      disabled: !nextDefinition || !upgradeAffordable,
-      upgradeCost,
-      nextTowerId: nextDefinition?.id || null,
-    });
-    options.push({
-      id: 'sell',
-      type: 'action',
-      icon: '$þ',
-      label: 'Sell lattice',
-    });
-    // Surface the tower dossier overlay entry point directly inside the radial menu.
-    options.push({
-      id: 'info',
-      type: 'info',
-      icon: 'ℹ',
-      label: 'Tower information',
-    });
-    const priority = tower.targetPriority || 'first';
-    options.push({
-      id: 'priority-first',
-      type: 'priority',
-      value: 'first',
-      icon: '1st',
-      label: 'First priority',
-      selected: priority === 'first',
-    });
-    options.push({
-      id: 'priority-strongest',
-      type: 'priority',
-      value: 'strongest',
-      icon: 'Str',
-      label: 'Strongest priority',
-      selected: priority === 'strongest',
-    });
-    options.push({
-      id: 'priority-weakest',
-      type: 'priority',
-      value: 'weakest',
-      icon: 'Wk',
-      label: 'Weakest priority',
-      selected: priority === 'weakest',
-    });
-    if (tower.type === 'delta') {
-      const mode = tower.behaviorMode || 'pursuit';
-      options.push({
-        id: 'delta-pursuit',
-        type: 'mode',
-        value: 'pursuit',
-        icon: 'Δ→',
-        label: 'Pursue target',
-        selected: mode === 'pursuit',
-      });
-      options.push({
-        id: 'delta-track',
-        type: 'mode',
-        value: 'trackHold',
-        icon: 'Δ∥',
-        label: 'Hold track',
-        selected: mode === 'trackHold',
-      });
-      options.push({
-        id: 'delta-guard',
-        type: 'mode',
-        value: 'sentinel',
-        icon: 'Δ◎',
-        label: 'Guard tower',
-        selected: mode === 'sentinel',
-      });
-    }
-    return options;
+    return this.towerMenuSystem ? this.towerMenuSystem.buildTowerMenuOptions(tower) : [];
   }
 
   /**
    * Compute the world-space layout for the radial menu options.
    */
   getTowerMenuGeometry(tower) {
-    const options = this.buildTowerMenuOptions(tower);
-    if (!tower || !options.length) {
-      return null;
-    }
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const optionRadius = Math.max(22, minDimension * 0.04);
-    const ringRadius = Math.max(optionRadius * 2.4, minDimension * 0.12);
-    const startAngle = -HALF_PI;
-    const angleStep = TWO_PI / options.length;
-    const layout = options.map((option, index) => {
-      const angle = startAngle + index * angleStep;
-      return {
-        ...option,
-        angle,
-        center: {
-          x: tower.x + Math.cos(angle) * ringRadius,
-          y: tower.y + Math.sin(angle) * ringRadius,
-        },
-      };
-    });
-    return { options: layout, optionRadius, ringRadius };
+    return this.towerMenuSystem ? this.towerMenuSystem.getTowerMenuGeometry(tower) : null;
   }
 
   /**
    * Handle clicks on the radial tower command menu.
    */
   handleTowerMenuClick(position) {
-    const tower = this.getActiveMenuTower();
-    if (!tower) {
-      return false;
-    }
-    const geometry = this.getTowerMenuGeometry(tower);
-    if (!geometry) {
-      return false;
-    }
-    const { options, optionRadius } = geometry;
-    const hitRadius = optionRadius * 1.1;
-    for (let index = 0; index < options.length; index += 1) {
-      const option = options[index];
-      const dx = position.x - option.center.x;
-      const dy = position.y - option.center.y;
-      const distance = Math.hypot(dx, dy);
-      if (distance > hitRadius) {
-        continue;
-      }
-      this.executeTowerMenuOption(tower, option);
-      return true;
-    }
-    return false;
+    return this.towerMenuSystem ? this.towerMenuSystem.handleTowerMenuClick(position) : false;
   }
 
   /**
    * Apply the effect of a selected tower option.
    */
   executeTowerMenuOption(tower, option) {
-    if (!tower || !option) {
-      return;
-    }
-    if (option.type === 'upgrade') {
-      // Route upgrade taps through the merge routine so single-tower ascensions mirror drag-and-drop merges.
-      this.upgradeTowerTier(tower, {
-        silent: Boolean(option.silent),
-        expectedNextId: option.nextTowerId || null,
-        quotedCost: Number.isFinite(option.upgradeCost) ? option.upgradeCost : null,
-      });
-      return;
-    }
-    if (option.type === 'action' && option.id === 'sell') {
-      this.sellTower(tower);
-      return;
-    }
-    if (option.type === 'info') {
-      // Route the command to the tower overlay so players can review formulas mid-combat.
-      if (tower?.type) {
-        const contextTowers = this.towers
-          .map((candidate) => ({
-            id: candidate?.id,
-            type: candidate?.type,
-            x: candidate?.x,
-            y: candidate?.y,
-            range: candidate?.range,
-            connections: candidate?.linkTargetId ? [candidate.linkTargetId] : [],
-            sources: candidate?.linkSources instanceof Set ? Array.from(candidate.linkSources) : [],
-            prestige: candidate?.prestige === true || candidate?.isPrestigeSigma === true,
-            nuKills: candidate?.nuState?.kills,
-            nuOverkillTotal: candidate?.nuState?.overkillDamageTotal,
-          }))
-          .filter((entry) => entry.id && Number.isFinite(entry.x) && Number.isFinite(entry.y));
-        openTowerUpgradeOverlay(tower.type, {
-          contextTowerId: tower.id,
-          contextTower: {
-            id: tower.id,
-            type: tower.type,
-            x: tower.x,
-            y: tower.y,
-            range: tower.range,
-            connections: tower.linkTargetId ? [tower.linkTargetId] : [],
-            sources: tower.linkSources instanceof Set ? Array.from(tower.linkSources) : [],
-            prestige: tower?.prestige === true || tower?.isPrestigeSigma === true,
-            nuKills: tower?.nuState?.kills,
-            nuOverkillTotal: tower?.nuState?.overkillDamageTotal,
-          },
-          contextTowers,
-          unspentThero: this.energy,
-        });
-      }
-      if (this.messageEl) {
-        const label = tower.definition?.name || `${tower.symbol || 'Tower'}`;
-        this.messageEl.textContent = `${label} dossier projected over the field.`;
-      }
-      this.closeTowerMenu();
-      return;
-    }
-    if (option.type === 'priority' && option.value) {
-      if (tower.targetPriority !== option.value) {
-        tower.targetPriority = option.value;
-        if (this.messageEl) {
-          const descriptor =
-            option.value === 'strongest'
-              ? 'strongest'
-              : option.value === 'weakest'
-                ? 'weakest'
-                : 'first';
-          this.messageEl.textContent = `Target priority set to ${descriptor}.`;
-        }
-      }
-      this.openTowerMenu(tower, { silent: true });
-      return;
-    }
-    if (option.type === 'mode' && tower.type === 'delta' && option.value) {
-      if (tower.behaviorMode !== option.value) {
-        this.configureDeltaBehavior(tower, option.value);
-        if (this.messageEl) {
-          const descriptor =
-            option.value === 'trackHold'
-              ? 'Holding the glyph lane.'
-              : option.value === 'sentinel'
-              ? 'Guarding the lattice.'
-              : 'Pursuing threats.';
-          this.messageEl.textContent = `Δ cohort stance updated—${descriptor}`;
-        }
-      }
-      this.openTowerMenu(tower, { silent: true });
+    if (this.towerMenuSystem) {
+      this.towerMenuSystem.executeTowerMenuOption(tower, option);
     }
   }
 
@@ -2620,20 +2349,7 @@ export class SimplePlayfield {
    * Allow the player to mark a manual target for sentry mode Delta soldiers.
    */
   handleTowerMenuEnemySelection(tower, enemy) {
-    if (!tower || tower.type !== 'delta' || tower.behaviorMode !== 'sentinel' || !enemy) {
-      return false;
-    }
-    const state = this.ensureDeltaState(tower);
-    if (!state) {
-      return false;
-    }
-    state.manualTargetId = enemy.id;
-    if (this.messageEl) {
-      const label = enemy.label || this.resolveEnemySymbol(enemy) || 'glyph';
-      this.messageEl.textContent = `Δ cohort assigned to ${label}.`;
-    }
-    this.openTowerMenu(tower, { silent: true });
-    return true;
+    return this.towerMenuSystem ? this.towerMenuSystem.handleTowerMenuEnemySelection(tower, enemy) : false;
   }
 
   /**
