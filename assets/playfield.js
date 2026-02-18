@@ -67,10 +67,9 @@ import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
-import * as DeveloperCrystalManager from './playfield/managers/DeveloperCrystalManager.js';
-import * as DeveloperTowerManager from './playfield/managers/DeveloperTowerManager.js';
 import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
 import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
+import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
   beginPerformanceFrame,
@@ -594,12 +593,8 @@ export class SimplePlayfield {
     this.towerGlyphTransitions = new Map();
 
     this.developerPathMarkers = [];
-    // Developer crystals are sandbox obstacles that towers can chip away during testing.
-    this.developerCrystals = [];
-    this.crystalShards = [];
-    this.crystalIdCounter = 0;
-    this.focusedCrystalId = null;
-
+    // Developer tools service handles crystals and developer towers
+    this.developerTools = null; // Created after needed methods are available
 
     this.enemyTooltip = null;
     this.enemyTooltipNameEl = null;
@@ -2695,6 +2690,10 @@ export class SimplePlayfield {
       dependencies: this.dependencies,
       theroSymbol: this.theroSymbol,
     });
+
+    // Initialize developer tools service
+    this.developerTools = createDeveloperToolsService(this);
+    this.developerTools.initialize();
     
     // Store endless mode flag for when combat starts
     this.startInEndlessMode = startInEndless;
@@ -7009,6 +7008,112 @@ export class SimplePlayfield {
   
   get baseWaveCount() {
     return this.levelConfig?.waves?.length || 0;
+  }
+
+  // ==================== DeveloperToolsService Property Delegation ====================
+  // Property delegation pattern: Provide getters/setters that forward to the developer tools service
+  // to maintain backward compatibility while extracting developer-only functionality.
+  
+  get developerCrystals() {
+    return this.developerTools ? this.developerTools.crystals : [];
+  }
+  
+  get crystalShards() {
+    return this.developerTools ? this.developerTools.shards : [];
+  }
+  
+  get crystalIdCounter() {
+    return this.developerTools ? this.developerTools.crystalIdCounter : 0;
+  }
+  
+  get focusedCrystalId() {
+    return this.developerTools ? this.developerTools.focusedCrystalId : null;
+  }
+  
+  // Crystal management methods
+  getCrystalRadius(crystal) {
+    return this.developerTools ? this.developerTools.getCrystalRadius(crystal) : 0;
+  }
+  
+  getCrystalPosition(crystal) {
+    return this.developerTools ? this.developerTools.getCrystalPosition(crystal) : null;
+  }
+  
+  addDeveloperCrystal(normalized, options = {}) {
+    return this.developerTools ? this.developerTools.addDeveloperCrystal(normalized, options) : false;
+  }
+  
+  clearDeveloperCrystals(options = {}) {
+    return this.developerTools ? this.developerTools.clearDeveloperCrystals(options) : 0;
+  }
+  
+  getFocusedCrystal() {
+    return this.developerTools ? this.developerTools.getFocusedCrystal() : null;
+  }
+  
+  setFocusedCrystal(crystal, options = {}) {
+    if (this.developerTools) {
+      this.developerTools.setFocusedCrystal(crystal, options);
+    }
+  }
+  
+  clearFocusedCrystal(options = {}) {
+    return this.developerTools ? this.developerTools.clearFocusedCrystal(options) : false;
+  }
+  
+  toggleCrystalFocus(crystal) {
+    if (this.developerTools) {
+      this.developerTools.toggleCrystalFocus(crystal);
+    }
+  }
+  
+  findCrystalAt(position) {
+    return this.developerTools ? this.developerTools.findCrystalAt(position) : null;
+  }
+  
+  createCrystalFracture(crystal, options = {}) {
+    if (this.developerTools) {
+      this.developerTools.createCrystalFracture(crystal, options);
+    }
+  }
+  
+  spawnCrystalShards(origin, baseRadius, options = {}) {
+    if (this.developerTools) {
+      this.developerTools.spawnCrystalShards(origin, baseRadius, options);
+    }
+  }
+  
+  applyCrystalHit(crystal, damage, options = {}) {
+    if (this.developerTools) {
+      this.developerTools.applyCrystalHit(crystal, damage, options);
+    }
+  }
+  
+  updateCrystals(delta) {
+    if (this.developerTools) {
+      this.developerTools.updateCrystals(delta);
+    }
+  }
+  
+  removeDeveloperCrystal(crystalId) {
+    return this.developerTools ? this.developerTools.removeDeveloperCrystal(crystalId) : false;
+  }
+  
+  // Developer tower management methods
+  addDeveloperTower(normalized, options = {}) {
+    return this.developerTools ? this.developerTools.addDeveloperTower(normalized, options) : false;
+  }
+  
+  clearDeveloperTowers(options = {}) {
+    return this.developerTools ? this.developerTools.clearDeveloperTowers(options) : 0;
+  }
+  
+  findDeveloperTowerAt(position) {
+    return this.developerTools ? this.developerTools.findDeveloperTowerAt(position) : null;
+  }
+  
+  removeDeveloperTower(towerId) {
+    return this.developerTools ? this.developerTools.removeDeveloperTower(towerId) : false;
   }
 
   getCycleMultiplier() {
@@ -11338,10 +11443,6 @@ export class SimplePlayfield {
 }
 
 Object.assign(SimplePlayfield.prototype, TowerSelectionWheel);
-
-Object.assign(SimplePlayfield.prototype, DeveloperCrystalManager);
-
-Object.assign(SimplePlayfield.prototype, DeveloperTowerManager);
 
 Object.assign(SimplePlayfield.prototype, {
   determinePreferredOrientation,
