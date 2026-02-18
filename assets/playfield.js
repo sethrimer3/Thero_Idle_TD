@@ -64,6 +64,7 @@ import {
 import * as InputController from './playfield/input/InputController.js';
 import * as GestureController from './playfield/input/GestureController.js';
 import { TOWER_HOLD_ACTIVATION_MS } from './playfield/input/GestureController.js';
+import * as FloaterSystem from './playfield/systems/FloaterSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
@@ -6976,184 +6977,6 @@ export class SimplePlayfield {
     });
   }
 
-  updateFloaters(delta) {
-    if (!this.floaters.length || !this.levelConfig) {
-      return;
-    }
-
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    if (!width || !height) {
-      return;
-    }
-
-    const dt = Math.max(0, Math.min(delta, 0.05));
-    const minDimension = Math.min(width, height);
-    if (!minDimension) {
-      return;
-    }
-
-    const influenceScale = Math.max(0.6, Math.min(1.4, minDimension / 600));
-    const pairDistance = minDimension * 0.28;
-    const towerInfluence = minDimension * 0.3;
-    const nodeInfluence = minDimension * 0.32;
-    const enemyInfluence = minDimension * 0.26;
-    const edgeMargin = minDimension * 0.12;
-
-    const pairRepelStrength = 18 * influenceScale;
-    const towerRepelStrength = 42 * influenceScale;
-    const enemyRepelStrength = 46 * influenceScale;
-    const edgeRepelStrength = 24 * influenceScale;
-
-    const damping = dt > 0 ? Math.exp(-dt * 1.6) : 1;
-    const smoothing = dt > 0 ? 1 - Math.exp(-dt * 6) : 1;
-    const maxSpeed = minDimension * 0.6;
-
-    const floaters = this.floaters;
-    const connections = [];
-
-    const startPoint = this.pathPoints.length ? this.pathPoints[0] : null;
-    const endPoint =
-      this.pathPoints.length > 1 ? this.pathPoints[this.pathPoints.length - 1] : startPoint;
-
-    const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
-    const enemyPositions = this.enemies.map((enemy) => this.getEnemyPosition(enemy));
-
-    for (let index = 0; index < floaters.length; index += 1) {
-      const floater = floaters[index];
-      floater.ax = 0;
-      floater.ay = 0;
-      floater.opacityTarget = 0;
-    }
-
-    for (let i = 0; i < floaters.length - 1; i += 1) {
-      const a = floaters[i];
-      for (let j = i + 1; j < floaters.length; j += 1) {
-        const b = floaters[j];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const distance = Math.hypot(dx, dy);
-        if (!distance || distance >= pairDistance) {
-          continue;
-        }
-        const proximity = 1 - distance / pairDistance;
-        const force = pairRepelStrength * proximity;
-        const dirX = dx / distance;
-        const dirY = dy / distance;
-        a.ax -= dirX * force;
-        a.ay -= dirY * force;
-        b.ax += dirX * force;
-        b.ay += dirY * force;
-        const connectionStrength = Math.min(1, proximity);
-        connections.push({ from: i, to: j, strength: connectionStrength });
-        a.opacityTarget = Math.max(a.opacityTarget, proximity);
-        b.opacityTarget = Math.max(b.opacityTarget, proximity);
-      }
-    }
-
-    floaters.forEach((floater) => {
-      if (floater.x < edgeMargin) {
-        const proximity = 1 - floater.x / edgeMargin;
-        floater.ax += edgeRepelStrength * proximity;
-      }
-      if (width - floater.x < edgeMargin) {
-        const proximity = 1 - (width - floater.x) / edgeMargin;
-        floater.ax -= edgeRepelStrength * proximity;
-      }
-      if (floater.y < edgeMargin) {
-        const proximity = 1 - floater.y / edgeMargin;
-        floater.ay += edgeRepelStrength * proximity;
-      }
-      if (height - floater.y < edgeMargin) {
-        const proximity = 1 - (height - floater.y) / edgeMargin;
-        floater.ay -= edgeRepelStrength * proximity;
-      }
-
-      towerPositions.forEach((towerPosition) => {
-        const dx = floater.x - towerPosition.x;
-        const dy = floater.y - towerPosition.y;
-        const distance = Math.hypot(dx, dy);
-        if (!distance || distance >= towerInfluence) {
-          return;
-        }
-        const proximity = 1 - distance / towerInfluence;
-        const force = towerRepelStrength * proximity;
-        floater.ax += (dx / distance) * force;
-        floater.ay += (dy / distance) * force;
-        floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
-      });
-
-      enemyPositions.forEach((enemyPosition) => {
-        if (!enemyPosition) {
-          return;
-        }
-        const dx = floater.x - enemyPosition.x;
-        const dy = floater.y - enemyPosition.y;
-        const distance = Math.hypot(dx, dy);
-        if (!distance || distance >= enemyInfluence) {
-          return;
-        }
-        const proximity = 1 - distance / enemyInfluence;
-        const force = enemyRepelStrength * proximity;
-        floater.ax += (dx / distance) * force;
-        floater.ay += (dy / distance) * force;
-        floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
-      });
-
-      if (startPoint) {
-        const dx = floater.x - startPoint.x;
-        const dy = floater.y - startPoint.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance < nodeInfluence) {
-          const proximity = 1 - distance / nodeInfluence;
-          floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
-        }
-      }
-      if (endPoint && endPoint !== startPoint) {
-        const dx = floater.x - endPoint.x;
-        const dy = floater.y - endPoint.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance < nodeInfluence) {
-          const proximity = 1 - distance / nodeInfluence;
-          floater.opacityTarget = Math.max(floater.opacityTarget, proximity);
-        }
-      }
-    });
-
-    floaters.forEach((floater) => {
-      floater.ax = Number.isFinite(floater.ax) ? floater.ax : 0;
-      floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
-      floater.vx = Number.isFinite(floater.vx) ? floater.vx : 0;
-      floater.vy = Number.isFinite(floater.vy) ? floater.vy : 0;
-
-      floater.vx = (floater.vx + floater.ax * dt) * damping;
-      floater.vy = (floater.vy + floater.ay * dt) * damping;
-
-      const speed = Math.hypot(floater.vx, floater.vy);
-      if (speed > maxSpeed && speed > 0) {
-        const scale = maxSpeed / speed;
-        floater.vx *= scale;
-        floater.vy *= scale;
-      }
-
-      floater.x += floater.vx * dt;
-      floater.y += floater.vy * dt;
-
-      const softMargin = Math.min(width, height) * 0.02;
-      floater.x = Math.min(width - softMargin, Math.max(softMargin, floater.x));
-      floater.y = Math.min(height - softMargin, Math.max(softMargin, floater.y));
-
-      floater.opacityTarget = Math.min(1, Math.max(0, floater.opacityTarget));
-      if (!Number.isFinite(floater.opacity)) {
-        floater.opacity = 0;
-      }
-      const blend = smoothing;
-      floater.opacity += (floater.opacityTarget - floater.opacity) * blend;
-      floater.opacity = Math.min(1, Math.max(0, floater.opacity));
-    });
-
-    this.floaterConnections = connections;
-  }
 
   updateTrackRiverParticles(delta) {
     if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
@@ -10937,6 +10760,11 @@ Object.assign(SimplePlayfield.prototype, {
   cancelTowerHoldGesture: GestureController.cancelTowerHoldGesture,
   handleTowerPointerPress: GestureController.handleTowerPointerPress,
   handleTowerPointerRelease: GestureController.handleTowerPointerRelease,
+});
+
+// Floater particle system methods
+Object.assign(SimplePlayfield.prototype, {
+  updateFloaters: FloaterSystem.updateFloaters,
 });
 
 Object.assign(SimplePlayfield.prototype, {
