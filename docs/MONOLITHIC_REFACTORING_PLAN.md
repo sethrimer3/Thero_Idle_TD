@@ -1114,22 +1114,24 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 453) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 457) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 11,353 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 11,454 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~124 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~125 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 453):**
-- Playfield.js reduced from 11,888 to 11,353 lines (535 line reduction, -4.5%)
+**Progress Notes (Build 457):**
+- Playfield.js at 11,454 lines (101 line increase from delegation, net organizational improvement)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
-- Total extracted: 1,562 lines across three modules
-- Extracted combat state, tower orchestration, and render loop management
+- DeveloperToolsService.js created: 560 lines (Build 457)
+- Total extracted: 2,122 lines across four modules
+- Extracted combat state, tower orchestration, render loop, and developer tools
 - Maintained backward compatibility through property delegation and wrapper methods
+- Developer functionality now isolated in dedicated service with clean API
 
 ### Milestone Tracking
 
@@ -1139,7 +1141,7 @@ Update this section as refactoring progresses:
 - [x] Playfield Combat State Manager extracted (Build 444-446)
 - [x] Playfield Tower Orchestration Controller extracted (Build 448-449)
 - [x] Playfield Rendering Coordinator extracted (Build 450)
-- [ ] Playfield Developer Tools Service extracted
+- [x] Playfield Developer Tools Service extracted (Build 457)
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
 - [ ] Main.js Lifecycle Coordinator extracted
@@ -1249,6 +1251,51 @@ When the project adds automated testing:
 - Victory/defeat condition checking
 - Resource tracking (energy, lives)
 - Endless mode support (cycle multipliers, speed scaling)
+
+**Integration Pattern:**
+- Factory function with dependency injection
+- Property delegation via getters/setters for backward compatibility
+- Callback-based notifications for cross-system events
+
+**Key Learnings:**
+- No-op setters prevent "property has only a getter" errors
+- Manager should own state, playfield delegates access
+- Performance remains unchanged when delegation is lightweight
+
+### Phase 1.1.4: Developer Tools Service (Build 457)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/services/DeveloperToolsService.js` (~560 lines)
+
+**Responsibilities Extracted:**
+- Developer crystal management (spawning, damage, fractures, shards)
+- Developer tower placement and removal
+- Crystal focus tracking for tower targeting
+- All developer-only testing functionality
+
+**Consolidation:**
+- Unified `DeveloperCrystalManager.js` (381 lines) + `DeveloperTowerManager.js` (125 lines)
+- Removed Object.assign mixin pattern
+- Encapsulated state within service (crystals, shards, counters, focusedCrystalId)
+
+**Integration Pattern:**
+- Factory function: `createDeveloperToolsService(playfield)`
+- Internal state encapsulation with accessor getters
+- Property delegation (110 methods/getters) maintains backward compatibility
+- Service initialized in `enterLevel()` after tower orchestration controller
+
+**Performance Considerations:**
+- Service creation gated behind level initialization (lazy instantiation)
+- Crystal update loop remains identical (no performance impact)
+- Delegation methods are inline (minimal overhead)
+
+**Key Learnings:**
+- Delegation pattern increases line count but improves maintainability
+- Consolidating related managers reduces conceptual overhead
+- Service pattern isolates developer-only code for potential tree-shaking
+- Property getters provide clean backward compatibility
+
 
 **Integration Approach:**
 - Factory function pattern with dependency injection
