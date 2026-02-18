@@ -1114,16 +1114,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 466) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 467) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 9,214 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 9,033 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~131 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~132 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 466):**
-- Playfield.js at 9,214 lines (468 line reduction from visual effects system extraction)
+**Progress Notes (Build 467):**
+- Playfield.js at 9,033 lines (181 line reduction from combat stats manager extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1135,11 +1135,12 @@ Track these metrics to measure progress:
 - BackgroundSwimmerSystem.js created: 197 lines (Build 464)
 - ProjectileUpdateSystem.js created: 610 lines (Build 465)
 - VisualEffectsSystem.js created: 552 lines (Build 466)
-- Total extracted: 4,780 lines across eleven modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, and visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts)
-- Maintained backward compatibility through delegation pattern
-- Visual effects now isolated in dedicated system module with 13 exported functions
-- **Progress to Phase 1 target:** 84.8% (1,214 lines remaining)
+- CombatStatsManager.js created: 393 lines (Build 467)
+- Total extracted: 5,173 lines across twelve modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), and combat statistics tracking
+- Maintained backward compatibility through delegation pattern and property getters
+- Combat stats now managed via factory pattern with encapsulated state
+- **Progress to Phase 1 target:** 87.1% (1,033 lines remaining)
 
 ### Milestone Tracking
 
@@ -1157,6 +1158,7 @@ Update this section as refactoring progresses:
 - [x] Playfield Background Swimmer System extracted (Build 464)
 - [x] Playfield Projectile Update System extracted (Build 465)
 - [x] Playfield Visual Effects System extracted (Build 466)
+- [x] Playfield Combat Stats Manager extracted (Build 467)
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
 - [ ] Main.js Lifecycle Coordinator extracted

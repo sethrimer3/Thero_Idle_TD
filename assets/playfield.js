@@ -74,6 +74,7 @@ import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
+import { createCombatStatsManager } from './playfield/managers/CombatStatsManager.js';
 import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycleManager.js';
 import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
 import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
@@ -404,10 +405,8 @@ export class SimplePlayfield {
     this.endlessCheckpoint = null;
     this.endlessCheckpointUsed = false;
 
-    this.combatStats = this.createCombatStatsContainer();
-    this.statsPanelEnabled = false;
-    this.statsDirty = false;
-    this.statsLastRender = 0;
+    // Combat stats manager will be initialized after needed methods are available
+    this.combatStatsManager = null;
 
     // Allow callers (such as preview renderers) to override the natural orientation choice.
     this.preferredOrientationOverride =
@@ -635,26 +634,28 @@ export class SimplePlayfield {
     
     // Initialize lifecycle manager after all methods are available
     this.lifecycleManager = createLevelLifecycleManager({ playfield: this });
+    
+    // Initialize combat stats manager after all methods are available
+    this.combatStatsManager = createCombatStatsManager({
+      getTowers: () => this.towers,
+      buildCurrentWaveQueue: () => this.buildCurrentWaveQueue(),
+      buildNextWaveQueue: () => this.buildNextWaveQueue(),
+      buildActiveEnemyEntries: () => this.buildActiveEnemyEntries(),
+    });
   }
 
-  createCombatStatsContainer() {
-    return {
-      active: false,
-      elapsed: 0,
-      towerInstances: new Map(),
-      // Incremental index assigned to each unique placement so summaries can disambiguate duplicates.
-      placementCount: 0,
-      attackLog: [],
-      enemyHistory: [],
-    };
+  // Property getter for backward compatibility - combatStats is now managed by combatStatsManager
+  get combatStats() {
+    return this.combatStatsManager ? this.combatStatsManager.getCombatStats() : null;
   }
 
-  resetCombatStats() {
-    this.combatStats = this.createCombatStatsContainer();
-    this.statsDirty = false;
-    this.statsLastRender = 0;
-    if (typeof StatsPanel.resetPanel === 'function') {
-      StatsPanel.resetPanel();
+  get statsPanelEnabled() {
+    return this.combatStatsManager ? this.combatStatsManager.getStatsPanelEnabled() : false;
+  }
+
+  set statsPanelEnabled(value) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.setStatsPanelEnabled(value);
     }
   }
 
@@ -692,158 +693,6 @@ export class SimplePlayfield {
   // Advance the scribble/erase animation cycle for each active wave tally overlay.
   updateWaveTallies(delta) {
     this.waveTallyOverlays.update(delta);
-  }
-
-  setStatsPanelEnabled(enabled) {
-    this.statsPanelEnabled = Boolean(enabled);
-    if (typeof StatsPanel.setVisible === 'function') {
-      StatsPanel.setVisible(this.statsPanelEnabled);
-    }
-    if (this.statsPanelEnabled) {
-      this.refreshStatsPanel({ force: true });
-    }
-  }
-
-  ensureTowerStatsEntry(tower) {
-    if (!tower || !tower.id || !this.combatStats) {
-      return null;
-    }
-    let entry = this.combatStats.towerInstances.get(tower.id);
-    if (!entry) {
-      // Assign a unique placement index so identical tower types remain distinguishable in the UI.
-      const nextIndex = Number.isFinite(this.combatStats.placementCount)
-        ? this.combatStats.placementCount + 1
-        : 1;
-      this.combatStats.placementCount = nextIndex;
-      entry = {
-        id: tower.id,
-        type: tower.type,
-        totalDamage: 0,
-        killCount: 0,
-        activeTime: 0,
-        placementIndex: nextIndex,
-        firstPlacedAt: Number.isFinite(this.combatStats.elapsed)
-          ? Math.max(0, this.combatStats.elapsed)
-          : 0,
-      };
-      this.combatStats.towerInstances.set(tower.id, entry);
-    }
-    entry.type = tower.type;
-    entry.isActive = true;
-    return entry;
-  }
-
-  startCombatStatsSession() {
-    this.resetCombatStats();
-    this.combatStats.active = true;
-    if (Array.isArray(this.towers)) {
-      this.towers.forEach((tower) => this.ensureTowerStatsEntry(tower));
-    }
-    this.scheduleStatsPanelRefresh();
-    if (this.statsPanelEnabled) {
-      this.refreshStatsPanel({ force: true });
-    }
-  }
-
-  stopCombatStatsSession() {
-    if (this.combatStats) {
-      this.combatStats.active = false;
-    }
-    this.scheduleStatsPanelRefresh();
-    if (this.statsPanelEnabled) {
-      this.refreshStatsPanel({ force: true });
-    }
-  }
-
-  scheduleStatsPanelRefresh() {
-    this.statsDirty = true;
-  }
-
-  appendAttackLogEntry(tower, damage) {
-    if (!this.combatStats || !tower) {
-      return;
-    }
-    const value = Number.isFinite(damage) ? Math.max(0, damage) : 0;
-    if (value <= 0) {
-      return;
-    }
-    const log = this.combatStats.attackLog;
-    const maxEntries = 60;
-    const last = log[0];
-    if (last && last.type === tower.type) {
-      last.damage += value;
-      last.events = (last.events || 1) + 1;
-      last.timestamp = this.combatStats.elapsed;
-      return;
-    }
-    log.unshift({
-      type: tower.type,
-      damage: value,
-      events: 1,
-      timestamp: this.combatStats.elapsed,
-    });
-    if (log.length > maxEntries) {
-      log.length = maxEntries;
-    }
-  }
-
-  recordDamageEvent({ tower, enemy = null, damage = 0 } = {}) {
-    if (!tower || !Number.isFinite(damage) || damage <= 0 || !this.combatStats) {
-      return;
-    }
-    const entry = this.ensureTowerStatsEntry(tower);
-    if (entry) {
-      entry.totalDamage = (entry.totalDamage || 0) + damage;
-    }
-    if (enemy) {
-      if (!(enemy.damageContributors instanceof Map)) {
-        enemy.damageContributors = new Map();
-      }
-      const previous = enemy.damageContributors.get(tower.type) || 0;
-      enemy.damageContributors.set(tower.type, previous + damage);
-    }
-    this.appendAttackLogEntry(tower, damage);
-    this.scheduleStatsPanelRefresh();
-  }
-
-  // Track kill counts per tower so wave tallies and analytics stay in sync.
-  recordKillEvent(tower) {
-    if (!tower || !this.combatStats) {
-      return;
-    }
-    const entry = this.ensureTowerStatsEntry(tower);
-    if (!entry) {
-      return;
-    }
-    entry.killCount = (entry.killCount || 0) + 1;
-    this.scheduleStatsPanelRefresh();
-  }
-
-  buildTowerSummaries() {
-    if (!this.combatStats) {
-      return [];
-    }
-    const summaries = [];
-    this.combatStats.towerInstances.forEach((instance) => {
-      if (!instance || !instance.type) {
-        return;
-      }
-      const totalDamage = Number.isFinite(instance.totalDamage) ? Math.max(0, instance.totalDamage) : 0;
-      const activeTime = Number.isFinite(instance.activeTime) ? Math.max(0, instance.activeTime) : 0;
-      summaries.push({
-        id: instance.id,
-        type: instance.type,
-        totalDamage,
-        killCount: Number.isFinite(instance.killCount) ? Math.max(0, instance.killCount) : 0,
-        activeTime,
-        averageDps: activeTime > 0 ? totalDamage / activeTime : 0,
-        isActive: Boolean(instance.isActive),
-        placementIndex: Number.isFinite(instance.placementIndex) ? instance.placementIndex : null,
-        firstPlacedAt: Number.isFinite(instance.firstPlacedAt) ? instance.firstPlacedAt : 0,
-        retiredAt: Number.isFinite(instance.retiredAt) ? instance.retiredAt : null,
-      });
-    });
-    return summaries.sort((a, b) => b.totalDamage - a.totalDamage);
   }
 
   /**
@@ -1045,91 +894,6 @@ export class SimplePlayfield {
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
     return entries.map(({ priority, ...entry }) => entry);
-  }
-
-  captureEnemyHistory(enemy) {
-    if (!enemy || !this.combatStats) {
-      return;
-    }
-    const contributors = enemy.damageContributors instanceof Map
-      ? Array.from(enemy.damageContributors.entries())
-      : [];
-    const topContributors = contributors
-      .map(([type, amount]) => ({ type, damage: Number.isFinite(amount) ? Math.max(0, amount) : 0 }))
-      .filter((entry) => entry.damage > 0)
-      .sort((a, b) => b.damage - a.damage)
-      .slice(0, 3);
-    const historyEntry = {
-      id: enemy.id,
-      label: enemy.label || enemy.symbol || 'Enemy',
-      hp: Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : Math.max(0, enemy.hp || 0),
-      topContributors,
-      timestamp: this.combatStats.elapsed,
-    };
-    this.combatStats.enemyHistory.unshift(historyEntry);
-    const maxEntries = 40;
-    if (this.combatStats.enemyHistory.length > maxEntries) {
-      this.combatStats.enemyHistory.length = maxEntries;
-    }
-    this.scheduleStatsPanelRefresh();
-  }
-
-  refreshStatsPanel({ force = false } = {}) {
-    if (!this.combatStats) {
-      return;
-    }
-    if (!this.statsPanelEnabled && !force) {
-      this.statsDirty = false;
-      return;
-    }
-    const summaries = this.buildTowerSummaries();
-    if (typeof StatsPanel.renderTowerSummaries === 'function') {
-      StatsPanel.renderTowerSummaries(summaries);
-    }
-    if (typeof StatsPanel.renderAttackLog === 'function') {
-      StatsPanel.renderAttackLog(this.combatStats.attackLog.slice(0, 40));
-    }
-    if (typeof StatsPanel.renderEnemyHistory === 'function') {
-      StatsPanel.renderEnemyHistory(this.combatStats.enemyHistory.slice(0, 24));
-    }
-    if (typeof StatsPanel.renderCurrentWaveQueue === 'function') {
-      StatsPanel.renderCurrentWaveQueue(this.buildCurrentWaveQueue());
-    }
-    if (typeof StatsPanel.renderNextWaveQueue === 'function') {
-      StatsPanel.renderNextWaveQueue(this.buildNextWaveQueue());
-    }
-    if (typeof StatsPanel.renderActiveEnemyList === 'function') {
-      StatsPanel.renderActiveEnemyList(this.buildActiveEnemyEntries());
-    }
-    this.statsDirty = false;
-    this.statsLastRender = this.combatStats.elapsed;
-  }
-
-  updateCombatStats(delta) {
-    if (!this.combatStats || !this.combatStats.active) {
-      return;
-    }
-    const step = Number.isFinite(delta) ? Math.max(0, delta) : 0;
-    this.combatStats.elapsed += step;
-    const activeIds = new Set();
-    this.towers.forEach((tower) => {
-      const entry = this.ensureTowerStatsEntry(tower);
-      if (entry) {
-        entry.activeTime = (entry.activeTime || 0) + step;
-        activeIds.add(tower.id);
-      }
-    });
-    this.combatStats.towerInstances.forEach((entry, towerId) => {
-      if (!activeIds.has(towerId) && entry) {
-        entry.isActive = false;
-      }
-    });
-    if (this.statsPanelEnabled && this.statsDirty) {
-      const elapsedSinceRender = this.combatStats.elapsed - this.statsLastRender;
-      if (elapsedSinceRender >= 0.25) {
-        this.refreshStatsPanel();
-      }
-    }
   }
 
   // Reports whether low graphics mode is active for the current render cycle.
@@ -9202,6 +8966,61 @@ Object.assign(SimplePlayfield.prototype, {
   resetEnemyDeathParticles: VisualEffectsSystem.resetEnemyDeathParticles,
   spawnPsiMergeEffect: VisualEffectsSystem.spawnPsiMergeEffect,
   spawnPsiAoeEffect: VisualEffectsSystem.spawnPsiAoeEffect,
+});
+
+// Combat stats manager methods (wrap manager calls for delegation)
+Object.assign(SimplePlayfield.prototype, {
+  resetCombatStats() {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.resetCombatStats();
+    }
+  },
+  startCombatStatsSession() {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.startCombatStatsSession();
+    }
+  },
+  stopCombatStatsSession() {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.stopCombatStatsSession();
+    }
+  },
+  updateCombatStats(delta) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.updateCombatStats(delta);
+    }
+  },
+  recordDamageEvent(options) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.recordDamageEvent(options);
+    }
+  },
+  recordKillEvent(tower) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.recordKillEvent(tower);
+    }
+  },
+  captureEnemyHistory(enemy) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.captureEnemyHistory(enemy);
+    }
+  },
+  buildTowerSummaries() {
+    return this.combatStatsManager ? this.combatStatsManager.buildTowerSummaries() : [];
+  },
+  refreshStatsPanel(options) {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.refreshStatsPanel(options);
+    }
+  },
+  scheduleStatsPanelRefresh() {
+    if (this.combatStatsManager) {
+      this.combatStatsManager.scheduleStatsPanelRefresh();
+    }
+  },
+  ensureTowerStatsEntry(tower) {
+    return this.combatStatsManager ? this.combatStatsManager.ensureTowerStatsEntry(tower) : null;
+  },
 });
 
 Object.assign(SimplePlayfield.prototype, {
