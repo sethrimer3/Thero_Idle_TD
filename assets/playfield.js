@@ -71,6 +71,7 @@ import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
+import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycleManager.js';
 import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
 import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
 import { createWaveUIFormatter } from './playfield/ui/WaveUIFormatter.js';
@@ -596,6 +597,9 @@ export class SimplePlayfield {
     // Developer tools service handles crystals and developer towers
     this.developerTools = null; // Created after needed methods are available
 
+    // Level lifecycle manager handles level entry/exit
+    this.lifecycleManager = null; // Created after needed methods are available
+
     this.enemyTooltip = null;
     this.enemyTooltipNameEl = null;
     this.enemyTooltipHpEl = null;
@@ -625,6 +629,9 @@ export class SimplePlayfield {
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
     }
+    
+    // Initialize lifecycle manager after all methods are available
+    this.lifecycleManager = createLevelLifecycleManager({ playfield: this });
   }
 
   createCombatStatsContainer() {
@@ -2320,396 +2327,15 @@ export class SimplePlayfield {
   }
 
   enterLevel(level, options = {}) {
-    if (!this.container) {
-      return;
-    }
-
-    const levelId = level?.id;
-    const config = levelId ? levelConfigs.get(levelId) : null;
-    const isInteractive = Boolean(config);
-    const startInEndless = Boolean(options.endlessMode || config?.forceEndlessMode);
-
-    if (this.previewOnly && !isInteractive) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      return;
-    }
-
-    this.cancelAutoStart();
-
-    this.clearDeveloperCrystals({ silent: true });
-
-    if (!isInteractive) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      
-      // Reset combat state manager
-      if (this.combatStateManager) {
-        this.combatStateManager.reset();
-      }
-      
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.resetCombatStats();
-      this.setStatsPanelEnabled(false);
-      this.disableSlots(true);
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.alphaBursts = [];
-      this.betaBursts = [];
-      this.gammaBursts = [];
-      this.gammaStarBursts = [];
-      this.nuBursts = [];
-      this.swarmClouds = [];
-      this.towers = [];
-      // Clear cached Nu tower dimensions when entering non-interactive mode.
-      clearNuCachedDimensionsHelper();
-      this.energy = 0;
-      this.lives = 0;
-      // Reset gate defense while previewing non-interactive layouts.
-      this.gateDefense = 0;
-      if (this.autoWaveCheckbox) {
-        this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-        this.autoWaveCheckbox.disabled = true;
-      }
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      this.basePathPoints = [];
-      this.baseAutoAnchors = [];
-      if (this.messageEl) {
-        this.messageEl.textContent = 'This level preview is not interactive yet.';
-      }
-      if (this.waveEl) this.waveEl.textContent = '—';
-      if (this.healthEl) this.healthEl.textContent = '—';
-      if (this.energyEl) this.energyEl.textContent = '—';
-      if (this.progressEl) {
-        this.progressEl.textContent = 'Select an unlocked level to battle.';
-      }
-      if (this.startButton) {
-        this.startButton.textContent = 'Preview Only';
-        this.startButton.disabled = true;
-      }
-      this.updateSpeedButton();
-      this.updateAutoAnchorButton();
-      cancelTowerDrag();
-      return;
-    }
-
-    const clonedConfig = {
-      ...config,
-      waves: config.waves.map((wave) => ({ ...wave })),
-      path: config.path.map((node) => ({ ...node })),
-      autoAnchors: Array.isArray(config.autoAnchors)
-        ? config.autoAnchors.map((anchor) => ({ ...anchor }))
-        : [],
-    };
-
-    const developerInfiniteThero = Boolean(
-      this.dependencies.isDeveloperInfiniteTheroEnabled?.(),
-    );
-    const forceInfiniteThero = Boolean(config?.infiniteThero || developerInfiniteThero);
-    if (forceInfiniteThero) {
-      clonedConfig.infiniteThero = true;
-      clonedConfig.startThero = Number.POSITIVE_INFINITY;
-      clonedConfig.theroCap = Number.POSITIVE_INFINITY;
-    } else {
-      const calculateStartingThero = this.dependencies.calculateStartingThero;
-      const getBaseStartThero = this.dependencies.getBaseStartThero;
-      const baseStart =
-        typeof getBaseStartThero === 'function' ? getBaseStartThero() : 0;
-      const dynamicStartThero =
-        typeof calculateStartingThero === 'function' ? calculateStartingThero() : 0;
-      clonedConfig.startThero = Number.isFinite(dynamicStartThero)
-        ? dynamicStartThero
-        : baseStart;
-    }
-    clonedConfig.forceEndlessMode = Boolean(config?.forceEndlessMode);
-    const getBaseCoreIntegrity = this.dependencies.getBaseCoreIntegrity;
-    clonedConfig.lives =
-      typeof getBaseCoreIntegrity === 'function' ? getBaseCoreIntegrity() : 0;
-
-    const basePathPoints = Array.isArray(clonedConfig.path)
-      ? clonedConfig.path.map((node) => this.cloneNormalizedPoint(node))
-      : [];
-    const baseAutoAnchors = Array.isArray(clonedConfig.autoAnchors)
-      ? clonedConfig.autoAnchors.map((anchor) => this.cloneNormalizedPoint(anchor))
-      : [];
-    this.basePathPoints = basePathPoints;
-    this.baseAutoAnchors = baseAutoAnchors;
-    this.layoutOrientation = this.determinePreferredOrientation();
-
-    this.levelActive = true;
-    this.levelConfig = clonedConfig;
-    
-    // Initialize combat state manager with level configuration
-    this.combatStateManager = createCombatStateManager({
-      levelConfig: clonedConfig,
-      audio: this.audio,
-      onVictory: this.onVictory,
-      onDefeat: this.onDefeat,
-      onCombatStart: this.onCombatStart,
-      recordKillEvent: (towerId) => this.recordKillEvent(towerId),
-      tryConvertEnemyToChiThrall: (enemy, context) => this.tryConvertEnemyToChiThrall(enemy, context),
-      triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
-      notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
-    });
-
-    // Initialize tower orchestration controller
-    this.towerOrchestrationController = createTowerOrchestrationController({
-      playfield: this,
-      combatState: this.combatStateManager,
-      towerManager: TowerManager,
-      audio: this.audio,
-      messageEl: this.messageEl,
-      dependencies: this.dependencies,
-      theroSymbol: this.theroSymbol,
-    });
-
-    // Initialize developer tools service
-    this.developerTools = createDeveloperToolsService(this);
-    this.developerTools.initialize();
-
-    // Initialize wave UI formatter
-    this.waveFormatter = createWaveUIFormatter({
-      currentWaveNumber: () => this.currentWaveNumber,
-      waveIndex: () => this.waveIndex,
-      theroSymbol: () => this.theroSymbol,
-    });
-    
-    // Store endless mode flag for when combat starts
-    this.startInEndlessMode = startInEndless;
-    
-    // Clear any stored checkpoint when a fresh state is requested.
-    this.endlessCheckpoint = null;
-    this.endlessCheckpointUsed = false;
-    this.viewScale = 1;
-    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-    this.applyViewConstraints();
-    this.activePointers.clear();
-    this.pinchState = null;
-    this.isPinchZooming = false;
-    this.applyLevelOrientation();
-    this.applyContainerOrientationClass();
-    if (this.previewOnly) {
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.arcOffset = 0;
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.alphaBursts = [];
-      this.betaBursts = [];
-      this.gammaBursts = [];
-      this.gammaStarBursts = [];
-      this.nuBursts = [];
-      this.swarmClouds = [];
-      this.towers = [];
-      this.hoverPlacement = null;
-      this.pointerPosition = null;
-      this.syncCanvasSize();
-      if (typeof window !== 'undefined') {
-        const activeLevelId = this.levelConfig?.id;
-        const attemptSync = () => {
-          if (!this.previewOnly) {
-            return;
-          }
-          if (!this.levelConfig || this.levelConfig.id !== activeLevelId) {
-            return;
-          }
-          const rect = this.canvas ? this.canvas.getBoundingClientRect() : null;
-          if (!rect || rect.width < 2 || rect.height < 2) {
-            window.requestAnimationFrame(attemptSync);
-            return;
-          }
-          this.syncCanvasSize();
-        };
-        window.requestAnimationFrame(attemptSync);
-      }
-      return;
-    }
-
-    this.setAvailableTowers(getTowerLoadoutState().selected);
-    this.shouldAnimate = true;
-    this.resetState();
-    this.loadLevelCrystals();
-    this.enableSlots();
-    this.syncCanvasSize();
-    this.ensureLoop();
-
-    if (this.startButton) {
-      this.startButton.textContent = 'Commence Wave';
-      this.startButton.disabled = false;
-    }
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.disabled = false;
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-    }
-    if (this.messageEl) {
-      this.messageEl.textContent = startInEndless
-        ? 'Endless defense unlocked—survive as the waves loop.'
-        : 'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
-    }
-    if (this.progressEl) {
-      this.progressEl.textContent = startInEndless
-        ? 'Waves loop infinitely. Each completed cycle multiplies enemy strength ×10.'
-        : 'Wave prep underway.';
-    }
-    if (this.autoWaveEnabled) {
-      this.scheduleAutoStart({ delay: this.autoStartLeadTime });
-    }
-    this.updateHud();
-    this.updateProgress();
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
+    return this.lifecycleManager.enterLevel(level, options);
   }
 
   getEnergyCap() {
-    // Developer mode removes level caps so test thero grants are never clamped mid-run.
-    if (typeof this.dependencies.isDeveloperModeActive === 'function' && this.dependencies.isDeveloperModeActive()) {
-      return Number.POSITIVE_INFINITY;
-    }
-    return this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+    return this.lifecycleManager.getEnergyCap();
   }
 
   leaveLevel() {
-    if (this.previewOnly) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      
-      // Reset combat state manager
-      if (this.combatStateManager) {
-        this.combatStateManager.reset();
-      }
-      
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.towers = [];
-      // Clear cached Nu tower dimensions when leaving preview mode.
-      clearNuCachedDimensionsHelper();
-      this.pathSegments = [];
-      this.pathPoints = [];
-      this.pathLength = 0;
-      this.floaters = [];
-      this.floaterConnections = [];
-      // Drop ambient swimmers when the preview grid is torn down.
-      this.backgroundSwimmers = [];
-      this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-      this.arcOffset = 0;
-      this.hoverPlacement = null;
-      this.pointerPosition = null;
-      this.developerPathMarkers = [];
-      this.viewScale = 1;
-      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-      this.applyViewConstraints();
-      this.activePointers.clear();
-      this.pinchState = null;
-      this.isPinchZooming = false;
-      // Reset stored geometry when leaving the preview renderer.
-      this.basePathPoints = [];
-      this.baseAutoAnchors = [];
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      return;
-    }
-
-    this.levelActive = false;
-    this.levelConfig = null;
-    
-    // Reset combat state manager
-    if (this.combatStateManager) {
-      this.combatStateManager.reset();
-    }
-    
-    this.combatActive = false;
-    this.shouldAnimate = false;
-    this.cancelAutoStart();
-    // Leaving the level invalidates any stored endless checkpoint data.
-    this.endlessCheckpoint = null;
-    this.endlessCheckpointUsed = false;
-    this.stopLoop();
-    this.disableSlots(true);
-    this.enemies = [];
-    this.resetChiSystems();
-    this.projectiles = [];
-    this.resetDamageNumbers();
-    this.resetEnemyDeathParticles();
-    this.resetWaveTallies();
-    this.activeTowerMenu = null;
-    this.towerMenuExitAnimation = null;
-    this.deltaSoldierIdCounter = 0;
-    this.floaters = [];
-    this.floaterConnections = [];
-    // Clear ambient swimmers when leaving a level so the next run re-seeds them cleanly.
-    this.backgroundSwimmers = [];
-    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    // Clear mote gem drops whenever the battlefield resets.
-    resetActiveMoteGems();
-    this.towers = [];
-    this.infinityTowers = [];
-    // Clear cached Nu tower dimensions so ranges recalculate correctly on next level entry.
-    clearNuCachedDimensionsHelper();
-    this.hoverPlacement = null;
-    this.clearFocusedEnemy({ silent: true });
-    this.energy = 0;
-    this.lives = 0;
-    // Drop any cached gate defense when the battlefield fully resets.
-    this.gateDefense = 0;
-    // Clear cached portrait geometry so the next level can determine orientation anew.
-    this.basePathPoints = [];
-    this.baseAutoAnchors = [];
-    this.setAvailableTowers([]);
-    cancelTowerDrag();
-    this.viewScale = 1;
-    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-    this.applyViewConstraints();
-    this.activePointers.clear();
-    this.pinchState = null;
-    this.isPinchZooming = false;
-    if (this.ctx) {
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-    if (this.messageEl) {
-      this.messageEl.textContent = 'Select a level to command the defense.';
-    }
-    if (this.waveEl) this.waveEl.textContent = '—';
-    if (this.healthEl) this.healthEl.textContent = '—';
-    if (this.energyEl) this.energyEl.textContent = '—';
-    if (this.progressEl) this.progressEl.textContent = 'No active level.';
-    if (this.startButton) {
-      this.startButton.textContent = 'Commence Wave';
-      this.startButton.disabled = true;
-    }
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-      this.autoWaveCheckbox.disabled = true;
-    }
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
+    return this.lifecycleManager.leaveLevel();
   }
 
   resetState() {
