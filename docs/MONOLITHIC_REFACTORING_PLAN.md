@@ -1122,8 +1122,8 @@ Track these metrics to measure progress:
 | Module count | ~133 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 468):**
-- Playfield.js at 8,758 lines (275 line reduction from path geometry system extraction)
+**Progress Notes (Build 469):**
+- Playfield.js at 8,472 lines (284 line reduction from tower menu system extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1137,12 +1137,12 @@ Track these metrics to measure progress:
 - VisualEffectsSystem.js created: 552 lines (Build 466)
 - CombatStatsManager.js created: 393 lines (Build 467)
 - PathGeometrySystem.js created: 328 lines (Build 468)
-- Total extracted: 5,501 lines across thirteen modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, and path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation)
+- TowerMenuSystem.js created: 386 lines (Build 469)
+- Total extracted: 5,887 lines across fourteen modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), and tower menu system (radial menu options, geometry, click handling, option execution)
 - Maintained backward compatibility through delegation pattern and property getters
-- Path geometry now uses Object.assign delegation pattern matching other systems
-- Fixed BackgroundSwimmerSystem delegation (moved from incorrect syntax to Object.assign pattern)
-- **Progress to Phase 1 target:** 109.5% (Phase 1 target exceeded by 758 lines!)
+- Tower menu system uses factory pattern with playfield instance injection
+- **Progress to Phase 1 target:** 117.2% (Phase 1 target exceeded by 1,472 lines!)
 
 ### Milestone Tracking
 
@@ -1162,6 +1162,7 @@ Update this section as refactoring progresses:
 - [x] Playfield Visual Effects System extracted (Build 466)
 - [x] Playfield Combat Stats Manager extracted (Build 467)
 - [x] Playfield Path Geometry System extracted (Build 468)
+- [x] Playfield Tower Menu System extracted (Build 469)
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
 - [ ] Main.js Lifecycle Coordinator extracted
@@ -1515,3 +1516,52 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 **Created:** Build 443  
 **Last Updated:** Build 461  
 **Status:** Phase 1 In Progress (7/9 playfield milestones complete, 74.7% to target)
+
+### Phase 1.1.14: Tower Menu System (Build 469)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/ui/TowerMenuSystem.js` (386 lines)
+
+**Responsibilities Extracted:**
+- Tower menu state management (active tower tracking, open/close animations)
+- Menu option building (upgrade, sell, info, priority, behavior modes)
+- Menu geometry calculation (radial layout in world space)
+- Click handling and option selection
+- Command execution (upgrade, sell, priority changes, Delta behavior modes)
+- Enemy target selection for Delta sentinel mode
+
+**Consolidation:**
+- 8 methods extracted from playfield.js (getActiveMenuTower, openTowerMenu, closeTowerMenu, buildTowerMenuOptions, getTowerMenuGeometry, handleTowerMenuClick, executeTowerMenuOption, handleTowerMenuEnemySelection)
+- Total code reduction: 284 lines in playfield.js (net after delegation wrappers)
+
+**Integration Pattern:**
+- Factory function: `createTowerMenuSystem(playfield)`
+- Methods maintain context via playfield instance injection
+- Delegation wrappers maintain backward compatibility
+- Clean separation: menu logic isolated from combat/tower systems
+
+**Dependencies:**
+- External: `getNextTowerId`, `getTowerDefinition`, `openTowerUpgradeOverlay` (towersTab.js), `formatCombatNumber` (formatting utils), constants (HALF_PI, TWO_PI)
+- Internal: playfield methods (`getCurrentTowerCost`, `upgradeTowerTier`, `sellTower`, `configureDeltaBehavior`, `ensureDeltaState`, `resolveEnemySymbol`)
+- Zero coupling to render or combat systems
+
+**Performance Considerations:**
+- Menu operations are event-driven (no game loop impact)
+- Factory instantiation once in constructor
+- Methods delegate to tower orchestration for state changes
+- No memory leaks or performance regressions
+
+**Key Learnings:**
+- UI system extraction benefits from factory pattern with instance injection
+- Menu geometry calculations cleanly separate from menu logic
+- Delegation pattern maintains API compatibility with zero overhead
+- 284-line reduction brings playfield.js to 8,472 lines (117.2% to Phase 1 target - exceeded by 1,472 lines)
+- Tower menu system provides foundation for future radial menu enhancements
+
+---
+
+**Document Version:** 1.6  
+**Created:** Build 443  
+**Last Updated:** Build 469  
+**Status:** Phase 1 In Progress (14/19 playfield milestones complete, 117.2% to target - Phase 1 goal EXCEEDED)
