@@ -1114,16 +1114,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 463) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 464) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 10,403 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 10,248 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~129 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~130 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 463):**
-- Playfield.js at 10,403 lines (374 line reduction from lifecycle manager extraction)
+**Progress Notes (Build 464):**
+- Playfield.js at 10,248 lines (155 line reduction from background swimmer system extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1132,11 +1132,12 @@ Track these metrics to measure progress:
 - GestureController.js created: 288 lines (Build 460)
 - FloaterSystem.js created: 174 lines (Build 461)
 - LevelLifecycleManager.js created: 462 lines (Build 463)
-- Total extracted: 3,421 lines across eight modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, and level lifecycle management
+- BackgroundSwimmerSystem.js created: 197 lines (Build 464)
+- Total extracted: 3,618 lines across nine modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, and background swimmers
 - Maintained backward compatibility through delegation pattern
-- Level entry/exit logic now isolated in dedicated manager module
-- **Progress to Phase 1 target:** 76.9% (2,403 lines remaining)
+- Background swimmer physics now isolated in dedicated system module
+- **Progress to Phase 1 target:** 78.1% (2,248 lines remaining)
 
 ### Milestone Tracking
 
@@ -1151,6 +1152,7 @@ Update this section as refactoring progresses:
 - [x] Playfield Gesture Controller extracted (Build 460)
 - [x] Playfield Floater System extracted (Build 461)
 - [x] Playfield Level Lifecycle Manager extracted (Build 463)
+- [x] Playfield Background Swimmer System extracted (Build 464)
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
 - [ ] Main.js Lifecycle Coordinator extracted
