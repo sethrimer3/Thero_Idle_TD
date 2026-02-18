@@ -65,12 +65,14 @@ import * as InputController from './playfield/input/InputController.js';
 import * as GestureController from './playfield/input/GestureController.js';
 import { TOWER_HOLD_ACTIVATION_MS } from './playfield/input/GestureController.js';
 import * as FloaterSystem from './playfield/systems/FloaterSystem.js';
+import * as BackgroundSwimmerSystem from './playfield/systems/BackgroundSwimmerSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
 import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
+import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycleManager.js';
 import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
 import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
 import { createWaveUIFormatter } from './playfield/ui/WaveUIFormatter.js';
@@ -596,6 +598,9 @@ export class SimplePlayfield {
     // Developer tools service handles crystals and developer towers
     this.developerTools = null; // Created after needed methods are available
 
+    // Level lifecycle manager handles level entry/exit
+    this.lifecycleManager = null; // Created after needed methods are available
+
     this.enemyTooltip = null;
     this.enemyTooltipNameEl = null;
     this.enemyTooltipHpEl = null;
@@ -625,6 +630,9 @@ export class SimplePlayfield {
       this.updateSpeedButton();
       this.updateAutoAnchorButton();
     }
+    
+    // Initialize lifecycle manager after all methods are available
+    this.lifecycleManager = createLevelLifecycleManager({ playfield: this });
   }
 
   createCombatStatsContainer() {
@@ -2095,34 +2103,10 @@ export class SimplePlayfield {
   }
 
   // Determine how many background swimmers to spawn based on canvas area.
-  computeSwimmerCount(width, height) {
-    if (!Number.isFinite(width) || !Number.isFinite(height)) {
-      return 0;
-    }
-    const area = Math.max(0, width * height);
-    const base = Math.round(area / 16000);
-    return Math.max(28, Math.min(120, base));
-  }
+  computeSwimmerCount: BackgroundSwimmerSystem.computeSwimmerCount,
 
   // Seed a tiny swimmer with randomized drift and flicker state.
-  createBackgroundSwimmer(width, height) {
-    const margin = Math.min(width, height) * 0.05;
-    const usableWidth = Math.max(1, width - margin * 2);
-    const usableHeight = Math.max(1, height - margin * 2);
-    const angle = Math.random() * TWO_PI;
-    const drift = 8 + Math.random() * 6;
-    return {
-      x: margin + Math.random() * usableWidth,
-      y: margin + Math.random() * usableHeight,
-      vx: Math.cos(angle) * drift,
-      vy: Math.sin(angle) * drift,
-      ax: 0,
-      ay: 0,
-      // Seed a subtle pulsation so tiny swimmers feel alive even at low speed.
-      flicker: Math.random() * TWO_PI,
-      sizeScale: 0.5 + Math.random() * 0.8,
-    };
-  }
+  createBackgroundSwimmer: BackgroundSwimmerSystem.createBackgroundSwimmer,
 
   createFloater(width, height) {
     const margin = Math.min(width, height) * 0.08;
@@ -2320,396 +2304,15 @@ export class SimplePlayfield {
   }
 
   enterLevel(level, options = {}) {
-    if (!this.container) {
-      return;
-    }
-
-    const levelId = level?.id;
-    const config = levelId ? levelConfigs.get(levelId) : null;
-    const isInteractive = Boolean(config);
-    const startInEndless = Boolean(options.endlessMode || config?.forceEndlessMode);
-
-    if (this.previewOnly && !isInteractive) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      return;
-    }
-
-    this.cancelAutoStart();
-
-    this.clearDeveloperCrystals({ silent: true });
-
-    if (!isInteractive) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      
-      // Reset combat state manager
-      if (this.combatStateManager) {
-        this.combatStateManager.reset();
-      }
-      
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.resetCombatStats();
-      this.setStatsPanelEnabled(false);
-      this.disableSlots(true);
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.alphaBursts = [];
-      this.betaBursts = [];
-      this.gammaBursts = [];
-      this.gammaStarBursts = [];
-      this.nuBursts = [];
-      this.swarmClouds = [];
-      this.towers = [];
-      // Clear cached Nu tower dimensions when entering non-interactive mode.
-      clearNuCachedDimensionsHelper();
-      this.energy = 0;
-      this.lives = 0;
-      // Reset gate defense while previewing non-interactive layouts.
-      this.gateDefense = 0;
-      if (this.autoWaveCheckbox) {
-        this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-        this.autoWaveCheckbox.disabled = true;
-      }
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      this.basePathPoints = [];
-      this.baseAutoAnchors = [];
-      if (this.messageEl) {
-        this.messageEl.textContent = 'This level preview is not interactive yet.';
-      }
-      if (this.waveEl) this.waveEl.textContent = '—';
-      if (this.healthEl) this.healthEl.textContent = '—';
-      if (this.energyEl) this.energyEl.textContent = '—';
-      if (this.progressEl) {
-        this.progressEl.textContent = 'Select an unlocked level to battle.';
-      }
-      if (this.startButton) {
-        this.startButton.textContent = 'Preview Only';
-        this.startButton.disabled = true;
-      }
-      this.updateSpeedButton();
-      this.updateAutoAnchorButton();
-      cancelTowerDrag();
-      return;
-    }
-
-    const clonedConfig = {
-      ...config,
-      waves: config.waves.map((wave) => ({ ...wave })),
-      path: config.path.map((node) => ({ ...node })),
-      autoAnchors: Array.isArray(config.autoAnchors)
-        ? config.autoAnchors.map((anchor) => ({ ...anchor }))
-        : [],
-    };
-
-    const developerInfiniteThero = Boolean(
-      this.dependencies.isDeveloperInfiniteTheroEnabled?.(),
-    );
-    const forceInfiniteThero = Boolean(config?.infiniteThero || developerInfiniteThero);
-    if (forceInfiniteThero) {
-      clonedConfig.infiniteThero = true;
-      clonedConfig.startThero = Number.POSITIVE_INFINITY;
-      clonedConfig.theroCap = Number.POSITIVE_INFINITY;
-    } else {
-      const calculateStartingThero = this.dependencies.calculateStartingThero;
-      const getBaseStartThero = this.dependencies.getBaseStartThero;
-      const baseStart =
-        typeof getBaseStartThero === 'function' ? getBaseStartThero() : 0;
-      const dynamicStartThero =
-        typeof calculateStartingThero === 'function' ? calculateStartingThero() : 0;
-      clonedConfig.startThero = Number.isFinite(dynamicStartThero)
-        ? dynamicStartThero
-        : baseStart;
-    }
-    clonedConfig.forceEndlessMode = Boolean(config?.forceEndlessMode);
-    const getBaseCoreIntegrity = this.dependencies.getBaseCoreIntegrity;
-    clonedConfig.lives =
-      typeof getBaseCoreIntegrity === 'function' ? getBaseCoreIntegrity() : 0;
-
-    const basePathPoints = Array.isArray(clonedConfig.path)
-      ? clonedConfig.path.map((node) => this.cloneNormalizedPoint(node))
-      : [];
-    const baseAutoAnchors = Array.isArray(clonedConfig.autoAnchors)
-      ? clonedConfig.autoAnchors.map((anchor) => this.cloneNormalizedPoint(anchor))
-      : [];
-    this.basePathPoints = basePathPoints;
-    this.baseAutoAnchors = baseAutoAnchors;
-    this.layoutOrientation = this.determinePreferredOrientation();
-
-    this.levelActive = true;
-    this.levelConfig = clonedConfig;
-    
-    // Initialize combat state manager with level configuration
-    this.combatStateManager = createCombatStateManager({
-      levelConfig: clonedConfig,
-      audio: this.audio,
-      onVictory: this.onVictory,
-      onDefeat: this.onDefeat,
-      onCombatStart: this.onCombatStart,
-      recordKillEvent: (towerId) => this.recordKillEvent(towerId),
-      tryConvertEnemyToChiThrall: (enemy, context) => this.tryConvertEnemyToChiThrall(enemy, context),
-      triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
-      notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
-    });
-
-    // Initialize tower orchestration controller
-    this.towerOrchestrationController = createTowerOrchestrationController({
-      playfield: this,
-      combatState: this.combatStateManager,
-      towerManager: TowerManager,
-      audio: this.audio,
-      messageEl: this.messageEl,
-      dependencies: this.dependencies,
-      theroSymbol: this.theroSymbol,
-    });
-
-    // Initialize developer tools service
-    this.developerTools = createDeveloperToolsService(this);
-    this.developerTools.initialize();
-
-    // Initialize wave UI formatter
-    this.waveFormatter = createWaveUIFormatter({
-      currentWaveNumber: () => this.currentWaveNumber,
-      waveIndex: () => this.waveIndex,
-      theroSymbol: () => this.theroSymbol,
-    });
-    
-    // Store endless mode flag for when combat starts
-    this.startInEndlessMode = startInEndless;
-    
-    // Clear any stored checkpoint when a fresh state is requested.
-    this.endlessCheckpoint = null;
-    this.endlessCheckpointUsed = false;
-    this.viewScale = 1;
-    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-    this.applyViewConstraints();
-    this.activePointers.clear();
-    this.pinchState = null;
-    this.isPinchZooming = false;
-    this.applyLevelOrientation();
-    this.applyContainerOrientationClass();
-    if (this.previewOnly) {
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.arcOffset = 0;
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.alphaBursts = [];
-      this.betaBursts = [];
-      this.gammaBursts = [];
-      this.gammaStarBursts = [];
-      this.nuBursts = [];
-      this.swarmClouds = [];
-      this.towers = [];
-      this.hoverPlacement = null;
-      this.pointerPosition = null;
-      this.syncCanvasSize();
-      if (typeof window !== 'undefined') {
-        const activeLevelId = this.levelConfig?.id;
-        const attemptSync = () => {
-          if (!this.previewOnly) {
-            return;
-          }
-          if (!this.levelConfig || this.levelConfig.id !== activeLevelId) {
-            return;
-          }
-          const rect = this.canvas ? this.canvas.getBoundingClientRect() : null;
-          if (!rect || rect.width < 2 || rect.height < 2) {
-            window.requestAnimationFrame(attemptSync);
-            return;
-          }
-          this.syncCanvasSize();
-        };
-        window.requestAnimationFrame(attemptSync);
-      }
-      return;
-    }
-
-    this.setAvailableTowers(getTowerLoadoutState().selected);
-    this.shouldAnimate = true;
-    this.resetState();
-    this.loadLevelCrystals();
-    this.enableSlots();
-    this.syncCanvasSize();
-    this.ensureLoop();
-
-    if (this.startButton) {
-      this.startButton.textContent = 'Commence Wave';
-      this.startButton.disabled = false;
-    }
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.disabled = false;
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-    }
-    if (this.messageEl) {
-      this.messageEl.textContent = startInEndless
-        ? 'Endless defense unlocked—survive as the waves loop.'
-        : 'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
-    }
-    if (this.progressEl) {
-      this.progressEl.textContent = startInEndless
-        ? 'Waves loop infinitely. Each completed cycle multiplies enemy strength ×10.'
-        : 'Wave prep underway.';
-    }
-    if (this.autoWaveEnabled) {
-      this.scheduleAutoStart({ delay: this.autoStartLeadTime });
-    }
-    this.updateHud();
-    this.updateProgress();
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
+    return this.lifecycleManager.enterLevel(level, options);
   }
 
   getEnergyCap() {
-    // Developer mode removes level caps so test thero grants are never clamped mid-run.
-    if (typeof this.dependencies.isDeveloperModeActive === 'function' && this.dependencies.isDeveloperModeActive()) {
-      return Number.POSITIVE_INFINITY;
-    }
-    return this.levelConfig?.theroCap ?? this.levelConfig?.energyCap ?? Infinity;
+    return this.lifecycleManager.getEnergyCap();
   }
 
   leaveLevel() {
-    if (this.previewOnly) {
-      this.levelActive = false;
-      this.levelConfig = null;
-      
-      // Reset combat state manager
-      if (this.combatStateManager) {
-        this.combatStateManager.reset();
-      }
-      
-      this.combatActive = false;
-      this.shouldAnimate = false;
-      this.stopLoop();
-      this.enemies = [];
-      this.resetChiSystems();
-      this.projectiles = [];
-      this.resetDamageNumbers();
-      this.resetEnemyDeathParticles();
-      this.resetWaveTallies();
-      this.towers = [];
-      // Clear cached Nu tower dimensions when leaving preview mode.
-      clearNuCachedDimensionsHelper();
-      this.pathSegments = [];
-      this.pathPoints = [];
-      this.pathLength = 0;
-      this.floaters = [];
-      this.floaterConnections = [];
-      // Drop ambient swimmers when the preview grid is torn down.
-      this.backgroundSwimmers = [];
-      this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-      this.arcOffset = 0;
-      this.hoverPlacement = null;
-      this.pointerPosition = null;
-      this.developerPathMarkers = [];
-      this.viewScale = 1;
-      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-      this.applyViewConstraints();
-      this.activePointers.clear();
-      this.pinchState = null;
-      this.isPinchZooming = false;
-      // Reset stored geometry when leaving the preview renderer.
-      this.basePathPoints = [];
-      this.baseAutoAnchors = [];
-      if (this.ctx) {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      }
-      return;
-    }
-
-    this.levelActive = false;
-    this.levelConfig = null;
-    
-    // Reset combat state manager
-    if (this.combatStateManager) {
-      this.combatStateManager.reset();
-    }
-    
-    this.combatActive = false;
-    this.shouldAnimate = false;
-    this.cancelAutoStart();
-    // Leaving the level invalidates any stored endless checkpoint data.
-    this.endlessCheckpoint = null;
-    this.endlessCheckpointUsed = false;
-    this.stopLoop();
-    this.disableSlots(true);
-    this.enemies = [];
-    this.resetChiSystems();
-    this.projectiles = [];
-    this.resetDamageNumbers();
-    this.resetEnemyDeathParticles();
-    this.resetWaveTallies();
-    this.activeTowerMenu = null;
-    this.towerMenuExitAnimation = null;
-    this.deltaSoldierIdCounter = 0;
-    this.floaters = [];
-    this.floaterConnections = [];
-    // Clear ambient swimmers when leaving a level so the next run re-seeds them cleanly.
-    this.backgroundSwimmers = [];
-    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    // Clear mote gem drops whenever the battlefield resets.
-    resetActiveMoteGems();
-    this.towers = [];
-    this.infinityTowers = [];
-    // Clear cached Nu tower dimensions so ranges recalculate correctly on next level entry.
-    clearNuCachedDimensionsHelper();
-    this.hoverPlacement = null;
-    this.clearFocusedEnemy({ silent: true });
-    this.energy = 0;
-    this.lives = 0;
-    // Drop any cached gate defense when the battlefield fully resets.
-    this.gateDefense = 0;
-    // Clear cached portrait geometry so the next level can determine orientation anew.
-    this.basePathPoints = [];
-    this.baseAutoAnchors = [];
-    this.setAvailableTowers([]);
-    cancelTowerDrag();
-    this.viewScale = 1;
-    this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-    this.applyViewConstraints();
-    this.activePointers.clear();
-    this.pinchState = null;
-    this.isPinchZooming = false;
-    if (this.ctx) {
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-    if (this.messageEl) {
-      this.messageEl.textContent = 'Select a level to command the defense.';
-    }
-    if (this.waveEl) this.waveEl.textContent = '—';
-    if (this.healthEl) this.healthEl.textContent = '—';
-    if (this.energyEl) this.energyEl.textContent = '—';
-    if (this.progressEl) this.progressEl.textContent = 'No active level.';
-    if (this.startButton) {
-      this.startButton.textContent = 'Commence Wave';
-      this.startButton.disabled = true;
-    }
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-      this.autoWaveCheckbox.disabled = true;
-    }
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
+    return this.lifecycleManager.leaveLevel();
   }
 
   resetState() {
@@ -6843,139 +6446,7 @@ export class SimplePlayfield {
       : '—';
   }
 
-  updateBackgroundSwimmers(delta) {
-    if (!Array.isArray(this.backgroundSwimmers) || !this.backgroundSwimmers.length || !this.levelConfig) {
-      return;
-    }
-
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    if (!width || !height) {
-      return;
-    }
-
-    // Tune swimmer motion so they meander slowly but never stall out.
-    const dt = Math.max(0, Math.min(delta, 0.05));
-    const minDimension = Math.min(width, height);
-    const speedFloor = Math.max(6, minDimension * 0.012);
-    const speedCap = minDimension * 0.38;
-    const wanderStrength = minDimension * 0.22;
-    const towerInfluence = minDimension * 0.24;
-    const projectileInfluence = minDimension * 0.16;
-    const currentWidth = minDimension * 0.18;
-    const damping = dt > 0 ? Math.exp(-dt * 0.8) : 1;
-    const blend = dt > 0 ? 1 - Math.exp(-dt * 4.5) : 1;
-
-    const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
-    const projectilePositions = this.projectiles
-      .map((projectile) => {
-        if (projectile?.currentPosition?.x !== undefined && projectile?.currentPosition?.y !== undefined) {
-          return projectile.currentPosition;
-        }
-        if (projectile?.position?.x !== undefined && projectile?.position?.y !== undefined) {
-          return projectile.position;
-        }
-        if (projectile?.x !== undefined && projectile?.y !== undefined) {
-          return { x: projectile.x, y: projectile.y };
-        }
-        if (projectile?.source && projectile?.target && Number.isFinite(projectile?.progress)) {
-          const ratio = Math.max(0, Math.min(1, projectile.progress));
-          const x = projectile.source.x + (projectile.target.x - projectile.source.x) * ratio;
-          const y = projectile.source.y + (projectile.target.y - projectile.source.y) * ratio;
-          return { x, y };
-        }
-        return null;
-      })
-      .filter(Boolean);
-
-    this.backgroundSwimmers.forEach((swimmer) => {
-      // Keep the motion lively by applying a small random wander every frame.
-      swimmer.ax = (Math.random() - 0.5) * wanderStrength;
-      swimmer.ay = (Math.random() - 0.5) * wanderStrength;
-
-      let closestDistance = Infinity;
-      let flowDirection = null;
-      // Let nearby track lanes act like a current that nudges motes forward.
-      this.pathSegments.forEach((segment) => {
-        const projection = this.projectPointOntoSegment(swimmer, segment.start, segment.end);
-        const dx = projection.point.x - swimmer.x;
-        const dy = projection.point.y - swimmer.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          const length = Math.hypot(segment.end.x - segment.start.x, segment.end.y - segment.start.y) || 1;
-          flowDirection = {
-            x: (segment.end.x - segment.start.x) / length,
-            y: (segment.end.y - segment.start.y) / length,
-          };
-        }
-      });
-
-      if (flowDirection && closestDistance < currentWidth) {
-        const influence = 1 - closestDistance / currentWidth;
-        const push = speedFloor * 2.2 * influence;
-        swimmer.ax += flowDirection.x * push;
-        swimmer.ay += flowDirection.y * push;
-      }
-
-      towerPositions.forEach((towerPosition) => {
-        const dx = swimmer.x - towerPosition.x;
-        const dy = swimmer.y - towerPosition.y;
-        const distance = Math.hypot(dx, dy);
-        if (!distance || distance >= towerInfluence) {
-          return;
-        }
-        const proximity = 1 - distance / towerInfluence;
-        const force = speedFloor * 3.8 * proximity;
-        swimmer.ax += (dx / distance) * force;
-        swimmer.ay += (dy / distance) * force;
-      });
-
-      projectilePositions.forEach((projectilePosition) => {
-        const dx = swimmer.x - projectilePosition.x;
-        const dy = swimmer.y - projectilePosition.y;
-        const distance = Math.hypot(dx, dy);
-        if (!distance || distance >= projectileInfluence) {
-          return;
-        }
-        const proximity = 1 - distance / projectileInfluence;
-        const force = speedFloor * 2.4 * proximity;
-        swimmer.ax += (dx / distance) * force;
-        swimmer.ay += (dy / distance) * force;
-      });
-
-      swimmer.vx = ((Number.isFinite(swimmer.vx) ? swimmer.vx : 0) + swimmer.ax * dt) * damping;
-      swimmer.vy = ((Number.isFinite(swimmer.vy) ? swimmer.vy : 0) + swimmer.ay * dt) * damping;
-
-      const speed = Math.hypot(swimmer.vx, swimmer.vy);
-      if (speed > speedCap) {
-        const scale = speedCap / speed;
-        swimmer.vx *= scale;
-        swimmer.vy *= scale;
-      } else if (speed < speedFloor) {
-        const nudgeAngle = Math.random() * TWO_PI;
-        swimmer.vx = Math.cos(nudgeAngle) * speedFloor * 0.65 + swimmer.vx * blend;
-        swimmer.vy = Math.sin(nudgeAngle) * speedFloor * 0.65 + swimmer.vy * blend;
-      }
-
-      swimmer.x += swimmer.vx * dt;
-      swimmer.y += swimmer.vy * dt;
-
-      const softMargin = Math.min(width, height) * 0.02;
-      if (swimmer.x < softMargin || swimmer.x > width - softMargin) {
-        swimmer.vx *= -0.6;
-        swimmer.x = Math.min(width - softMargin, Math.max(softMargin, swimmer.x));
-      }
-      if (swimmer.y < softMargin || swimmer.y > height - softMargin) {
-        swimmer.vy *= -0.6;
-        swimmer.y = Math.min(height - softMargin, Math.max(softMargin, swimmer.y));
-      }
-
-      // Advance the flicker timer so the renderer can breathe subtle brightness pulses.
-      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
-      swimmer.flicker += dt * 1.2;
-    });
-  }
+  updateBackgroundSwimmers: BackgroundSwimmerSystem.updateBackgroundSwimmers,
 
 
   updateTrackRiverParticles(delta) {
