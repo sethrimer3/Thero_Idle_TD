@@ -12903,6 +12903,47 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   display: none;
 }
 
+/* Pin shard totals beneath the 2x2 menu so players always see their Kuf budget. */
+.kuf-shard-summary {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  color: rgba(220, 240, 255, 0.95);
+  font-family: 'Space Mono', monospace;
+}
+
+/* Keep the shard icon and total on one centered row for quick scanning. */
+.kuf-shard-summary-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Reuse the uploaded shard sprite wherever Kuf shard currency is shown. */
+.kuf-shard-icon {
+  width: 1rem;
+  height: 1rem;
+  image-rendering: auto;
+}
+
+/* Tighten inline icon spacing when the icon appears inside button copy. */
+.kuf-shard-icon--inline {
+  vertical-align: -0.1em;
+  margin-right: 0.25rem;
+}
+
+/* Render unallocated shards as a muted parenthetical line under the total. */
+.kuf-shard-summary-unallocated {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(185, 215, 250, 0.75);
+}
+
 /* Style each Kuf menu tile to read as a square dashboard panel. */
 .kuf-sim-menu-tile {
   min-height: 130px;

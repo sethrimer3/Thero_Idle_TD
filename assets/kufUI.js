@@ -156,6 +156,10 @@ function cacheElements() {
     goldUntilNext: document.getElementById('kuf-gold-until-next'),
     // Core ship summary display in the deployment menu.
     coreShipHealth: document.getElementById('kuf-core-ship-health'),
+    // Bottom-of-menu shard totals for quick allocation awareness.
+    totalShards: document.getElementById('kuf-total-shards'),
+    // Remaining shard display mirrors the unallocated pool in parentheses.
+    unallocatedShards: document.getElementById('kuf-unallocated-shards'),
     
     // Unit counts
     unitCounts: {
@@ -887,9 +891,15 @@ function updateCodexDisplay() {
 }
 
 function renderLedger() {
-  // Ledger and Codex UI elements have been removed, but keep this function
-  // for backward compatibility and to avoid breaking existing calls.
-  // The Kuf info is now displayed in the expanded Kuf view instead.
+  // Keep total shards visible in the menu footer so players can budget upgrades before launching.
+  if (kufElements.totalShards) {
+    kufElements.totalShards.textContent = getKufTotalShards().toLocaleString('en-US');
+  }
+
+  // Show the currently unallocated shard amount directly under the total as requested.
+  if (kufElements.unallocatedShards) {
+    kufElements.unallocatedShards.textContent = getKufRemainingShards().toLocaleString('en-US');
+  }
 }
 
 function renderResultPanel(result, outcome) {
