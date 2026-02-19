@@ -8,8 +8,8 @@ import {
   isTowerUnlocked,
   unlockTower,
   refreshTowerLoadoutDisplay,
-} from '../../../towersTab.js';
-import { notifyTowerPlaced } from '../../../achievementsTab.js';
+} from '../../towersTab.js';
+import { notifyTowerPlaced } from '../../achievementsTab.js';
 import { formatCombatNumber } from '../../../scripts/core/formatting.js';
 
 /**
