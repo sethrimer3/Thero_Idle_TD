@@ -1114,16 +1114,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 470) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 474) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 7,839 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 7,578 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~134 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~136 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 470):**
-- Playfield.js at 7,839 lines (633 line reduction from connection system extraction)
+**Progress Notes (Build 474):**
+- CardinalWardenSimulation.js at 7,578 lines (341 line reduction from beam and mine extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1139,8 +1139,11 @@ Track these metrics to measure progress:
 - PathGeometrySystem.js created: 328 lines (Build 468)
 - TowerMenuSystem.js created: 386 lines (Build 469)
 - ConnectionSystem.js created: 747 lines (Build 470)
-- Total extracted: 6,634 lines across fifteen modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), and connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects)
+- WaveSystem.js created: 206 lines (Build 472 - Cardinal Warden wave propagation)
+- BeamSystem.js created: 239 lines (Build 474 - Cardinal Warden continuous beam, grapheme L)
+- MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
+- Total extracted: 7,272 lines across eighteen modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), and mine system (drifting mines, explosion waves, render)
 - Maintained backward compatibility through delegation pattern and property getters
 - Connection system uses factory pattern with Object.assign delegation for 19 methods
 - **Progress to Phase 1 target:** 127.3% (Phase 1 target exceeded by 2,161 lines!)
@@ -1172,7 +1175,9 @@ Update this section as refactoring progresses:
 - [ ] State module pattern documented
 
 #### Phase 2: High-Complexity Features
-- [ ] Cardinal Warden Wave Propagation extracted
+- [x] Cardinal Warden Wave System extracted (Build 472)
+- [x] Cardinal Warden Beam System extracted (Build 474)
+- [x] Cardinal Warden Mine System extracted (Build 474)
 - [ ] Cardinal Warden Spread Pattern extracted
 - [ ] Cardinal Warden Elemental Effects extracted
 - [ ] Cardinal Warden Massive Bullet extracted
