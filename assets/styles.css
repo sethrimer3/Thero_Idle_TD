@@ -14632,7 +14632,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   align-items: center;
 }
 
-.shin-wave-start-controls label {
+.shin-wave-start-controls .shin-wave-start-label {
   color: var(--text);
   font-size: 0.9rem;
   font-weight: 600;
