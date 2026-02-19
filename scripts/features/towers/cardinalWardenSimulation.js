@@ -104,6 +104,16 @@ import {
   updateExpandingWaves as updateWaveSystem,
   renderExpandingWaves as renderWaveSystem,
 } from './cardinalWarden/WaveSystem.js';
+import {
+  Beam,
+  checkBeamCollisions as checkBeamCollisionsSystem,
+  renderBeams as renderBeamsSystem,
+} from './cardinalWarden/BeamSystem.js';
+import {
+  Mine,
+  updateMines as updateMinesSystem,
+  renderMines as renderMinesSystem,
+} from './cardinalWarden/MineSystem.js';
 
 // Configuration constants now imported from cardinalWardenConfig.js
 
@@ -271,196 +281,14 @@ class RingSquare {
  * Represents an expanding damage wave spawned by grapheme G (index 6).
  * When a bullet hits an enemy, a wave slowly expands out doing 10% shot damage
  * to all enemies that come in contact with the wave.
+ * Extracted to cardinalWarden/WaveSystem.js (Build 472).
  */
 
 /**
- * Represents a continuous beam weapon created by grapheme L.
- * The beam deals damage multiple times per second to all enemies it touches.
+ * Beam class extracted to cardinalWarden/BeamSystem.js (Build 474).
+ * Mine class extracted to cardinalWarden/MineSystem.js (Build 474).
  */
-class Beam {
-  constructor(x, y, angle, config = {}) {
-    this.x = x; // Origin x
-    this.y = y; // Origin y
-    this.angle = angle;
-    this.damage = config.damage || 1; // Damage per tick
-    this.damagePerSecond = config.damagePerSecond || 1; // Total damage per second
-    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
-    this.width = config.width || BEAM_CONFIG.BEAM_WIDTH;
-    this.maxLength = config.maxLength || BEAM_CONFIG.MAX_BEAM_LENGTH;
-    this.weaponId = config.weaponId || 0; // Track which weapon this beam belongs to
-    
-    // Track when each enemy was last damaged (to apply damage at correct rate)
-    this.enemyLastDamageTime = new Map(); // Maps enemy index to timestamp
-    this.bossLastDamageTime = new Map(); // Maps boss index to timestamp
-    
-    // Time between damage ticks (in milliseconds)
-    this.damageInterval = 1000 / BEAM_CONFIG.DAMAGE_TICKS_PER_SECOND;
-  }
-  
-  /**
-   * Check if enough time has passed to damage an enemy again.
-   */
-  canDamageEnemy(enemyIndex, currentTime) {
-    const lastTime = this.enemyLastDamageTime.get(enemyIndex);
-    if (lastTime === undefined) return true;
-    return (currentTime - lastTime) >= this.damageInterval;
-  }
-  
-  /**
-   * Check if enough time has passed to damage a boss again.
-   */
-  canDamageBoss(bossIndex, currentTime) {
-    const lastTime = this.bossLastDamageTime.get(bossIndex);
-    if (lastTime === undefined) return true;
-    return (currentTime - lastTime) >= this.damageInterval;
-  }
-  
-  /**
-   * Record that an enemy was damaged at the current time.
-   */
-  recordEnemyDamage(enemyIndex, currentTime) {
-    this.enemyLastDamageTime.set(enemyIndex, currentTime);
-  }
-  
-  /**
-   * Record that a boss was damaged at the current time.
-   */
-  recordBossDamage(bossIndex, currentTime) {
-    this.bossLastDamageTime.set(bossIndex, currentTime);
-  }
-  
-  /**
-   * Calculate the end point of the beam.
-   */
-  getEndPoint() {
-    return {
-      x: this.x + Math.cos(this.angle) * this.maxLength,
-      y: this.y + Math.sin(this.angle) * this.maxLength
-    };
-  }
-  
-  /**
-   * Render the beam on the canvas.
-   */
-  render(ctx) {
-    const end = this.getEndPoint();
-    
-    ctx.save();
-    ctx.globalAlpha = BEAM_CONFIG.BEAM_ALPHA;
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = this.width;
-    ctx.lineCap = 'round';
-    
-    // Draw the beam as a line
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    
-    // Add a glow effect
-    ctx.globalAlpha = BEAM_CONFIG.BEAM_ALPHA * 0.3;
-    ctx.lineWidth = this.width * 3;
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    
-    ctx.restore();
-  }
-}
 
-/**
- * Represents a drifting mine created by grapheme M.
- * Mines drift slowly and explode on contact with enemies.
- */
-class Mine {
-  constructor(x, y, config = {}) {
-    this.x = x;
-    this.y = y;
-    this.size = config.size || MINE_CONFIG.MINE_SIZE;
-    this.color = config.color || VISUAL_CONFIG.DEFAULT_GOLDEN;
-    this.baseDamage = config.baseDamage || 1; // Base weapon damage for explosion calculation
-    this.explosionRadius = config.explosionRadius || 50; // Radius of explosion wave
-    this.weaponId = config.weaponId || 0;
-    
-    // Random drift direction
-    this.driftAngle = Math.random() * Math.PI * 2;
-    this.driftSpeed = MINE_CONFIG.DRIFT_SPEED;
-    
-    // Lifetime tracking
-    this.age = 0;
-    this.maxAge = MINE_CONFIG.MINE_LIFETIME * 1000; // Convert to milliseconds
-    
-    // Pulsing visual effect
-    this.pulsePhase = Math.random() * Math.PI * 2;
-    this.pulseSpeed = 3; // Radians per second
-    
-    // Explosion state
-    this.exploded = false;
-  }
-  
-  update(deltaTime) {
-    const dt = deltaTime / 1000; // Convert to seconds
-    
-    // Drift slowly
-    this.x += Math.cos(this.driftAngle) * this.driftSpeed * dt;
-    this.y += Math.sin(this.driftAngle) * this.driftSpeed * dt;
-    
-    // Update age
-    this.age += deltaTime;
-    
-    // Update pulse phase for visual effect
-    this.pulsePhase += this.pulseSpeed * dt;
-  }
-  
-  /**
-   * Check if mine has expired.
-   */
-  isExpired() {
-    return this.age >= this.maxAge;
-  }
-  
-  /**
-   * Check if mine is off screen.
-   */
-  isOffscreen(width, height) {
-    const margin = this.size * 2;
-    return this.x < -margin || this.x > width + margin ||
-           this.y < -margin || this.y > height + margin;
-  }
-  
-  /**
-   * Get the current visual size based on pulse effect.
-   */
-  getVisualSize() {
-    const pulseFactor = 0.2; // 20% size variation
-    return this.size * (1 + pulseFactor * Math.sin(this.pulsePhase));
-  }
-  
-  /**
-   * Render the mine on the canvas.
-   */
-  render(ctx) {
-    const visualSize = this.getVisualSize();
-    
-    ctx.save();
-    ctx.fillStyle = this.color;
-    ctx.globalAlpha = 0.8;
-    
-    // Draw mine as a circle
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, visualSize, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw inner glow
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, visualSize * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.restore();
-  }
-}
 
 /**
  * Represents a swarm ship spawned by grapheme N (index 13).
@@ -5827,128 +5655,39 @@ export class CardinalWardenSimulation {
   /**
    * Check collisions between beams and enemies.
    * Beams deal damage multiple times per second to all enemies they touch.
+   * Delegates to extracted BeamSystem (Build 474).
    */
   checkBeamCollisions() {
-    if (!this.beams || this.beams.length === 0) return;
-    
-    const currentTime = Date.now();
-    const enemiesToRemove = new Set();
-    const bossesToRemove = new Set();
-    const killedEnemyPositions = [];
-    
-    // For each beam, check collision with all enemies and bosses
-    for (const beam of this.beams) {
-      const beamEnd = beam.getEndPoint();
-      
-      // Check enemies
-      for (let ei = 0; ei < this.enemies.length; ei++) {
-        const enemy = this.enemies[ei];
-        if (enemiesToRemove.has(ei)) continue;
-        
-        // Check if enemy intersects with beam line
-        const dist = this.pointToLineDistance(
-          enemy.x, enemy.y,
-          beam.x, beam.y,
-          beamEnd.x, beamEnd.y
-        );
-        
-        if (dist < enemy.size + beam.width / 2) {
-          // Enemy is touching the beam - apply damage if enough time has passed
-          if (beam.canDamageEnemy(ei, currentTime)) {
-            this.spawnDamageNumber(enemy.x, enemy.y, beam.damage);
-            const killed = enemy.takeDamage(beam.damage);
-            beam.recordEnemyDamage(ei, currentTime);
-            
-            if (killed) {
-              enemiesToRemove.add(ei);
-              this.addScore(enemy.scoreValue);
-              this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
-              killedEnemyPositions.push({ x: enemy.x, y: enemy.y, isBoss: false });
-            }
-          }
+    const { killedEnemyIndices, killedBossIndices } = checkBeamCollisionsSystem(
+      this.beams,
+      this.enemies,
+      this.bosses,
+      (target, damage, x, y) => {
+        // onDamage callback
+        this.spawnDamageNumber(x, y, damage);
+      },
+      (target, x, y, scoreValue, isBoss) => {
+        // onKill callback
+        this.addScore(scoreValue);
+        this.spawnScorePopup(x, y, scoreValue);
+        if (this.onEnemyKill) {
+          this.onEnemyKill(x, y, isBoss);
         }
       }
-      
-      // Check bosses
-      for (let bi = 0; bi < this.bosses.length; bi++) {
-        const boss = this.bosses[bi];
-        if (bossesToRemove.has(bi)) continue;
-        
-        // Check if boss intersects with beam line
-        const dist = this.pointToLineDistance(
-          boss.x, boss.y,
-          beam.x, beam.y,
-          beamEnd.x, beamEnd.y
-        );
-        
-        if (dist < boss.size + beam.width / 2) {
-          // Boss is touching the beam - apply damage if enough time has passed
-          if (beam.canDamageBoss(bi, currentTime)) {
-            this.spawnDamageNumber(boss.x, boss.y, beam.damage);
-            const killed = boss.takeDamage(beam.damage);
-            beam.recordBossDamage(bi, currentTime);
-            
-            if (killed) {
-              bossesToRemove.add(bi);
-              this.addScore(boss.scoreValue);
-              this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
-              killedEnemyPositions.push({ x: boss.x, y: boss.y, isBoss: true });
-            }
-          }
-        }
-      }
-    }
-    
-    // Remove destroyed enemies
-    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
-    for (const i of enemyIndices) {
+    );
+
+    // Remove killed enemies
+    for (const i of killedEnemyIndices) {
       this.enemies.splice(i, 1);
     }
-    
-    // Remove destroyed bosses
-    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
-    for (const i of bossIndices) {
+
+    // Remove killed bosses
+    for (const i of killedBossIndices) {
       this.bosses.splice(i, 1);
     }
-    
-    // Notify about enemy kills for phoneme drops
-    if (this.onEnemyKill && killedEnemyPositions.length > 0) {
-      for (const killPos of killedEnemyPositions) {
-        this.onEnemyKill(killPos.x, killPos.y, killPos.isBoss);
-      }
-    }
   }
-  
-  /**
-   * Calculate the distance from a point to a line segment.
-   * Used for beam collision detection.
-   */
-  pointToLineDistance(px, py, x1, y1, x2, y2) {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const lengthSquared = dx * dx + dy * dy;
-    
-    // Use epsilon for floating-point comparison
-    if (lengthSquared < 1e-10) {
-      // Line segment is effectively a point
-      const dpx = px - x1;
-      const dpy = py - y1;
-      return Math.hypot(dpx, dpy);
-    }
-    
-    // Calculate projection of point onto line
-    let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
-    t = Math.max(0, Math.min(1, t)); // Clamp to line segment
-    
-    // Find closest point on line segment
-    const closestX = x1 + t * dx;
-    const closestY = y1 + t * dy;
-    
-    // Return distance to closest point
-    const distX = px - closestX;
-    const distY = py - closestY;
-    return Math.hypot(distX, distY);
-  }
+
+
 
   /**
    * Add score and notify listeners.
@@ -6071,93 +5810,24 @@ export class CardinalWardenSimulation {
   /**
    * Update all mines and check for collisions with enemies.
    * Mines explode on contact with enemies, creating expanding damage waves.
+   * Delegates to extracted MineSystem (Build 474).
    */
   updateMines(deltaTime) {
     if (!this.canvas) return;
-    
-    const minesToRemove = [];
-    const enemiesToRemove = new Set();
-    const bossesToRemove = new Set();
-    
-    // Update each mine
-    for (let i = 0; i < this.mines.length; i++) {
-      const mine = this.mines[i];
-      mine.update(deltaTime);
-      
-      // Remove expired or offscreen mines
-      if (mine.isExpired() || mine.isOffscreen(this.canvas.width, this.canvas.height)) {
-        minesToRemove.push(i);
-        continue;
-      }
-      
-      // Check collision with enemies
-      for (let ei = 0; ei < this.enemies.length; ei++) {
-        if (enemiesToRemove.has(ei)) continue;
-        
-        const enemy = this.enemies[ei];
-        const dx = mine.x - enemy.x;
-        const dy = mine.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const collisionDist = mine.size + enemy.size;
-        
-        if (dist < collisionDist) {
-          // Mine hit enemy - explode!
-          mine.exploded = true;
-          
-          // Create expanding wave at explosion point
-          const explosionWave = new ExpandingWave(
-            mine.x,
-            mine.y,
-            mine.baseDamage,
-            mine.explosionRadius,
-            mine.color
-          );
-          this.expandingWaves.push(explosionWave);
-          
-          // Remove the mine
-          minesToRemove.push(i);
-          break;
-        }
-      }
-      
-      // If mine already marked for removal, skip boss check
-      if (minesToRemove.includes(i)) continue;
-      
-      // Check collision with bosses
-      for (let bi = 0; bi < this.bosses.length; bi++) {
-        if (bossesToRemove.has(bi)) continue;
-        
-        const boss = this.bosses[bi];
-        const dx = mine.x - boss.x;
-        const dy = mine.y - boss.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const collisionDist = mine.size + boss.size;
-        
-        if (dist < collisionDist) {
-          // Mine hit boss - explode!
-          mine.exploded = true;
-          
-          // Create expanding wave at explosion point
-          const explosionWave = new ExpandingWave(
-            mine.x,
-            mine.y,
-            mine.baseDamage,
-            mine.explosionRadius,
-            mine.color
-          );
-          this.expandingWaves.push(explosionWave);
-          
-          // Remove the mine
-          minesToRemove.push(i);
-          break;
-        }
-      }
-    }
-    
-    // Remove mines that exploded, expired, or went offscreen (highest index first)
-    const sortedMineIndices = minesToRemove.sort((a, b) => b - a);
-    for (const i of sortedMineIndices) {
-      this.mines.splice(i, 1);
+
+    // Delegate to extracted Mine System - returns new explosion waves
+    const newWaves = updateMinesSystem(
+      this.mines,
+      this.enemies,
+      this.bosses,
+      this.canvas.width,
+      this.canvas.height,
+      deltaTime
+    );
+
+    // Add explosion waves to expanding waves array
+    for (const wave of newWaves) {
+      this.expandingWaves.push(wave);
     }
   }
 
@@ -7382,13 +7052,10 @@ export class CardinalWardenSimulation {
 
   /**
    * Render all beams from grapheme L (index 11).
+   * Delegates to extracted BeamSystem (Build 474).
    */
   renderBeams() {
-    if (!this.ctx || !this.beams || this.beams.length === 0) return;
-    
-    for (const beam of this.beams) {
-      beam.render(this.ctx);
-    }
+    renderBeamsSystem(this.ctx, this.beams);
   }
 
   /**
@@ -7401,13 +7068,10 @@ export class CardinalWardenSimulation {
 
   /**
    * Render all drifting mines from grapheme M (index 12).
+   * Delegates to extracted MineSystem (Build 474).
    */
   renderMines() {
-    if (!this.ctx || !this.mines || this.mines.length === 0) return;
-    
-    for (const mine of this.mines) {
-      mine.render(this.ctx);
-    }
+    renderMinesSystem(this.ctx, this.mines);
   }
   
   /**
