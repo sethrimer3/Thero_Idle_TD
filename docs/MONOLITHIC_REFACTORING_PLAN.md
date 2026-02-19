@@ -1114,16 +1114,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 468) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 470) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 8,758 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 7,839 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~133 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~134 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 469):**
-- Playfield.js at 8,472 lines (284 line reduction from tower menu system extraction)
+**Progress Notes (Build 470):**
+- Playfield.js at 7,839 lines (633 line reduction from connection system extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1138,11 +1138,12 @@ Track these metrics to measure progress:
 - CombatStatsManager.js created: 393 lines (Build 467)
 - PathGeometrySystem.js created: 328 lines (Build 468)
 - TowerMenuSystem.js created: 386 lines (Build 469)
-- Total extracted: 5,887 lines across fourteen modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), and tower menu system (radial menu options, geometry, click handling, option execution)
+- ConnectionSystem.js created: 747 lines (Build 470)
+- Total extracted: 6,634 lines across fifteen modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), and connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects)
 - Maintained backward compatibility through delegation pattern and property getters
-- Tower menu system uses factory pattern with playfield instance injection
-- **Progress to Phase 1 target:** 117.2% (Phase 1 target exceeded by 1,472 lines!)
+- Connection system uses factory pattern with Object.assign delegation for 19 methods
+- **Progress to Phase 1 target:** 127.3% (Phase 1 target exceeded by 2,161 lines!)
 
 ### Milestone Tracking
 
@@ -1163,6 +1164,7 @@ Update this section as refactoring progresses:
 - [x] Playfield Combat Stats Manager extracted (Build 467)
 - [x] Playfield Path Geometry System extracted (Build 468)
 - [x] Playfield Tower Menu System extracted (Build 469)
+- [x] Playfield Connection System extracted (Build 470)
 - [ ] Playfield Input Controller enhanced
 - [ ] Main.js Navigation Router extracted
 - [ ] Main.js Lifecycle Coordinator extracted
@@ -1558,6 +1560,65 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 - Delegation pattern maintains API compatibility with zero overhead
 - 284-line reduction brings playfield.js to 8,472 lines (117.2% to Phase 1 target - exceeded by 1,472 lines)
 - Tower menu system provides foundation for future radial menu enhancements
+
+---
+
+**Document Version:** 1.6  
+**Created:** Build 443  
+**Last Updated:** Build 470  
+**Status:** Phase 1 In Progress (15/19 playfield milestones complete, 127.3% to target - Phase 1 goal EXCEEDED)
+
+### Phase 1.1.15: Connection System (Build 470)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/systems/ConnectionSystem.js` (747 lines)
+
+**Responsibilities Extracted:**
+- Connection particle lifecycle management (orbit, arrive, launch, swarm states)
+- Tower swirl synchronization (alpha/beta mote counts matching stored shots)
+- Supply seed creation and animation (trailing motes on supply projectiles)
+- Supply seed transfer to orbit (converting projectile seeds to tower orbits)
+- Swarm cloud persistence (lingering damage/stun clouds after stored shot impacts)
+- Connection effect rendering coordination (visual links between connected towers)
+- Particle position resolution (orbit anchors with pulse animation offsets)
+- Launch queue management (queueing and triggering stored shot discharges)
+- Swarm particle hit processing (creating damage clouds from particle impacts)
+
+**Consolidation:**
+- 19 methods extracted from playfield.js
+- Total code reduction: 633 lines in playfield.js (net after delegation wrappers)
+- Methods: `updateConnectionParticles`, `syncTowerConnectionParticles`, `createConnectionParticle`, `resolveTowerBodyRadius`, `updateConnectionOrbitParticle`, `updateConnectionArriveParticle`, `updateConnectionLaunchParticle`, `updateConnectionSwarmParticle`, `processSwarmParticleHits`, `resolveConnectionOrbitAnchor`, `resolveConnectionOrbitPosition`, `queueTowerSwirlLaunch`, `triggerQueuedSwirlLaunches`, `launchTowerConnectionParticles`, `createSupplySeeds`, `updateSupplySeeds`, `transferSupplySeedsToOrbit`, `updateSwarmClouds`, `createConnectionEffect`
+- Constants extracted: `ALPHA_STORED_SHOT_STUN_DURATION`, `BETA_STORED_SHOT_STUN_DURATION`, `SWARM_CLOUD_BASE_DURATION`, `SWARM_CLOUD_DURATION_PER_SHOT`, `SWARM_CLOUD_RADIUS_METERS`, `SWARM_PARTICLE_FADE_DURATION`, `SWARM_PARTICLE_SPREAD_SPEED`, `SWARM_CLOUD_DAMAGE_MULTIPLIER`
+
+**Integration Pattern:**
+- Factory function: `createConnectionSystem(playfield)`
+- Object.assign delegation pattern with 19 exported methods
+- Methods maintain context via playfield instance reference
+- Delegation methods return sensible defaults when system unavailable
+- System instantiated in constructor after tower menu system
+
+**Dependencies:**
+- External: `TWO_PI`, `easeOutCubic`, `easeInCubic` (mathConstants), `metersToPixels`, `ALPHA_BASE_RADIUS_FACTOR` (gameUnits)
+- Internal: playfield methods (`getTowerById`, `getEnemyPosition`, `getEnemyVisualMetrics`, `getEnemyHitRadius`, `applyDamageToEnemy`, `applyStunEffect`)
+- Internal: playfield state (`towers`, `enemies`, `towerConnectionMap`, `connectionEffects`, `swarmClouds`, `renderWidth`, `renderHeight`, `canvas`)
+- Zero coupling to rendering (delegates to CanvasRenderer for draw calls)
+
+**Performance Considerations:**
+- Connection updates run every frame during active gameplay
+- Particle state transitions are lightweight (no allocations in hot paths)
+- Swarm cloud collision checks use efficient distance calculations
+- System initialization is lazy (only created when playfield constructed)
+- Delegation overhead minimal (inline safety checks)
+
+**Key Learnings:**
+- Connection particle system is self-contained with clear state machine (orbit → arrive → launch → swarm → done)
+- Factory pattern with instance injection provides clean access to playfield state
+- Object.assign delegation pattern scales well to many methods (19 in this case)
+- Constants encapsulation improves maintainability and reduces magic numbers
+- 633-line reduction brings playfield.js to 7,839 lines (127.3% to Phase 1 target - exceeded by 2,161 lines!)
+- Connection system provides foundation for future lattice enhancements (e.g., gamma chains, zeta links)
+- Swarm cloud mechanics isolated from particle animation for easier balancing
 
 ---
 
