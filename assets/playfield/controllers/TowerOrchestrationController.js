@@ -10,7 +10,7 @@ import {
   refreshTowerLoadoutDisplay,
 } from '../../towersTab.js';
 import { notifyTowerPlaced } from '../../achievementsTab.js';
-import { formatCombatNumber } from '../../../scripts/core/formatting.js';
+import { formatCombatNumber } from '../utils/formatting.js';
 
 /**
  * Creates a tower orchestration controller that handles tower lifecycle operations.
