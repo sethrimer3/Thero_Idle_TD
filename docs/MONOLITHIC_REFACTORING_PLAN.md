@@ -1116,14 +1116,14 @@ Track these metrics to measure progress:
 
 | Metric | Current (Build 474) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 7,578 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 7,583 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
 | Module count | ~136 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
 **Progress Notes (Build 474):**
-- CardinalWardenSimulation.js at 7,578 lines (341 line reduction from beam and mine extraction)
+- CardinalWardenSimulation.js at 7,583 lines (336 line reduction from beam and mine extraction)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1685,7 +1685,96 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 1.7  
+### Phase 2.1.2: Cardinal Warden Beam System (Build 474)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `scripts/features/towers/cardinalWarden/BeamSystem.js` (239 lines)
+
+**Responsibilities Extracted:**
+- `Beam` class for continuous line-of-sight weapons (origin, angle, damage, width, maxLength, weaponId)
+- Per-target damage tick-rate limiting (`enemyLastDamageTime` / `bossLastDamageTime` Maps)
+- Endpoint calculation (`getEndPoint`)
+- Beam rendering with glow effect (`render`)
+- `pointToLineDistance` utility — closest-point-on-segment distance for collision detection
+- `checkBeamCollisions(beams, enemies, bosses, onDamage, onKill)` — returns `{ killedEnemyIndices, killedBossIndices }` (sorted descending, splice-safe)
+- `renderBeams(ctx, beams)` — thin render delegation
+
+**Consolidation:**
+- 1 class extracted (Beam), 3 standalone functions extracted
+- Total code reduction: ~180 lines in cardinalWardenSimulation.js
+- `checkBeamCollisions` delegation wrapper in simulation calls extracted system and splices results
+
+**Integration Pattern:**
+- ES6 module, named class and function exports
+- Callback-based integration (`onDamage`, `onKill`) mirrors WaveSystem.js pattern
+- Descending-sorted kill indices for safe in-place splice in caller
+- `Date.now()` used inside `checkBeamCollisions` for damage tick timing
+
+**Dependencies:**
+- External: `BEAM_CONFIG`, `VISUAL_CONFIG` from `cardinalWardenConfig.js`
+- Internal: Enemy/boss `takeDamage()` methods, `size`, `scoreValue` properties
+- No canvas context dependency in collision logic
+
+**Performance Considerations:**
+- Collision is O(beams × (enemies + bosses)) per frame
+- `Map`-based tick-rate limiting avoids repeated damage on same target each frame
+- `Math.hypot` used in `pointToLineDistance` for clarity; acceptable in practice (few active beams)
+
+**Key Learnings:**
+- Beam tick-rate limiting via `Date.now()` is self-contained and does not need caller coordination
+- `pointToLineDistance` is a reusable geometric utility exported for potential future callers
+- Pattern established by WaveSystem (callback + descending indices) transferred cleanly
+- Beam System extraction reduces cognitive load of collision section in simulation file
+
+---
+
+### Phase 2.1.3: Cardinal Warden Mine System (Build 474)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `scripts/features/towers/cardinalWarden/MineSystem.js` (193 lines)
+
+**Responsibilities Extracted:**
+- `Mine` class with drift physics, pulsing render, expiry and offscreen checks
+- Mine update loop: position drift, age tracking, pulse phase animation
+- Mine-enemy collision detection triggering explosion wave creation
+- Mine-boss collision detection triggering explosion wave creation
+- Mine lifecycle management (remove on explode, expire, or exit canvas bounds)
+- `updateMines(mines, enemies, bosses, w, h, dt) → ExpandingWave[]` — returns newly spawned explosion waves
+- `renderMines(ctx, mines)` — delegates to `Mine.render()`
+
+**Consolidation:**
+- 1 class extracted (Mine), 2 standalone functions extracted
+- Total code reduction: ~156 lines in cardinalWardenSimulation.js
+- Caller pushes returned `ExpandingWave[]` into `this.expandingWaves`; no circular dependency
+
+**Integration Pattern:**
+- Imports `ExpandingWave` from `WaveSystem.js` — mine explosion reuses existing wave logic
+- Return-value integration (new waves array) avoids callback coupling for wave creation
+- Mine indices sorted descending before splice to preserve array stability
+
+**Dependencies:**
+- External: `MINE_CONFIG`, `VISUAL_CONFIG` from `cardinalWardenConfig.js`
+- External: `ExpandingWave` from `./WaveSystem.js`
+- Internal: Enemy/boss `x`, `y`, `size` properties
+- No damage callbacks needed (explosion delegated to wave system)
+
+**Performance Considerations:**
+- Mine update runs O(mines × (enemies + bosses)) per frame
+- `minesToRemove.includes(i)` linear scan acceptable (few mines active at once)
+- Offscreen check uses cheap AABB comparison before sqrt
+- Pulsing visual uses `Math.sin` once per mine per render frame (lightweight)
+
+**Key Learnings:**
+- Reusing `ExpandingWave` from WaveSystem eliminates duplicate explosion logic
+- Return-value pattern (new waves array) simpler than callback for object creation
+- Mine expiry/offscreen cleanup co-located with collision logic for clarity
+- MineSystem is fully self-contained; no playfield state needed beyond canvas dimensions
+
+---
+
+**Document Version:** 1.8  
 **Created:** Build 443  
-**Last Updated:** Build 473  
-**Status:** Phase 2 In Progress (1/6 Cardinal Warden extractions complete)
+**Last Updated:** Build 474  
+**Status:** Phase 2 In Progress (3/6 Cardinal Warden extractions complete)
