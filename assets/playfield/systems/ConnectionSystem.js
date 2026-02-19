@@ -10,8 +10,11 @@
  * Extracted from playfield.js as part of Phase 1.1.15 refactoring.
  */
 
-import { TWO_PI, easeOutCubic, easeInCubic } from '../../scripts/core/mathConstants.js';
-import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from '../gameUnits.js';
+import { easeOutCubic, easeInCubic } from '../utils/math.js';
+import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from '../../gameUnits.js';
+
+// Shared circle constant for orbit and angular animation calculations in connection visuals.
+const TWO_PI = Math.PI * 2;
 
 // Swarm cloud and stored shot constants
 const ALPHA_STORED_SHOT_STUN_DURATION = 0.02; // 20 milliseconds

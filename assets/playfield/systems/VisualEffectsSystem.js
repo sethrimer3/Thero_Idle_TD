@@ -1,7 +1,7 @@
 // Visual effects system extracted from SimplePlayfield for modular damage numbers, particles, and effects.
 // Manages damage number display, enemy death particles, PSI merge/AoE effects, and swirl impact tracking.
 
-import { TWO_PI, PI, PI_OVER_6 } from '../../constants.js';
+import { TWO_PI, PI, PI_OVER_6 } from '../constants.js';
 import { formatCombatNumber } from '../utils/formatting.js';
 import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES } from '../../preferences.js';
 import { samplePaletteGradient } from '../../../scripts/features/towers/powderTower.js';
