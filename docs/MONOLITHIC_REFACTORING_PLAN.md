@@ -1036,16 +1036,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 476) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 477) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 7,348 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
-| Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
-| Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~137 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Largest file size | 6,264 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Files > 3,000 lines | 4 files | 3 files | 1 file | 0 files | 0 files |
+| Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
+| Module count | ~138 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 476):**
-- CardinalWardenSimulation.js at 7,348 lines (235 line reduction from swarm extraction; 570 lines total reduction in Phase 2)
+**Progress Notes (Build 477):**
+- CardinalWardenSimulation.js at 6,264 lines (1,084 line reduction from enemy system extraction; 1,654 lines total reduction in Phase 2)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1065,8 +1065,9 @@ Track these metrics to measure progress:
 - BeamSystem.js created: 239 lines (Build 474 - Cardinal Warden continuous beam, grapheme L)
 - MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
 - SwarmSystem.js created: 304 lines (Build 475-476 - Cardinal Warden swarm ships/lasers, grapheme N)
-- Total extracted: 7,576 lines across nineteen modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), and swarm system (swarm ships, swarm lasers, collision, render)
+- EnemySystem.js created: ~1,096 lines (Build 477 - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss)
+- Total extracted: ~8,672 lines across twenty modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), swarm system (swarm ships, swarm lasers, collision, render), and enemy system (all enemy/boss classes with movement AI, elemental status effects, trail/smoke rendering)
 - Maintained backward compatibility through delegation pattern and property getters
 - Connection system uses factory pattern with Object.assign delegation for 19 methods
 - **Note on Phase 2 Spread/Elemental/Massive items:** Spread Pattern (grapheme I), Elemental Effects (grapheme J), and Massive Bullet (grapheme K) are modifier configurations embedded in the bullet-firing loop, not standalone simulation objects with independent update/render cycles. These do not cleanly map to extractable modules and are better addressed as part of Step 2.1.6 (core simulation reduction) rather than standalone extractions.
@@ -1103,6 +1104,7 @@ Update this section as refactoring progresses:
 - [x] Cardinal Warden Beam System extracted (Build 474)
 - [x] Cardinal Warden Mine System extracted (Build 474)
 - [x] Cardinal Warden Swarm System extracted (Build 475-476)
+- [x] Cardinal Warden Enemy System extracted (Build 477) - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss
 - [ ] Cardinal Warden Spread Pattern (grapheme I) - embedded modifier; address in Step 2.1.6
 - [ ] Cardinal Warden Elemental Effects (grapheme J) - embedded in enemy classes; address in Step 2.1.6
 - [ ] Cardinal Warden Massive Bullet (grapheme K) - embedded modifier; address in Step 2.1.6
