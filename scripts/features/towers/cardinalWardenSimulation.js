@@ -98,6 +98,12 @@ import {
   LIFE_LINES_CONFIG,
   UI_CONFIG,
 } from './cardinalWardenConfig.js';
+import {
+  ExpandingWave,
+  createWaveFromBulletImpact,
+  updateExpandingWaves as updateWaveSystem,
+  renderExpandingWaves as renderWaveSystem,
+} from './cardinalWarden/WaveSystem.js';
 
 // Configuration constants now imported from cardinalWardenConfig.js
 
@@ -266,48 +272,6 @@ class RingSquare {
  * When a bullet hits an enemy, a wave slowly expands out doing 10% shot damage
  * to all enemies that come in contact with the wave.
  */
-class ExpandingWave {
-  constructor(x, y, damage, maxRadius, color) {
-    this.x = x;
-    this.y = y;
-    this.damage = damage;
-    this.maxRadius = maxRadius;
-    this.currentRadius = 0;
-    this.expansionSpeed = maxRadius / WAVE_CONFIG.EXPANSION_DURATION_SECONDS;
-    this.color = color || VISUAL_CONFIG.DEFAULT_GOLDEN;
-    this.hitEnemies = new Set(); // Track which enemies have been hit
-    this.hitBosses = new Set(); // Track which bosses have been hit
-    this.alpha = 1.0; // Start fully opaque
-    this.finished = false;
-  }
-
-  update(deltaTime) {
-    const dt = deltaTime / 1000; // Convert to seconds
-    this.currentRadius += this.expansionSpeed * dt;
-    
-    // Fade out as the wave approaches max radius
-    const progress = this.currentRadius / this.maxRadius;
-    this.alpha = Math.max(0, 1 - progress);
-    
-    // Mark as finished when fully expanded
-    if (this.currentRadius >= this.maxRadius) {
-      this.finished = true;
-    }
-  }
-
-  render(ctx) {
-    if (this.alpha <= 0) return;
-    
-    ctx.save();
-    ctx.globalAlpha = this.alpha;
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-}
 
 /**
  * Represents a continuous beam weapon created by grapheme L.
@@ -5596,9 +5560,10 @@ export class CardinalWardenSimulation {
           
           // Spawn expanding wave if seventh grapheme is present
           if (bullet.hasWaveEffect && bullet.waveRadius > 0) {
-            const waveDamage = bullet.damage * WAVE_CONFIG.DAMAGE_MULTIPLIER;
-            const waveColor = bullet.color || '#d4af37';
-            this.expandingWaves.push(new ExpandingWave(enemy.x, enemy.y, waveDamage, bullet.waveRadius, waveColor));
+            const wave = createWaveFromBulletImpact(enemy.x, enemy.y, bullet);
+            if (wave) {
+              this.expandingWaves.push(wave);
+            }
           }
           
           // Apply elemental effect from tenth grapheme (J)
@@ -5800,9 +5765,10 @@ export class CardinalWardenSimulation {
           
           // Spawn expanding wave if seventh grapheme is present
           if (bullet.hasWaveEffect && bullet.waveRadius > 0) {
-            const waveDamage = bullet.damage * WAVE_CONFIG.DAMAGE_MULTIPLIER;
-            const waveColor = bullet.color || '#d4af37';
-            this.expandingWaves.push(new ExpandingWave(boss.x, boss.y, waveDamage, bullet.waveRadius, waveColor));
+            const wave = createWaveFromBulletImpact(boss.x, boss.y, bullet);
+            if (wave) {
+              this.expandingWaves.push(wave);
+            }
           }
           
           // Apply elemental effect from tenth grapheme (J)
@@ -6074,89 +6040,30 @@ export class CardinalWardenSimulation {
    * Waves expand outward and damage enemies they touch.
    */
   updateExpandingWaves(deltaTime) {
-    const enemiesToRemove = new Set();
-    const bossesToRemove = new Set();
+    // Delegate to extracted Wave System
+    const { killedEnemyIndices, killedBossIndices } = updateWaveSystem(
+      this.expandingWaves,
+      deltaTime,
+      this.enemies,
+      this.bosses,
+      (target, damage, x, y, isKilled) => {
+        // onDamage callback
+        this.spawnDamageNumber(x, y, damage);
+      },
+      (target, x, y, scoreValue) => {
+        // onKill callback
+        this.addScore(scoreValue);
+        this.spawnScorePopup(x, y, scoreValue);
+      }
+    );
     
-    // Update each wave
-    for (let i = this.expandingWaves.length - 1; i >= 0; i--) {
-      const wave = this.expandingWaves[i];
-      wave.update(deltaTime);
-      
-      // Check collisions with enemies
-      for (let ei = 0; ei < this.enemies.length; ei++) {
-        if (wave.hitEnemies.has(ei)) continue; // Already hit this enemy
-        if (enemiesToRemove.has(ei)) continue; // Already killed
-        
-        const enemy = this.enemies[ei];
-        const dx = wave.x - enemy.x;
-        const dy = wave.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        // Check if enemy is touching the wave ring
-        // Ring thickness includes enemy size for better collision detection
-        const enemySize = enemy.size || WAVE_CONFIG.DEFAULT_ENEMY_SIZE;
-        const ringThickness = WAVE_CONFIG.RING_BASE_THICKNESS + enemySize;
-        const distFromRing = Math.abs(dist - wave.currentRadius);
-        
-        if (distFromRing < ringThickness && dist < wave.maxRadius) {
-          // Enemy is touching the wave - apply damage
-          wave.hitEnemies.add(ei);
-          this.spawnDamageNumber(enemy.x, enemy.y, wave.damage);
-          const killed = enemy.takeDamage(wave.damage);
-          
-          if (killed) {
-            enemiesToRemove.add(ei);
-            this.addScore(enemy.scoreValue);
-            this.spawnScorePopup(enemy.x, enemy.y, enemy.scoreValue);
-          }
-        }
-      }
-      
-      // Check collisions with bosses
-      for (let bi = 0; bi < this.bosses.length; bi++) {
-        if (wave.hitBosses.has(bi)) continue; // Already hit this boss
-        if (bossesToRemove.has(bi)) continue; // Already killed
-        
-        const boss = this.bosses[bi];
-        const dx = wave.x - boss.x;
-        const dy = wave.y - boss.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        // Check if boss is touching the wave ring
-        // Ring thickness includes boss size for better collision detection
-        const bossSize = boss.size || WAVE_CONFIG.DEFAULT_BOSS_SIZE;
-        const ringThickness = WAVE_CONFIG.RING_BASE_THICKNESS + bossSize;
-        const distFromRing = Math.abs(dist - wave.currentRadius);
-        
-        if (distFromRing < ringThickness && dist < wave.maxRadius) {
-          // Boss is touching the wave - apply damage
-          wave.hitBosses.add(bi);
-          this.spawnDamageNumber(boss.x, boss.y, wave.damage);
-          const killed = boss.takeDamage(wave.damage);
-          
-          if (killed) {
-            bossesToRemove.add(bi);
-            this.addScore(boss.scoreValue);
-            this.spawnScorePopup(boss.x, boss.y, boss.scoreValue);
-          }
-        }
-      }
-      
-      // Remove finished waves
-      if (wave.finished) {
-        this.expandingWaves.splice(i, 1);
-      }
-    }
-    
-    // Remove killed enemies (highest index first to avoid shifting issues)
-    const enemyIndices = Array.from(enemiesToRemove).sort((a, b) => b - a);
-    for (const i of enemyIndices) {
+    // Remove killed enemies
+    for (const i of killedEnemyIndices) {
       this.enemies.splice(i, 1);
     }
     
-    // Remove killed bosses (highest index first to avoid shifting issues)
-    const bossIndices = Array.from(bossesToRemove).sort((a, b) => b - a);
-    for (const i of bossIndices) {
+    // Remove killed bosses
+    for (const i of killedBossIndices) {
       this.bosses.splice(i, 1);
     }
   }
@@ -7488,11 +7395,8 @@ export class CardinalWardenSimulation {
    * Render all expanding waves from the seventh grapheme (index 6).
    */
   renderExpandingWaves() {
-    if (!this.ctx) return;
-    
-    for (const wave of this.expandingWaves) {
-      wave.render(this.ctx);
-    }
+    // Delegate to extracted Wave System
+    renderWaveSystem(this.ctx, this.expandingWaves);
   }
 
   /**
