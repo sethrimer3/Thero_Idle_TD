@@ -4,7 +4,7 @@
 import { TWO_PI, PI, PI_OVER_6 } from '../constants.js';
 import { formatCombatNumber } from '../utils/formatting.js';
 import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES } from '../../preferences.js';
-import { samplePaletteGradient } from '../../../scripts/features/towers/powderTower.js';
+import { samplePaletteGradient } from '../../colorSchemeUtils.js';
 
 /**
  * Check if damage numbers should be displayed.
