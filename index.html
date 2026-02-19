@@ -3652,7 +3652,8 @@
             <h3>Wave Start Options</h3>
             <p class="shin-wave-start-description">Drag the wheel to select a starting wave.</p>
             <div class="shin-wave-start-controls">
-              <label for="shin-wave-carousel">Starting Wave:</label>
+              <!-- Use non-form helper text because the wave carousel is a custom div-based control, not a native form input. -->
+              <span class="shin-wave-start-label">Starting Wave:</span>
               <div class="shin-wave-carousel" id="shin-wave-carousel">
                 <div class="shin-wave-carousel-container">
                   <div class="shin-wave-carousel-track" id="shin-wave-carousel-track">
