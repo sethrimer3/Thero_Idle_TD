@@ -457,97 +457,19 @@ Before any refactoring begins, establish these baseline metrics:
   - Minimize Math.sqrt calls in distance calculations
 
 **Step 2.1.3: Extract Spread Pattern System**
-- **Target:** ~1,200 lines
-- **New File:** `scripts/features/towers/cardinalWarden/SpreadPatternSimulation.js`
-- **Responsibilities:**
-  - Spread angle calculation
-  - Projectile fan generation
-  - Spread pattern damage distribution
-  - Multi-hit tracking
-- **Interface:**
-  ```javascript
-  export function createSpreadPatternSimulation(config) {
-    return {
-      createSpreadPattern(origin, targetAngle, spreadCount, params) { },
-      updateSpreadProjectiles(deltaTime, enemies) { },
-      getActiveProjectiles() { },
-      clearProjectiles() { }
-    };
-  }
-  ```
-- **Migration Strategy:**
-  1. Create spread simulation module
-  2. Move spread angle calculation logic
-  3. Move projectile generation for fan patterns
-  4. Update `cardinalWardenSimulation.js` to use spread system
-  5. Test: Grapheme I (spread mode), verify projectile patterns
-  6. Verify: Frame time during spread fire remains acceptable
-- **Performance Considerations:**
-  - Spread patterns can create many projectiles (10-20 per shot)
-  - Use efficient projectile pooling
-  - Minimize allocations in spread generation
+- **Status:** Not extractable as a standalone module - spread pattern (grapheme I) is a modifier applied in the bullet-spawning loop (`spreadBulletCount` controls how many bullets are spawned in a fan; the projectiles themselves are standard `Bullet` objects shared with all other modes). Address in Step 2.1.6 as part of core simulation refactoring.
 
 **Step 2.1.4: Extract Elemental Effects System**
-- **Target:** ~800 lines
-- **New File:** `scripts/features/towers/cardinalWarden/ElementalEffectsSimulation.js`
-- **Responsibilities:**
-  - Elemental damage type application
-  - Status effect application (burn, freeze, shock)
-  - Elemental interaction calculations
-  - Effect duration tracking
-- **Interface:**
-  ```javascript
-  export function createElementalEffectsSimulation(config) {
-    return {
-      applyElementalDamage(target, element, damage) { },
-      updateEffects(deltaTime, enemies) { },
-      getActiveEffects() { },
-      clearEffects() { }
-    };
-  }
-  ```
-- **Migration Strategy:**
-  1. Create elemental effects module
-  2. Move element type definitions
-  3. Move status effect logic
-  4. Update `cardinalWardenSimulation.js` to apply effects via module
-  5. Test: Grapheme K (elemental mode), verify status effects
-  6. Verify: Status effect updates don't degrade performance
-- **Performance Considerations:**
-  - Status effects update every frame for all affected enemies
-  - Batch effect updates where possible
-  - Remove expired effects promptly to avoid iteration overhead
+- **Status:** Not extractable as a standalone module - elemental effects (grapheme J) are properties (`burning`, `burnParticles`, `frozenDuration`) stored directly on individual `EnemyShip` instances and updated inside those classes' own `update()` methods. Extracting them would require decoupling the enemy update cycle. Address in Step 2.1.6 or as part of enemy class refactoring.
 
 **Step 2.1.5: Extract Massive Bullet System**
-- **Target:** ~600 lines
-- **New File:** `scripts/features/towers/cardinalWarden/MassiveBulletSimulation.js`
-- **Responsibilities:**
-  - Massive bullet physics (slower, larger, piercing)
-  - Multi-enemy impact detection
-  - Splash damage calculation
-  - Visual effect coordination (explosion, shockwave)
-- **Interface:**
-  ```javascript
-  export function createMassiveBulletSimulation(config) {
-    return {
-      createMassiveBullet(origin, target, params) { },
-      updateBullets(deltaTime, enemies) { },
-      getActiveBullets() { },
-      clearBullets() { }
-    };
-  }
-  ```
-- **Migration Strategy:**
-  1. Create massive bullet module
-  2. Move bullet physics and collision logic
-  3. Move splash damage calculations
-  4. Update `cardinalWardenSimulation.js` to use bullet system
-  5. Test: Grapheme L (massive mode), verify piercing and splash
-  6. Verify: Bullet update performance acceptable
-- **Performance Considerations:**
-  - Massive bullets check collision with multiple enemies
-  - Use spatial partitioning if collision checks become bottleneck
-  - Limit simultaneous massive bullets if needed
+- **Status:** Not extractable as a standalone module - massive bullet (grapheme K) is a modifier applied in the bullet-spawning loop (`massiveBulletMode` flag scales damage/size/speed). Address in Step 2.1.6 as part of core simulation refactoring.
+
+**Step 2.1.5b: Extract Swarm System**
+- **Status:** Complete (Build 475-476)
+- **New File:** `scripts/features/towers/cardinalWarden/SwarmSystem.js` (304 lines)
+- **Extracted:** `SwarmShip` class, `SwarmLaser` class, `checkSwarmLaserCollisions()`, `renderSwarmShips()`, `renderSwarmLasers()`
+- **Reduction:** cardinalWardenSimulation.js reduced from 7,583 to 7,348 lines (−235 lines)
 
 **Step 2.1.6: Reduce Core Simulation File**
 - **Target:** Reduce to ~1,500 lines (80% reduction)
@@ -1114,16 +1036,16 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 474) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 476) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
-| Largest file size | 7,583 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Largest file size | 7,348 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 5 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~800 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~136 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~137 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 474):**
-- CardinalWardenSimulation.js at 7,583 lines (336 line reduction from beam and mine extraction)
+**Progress Notes (Build 476):**
+- CardinalWardenSimulation.js at 7,348 lines (235 line reduction from swarm extraction; 570 lines total reduction in Phase 2)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
 - RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
@@ -1142,10 +1064,12 @@ Track these metrics to measure progress:
 - WaveSystem.js created: 206 lines (Build 472 - Cardinal Warden wave propagation)
 - BeamSystem.js created: 239 lines (Build 474 - Cardinal Warden continuous beam, grapheme L)
 - MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
-- Total extracted: 7,272 lines across eighteen modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), and mine system (drifting mines, explosion waves, render)
+- SwarmSystem.js created: 304 lines (Build 475-476 - Cardinal Warden swarm ships/lasers, grapheme N)
+- Total extracted: 7,576 lines across nineteen modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), and swarm system (swarm ships, swarm lasers, collision, render)
 - Maintained backward compatibility through delegation pattern and property getters
 - Connection system uses factory pattern with Object.assign delegation for 19 methods
+- **Note on Phase 2 Spread/Elemental/Massive items:** Spread Pattern (grapheme I), Elemental Effects (grapheme J), and Massive Bullet (grapheme K) are modifier configurations embedded in the bullet-firing loop, not standalone simulation objects with independent update/render cycles. These do not cleanly map to extractable modules and are better addressed as part of Step 2.1.6 (core simulation reduction) rather than standalone extractions.
 - **Progress to Phase 1 target:** 127.3% (Phase 1 target exceeded by 2,161 lines!)
 
 ### Milestone Tracking
@@ -1178,9 +1102,10 @@ Update this section as refactoring progresses:
 - [x] Cardinal Warden Wave System extracted (Build 472)
 - [x] Cardinal Warden Beam System extracted (Build 474)
 - [x] Cardinal Warden Mine System extracted (Build 474)
-- [ ] Cardinal Warden Spread Pattern extracted
-- [ ] Cardinal Warden Elemental Effects extracted
-- [ ] Cardinal Warden Massive Bullet extracted
+- [x] Cardinal Warden Swarm System extracted (Build 475-476)
+- [ ] Cardinal Warden Spread Pattern (grapheme I) - embedded modifier; address in Step 2.1.6
+- [ ] Cardinal Warden Elemental Effects (grapheme J) - embedded in enemy classes; address in Step 2.1.6
+- [ ] Cardinal Warden Massive Bullet (grapheme K) - embedded modifier; address in Step 2.1.6
 - [ ] Canvas Background Renderer extracted
 - [ ] Canvas Tower Sprite Renderer extracted
 - [ ] Canvas Projectile Renderer extracted
