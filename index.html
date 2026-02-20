@@ -3907,6 +3907,14 @@
                       <h4 class="kuf-sim-menu-title">ק</h4>
                     </button>
                   </div>
+                  <!-- Anchor the shard totals at the bottom of the main menu for at-a-glance planning. -->
+                  <div class="kuf-shard-summary" id="kuf-shard-summary" aria-live="polite">
+                    <div class="kuf-shard-summary-total">
+                      <img class="kuf-shard-icon" src="assets/sprites/spires/kufSpire/menu/shard_icon.png" alt="Shard icon" />
+                      <span id="kuf-total-shards">0</span>
+                    </div>
+                    <p class="kuf-shard-summary-unallocated">(<span id="kuf-unallocated-shards">0</span>)</p>
+                  </div>
                   <!-- Expanded Levels content -->
                   <section class="kuf-expanded-view" id="kuf-levels-view" hidden>
                       <div class="kuf-sim-map" aria-live="polite">
@@ -3935,7 +3943,9 @@
                           </div>
                           <div class="kuf-sim-unit-level-up" style="margin-top: 8px;">
                             <button id="kuf-core-ship-level-up" class="kuf-level-up-btn" type="button">
-                              Upgrade to Next Level (<span id="kuf-core-ship-level-up-cost">100</span> shards)
+                              Upgrade to Next Level
+                              (<img class="kuf-shard-icon kuf-shard-icon--inline" src="assets/sprites/spires/kufSpire/menu/shard_icon.png" alt="Shard icon" />
+                              <span id="kuf-core-ship-level-up-cost">100</span>)
                             </button>
                           </div>
                           <div class="kuf-sim-unit-upgrades" id="kuf-core-ship-upgrades" hidden>
