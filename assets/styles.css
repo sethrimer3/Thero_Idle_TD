@@ -811,10 +811,51 @@ body.graphics-mode-low .control-button {
 }
 
 .offline-resource__label {
+  /* Keep idle resource labels icon-ready so each currency can display its uploaded marker. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   font-size: 0.5em;
   letter-spacing: 0.08em;
   color: var(--accent-3);
   text-shadow: 0 0 14px rgba(255, 228, 120, 0.55), 0 0 28px rgba(255, 228, 120, 0.35);
+}
+
+/* Render uploaded idle resource icons directly beside each resource name in the offline equation list. */
+.offline-resource__label::before {
+  content: '';
+  width: 1.1em;
+  height: 1.1em;
+  background-image: var(--offline-resource-icon);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 6px rgba(255, 228, 120, 0.35));
+}
+
+/* Map each offline row to its matching uploaded resource icon file. */
+#offline-aleph-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/aleph_resourceIcon.png');
+}
+
+#offline-bet-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/bet_resourceIcon.png');
+}
+
+#offline-lamed-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/lamed__resourceIcon.png');
+}
+
+#offline-tsadi-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/tsadi_resourceIcon.png');
+}
+
+#offline-shin-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/shin_resourceIcon.png');
+}
+
+#offline-kuf-row .offline-resource__label {
+  --offline-resource-icon: url('./sprites/idleScreen/kuf_resourceIcon.png');
 }
 
 .offline-symbol {
@@ -14160,6 +14201,25 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   font-family: 'Space Mono', monospace;
   font-size: 0.95rem;
   color: #d4af37;
+}
+
+/* Show the uploaded Equivalence icon next to the spendable total in Shin Spire stats. */
+#shin-total-iterons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Keep the Equivalence icon persistent even when JavaScript replaces the metric text value. */
+#shin-total-iterons::before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  background-image: url('./sprites/idleScreen/shin_resourceIcon.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.45));
 }
 
 /* Mobile responsiveness for Cardinal Warden */
