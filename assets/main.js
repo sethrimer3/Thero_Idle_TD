@@ -2123,9 +2123,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     evaluateAchievements,
     spireMenuController,
     gameStats,
-    getCompletedInteractiveLevelCount,
     getIteronBank,
-    getIterationRate,
+    getKufGlyphs,
+    setKufGlyphs,
     onTsadiBindingAgentsChange: syncTsadiBindingAgents,
   });
 

@@ -256,21 +256,21 @@ async function showOfflineOverlay(summary = {}) {
   });
 
   await Promise.all([
-    animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatWholeNumber }),
+    animateOfflineNumber(alephMultiplier, alephMultiplierValue, { format: dependencies.formatGameNumber }),
     animateOfflineNumber(betMultiplier, betUnlocked ? betMultiplierValue : 0, {
-      format: dependencies.formatWholeNumber,
+      format: dependencies.formatGameNumber,
     }),
     animateOfflineNumber(lamedMultiplier, lamedUnlocked ? lamedMultiplierValue : 0, {
-      format: dependencies.formatWholeNumber,
+      format: dependencies.formatGameNumber,
     }),
     animateOfflineNumber(tsadiMultiplier, tsadiUnlocked ? tsadiMultiplierValue : 0, {
-      format: dependencies.formatWholeNumber,
+      format: dependencies.formatGameNumber,
     }),
     animateOfflineNumber(shinMultiplier, shinUnlocked ? shinMultiplierValue : 0, {
-      format: dependencies.formatWholeNumber,
+      format: dependencies.formatGameNumber,
     }),
     animateOfflineNumber(kufMultiplier, kufUnlocked ? kufMultiplierValue : 0, {
-      format: dependencies.formatWholeNumber,
+      format: dependencies.formatGameNumber,
     }),
   ]);
 
