@@ -560,8 +560,8 @@ export class GravitySimulation {
     this.sprites.starNoGlow = new Image();
     this.sprites.starNoGlow.src = `${basePath}stars/star1NoGlow.png`;
     
-    // Load 5 asteroid sprites (including the one named "5.png")
-    const asteroidFiles = ['asteroid1.png', 'asteroid2.png', 'asteroid3.png', 'asteroid4.png', '5.png'];
+    // Load 5 asteroid sprites
+    const asteroidFiles = ['asteroid1.png', 'asteroid2.png', 'asteroid3.png', 'asteroid4.png', 'asteroid5.png'];
     for (const filename of asteroidFiles) {
       const img = new Image();
       img.src = `${basePath}asteroids/${filename}`;
@@ -2273,7 +2273,7 @@ export class GravitySimulation {
         const asteroidY = asteroid.y * invDpr;
         const asteroidSprite = this.sprites.asteroids[asteroid.spriteIndex];
         
-        if (asteroidSprite && asteroidSprite.complete) {
+        if (asteroidSprite && asteroidSprite.complete && asteroidSprite.naturalWidth > 0) {
           ctx.save();
           ctx.translate(asteroidX, asteroidY);
           
