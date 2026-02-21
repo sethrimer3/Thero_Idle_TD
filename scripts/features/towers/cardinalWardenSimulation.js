@@ -138,6 +138,38 @@ const SHIN_BULLET_SPRITE_URLS = Array.from({ length: 16 }, (_, index) => (
   new URL(`../../../assets/sprites/spires/shinSpire/bullets/bulletLevel${index + 1}.png`, import.meta.url).href
 ));
 
+// Boss sprite art for Shin Spire milestone waves (10-130) in 10-wave steps.
+const SHIN_BOSS_SPRITE_URLS = Array.from({ length: 13 }, (_, index) => (
+  new URL(`../../../assets/sprites/spires/shinSpire/bossEnemies/boss_${index + 1}.png`, import.meta.url).href
+));
+
+// Boss minion sprites are spawned by carrier-style bosses for visual variety.
+const SHIN_BOSS_MINION_SPRITE_URLS = [
+  new URL('../../../assets/sprites/spires/shinSpire/bossEnemies/bossMinion_1.png', import.meta.url).href,
+  new URL('../../../assets/sprites/spires/shinSpire/bossEnemies/bossMinion_2.png', import.meta.url).href,
+];
+
+/**
+ * Resolve which Shin boss sprite to render for a wave milestone.
+ * Waves 10-130 map to sprite indices 0-12, waves 140-260 reuse those sprites with color inversion,
+ * and later waves repeat the base (non-inverted) 13-sprite cycle.
+ */
+function resolveBossSpriteForWave(waveNumber) {
+  const safeWave = Number.isFinite(waveNumber) ? Math.max(1, Math.floor(waveNumber)) : 1;
+  const milestoneIndex = Math.max(0, Math.floor((safeWave - 10) / 10));
+
+  if (safeWave >= 10 && safeWave <= 130) {
+    return { index: milestoneIndex % SHIN_BOSS_SPRITE_URLS.length, invert: false };
+  }
+
+  if (safeWave >= 140 && safeWave <= 260) {
+    return { index: milestoneIndex % SHIN_BOSS_SPRITE_URLS.length, invert: true };
+  }
+
+  // Repeat base sprites after wave 260 (and for any waves below the first milestone).
+  return { index: (milestoneIndex % SHIN_BOSS_SPRITE_URLS.length + SHIN_BOSS_SPRITE_URLS.length) % SHIN_BOSS_SPRITE_URLS.length, invert: false };
+}
+
 /**
  * Lighten a hex color by blending it toward white.
  */
@@ -1007,10 +1039,16 @@ export class CardinalWardenSimulation {
     this.legacyWardenGraphics = false; // Toggle between sprite and canvas rendering
     this.loadWardenSprites();
 
-    // Enemy ship sprite artwork for 6 difficulty levels
+    // Enemy ship sprite artwork for 6 difficulty levels plus boss minion variants.
     this.enemyShipSprites = [];
     this.enemyShipSpritesLoaded = [];
     this.loadEnemyShipSprites();
+
+    // Boss sprite artwork and inverted variants for milestone boss waves.
+    this.bossSprites = [];
+    this.bossSpritesLoaded = [];
+    this.invertedBossSpriteCache = [];
+    this.loadBossSprites();
 
     // Game state
     this.running = false;
@@ -1498,6 +1536,65 @@ export class CardinalWardenSimulation {
       };
       sprite.src = url;
       this.enemyShipSprites[index + 1] = sprite;
+    });
+
+    // Append two dedicated boss-minion sprites after the six standard enemy ships.
+    SHIN_BOSS_MINION_SPRITE_URLS.forEach((url, index) => {
+      const spriteLevel = ENEMY_SHIP_SPRITES.length + index + 1;
+      const sprite = new Image();
+      sprite.onload = () => {
+        this.enemyShipSpritesLoaded[spriteLevel] = true;
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load boss minion sprite: ${url}`);
+      };
+      sprite.src = url;
+      this.enemyShipSprites[spriteLevel] = sprite;
+    });
+  }
+
+  /**
+   * Load milestone boss sprites and prebuild inverted-color variants.
+   */
+  loadBossSprites() {
+    // Skip sprite loading on non-browser contexts.
+    if (typeof Image === 'undefined') {
+      return;
+    }
+
+    this.bossSprites = [];
+    this.bossSpritesLoaded = [];
+    this.invertedBossSpriteCache = [];
+
+    SHIN_BOSS_SPRITE_URLS.forEach((url, index) => {
+      const sprite = new Image();
+      sprite.onload = () => {
+        this.bossSpritesLoaded[index] = true;
+        // Precompute an inverted-color canvas for waves 140-260.
+        if (typeof document !== 'undefined') {
+          const canvas = document.createElement('canvas');
+          canvas.width = sprite.naturalWidth || sprite.width;
+          canvas.height = sprite.naturalHeight || sprite.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx && canvas.width > 0 && canvas.height > 0) {
+            ctx.drawImage(sprite, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+              data[i] = 255 - data[i];
+              data[i + 1] = 255 - data[i + 1];
+              data[i + 2] = 255 - data[i + 2];
+            }
+            ctx.putImageData(imageData, 0, 0);
+            this.invertedBossSpriteCache[index] = canvas;
+          }
+        }
+      };
+      sprite.onerror = () => {
+        console.warn(`Failed to load boss sprite: ${url}`);
+      };
+      sprite.src = url;
+      this.bossSprites[index] = sprite;
     });
   }
 
@@ -2084,15 +2181,7 @@ export class CardinalWardenSimulation {
       this.spawnEnemy();
     }
 
-    // Spawn bosses (start spawning at minimum boss difficulty)
-    if (this.difficultyLevel >= GAME_CONFIG.BOSS_MIN_DIFFICULTY) {
-      this.bossSpawnTimer += deltaTime;
-      const bossSpawnInterval = this.getBossSpawnInterval();
-      if (this.bossSpawnTimer >= bossSpawnInterval) {
-        this.bossSpawnTimer = 0;
-        this.spawnBoss();
-      }
-    }
+    // Boss spawning is wave-driven (every 10 waves) so no timer-based spawns run here.
 
     // Fire bullets for each purchased weapon based on their individual fire rates
     this.updateWeaponTimers(deltaTime);
@@ -3611,7 +3700,7 @@ export class CardinalWardenSimulation {
   /**
    * Spawn a boss ship based on current difficulty.
    */
-  spawnBoss() {
+  spawnBoss(waveNumber = this.wave + 1) {
     if (!this.canvas) return;
 
     const typePool = this.getBossTypePool();
@@ -3658,6 +3747,10 @@ export class CardinalWardenSimulation {
     }
 
     boss.color = this.nightMode ? '#ffffff' : boss.baseColor;
+    // Attach wave-based sprite selection so boss visuals match the uploaded Shin sequence.
+    const spriteSelection = resolveBossSpriteForWave(waveNumber);
+    boss.spriteIndex = spriteSelection.index;
+    boss.invertSpriteColors = spriteSelection.invert;
     boss.pickNewTarget(this.canvas.width, this.canvas.height, this.rng);
     this.bosses.push(boss);
   }
@@ -3668,49 +3761,10 @@ export class CardinalWardenSimulation {
    */
   handleWaveBossSpawns() {
     const waveNumber = this.wave + 1; // Convert from 0-indexed to 1-indexed
-    
-    // Wave 50+: One boss every 5 waves
-    // Wave 100+: One boss every wave
-    // Wave 150+: One mega boss every 5 waves
-    // Wave 200+: One mega boss every wave + 5 regular bosses
-    // Wave 250+: One ultra boss every 5 waves + 2 mega bosses + 10 normal bosses
-    // Wave 300+: One ultra boss every wave + two bosses per wave
-    
-    if (waveNumber >= 300) {
-      // Wave 300+: One ultra boss every wave + two normal bosses
-      this.spawnSpecificBoss('ultraBoss');
-      this.spawnSpecificBoss('hexagonFortress');
-      this.spawnSpecificBoss('pyramidBoss');
-    } else if (waveNumber >= 250) {
-      // Wave 250+: One ultra boss every 5 waves + 2 mega bosses + 10 normal bosses every wave
-      if (waveNumber % 5 === 0) {
-        this.spawnSpecificBoss('ultraBoss');
-      }
-      for (let i = 0; i < 2; i++) {
-        this.spawnSpecificBoss('megaBoss');
-      }
-      for (let i = 0; i < 10; i++) {
-        this.spawnBoss();
-      }
-    } else if (waveNumber >= 200) {
-      // Wave 200+: One mega boss every wave + 5 regular bosses
-      this.spawnSpecificBoss('megaBoss');
-      for (let i = 0; i < 5; i++) {
-        this.spawnBoss();
-      }
-    } else if (waveNumber >= 150) {
-      // Wave 150+: One mega boss every 5 waves
-      if (waveNumber % 5 === 0) {
-        this.spawnSpecificBoss('megaBoss');
-      }
-    } else if (waveNumber >= 100) {
-      // Wave 100+: One boss every wave
-      this.spawnBoss();
-    } else if (waveNumber >= 50) {
-      // Wave 50+: One boss every 5 waves
-      if (waveNumber % 5 === 0) {
-        this.spawnBoss();
-      }
+
+    // Spawn exactly one milestone boss every 10 waves to match Shin boss cadence.
+    if (waveNumber % 10 === 0) {
+      this.spawnBoss(waveNumber);
     }
   }
 
@@ -3839,6 +3893,9 @@ export class CardinalWardenSimulation {
     };
 
     const ship = new EnemyShip(spawnData.x, spawnData.y, config);
+    // Randomize between the two boss minion sprites for variety in spawned ships.
+    const minionSpriteOffset = this.rng.int(0, SHIN_BOSS_MINION_SPRITE_URLS.length - 1);
+    ship.spriteLevel = ENEMY_SHIP_SPRITES.length + minionSpriteOffset + 1;
     ship.color = this.nightMode ? '#ffffff' : ship.baseColor;
 
     // Give the spawned ship initial velocity in the spawn direction
@@ -5138,7 +5195,8 @@ export class CardinalWardenSimulation {
 
       ctx.save();
       ctx.translate(enemy.x, enemy.y);
-      ctx.rotate(enemy.headingAngle - Math.PI / 2);
+      // Enemy sprite art is authored with the nose at the top (-Y), so rotate accordingly.
+      ctx.rotate(enemy.headingAngle + Math.PI / 2);
 
       // Draw enemy ship sprite if available, otherwise fall back to triangle
       const spriteLevel = enemy.spriteLevel || 1;
@@ -5268,25 +5326,38 @@ export class CardinalWardenSimulation {
       ctx.save();
       ctx.translate(boss.x, boss.y);
 
-      // Draw boss based on type
-      switch (boss.type) {
-        case 'circleCarrier':
-          this.renderCircleCarrierBoss(ctx, boss);
-          break;
-        case 'pyramidBoss':
-          this.renderPyramidBoss(ctx, boss);
-          break;
-        case 'hexagonFortress':
-          this.renderHexagonFortressBoss(ctx, boss);
-          break;
-        case 'megaBoss':
-          this.renderMegaBoss(ctx, boss);
-          break;
-        case 'ultraBoss':
-          this.renderUltraBoss(ctx, boss);
-          break;
-        default:
-          this.renderCircleCarrierBoss(ctx, boss);
+      // Draw milestone boss sprite when available, otherwise fall back to procedural boss shapes.
+      const bossSprite = this.bossSprites[boss.spriteIndex];
+      const invertedBossSprite = this.invertedBossSpriteCache[boss.spriteIndex];
+      const shouldUseInverted = !!boss.invertSpriteColors && !!invertedBossSprite;
+      const spriteReady = Number.isInteger(boss.spriteIndex) && this.bossSpritesLoaded[boss.spriteIndex] && (bossSprite || invertedBossSprite);
+
+      if (spriteReady) {
+        const spriteImage = shouldUseInverted ? invertedBossSprite : bossSprite;
+        const spriteSize = boss.size * 2.7;
+        // Boss sprite art is also nose-up, matching enemy ships and requiring +π/2 rotation.
+        ctx.rotate((boss.headingAngle || Math.PI / 2) + Math.PI / 2);
+        ctx.drawImage(spriteImage, -spriteSize / 2, -spriteSize / 2, spriteSize, spriteSize);
+      } else {
+        switch (boss.type) {
+          case 'circleCarrier':
+            this.renderCircleCarrierBoss(ctx, boss);
+            break;
+          case 'pyramidBoss':
+            this.renderPyramidBoss(ctx, boss);
+            break;
+          case 'hexagonFortress':
+            this.renderHexagonFortressBoss(ctx, boss);
+            break;
+          case 'megaBoss':
+            this.renderMegaBoss(ctx, boss);
+            break;
+          case 'ultraBoss':
+            this.renderUltraBoss(ctx, boss);
+            break;
+          default:
+            this.renderCircleCarrierBoss(ctx, boss);
+        }
       }
 
       // Health bar for all bosses
