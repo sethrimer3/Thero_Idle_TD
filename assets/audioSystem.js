@@ -559,7 +559,7 @@ export class AudioManager {
       if (fromAudio) {
         fromAudio.volume = startFromVolume * (1 - progress);
       }
-      toAudio.volume = startToVolume + (resolvedTarget - startToVolume) * progress;
+      toAudio.volume = Math.max(0, Math.min(1, startToVolume + (resolvedTarget - startToVolume) * progress));
       if (progress < 1) {
         this.musicFadeHandle = schedule(step);
         this.musicFadeCanceler = cancel;

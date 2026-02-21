@@ -1050,11 +1050,7 @@ function setupHoldToSpam() {
   });
   
   document.addEventListener('mouseup', stopHold);
-  document.addEventListener('mouseleave', (e) => {
-    if (e.target.closest('.kuf-unit-btn, .kuf-upgrade-btn')) {
-      stopHold();
-    }
-  });
+  document.addEventListener('mouseleave', stopHold);
   
   // Touch support
   document.addEventListener('touchstart', (e) => {
