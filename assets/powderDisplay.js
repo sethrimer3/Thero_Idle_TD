@@ -17,7 +17,6 @@ export function createPowderDisplaySystem({
   notifyPowderSigils,
   updateStatusDisplays,
   getUnlockedAchievementCount,
-  getAchievementPowderRate,
   getCurrentIdleMoteBank,
   getCurrentMoteDispenseRate,
   THERO_SYMBOL,
@@ -36,13 +35,13 @@ export function createPowderDisplaySystem({
   getTsadiBindingAgents,
   setTsadiBindingAgents,
   addIterons,
+  getKufGlyphs,
+  setKufGlyphs,
   updateShinDisplay,
   evaluateAchievements,
   spireMenuController,
   gameStats,
-  getCompletedInteractiveLevelCount,
   getIteronBank,
-  getIterationRate,
   onTsadiBindingAgentsChange,
 }) {
   let powderCurrency = 0;
@@ -165,7 +164,8 @@ export function createPowderDisplaySystem({
   function updateMoteStatsDisplays() {
     if (powderElements.idleMultiplier) {
       const achievements = getUnlockedAchievementCount();
-      const rate = getAchievementPowderRate();
+      // Keep the HUD aligned with the offline formula: 1 mote/minute doubled per achievement.
+      const rate = 2 ** Math.max(0, Math.floor(achievements));
       const achievementLabel = achievements === 1 ? 'achievement' : 'achievements';
       const rateLabel = rate === 1 ? 'Mote/min' : 'Motes/min';
       powderElements.idleMultiplier.textContent = `${formatWholeNumber(achievements)} ${achievementLabel} · +${formatGameNumber(
@@ -532,106 +532,68 @@ export function createPowderDisplaySystem({
     }
 
     const minutes = Math.max(0, elapsedMs / 60000);
-    const seconds = Math.max(0, elapsedMs / 1000);
     const achievementsUnlocked = Math.max(0, Math.floor(getUnlockedAchievementCount()));
-    const levelsBeat = Math.max(0, Math.floor(getCompletedInteractiveLevelCount()));
-
-    const alephTotal = minutes * achievementsUnlocked;
+    // The Aleph baseline starts at 1 mote/minute and doubles once per unlocked achievement.
+    const alephRatePerMinute = 2 ** achievementsUnlocked;
+    const alephTotal = minutes * alephRatePerMinute;
     const betUnlocked = Boolean(powderState.fluidUnlocked);
-    const betTotal = betUnlocked ? minutes * levelsBeat : 0;
+    // Every downstream spire inherits 1/100 of the prior spire's idle rate.
+    const betRatePerMinute = alephRatePerMinute / 100;
+    const betTotal = betUnlocked ? minutes * betRatePerMinute : 0;
 
     const lamedUnlocked = Boolean(spireResourceState.lamed?.unlocked);
-    const lamedRate = 1.0;
-    const lamedTotal = lamedUnlocked ? seconds * lamedRate : 0;
+    // Lamed receives 1/100 of Bet's idle income.
+    const lamedRatePerMinute = betRatePerMinute / 100;
+    const lamedTotal = lamedUnlocked ? minutes * lamedRatePerMinute : 0;
 
     const tsadiUnlocked = Boolean(spireResourceState.tsadi?.unlocked);
-    const discoveredMolecules = Array.isArray(spireResourceState.tsadi?.discoveredMolecules)
-      ? spireResourceState.tsadi.discoveredMolecules
-      : [];
-    const tsadiHourlyBonus = discoveredMolecules.reduce((total, entry) => {
-      const tiers = Array.isArray(entry?.tiers)
-        ? entry.tiers.filter((tier) => Number.isFinite(tier))
-        : [];
-      const particleCount = Number.isFinite(entry?.particleCount)
-        ? Math.max(0, entry.particleCount)
-        : new Set(tiers).size;
-      return total + particleCount;
-    }, 0);
-    const tsadiIdleBonusPerSecond = tsadiHourlyBonus / 3600; // +1 particle/hour per particle in molecule
-    const tsadiRate = 2.0 + tsadiIdleBonusPerSecond;
-    const tsadiTotal = tsadiUnlocked ? seconds * tsadiRate : 0;
+    // Tsadi receives 1/100 of Lamed's idle income.
+    const tsadiRatePerMinute = lamedRatePerMinute / 100;
+    const tsadiTotal = tsadiUnlocked ? minutes * tsadiRatePerMinute : 0;
 
-    // Respect the Shin unlock flag so idle summaries hide the branch until players reach it.
+    // Shin receives 1/100 of Tsadi's idle income.
     const shinUnlocked = Boolean(spireResourceState.shin?.unlocked);
-    const shinRate = shinUnlocked && typeof getIterationRate === 'function' ? getIterationRate() : 0;
-    const shinTotal = shinUnlocked ? seconds * shinRate : 0;
+    const shinRatePerMinute = tsadiRatePerMinute / 100;
+    const shinTotal = shinUnlocked ? minutes * shinRatePerMinute : 0;
 
-    // Mirror the live Kuf unlock flag so the idle summary hides the panel until the spire is available.
+    // Kuf receives 1/100 of Shin's idle income.
     const kufUnlocked = Boolean(spireResourceState.kuf?.unlocked);
-    const kufTotal = 0;
+    const kufRatePerMinute = shinRatePerMinute / 100;
+    const kufTotal = kufUnlocked ? minutes * kufRatePerMinute : 0;
 
     summary.minutes = minutes;
     summary.aleph = {
-      multiplier: achievementsUnlocked,
+      multiplier: alephRatePerMinute,
       total: alephTotal,
       unlocked: true,
     };
     summary.bet = {
-      multiplier: betUnlocked ? levelsBeat : 0,
+      multiplier: betUnlocked ? betRatePerMinute : 0,
       total: betTotal,
       unlocked: betUnlocked,
     };
     summary.lamed = {
-      multiplier: lamedUnlocked ? lamedRate * 60 : 0,
+      multiplier: lamedUnlocked ? lamedRatePerMinute : 0,
       total: lamedTotal,
       unlocked: lamedUnlocked,
     };
     summary.tsadi = {
-      multiplier: tsadiUnlocked ? tsadiRate * 60 : 0,
+      multiplier: tsadiUnlocked ? tsadiRatePerMinute : 0,
       total: tsadiTotal,
       unlocked: tsadiUnlocked,
     };
     summary.shin = {
-      multiplier: shinUnlocked ? shinRate * 60 : 0,
+      multiplier: shinUnlocked ? shinRatePerMinute : 0,
       total: shinTotal,
       unlocked: shinUnlocked,
     };
     summary.kuf = {
-      multiplier: 0,
+      multiplier: kufUnlocked ? kufRatePerMinute : 0,
       total: kufTotal,
       unlocked: kufUnlocked,
     };
 
     return summary;
-  }
-
-  /**
-   * Derive chained idle-time conversions so each spire seeds the next by a 10:1 ratio.
-   * @param {Object} summary - Idle summary for the elapsed window.
-   * @returns {Object} Conversion totals keyed by target spire.
-   */
-  function calculateIdleSpireConversions(summary) {
-    // Normalize idle totals so conversion math runs on whole, non-negative counts.
-    const alephEarned = Math.max(0, Math.floor(summary?.aleph?.total || 0));
-    const betEarned = Math.max(0, Math.floor(summary?.bet?.total || 0));
-    const lamedEarned = Math.max(0, Math.floor(summary?.lamed?.total || 0));
-    const tsadiEarned = Math.max(0, Math.floor(summary?.tsadi?.total || 0));
-
-    // Convert idle Aleph motes into Bet scintillae once Bet is available.
-    const alephToBet = summary?.bet?.unlocked ? Math.floor(alephEarned / 10) : 0;
-    // Convert idle Bet scintillae (including Aleph-fed scintillae) into Lamed sparks.
-    const betToLamed = summary?.lamed?.unlocked ? Math.floor((betEarned + alephToBet) / 10) : 0;
-    // Convert idle Lamed sparks (including Bet-fed sparks) into Tsadi particles.
-    const lamedToTsadi = summary?.tsadi?.unlocked ? Math.floor((lamedEarned + betToLamed) / 10) : 0;
-    // Convert idle Tsadi particles (including Lamed-fed particles) into Shin iterons.
-    const tsadiToShin = summary?.shin?.unlocked ? Math.floor((tsadiEarned + lamedToTsadi) / 10) : 0;
-
-    return {
-      alephToBet,
-      betToLamed,
-      lamedToTsadi,
-      tsadiToShin,
-    };
   }
 
   function notifyIdleTime(elapsedMs) {
@@ -658,19 +620,12 @@ export function createPowderDisplaySystem({
     if (summary.shin.unlocked && summary.shin.total > 0 && typeof addIterons === 'function') {
       addIterons(summary.shin.total);
     }
-    // Apply chained idle conversions so upstream spires seed their successors.
-    const conversionTotals = calculateIdleSpireConversions(summary);
-    if (conversionTotals.alephToBet > 0) {
-      addIdleMoteBank(conversionTotals.alephToBet, { target: 'bet' });
-    }
-    if (conversionTotals.betToLamed > 0) {
-      setLamedSparkBank(getLamedSparkBank() + conversionTotals.betToLamed);
-    }
-    if (conversionTotals.lamedToTsadi > 0) {
-      setTsadiParticleBank(getTsadiParticleBank() + conversionTotals.lamedToTsadi);
-    }
-    if (conversionTotals.tsadiToShin > 0 && typeof addIterons === 'function') {
-      addIterons(conversionTotals.tsadiToShin);
+    // Route Kuf idle gains through the glyph state so downstream unlock checks stay consistent.
+    if (summary.kuf.unlocked && summary.kuf.total > 0 && typeof setKufGlyphs === 'function') {
+      const kufIncrement = Math.max(0, Math.floor(summary.kuf.total));
+      if (kufIncrement > 0) {
+        setKufGlyphs(getKufGlyphs() + kufIncrement);
+      }
     }
     evaluateAchievements();
 
