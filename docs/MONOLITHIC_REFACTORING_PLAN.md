@@ -680,6 +680,55 @@ Before any refactoring begins, establish these baseline metrics:
 
 ---
 
+### Phase 2.2.3: Canvas Projectile Renderer (Build 488)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/ProjectileRenderer.js` (605 lines)
+
+**Responsibilities Extracted:**
+- `drawProjectiles()` — main projectile loop: supply seeds, omega waves, eta lasers, iota pulses, epsilon needles, gamma star beams, standard beam projectiles; delegates burst effects to tower modules via `this.drawBetaBursts()` etc.
+- `drawAlphaBursts()` — thin delegate to `alphaTower.drawAlphaBursts(this)`
+- `drawBetaBursts()` — thin delegate to `betaTower.drawBetaBursts(this)`
+- `drawGammaBursts()` — thin delegate to `gammaTower.drawGammaBursts(this)`
+- `drawGammaStarBursts()` — renders animated pentagram star traces on enemies hit by gamma star projectiles
+- `drawNuBursts()` — thin delegate to `nuTower.drawNuBursts(this)`
+- `drawOmegaParticles()` — thin delegate to `omegaTower.drawOmegaParticles(this)`
+- `resolveEpsilonNeedleSprite()` — palette-tints the epsilon needle sprite and caches results per gradient stop
+- `getEnemyLookupMap()` — lazily builds a per-frame enemy ID→enemy Map for O(1) target resolution
+
+**Consolidation:**
+- 7 exported drawing functions + 2 private helpers moved to ProjectileRenderer.js
+- `PROJECTILE_CULL_RADIUS_DEFAULT/IOTA_PULSE/OMEGA_WAVE/ETA_LASER` constants moved from CanvasRenderer.js
+- Epsilon needle sprite loading code (`epsilonNeedleSprite`, `epsilonNeedleSpriteCache`, `EPSILON_NEEDLE_GRADIENT_STOPS`) moved from CanvasRenderer.js
+- 5 tower burst helper imports removed from CanvasRenderer.js (`alphaTower`, `betaTower`, `gammaTower`, `nuTower`, `omegaTower`)
+- `getEnemyLookupMap` private function removed from CanvasRenderer.js (only consumed by `drawProjectiles`)
+- Total code reduction: ~477 lines in CanvasRenderer.js (3,039 → 2,562 lines)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations; private helpers (`clamp`, `getViewportBounds`, `isInViewport`, `resolveEpsilonNeedleSprite`, `getEnemyLookupMap`) are unexported module-level functions
+- `getViewportBounds` and `isInViewport` are duplicated locally (they are also retained in CanvasRenderer.js for the enemy/mote/damage-number culling that remains there); this avoids a circular import
+- All exported functions use the `.call(renderer)` convention and are re-exported by CanvasRenderer.js to preserve the `CanvasRenderer.drawXxx` namespace used by playfield.js
+- `drawProjectiles` ends by calling `this.drawBetaBursts()` etc. through the renderer prototype, consistent with the original call chain
+
+**Dependencies:**
+- `samplePaletteGradient` from `../../../colorSchemeUtils.js`
+- `colorToRgbaString` from `../../../../scripts/features/towers/powderTower.js`
+- `normalizeProjectileColor` from `../../utils/rendering.js`
+- Per-tower burst helpers: `alphaTower`, `betaTower`, `gammaTower`, `nuTower`, `omegaTower`
+
+**Performance Considerations:**
+- `drawProjectiles` is a hot path; no algorithmic change — extraction is zero-cost
+- `getEnemyLookupMap` lazily builds a per-frame Map; frames without target-based projectiles skip the build
+- `resolveEpsilonNeedleSprite` is keyed on closest gradient stop + palette colour; typical cache size is ≤4 entries
+
+**Key Learnings:**
+- Viewport culling helpers (`getViewportBounds`/`isInViewport`) were retained in both files rather than moved to a shared utility, keeping the import graph acyclic at minimal duplication cost (~40 lines)
+- Burst effects (alpha/beta/gamma/nu/omega) remain delegated to their respective tower modules — ProjectileRenderer only holds thin wrappers, keeping tower logic co-located with tower files
+- 477-line reduction is a solid step toward the Phase 2.2 goal of a ≤1,000-line coordinator
+
+---
+
 **Step 2.2.3: Extract Projectile Renderer**
 - **Target:** ~600 lines
 - **New File:** `assets/playfield/render/layers/ProjectileRenderer.js`
@@ -1148,16 +1197,18 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 486) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 488) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
 | Largest file size | 6,264 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
-| Files > 3,000 lines | 4 files | 3 files | 1 file | 0 files | 0 files |
+| Files > 3,000 lines | 3 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~139 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~141 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 486):**
-- CanvasRenderer.js reduced from 3,987 to 3,697 lines (290 line reduction from background renderer extraction)
+**Progress Notes (Build 488):**
+- CanvasRenderer.js reduced from 3,039 to 2,562 lines (477 line reduction from projectile renderer extraction)
+- ProjectileRenderer.js created: 605 lines (Build 488 - drawProjectiles, drawAlphaBursts, drawBetaBursts, drawGammaBursts, drawGammaStarBursts, drawNuBursts, drawOmegaParticles, resolveEpsilonNeedleSprite, getEnemyLookupMap; extracted from CanvasRenderer.js)
+- TowerSpriteRenderer.js created: 738 lines (Build 487 - tower body/glyph/placement/connection rendering)
 - BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice)
 - CardinalWardenSimulation.js at 6,264 lines (1,084 line reduction from enemy system extraction; 1,654 lines total reduction in Phase 2)
 - CombatStateManager.js created: 587 lines (Build 444-446)
@@ -1180,9 +1231,8 @@ Track these metrics to measure progress:
 - MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
 - SwarmSystem.js created: 304 lines (Build 475-476 - Cardinal Warden swarm ships/lasers, grapheme N)
 - EnemySystem.js created: ~1,096 lines (Build 477 - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss)
-- BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice; extracted from CanvasRenderer.js)
-- Total extracted: ~8,963 lines across twenty-one modules
-- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), swarm system (swarm ships, swarm lasers, collision, render), and enemy system (all enemy/boss classes with movement AI, elemental status effects, trail/smoke rendering)
+- Total extracted: ~9,568 lines across twenty-three modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), swarm system (swarm ships, swarm lasers, collision, render), enemy system (all enemy/boss classes with movement AI, elemental status effects, trail/smoke rendering), background renderer (crystalline mosaic, sketch layer, floater lattice), tower sprite renderer (tower body/glyph/placement), and projectile renderer (all projectile types + burst effects)
 - Maintained backward compatibility through delegation pattern and property getters
 - Connection system uses factory pattern with Object.assign delegation for 19 methods
 - **Note on Phase 2 Spread/Elemental/Massive items:** Spread Pattern (grapheme I), Elemental Effects (grapheme J), and Massive Bullet (grapheme K) are modifier configurations embedded in the bullet-firing loop, not standalone simulation objects with independent update/render cycles. These do not cleanly map to extractable modules and are better addressed as part of Step 2.1.6 (core simulation reduction) rather than standalone extractions.
@@ -1224,8 +1274,8 @@ Update this section as refactoring progresses:
 - [ ] Cardinal Warden Elemental Effects (grapheme J) - embedded in enemy classes; address in Step 2.1.6
 - [ ] Cardinal Warden Massive Bullet (grapheme K) - embedded modifier; address in Step 2.1.6
 - [x] Canvas Background Renderer extracted (Build 486) - crystalline mosaic, sketch layer, floater lattice
-- [ ] Canvas Tower Sprite Renderer extracted
-- [ ] Canvas Projectile Renderer extracted
+- [x] Canvas Tower Sprite Renderer extracted (Build 487) - tower body/glyph/placement/connection rendering
+- [x] Canvas Projectile Renderer extracted (Build 488) - all projectile types + burst effects (Alpha, Beta, Gamma, Nu, Omega)
 - [ ] Canvas Effect Renderer extracted
 - [ ] Canvas UI Overlay Renderer extracted
 
