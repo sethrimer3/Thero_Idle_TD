@@ -774,27 +774,18 @@ Before any refactoring begins, establish these baseline metrics:
 - **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js` (458 lines)
 - **Extracted:** `drawDamageNumbers`, `drawFloatingFeedback`, `drawWaveTallies`, `drawTowerMenu`, plus private helper `drawAnimatedTowerMenu`
 
-**Step 2.2.6: Refactor Core Renderer to Coordinator**
-- **Target:** Reduce to ~1,000 lines (75% reduction)
-- **Remaining Responsibilities:**
-  - Canvas setup and resize handling
-  - Render order coordination
-  - Canvas state management (save/restore stack)
-  - Performance monitoring
-  - Layer composition
-- **Activities:**
-  1. Create layer registry for render order
-  2. Implement layer rendering loop
-  3. Move all drawing logic to layer renderers
-  4. Keep only coordination logic in core renderer
-  5. Test: Full gameplay with all visual elements
-  6. Verify: Frame rate unchanged (critical!)
-- **Final Validation:**
-  1. Measure render time per layer
-  2. Profile hottest rendering paths
-  3. Verify no performance regression
-  4. Update rendering optimization memories
-  5. Document rendering architecture in `assets/playfield/agent.md`
+**Step 2.2.6: Refactor Core Renderer to Coordinator** ✅ COMPLETED (Build 490)
+- **New File:** `assets/playfield/render/layers/TrackRenderer.js` (709 lines)
+- **Extracted:** `drawPath`, `drawArcLight`, `drawPathLayerCache`, `drawEnemyGateSymbol`, `drawMindGateSymbol`, `drawNodes`, plus private helpers:
+  - Path layer caching system (getPathLayerCacheKey, buildPathLayerCache, drawPathLayerCache)
+  - Track palette helpers (getTrackPaletteStops, getCachedTrackPaletteStops)
+  - Standard path rendering (drawPathBase)
+  - Tunnel opacity system (getTunnelPathCacheKey, buildTunnelPathCache, drawPathWithTunnels)
+  - River particle track (drawTrackParticleRiver)
+  - Arc light tracer (drawArcLight)
+  - Gate sprites: enemy gate glow/symbol, mind gate consciousness wave
+  - Path node coordinator (drawNodes)
+- **Result:** CanvasRenderer.js reduced from 1,298 to 609 lines (−689 lines); now a pure coordinator
 
 ### Phase 3: Tower Logic Consolidation (Priority: MEDIUM)
 
@@ -1155,6 +1146,10 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 490):**
+- CanvasRenderer.js reduced from 1,298 to 609 lines (Phase 2.2.6: TrackRenderer extraction; now a pure coordinator)
+- TrackRenderer.js created: 709 lines (Build 490 - drawPath, drawArcLight, drawPathLayerCache, drawEnemyGateSymbol, drawMindGateSymbol, drawNodes, path/tunnel/river/tracer helpers)
+
 **Progress Notes (Build 489):**
 - CanvasRenderer.js reduced from 2,562 to ~1,298 lines (1,264 line reduction from enemy + UI overlay renderer extractions)
 - EnemyRenderer.js created: 1,011 lines (Build 489 - drawEnemies, drawEnemyDeathParticles, drawSwarmClouds, all enemy swirl/knockback helpers, rho sparkle, debuff bar rendering; extracted from CanvasRenderer.js)
@@ -1230,6 +1225,7 @@ Update this section as refactoring progresses:
 - [x] Canvas Projectile Renderer extracted (Build 488) - all projectile types + burst effects (Alpha, Beta, Gamma, Nu, Omega)
 - [x] Canvas Enemy Renderer extracted (Build 489) - enemy body/swirl/shell/debuff/sparkle, death particles, swarm clouds
 - [x] Canvas UI Overlay Renderer extracted (Build 489) - damage numbers, wave tallies, floating feedback, tower menu
+- [x] Canvas Track Renderer extracted (Build 490) - path/tunnel/river track, arc tracer, gate symbols, path nodes
 
 #### Phase 3: Tower Logic Consolidation
 - [ ] All tower data tables extracted
@@ -1820,5 +1816,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 487  
-**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 2/5 Canvas Renderer extractions complete)
+**Last Updated:** Build 490  
+**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 6/6 Canvas Renderer extractions complete)
