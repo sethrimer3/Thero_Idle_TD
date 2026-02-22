@@ -762,7 +762,7 @@ Before any refactoring begins, establish these baseline metrics:
   - Profile carefully after extraction
 
 **Step 2.2.4: Extract Enemy Renderer** ✅ COMPLETED (Build 489)
-- **New File:** `assets/playfield/render/layers/EnemyRenderer.js` (~690 lines)
+- **New File:** `assets/playfield/render/layers/EnemyRenderer.js` (1,011 lines)
 - **Extracted:** `drawEnemies`, `drawEnemyDeathParticles`, `drawSwarmClouds`, plus all private helpers:
   - Enemy swirl particle system (spawn, advance, backdrop, knockback offset)
   - Rho sparkle ring effect
@@ -771,7 +771,7 @@ Before any refactoring begins, establish these baseline metrics:
   - Swirl impact queue / particle cleanup
 
 **Step 2.2.5: Extract UI Overlay Renderer** ✅ COMPLETED (Build 489)
-- **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js` (~340 lines)
+- **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js` (458 lines)
 - **Extracted:** `drawDamageNumbers`, `drawFloatingFeedback`, `drawWaveTallies`, `drawTowerMenu`, plus private helper `drawAnimatedTowerMenu`
 
 **Step 2.2.6: Refactor Core Renderer to Coordinator**
@@ -1157,8 +1157,8 @@ Track these metrics to measure progress:
 
 **Progress Notes (Build 489):**
 - CanvasRenderer.js reduced from 2,562 to ~1,298 lines (1,264 line reduction from enemy + UI overlay renderer extractions)
-- EnemyRenderer.js created: ~690 lines (Build 489 - drawEnemies, drawEnemyDeathParticles, drawSwarmClouds, all enemy swirl/knockback helpers, rho sparkle, debuff bar rendering; extracted from CanvasRenderer.js)
-- UIOverlayRenderer.js created: ~340 lines (Build 489 - drawDamageNumbers, drawFloatingFeedback, drawWaveTallies, drawTowerMenu, drawAnimatedTowerMenu; extracted from CanvasRenderer.js)
+- EnemyRenderer.js created: 1,011 lines (Build 489 - drawEnemies, drawEnemyDeathParticles, drawSwarmClouds, all enemy swirl/knockback helpers, rho sparkle, debuff bar rendering; extracted from CanvasRenderer.js)
+- UIOverlayRenderer.js created: 458 lines (Build 489 - drawDamageNumbers, drawFloatingFeedback, drawWaveTallies, drawTowerMenu, drawAnimatedTowerMenu; extracted from CanvasRenderer.js)
 - ProjectileRenderer.js created: 605 lines (Build 488 - drawProjectiles, drawAlphaBursts, drawBetaBursts, drawGammaBursts, drawGammaStarBursts, drawNuBursts, drawOmegaParticles, resolveEpsilonNeedleSprite, getEnemyLookupMap; extracted from CanvasRenderer.js)
 - TowerSpriteRenderer.js created: 738 lines (Build 487 - tower body/glyph/placement/connection rendering)
 - BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice)
