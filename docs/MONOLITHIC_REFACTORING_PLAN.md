@@ -761,68 +761,18 @@ Before any refactoring begins, establish these baseline metrics:
   - Consider instancing for identical projectiles
   - Profile carefully after extraction
 
-**Step 2.2.4: Extract Effect Renderer**
-- **Target:** ~500 lines
-- **New File:** `assets/playfield/render/layers/EffectRenderer.js`
-- **Responsibilities:**
-  - Particle effects (explosions, sparkles)
-  - Shield and aura rendering
-  - Special ability effects (derivative shields, gamma bursts)
-  - Temporary visual effects
-- **Interface:**
-  ```javascript
-  export function createEffectRenderer() {
-    return {
-      renderParticles(ctx, particles) { },
-      renderShield(ctx, position, params) { },
-      renderExplosion(ctx, position, progress) { },
-      renderSpecialEffect(ctx, effect) { }
-    };
-  }
-  ```
-- **Migration Strategy:**
-  1. Create effect renderer module
-  2. Move particle rendering functions
-  3. Move shield and aura logic
-  4. Update `CanvasRenderer` to use effect renderer
-  5. Test: Trigger all special abilities, verify effects render
-  6. Verify: Effect render time acceptable
-- **Performance Considerations:**
-  - Particle effects can have 100+ particles
-  - Use alpha blending efficiently (fewer layer switches)
-  - Cull off-screen particles before rendering
-  - Consider particle pooling if not already implemented
+**Step 2.2.4: Extract Enemy Renderer** ✅ COMPLETED (Build 489)
+- **New File:** `assets/playfield/render/layers/EnemyRenderer.js` (1,011 lines)
+- **Extracted:** `drawEnemies`, `drawEnemyDeathParticles`, `drawSwarmClouds`, plus all private helpers:
+  - Enemy swirl particle system (spawn, advance, backdrop, knockback offset)
+  - Rho sparkle ring effect
+  - Debuff status bar rendering
+  - Enemy fallback body, symbol/exponent overlay, shell sprites
+  - Swirl impact queue / particle cleanup
 
-**Step 2.2.5: Extract UI Overlay Renderer**
-- **Target:** ~400 lines
-- **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js`
-- **Responsibilities:**
-  - Damage number rendering
-  - Cost scribbles (red text for invalid placements)
-  - Floating feedback messages
-  - Tower selection UI
-- **Interface:**
-  ```javascript
-  export function createUIOverlayRenderer() {
-    return {
-      renderDamageNumbers(ctx, numbers) { },
-      renderCostScribble(ctx, position, text) { },
-      renderFloatingFeedback(ctx, messages) { },
-      renderSelectionUI(ctx, selection) { }
-    };
-  }
-  ```
-- **Migration Strategy:**
-  1. Create UI overlay renderer
-  2. Move damage number rendering
-  3. Move cost scribble logic
-  4. Update `CanvasRenderer` to use UI renderer
-  5. Test: Trigger damage numbers and cost scribbles
-  6. Verify: UI overlay rendering correct
-- **Performance Considerations:**
-  - UI overlays render on top (last in render order)
-  - Text rendering can be expensive (use measureText sparingly)
-  - Cache font metrics where possible
+**Step 2.2.5: Extract UI Overlay Renderer** ✅ COMPLETED (Build 489)
+- **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js` (458 lines)
+- **Extracted:** `drawDamageNumbers`, `drawFloatingFeedback`, `drawWaveTallies`, `drawTowerMenu`, plus private helper `drawAnimatedTowerMenu`
 
 **Step 2.2.6: Refactor Core Renderer to Coordinator**
 - **Target:** Reduce to ~1,000 lines (75% reduction)
@@ -1197,16 +1147,18 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 488) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 489) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
 | Largest file size | 6,264 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 3 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~141 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 488):**
-- CanvasRenderer.js reduced from 3,039 to 2,562 lines (477 line reduction from projectile renderer extraction)
+**Progress Notes (Build 489):**
+- CanvasRenderer.js reduced from 2,562 to ~1,298 lines (1,264 line reduction from enemy + UI overlay renderer extractions)
+- EnemyRenderer.js created: 1,011 lines (Build 489 - drawEnemies, drawEnemyDeathParticles, drawSwarmClouds, all enemy swirl/knockback helpers, rho sparkle, debuff bar rendering; extracted from CanvasRenderer.js)
+- UIOverlayRenderer.js created: 458 lines (Build 489 - drawDamageNumbers, drawFloatingFeedback, drawWaveTallies, drawTowerMenu, drawAnimatedTowerMenu; extracted from CanvasRenderer.js)
 - ProjectileRenderer.js created: 605 lines (Build 488 - drawProjectiles, drawAlphaBursts, drawBetaBursts, drawGammaBursts, drawGammaStarBursts, drawNuBursts, drawOmegaParticles, resolveEpsilonNeedleSprite, getEnemyLookupMap; extracted from CanvasRenderer.js)
 - TowerSpriteRenderer.js created: 738 lines (Build 487 - tower body/glyph/placement/connection rendering)
 - BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice)
@@ -1276,8 +1228,8 @@ Update this section as refactoring progresses:
 - [x] Canvas Background Renderer extracted (Build 486) - crystalline mosaic, sketch layer, floater lattice
 - [x] Canvas Tower Sprite Renderer extracted (Build 487) - tower body/glyph/placement/connection rendering
 - [x] Canvas Projectile Renderer extracted (Build 488) - all projectile types + burst effects (Alpha, Beta, Gamma, Nu, Omega)
-- [ ] Canvas Effect Renderer extracted
-- [ ] Canvas UI Overlay Renderer extracted
+- [x] Canvas Enemy Renderer extracted (Build 489) - enemy body/swirl/shell/debuff/sparkle, death particles, swarm clouds
+- [x] Canvas UI Overlay Renderer extracted (Build 489) - damage numbers, wave tallies, floating feedback, tower menu
 
 #### Phase 3: Tower Logic Consolidation
 - [ ] All tower data tables extracted
