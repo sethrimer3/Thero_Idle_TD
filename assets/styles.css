@@ -929,13 +929,14 @@ body.graphics-mode-low .control-button {
   padding: clamp(1rem, 5vw, 3rem);
   /* Lock the story artwork to the viewport so it doesn't resize as text grows. */
   background-color: rgba(0, 0, 0, 0);
-  background-image: url('./sprites/pages/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardMobile.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background-blend-mode: normal;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 350ms ease, background-color 350ms ease;
+  transition: opacity 350ms ease, background-color 350ms ease, background-size 120ms ease;
   z-index: 1600;
 }
 
@@ -943,6 +944,15 @@ body.graphics-mode-low .control-button {
   opacity: 1;
   background-color: rgba(0, 0, 0, 0.96);
   pointer-events: auto;
+}
+
+.level-story-overlay[data-background-ready='true'] {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardMobile.png');
+}
+
+/* Keep a short fade-out path when dismissing story so the board disappears before the overlay fully closes. */
+.level-story-overlay--closing {
+  background-size: 103% 103%;
 }
 
 .level-story-overlay__content {
@@ -1038,7 +1048,11 @@ body.graphics-mode-low .control-button {
 
   .level-story-overlay {
     /* Swap to the landscape chalkboard artwork for desktop story overlays. */
-    background-image: url('./sprites/pages/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardDesktop.png');
+  }
+
+  .level-story-overlay[data-background-ready='true'] {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardDesktop.png');
   }
 }
 

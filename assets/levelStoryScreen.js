@@ -5,6 +5,39 @@ const STORY_DATA_RELATIVE_PATH = './assets/data/levelStories.json';
 const WORD_DELAY_MS = 100;
 const SECTION_PAUSE_MS = 5000;
 const PROMPT_DELAY_AFTER_COMPLETE_MS = 5000;
+const STORY_BACKGROUND_IMAGE_PATHS = [
+  './assets/sprites/pages/blackboardMobile.png',
+  './assets/sprites/pages/blackboardDesktop.png',
+];
+const BACKGROUND_FADE_OUT_MS = 120;
+
+// Preload the blackboard backgrounds once so the overlay can stay black until artwork is ready.
+let storyBackgroundLoadPromise = null;
+
+function preloadImage(src) {
+  return new Promise((resolve) => {
+    if (typeof Image === 'undefined') {
+      resolve();
+      return;
+    }
+    const image = new Image();
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+    if (image.complete) {
+      resolve();
+    }
+  });
+}
+
+function ensureStoryBackgroundReady() {
+  if (!storyBackgroundLoadPromise) {
+    storyBackgroundLoadPromise = Promise.all(
+      STORY_BACKGROUND_IMAGE_PATHS.map((src) => preloadImage(src)),
+    ).catch(() => {});
+  }
+  return storyBackgroundLoadPromise;
+}
 
 function sanitizeSections(value) {
   if (!value || typeof value !== 'object') {
@@ -85,6 +118,8 @@ export function createLevelStoryScreen({
     }
     if (overlayEl) {
       overlayEl.removeAttribute('data-story-complete');
+      overlayEl.removeAttribute('data-background-ready');
+      overlayEl.classList.remove('level-story-overlay--closing');
     }
     if (promptEl) {
       promptEl.textContent = '';
@@ -372,6 +407,11 @@ export function createLevelStoryScreen({
       return;
     }
     isVisible = false;
+    if (overlayEl) {
+      // Drop the background-ready flag first so the blackboard fades out quickly while the screen stays black.
+      overlayEl.classList.add('level-story-overlay--closing');
+      overlayEl.removeAttribute('data-background-ready');
+    }
     overlayEl.classList.remove('level-story-overlay--visible');
     overlayEl.setAttribute('aria-hidden', 'true');
     const levelId = activeLevel?.id;
@@ -387,7 +427,7 @@ export function createLevelStoryScreen({
       if (resolver) {
         resolver();
       }
-    }, 250);
+    }, BACKGROUND_FADE_OUT_MS + 130);
   }
 
   function openOverlay(level, sections, { onComplete } = {}) {
@@ -408,6 +448,8 @@ export function createLevelStoryScreen({
     }
     overlayEl.setAttribute('aria-hidden', 'false');
     overlayEl.classList.add('level-story-overlay--visible');
+    overlayEl.classList.remove('level-story-overlay--closing');
+    overlayEl.removeAttribute('data-background-ready');
     overlayEl.removeAttribute('data-story-complete');
     overlayEl.focus();
     isVisible = true;
@@ -415,6 +457,12 @@ export function createLevelStoryScreen({
     completionResolver = null;
     const promise = new Promise((resolve) => {
       completionResolver = resolve;
+    });
+    // Reveal the blackboard art only after it has loaded so the overlay starts as a pure black backdrop.
+    ensureStoryBackgroundReady().then(() => {
+      if (overlayEl && isVisible) {
+        overlayEl.setAttribute('data-background-ready', 'true');
+      }
     });
     revealNextSection();
     return promise;
