@@ -537,7 +537,59 @@ Before any refactoring begins, establish these baseline metrics:
   - Cache gradient patterns if possible
   - Consider rendering to offscreen canvas if background is static
 
-**Step 2.2.2: Extract Tower Sprite Renderer**
+### Phase 2.2.1: Canvas Background Renderer (Build 486)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/BackgroundRenderer.js` (381 lines)
+
+**Responsibilities Extracted:**
+- `drawCrystallineMosaic()` — renders the crystalline mosaic edge decorations (first background layer)
+- `drawFloaters()` — renders the floater lattice (faint circles + connection lines) and background swimmers
+- `drawSketches()` — renders level sketch overlays with 20% opacity (randomised per level)
+- `drawSketchLayerCache()` — paints the offscreen sketch cache onto the main canvas; returns `true` if cache was used
+- `drawSketchesOnContext()` — rasterizes sketch placements onto any canvas context (used by cache builder)
+- `generateLevelSketches()` — deterministic seeded placement generator for level sketch sprites
+- `getSketchLayerCacheKey()` / `buildSketchLayerCache()` — offscreen caching helpers
+
+**Consolidation:**
+- 9 functions extracted (including 5 helpers and 4 public draw functions)
+- `sketchSprites` module-level sprite array moved to BackgroundRenderer.js
+- `areEdgeCrystalsEnabled`, `areBackgroundParticlesEnabled` imports removed from CanvasRenderer.js
+- `getCrystallineMosaicManager` import removed from CanvasRenderer.js
+- Total code reduction: ~290 lines in CanvasRenderer.js (3,987 → 3,697 lines)
+- `getViewportBounds` fallback in `drawCrystallineMosaic` simplified to `this._frameCache?.viewportBounds`
+  (safe since `drawCrystallineMosaic` is only ever called within `draw()` where `_frameCache` is initialised)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations
+- All functions use the established `.call(this)` convention: called with `functionName.call(renderer)` where `renderer` is the CanvasRenderer / SimplePlayfield instance
+- Public functions (`drawCrystallineMosaic`, `drawSketches`, `drawFloaters`) imported into CanvasRenderer.js and re-exported to preserve `CanvasRenderer.drawXxx` namespace used by playfield.js
+- `drawSketchLayerCache` imported into CanvasRenderer.js for internal use in `draw()` but not re-exported
+- Private helpers (`generateLevelSketches`, `getSketchLayerCacheKey`, `buildSketchLayerCache`, `drawSketchesOnContext`) are module-level functions not exported
+
+**Dependencies:**
+- `areEdgeCrystalsEnabled`, `areBackgroundParticlesEnabled` from `../../../preferences.js`
+- `getCrystallineMosaicManager` from `../CrystallineMosaic.js`
+- `this._frameCache` (pre-computed per-frame data set in CanvasRenderer `draw()`)
+- `this.ctx`, `this.canvas`, `this.levelConfig`, `this.pathPoints`, `this.floaters`, `this.floaterConnections`, `this.backgroundSwimmers`, `this.pixelRatio`, `this.renderWidth`, `this.renderHeight`, `this.focusedCellId`
+
+**Performance Considerations:**
+- Background functions run once per frame as first layers in the render stack
+- Sketch layer uses offscreen canvas caching: only re-rasterizes when level/dimensions change
+- Crystalline mosaic culls to viewport bounds for performance
+- Floater lattice uses `lighter` compositing only for swimmer sub-layer (minimal overdraw)
+
+**Key Learnings:**
+- Functions using `this` (renderer context) transfer cleanly to a new file without signature changes
+- `getViewportBounds` fallback is safe to drop when function is always called within `draw()` frame scope
+- Re-exporting imported names from CanvasRenderer.js preserves all existing `CanvasRenderer.*` call sites in playfield.js at zero cost
+- Separating background from the 3,987-line CanvasRenderer is the first step toward per-layer render modules (Steps 2.2.2–2.2.5)
+- 290-line reduction demonstrates value of grouping by render layer rather than by feature
+
+---
+
+
 - **Target:** ~800 lines
 - **New File:** `assets/playfield/render/layers/TowerSpriteRenderer.js`
 - **Responsibilities:**
@@ -1036,15 +1088,17 @@ If a refactoring causes critical issues:
 
 Track these metrics to measure progress:
 
-| Metric | Current (Build 477) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+| Metric | Current (Build 486) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
 |--------|---------|----------------|----------------|----------------|--------------|
 | Largest file size | 6,264 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
 | Files > 3,000 lines | 4 files | 3 files | 1 file | 0 files | 0 files |
 | Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
-| Module count | ~138 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Module count | ~139 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 477):**
+**Progress Notes (Build 486):**
+- CanvasRenderer.js reduced from 3,987 to 3,697 lines (290 line reduction from background renderer extraction)
+- BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice)
 - CardinalWardenSimulation.js at 6,264 lines (1,084 line reduction from enemy system extraction; 1,654 lines total reduction in Phase 2)
 - CombatStateManager.js created: 587 lines (Build 444-446)
 - TowerOrchestrationController.js created: 852 lines (Build 448-449)
@@ -1066,7 +1120,8 @@ Track these metrics to measure progress:
 - MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
 - SwarmSystem.js created: 304 lines (Build 475-476 - Cardinal Warden swarm ships/lasers, grapheme N)
 - EnemySystem.js created: ~1,096 lines (Build 477 - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss)
-- Total extracted: ~8,672 lines across twenty modules
+- BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice; extracted from CanvasRenderer.js)
+- Total extracted: ~8,963 lines across twenty-one modules
 - Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), swarm system (swarm ships, swarm lasers, collision, render), and enemy system (all enemy/boss classes with movement AI, elemental status effects, trail/smoke rendering)
 - Maintained backward compatibility through delegation pattern and property getters
 - Connection system uses factory pattern with Object.assign delegation for 19 methods
@@ -1108,7 +1163,7 @@ Update this section as refactoring progresses:
 - [ ] Cardinal Warden Spread Pattern (grapheme I) - embedded modifier; address in Step 2.1.6
 - [ ] Cardinal Warden Elemental Effects (grapheme J) - embedded in enemy classes; address in Step 2.1.6
 - [ ] Cardinal Warden Massive Bullet (grapheme K) - embedded modifier; address in Step 2.1.6
-- [ ] Canvas Background Renderer extracted
+- [x] Canvas Background Renderer extracted (Build 486) - crystalline mosaic, sketch layer, floater lattice
 - [ ] Canvas Tower Sprite Renderer extracted
 - [ ] Canvas Projectile Renderer extracted
 - [ ] Canvas Effect Renderer extracted
@@ -1701,7 +1756,7 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 1.8  
+**Document Version:** 1.9  
 **Created:** Build 443  
-**Last Updated:** Build 474  
-**Status:** Phase 2 In Progress (3/6 Cardinal Warden extractions complete)
+**Last Updated:** Build 486  
+**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 1/5 Canvas Renderer extractions complete)

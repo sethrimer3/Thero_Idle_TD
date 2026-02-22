@@ -3,7 +3,7 @@ import { getTowerVisualConfig, samplePaletteGradient } from '../../colorSchemeUt
 import { getTowerDefinition } from '../../towersTab.js';
 import { moteGemState, getGemSpriteImage, getEnemyShellSprites } from '../../enemies.js';
 import { colorToRgbaString, resolvePaletteColorStops } from '../../../scripts/features/towers/powderTower.js';
-import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled, areEdgeCrystalsEnabled, areBackgroundParticlesEnabled } from '../../preferences.js';
+import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled, areEnemyParticlesEnabled } from '../../preferences.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../scripts/features/towers/alphaTower.js';
@@ -38,7 +38,13 @@ import { drawOmegaParticles as drawOmegaParticlesHelper } from '../../../scripts
 
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../utils/rendering.js';
 import { easeInCubic, easeOutCubic } from '../utils/math.js';
-import { getCrystallineMosaicManager } from './CrystallineMosaic.js';
+
+import {
+  drawCrystallineMosaic,
+  drawSketches,
+  drawSketchLayerCache,
+  drawFloaters,
+} from './layers/BackgroundRenderer.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
 const PI = Math.PI;
@@ -81,20 +87,6 @@ epsilonNeedleSprite.loading = 'eager';
 const epsilonNeedleSpriteCache = new Map();
 // Gradient stops ensure epsilon needles cycle through the player's palette.
 const EPSILON_NEEDLE_GRADIENT_STOPS = [0.12, 0.38, 0.62, 0.88];
-
-// Load small sketch sprites for random background decoration
-const sketchSprites = [
-  'assets/sprites/sketches/sketch_small_1.png',
-  'assets/sprites/sketches/sketch_small_2.png',
-  'assets/sprites/sketches/sketch_small_3.png',
-  'assets/sprites/sketches/sketch_small_4.png',
-].map((url) => {
-  const img = new Image();
-  img.src = url;
-  img.decoding = 'async';
-  img.loading = 'eager';
-  return img;
-});
 
 const GEM_MOTE_BASE_RATIO = 0.02;
 const TRACK_GATE_SIZE_SCALE = 0.5;
@@ -631,235 +623,6 @@ function draw() {
   this._frameCache = null;
 }
 
-function drawFloaters() {
-  if (!this.ctx || !this.floaters.length || !this.levelConfig) {
-    return;
-  }
-  // Skip rendering if background particles are disabled in preferences
-  if (!areBackgroundParticlesEnabled()) {
-    return;
-  }
-  // Use cached frame values to reduce redundant calculations
-  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
-  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
-  if (!width || !height) {
-    return;
-  }
-  const minDimension = this._frameCache?.minDimension || (Math.min(width, height) || 1);
-  const connectionWidth = Math.max(0.6, minDimension * 0.0014);
-
-  const ctx = this.ctx;
-  ctx.save();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  const swimmers = Array.isArray(this.backgroundSwimmers) ? this.backgroundSwimmers : [];
-  if (swimmers.length) {
-    // Render faint white swimmers beneath the lattice lines so the background feels fluid.
-    const baseSize = Math.max(0.6, minDimension * 0.0038);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    swimmers.forEach((swimmer) => {
-      const flicker = Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
-      const size = baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
-      ctx.arc(swimmer.x, swimmer.y, size, 0, TWO_PI);
-      ctx.fill();
-    });
-    ctx.restore();
-  }
-
-  this.floaterConnections.forEach((connection) => {
-    const from = this.floaters[connection.from];
-    const to = this.floaters[connection.to];
-    if (!from || !to) {
-      return;
-    }
-    const alpha = Math.max(0, Math.min(1, connection.strength || 0)) * 0.25;
-    if (alpha <= 0) {
-      return;
-    }
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-    ctx.lineWidth = connectionWidth;
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
-  });
-
-  this.floaters.forEach((floater) => {
-    const opacity = Math.max(0, Math.min(1, floater.opacity || 0));
-    if (opacity <= 0) {
-      return;
-    }
-    let radiusFactor = Number.isFinite(floater.radiusFactor)
-      ? floater.radiusFactor
-      : null;
-    if (!radiusFactor) {
-      radiusFactor = this.randomFloaterRadiusFactor();
-      floater.radiusFactor = radiusFactor;
-    }
-    const radius = Math.max(2, radiusFactor * minDimension);
-    const strokeWidth = Math.max(0.8, radius * 0.22);
-    ctx.beginPath();
-    ctx.lineWidth = strokeWidth;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.25})`;
-    ctx.arc(floater.x, floater.y, radius, 0, TWO_PI);
-    ctx.stroke();
-  });
-
-  ctx.restore();
-}
-
-/**
- * Generate random sketch placements for a level.
- * Each sketch has a 10% chance of appearing, with random position and rotation.
- * Uses level ID as seed for consistent placement across sessions.
- */
-function generateLevelSketches(levelId, width, height) {
-  if (!levelId || !width || !height) {
-    return [];
-  }
-  
-  // Simple seeded random number generator for consistent sketch placement per level
-  const seed = Array.from(String(levelId)).reduce((acc, char) => acc + char.charCodeAt(0), 1) || 1;
-  let randomState = seed;
-  const seededRandom = () => {
-    randomState = (randomState * 1103515245 + 12345) & 0x7fffffff;
-    return randomState / 0x7fffffff;
-  };
-  
-  const sketches = [];
-  
-  // Each sketch has a 10% chance of appearing
-  sketchSprites.forEach((sprite, index) => {
-    if (seededRandom() < 0.1) {
-      // Random position within level bounds (with some margin)
-      const margin = Math.min(width, height) * 0.1;
-      const x = margin + seededRandom() * (width - 2 * margin);
-      const y = margin + seededRandom() * (height - 2 * margin);
-      
-      // Random rotation (0 to 360 degrees)
-      const rotation = seededRandom() * TWO_PI;
-      
-      // Random scale variation (80% to 120% of original size)
-      const scale = 0.8 + seededRandom() * 0.4;
-      
-      sketches.push({
-        sprite,
-        x,
-        y,
-        rotation,
-        scale,
-      });
-    }
-  });
-  
-  return sketches;
-}
-
-// Draw the cached sketch placements onto the provided context so we can reuse them in offscreen layers.
-function drawSketchesOnContext(ctx, width, height) {
-  if (!ctx || !this.levelConfig) {
-    return;
-  }
-
-  // Generate sketches for this level if not already cached or if dimensions changed.
-  if (!this._levelSketches ||
-      this._levelSketchesId !== this.levelConfig.id ||
-      this._levelSketchesWidth !== width ||
-      this._levelSketchesHeight !== height) {
-    this._levelSketches = generateLevelSketches(this.levelConfig.id, width, height);
-    this._levelSketchesId = this.levelConfig.id;
-    this._levelSketchesWidth = width;
-    this._levelSketchesHeight = height;
-  }
-
-  if (!this._levelSketches || !this._levelSketches.length) {
-    return;
-  }
-
-  ctx.save();
-  ctx.globalAlpha = 0.2; // 20% opacity
-
-  this._levelSketches.forEach((sketch) => {
-    if (!sketch.sprite || !sketch.sprite.complete) {
-      return;
-    }
-
-    ctx.save();
-    ctx.translate(sketch.x, sketch.y);
-    ctx.rotate(sketch.rotation);
-
-    const sketchWidth = sketch.sprite.width * sketch.scale;
-    const sketchHeight = sketch.sprite.height * sketch.scale;
-
-    ctx.drawImage(
-      sketch.sprite,
-      -sketchWidth * HALF,
-      -sketchHeight * HALF,
-      sketchWidth,
-      sketchHeight
-    );
-
-    ctx.restore();
-  });
-
-  ctx.restore();
-}
-
-// Build a stable cache key for the sketch layer so zoom changes don't trigger re-rasterization.
-function getSketchLayerCacheKey(width, height) {
-  const levelId = this.levelConfig?.id || 'unknown-level';
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-  return `${levelId}:${width}x${height}:pr${pixelRatio}`;
-}
-
-// Rasterize the sketches into an offscreen canvas so the main render loop can reuse the layer.
-function buildSketchLayerCache(width, height) {
-  if (!width || !height || !this.levelConfig) {
-    return null;
-  }
-  const key = getSketchLayerCacheKey.call(this, width, height);
-  if (this._sketchLayerCache?.key === key) {
-    return this._sketchLayerCache;
-  }
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.floor(width * pixelRatio));
-  canvas.height = Math.max(1, Math.floor(height * pixelRatio));
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    return null;
-  }
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-  drawSketchesOnContext.call(this, ctx, width, height);
-  this._sketchLayerCache = {
-    key,
-    canvas,
-    width,
-    height,
-    pixelRatio,
-  };
-  return this._sketchLayerCache;
-}
-
-// Paint the cached sketch layer onto the main canvas when available.
-function drawSketchLayerCache() {
-  if (!this.ctx) {
-    return false;
-  }
-  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
-  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
-  const cache = buildSketchLayerCache.call(this, width, height);
-  if (!cache?.canvas) {
-    return false;
-  }
-  this.ctx.drawImage(cache.canvas, 0, 0, width, height);
-  return true;
-}
-
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
 function getPathLayerCacheKey(width, height, paletteStops, trackMode) {
   const levelId = this.levelConfig?.id || 'unknown-level';
@@ -933,59 +696,6 @@ function drawPathLayerCache() {
   }
   this.ctx.drawImage(cache.canvas, 0, 0, width, height);
   return true;
-}
-
-/**
- * Draw small sketches in the background with 20% opacity.
- * Sketches are randomly placed per level with a 10% chance each.
- */
-function drawSketches() {
-  if (!this.ctx || !this.levelConfig) {
-    return;
-  }
-  
-  const ctx = this.ctx;
-  
-  // Generate sketches for this level if not already cached or if dimensions changed.
-  const width = this._frameCache?.width || (this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0);
-  const height = this._frameCache?.height || (this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0);
-
-  drawSketchesOnContext.call(this, ctx, width, height);
-}
-
-function drawCrystallineMosaic() {
-  if (!this.ctx) {
-    return;
-  }
-  
-  // Skip rendering if edge crystals are disabled in preferences
-  if (!areEdgeCrystalsEnabled()) {
-    return;
-  }
-  
-  const mosaicManager = getCrystallineMosaicManager();
-  if (!mosaicManager) {
-    return;
-  }
-  
-  // Get viewport bounds for culling
-  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
-  if (!viewportBounds) {
-    return;
-  }
-  
-  // Get path points for distance checking
-  const pathPoints = this.pathPoints || [];
-  
-  // Use level config as version tracker (regenerate if level changes)
-  const pathVersion = this.levelConfig?.id || null;
-  
-  // Get focused cell ID if any
-  const focusedCellId = this.focusedCellId || null;
-  
-  // Render the crystalline mosaic
-  const ctx = this.ctx;
-  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion, focusedCellId);
 }
 
 function drawMoteGems() {
