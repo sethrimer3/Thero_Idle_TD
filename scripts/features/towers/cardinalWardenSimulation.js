@@ -5225,21 +5225,23 @@ export class CardinalWardenSimulation {
         ctx.fill();
       }
 
-      // Health bar for multi-hit enemies
+      ctx.restore();
+
+      // Health bar for multi-hit enemies.
+      // Draw in world-space so the bar stays north of the ship and never rotates with heading.
       if (enemy.maxHealth > 1) {
         const healthPercent = enemy.health / enemy.maxHealth;
         const barWidth = enemy.size * 1.5;
         const barHeight = 2;
-        const barY = -enemy.size - 4;
+        const barX = enemy.x - (barWidth / 2);
+        const barY = enemy.y - enemy.size - 4;
 
         ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.3)' : '#ddd';
-        ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+        ctx.fillRect(barX, barY, barWidth, barHeight);
 
         ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.8)' : '#666';
-        ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
+        ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
       }
-
-      ctx.restore();
       
       // Render burn particles if burning
       if (enemy.burning && enemy.burnParticles.length > 0) {
@@ -5360,14 +5362,18 @@ export class CardinalWardenSimulation {
         }
       }
 
-      // Health bar for all bosses
+      ctx.restore();
+
+      // Health bar for all bosses.
+      // Draw in world-space to keep the bar locked above the ship regardless of boss rotation.
       const healthPercent = boss.health / boss.maxHealth;
       const barWidth = boss.size * 2;
       const barHeight = 4;
-      const barY = -boss.size - 10;
+      const barX = boss.x - (barWidth / 2);
+      const barY = boss.y - boss.size - 10;
 
       ctx.fillStyle = this.nightMode ? 'rgba(255, 255, 255, 0.3)' : '#ddd';
-      ctx.fillRect(-barWidth / 2, barY, barWidth, barHeight);
+      ctx.fillRect(barX, barY, barWidth, barHeight);
 
       // Health bar color changes based on health
       let healthColor;
@@ -5379,14 +5385,12 @@ export class CardinalWardenSimulation {
         healthColor = this.nightMode ? '#FF6B6B' : '#a44';
       }
       ctx.fillStyle = healthColor;
-      ctx.fillRect(-barWidth / 2, barY, barWidth * healthPercent, barHeight);
+      ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
 
       // Border
       ctx.strokeStyle = this.nightMode ? 'rgba(255, 255, 255, 0.6)' : '#666';
       ctx.lineWidth = 1;
-      ctx.strokeRect(-barWidth / 2, barY, barWidth, barHeight);
-
-      ctx.restore();
+      ctx.strokeRect(barX, barY, barWidth, barHeight);
       
       // Render burn particles if burning
       if (boss.burning && boss.burnParticles.length > 0) {

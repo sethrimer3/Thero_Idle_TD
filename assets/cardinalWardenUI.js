@@ -14,24 +14,14 @@ import {
   getIteronBank,
   spendIterons,
   addIterons,
-  spawnPhonemeDrop,
-  spawnSpecificGraphemeDrop,
   getActivePhonemeDrops,
   collectPhonemeDrop,
   clearActivePhonemeDrops,
   getPhonemeCount,
   getPhonemeCountsByChar,
-  getGraphemeDropChance,
-  unlockNextGrapheme,
-  getGraphemeUnlockCost,
-  upgradeDropChance,
-  getDropChanceUpgradeCost,
-  getDropChanceUpgradeLevel,
-  getUnlockedGraphemes,
   getUnlockedBaseGraphemeCount,
   getUnlockableGraphemeCount,
-  getDageshGraphemeIndices,
-  hasAllBaseGraphemesUnlocked,
+  unlockWaveMilestoneGrapheme,
   getEquivalenceBank,
   getGraphemeCharacters,
   consumeGrapheme,
@@ -115,9 +105,6 @@ const SHIN_GRAPHEME_CONFIG = {
   size: 28, // Default display size for grapheme icons
   tint: '#d4af37', // Golden tint color
 };
-
-// Chance for boss kills to drop a dagesh grapheme once base graphemes are unlocked.
-const DAGESH_DROP_CHANCE = 0.15;
 
 // Preload grapheme SVG sprites for all available grapheme definitions.
 const graphemeSvgUrls = new Map();
@@ -312,10 +299,6 @@ export function initializeCardinalWardenUI() {
   
   // Initialize health upgrade button
   initializeHealthUpgradeButton();
-  
-  // Initialize grapheme unlock and drop chance upgrade buttons
-  initializeGraphemeUnlockButton();
-  initializeDropChanceUpgradeButton();
   
   // Initialize wave start selector
   initializeWaveStartSelector();
@@ -604,31 +587,10 @@ function handleGameOver(data) {
  * @param {boolean} isBoss - Whether the killed enemy is a boss
  */
 function handleEnemyKill(x, y, isBoss) {
-  // Get current drop chance from state (starts at 1%, upgradable)
-  // Bosses always drop graphemes
-  const dropChance = isBoss ? 1.0 : getGraphemeDropChance();
-  if (Math.random() < dropChance) {
-    spawnPhonemeDrop(x, y); // Using legacy export which maps to spawnGraphemeDrop
-    // Bosses drop additional graphemes
-    if (isBoss) {
-      // Bosses drop 2-4 extra graphemes in a small scatter pattern
-      const extraDrops = Math.floor(Math.random() * 3) + 2;
-      for (let i = 0; i < extraDrops; i++) {
-        const offsetX = (Math.random() - 0.5) * 40;
-        const offsetY = (Math.random() - 0.5) * 40;
-        spawnPhonemeDrop(x + offsetX, y + offsetY); // Using legacy export which maps to spawnGraphemeDrop
-      }
-    }
-  }
-
-  // Bosses can drop dagesh graphemes once all base graphemes are unlocked.
-  if (isBoss && hasAllBaseGraphemesUnlocked()) {
-    const dageshIndices = getDageshGraphemeIndices();
-    if (dageshIndices.length > 0 && Math.random() < DAGESH_DROP_CHANCE) {
-      const selectedIndex = dageshIndices[Math.floor(Math.random() * dageshIndices.length)];
-      spawnSpecificGraphemeDrop(x, y, selectedIndex);
-    }
-  }
+  // Graphemes are now progression-based only and no longer drop from enemy kills.
+  void x;
+  void y;
+  void isBoss;
 }
 
 /**
@@ -636,25 +598,10 @@ function handleEnemyKill(x, y, isBoss) {
  * @param {number} waveNumber - The 1-indexed wave number (10, 20, 30, etc.)
  */
 function handleGuaranteedGraphemeDrop(waveNumber) {
-  // Calculate which grapheme should drop based on wave number
-  // Wave 10 = A (index 0), Wave 20 = B (index 1), ..., Wave 260 = Z (index 25)
-  const graphemeIndex = (waveNumber / 10) - 1;
-  const baseGraphemeCount = getUnlockableGraphemeCount();
-  
-  // Only drop if it's a valid base grapheme (A-Z).
-  if (graphemeIndex >= 0 && graphemeIndex < baseGraphemeCount) {
-    const unlockedGraphemes = getUnlockedGraphemes();
-    
-    // Check if player already has this grapheme
-    if (!unlockedGraphemes.includes(graphemeIndex)) {
-      // Spawn the specific guaranteed grapheme at center of canvas
-      if (cardinalSimulation && cardinalSimulation.canvas) {
-        const x = cardinalSimulation.canvas.width / 2;
-        const y = cardinalSimulation.canvas.height / 2;
-        spawnSpecificGraphemeDrop(x, y, graphemeIndex);
-      }
-    }
-  }
+  // Wave milestones now grant exactly one new grapheme (10 waves per unlock, up to wave 260).
+  unlockWaveMilestoneGrapheme(waveNumber);
+  updatePhonemeInventoryDisplay();
+  updateGraphemeUI();
 }
 
 /**
@@ -714,42 +661,6 @@ function initializeHealthUpgradeButton() {
   cardinalElements.healthUpgradeBtn.addEventListener('click', () => {
     if (upgradeCardinalBaseHealth()) {
       updateBaseHealthDisplay();
-    }
-  });
-}
-
-/**
- * Initialize the grapheme unlock button.
- */
-function initializeGraphemeUnlockButton() {
-  if (!cardinalElements.graphemeUnlockBtn) return;
-  
-  cardinalElements.graphemeUnlockBtn.addEventListener('click', () => {
-    const result = unlockNextGrapheme();
-    if (result.success) {
-      updateGraphemeUI();
-      updateTotalIteronsDisplay();
-      console.log(`Unlocked grapheme ${result.unlockedIndex}: ${result.grapheme.name}`);
-    } else {
-      console.log('Cannot unlock grapheme:', result.message);
-    }
-  });
-}
-
-/**
- * Initialize the drop chance upgrade button.
- */
-function initializeDropChanceUpgradeButton() {
-  if (!cardinalElements.dropChanceUpgradeBtn) return;
-  
-  cardinalElements.dropChanceUpgradeBtn.addEventListener('click', () => {
-    const result = upgradeDropChance();
-    if (result.success) {
-      updateGraphemeUI();
-      updateTotalIteronsDisplay();
-      console.log(`Drop chance upgraded to ${(result.newDropChance * 100).toFixed(1)}%`);
-    } else {
-      console.log('Cannot upgrade drop chance:', result.message);
     }
   });
 }
@@ -1004,48 +915,34 @@ function updateBaseHealthDisplay() {
 function updateGraphemeUI() {
   const unlockedBaseCount = getUnlockedBaseGraphemeCount();
   const baseGraphemeCount = getUnlockableGraphemeCount();
-  const unlockCost = getGraphemeUnlockCost();
-  const dropChance = getGraphemeDropChance();
-  const dropChanceCost = getDropChanceUpgradeCost();
-  const currentEquivalence = getEquivalenceBank();
+  const nextUnlockWave = Math.min((unlockedBaseCount + 1) * 10, 260);
   
   // Update unlocked count
   if (cardinalElements.unlockedCount) {
     cardinalElements.unlockedCount.textContent = unlockedBaseCount;
   }
   
-  // Update unlock button
-  if (cardinalElements.graphemeUnlockCost) {
-    cardinalElements.graphemeUnlockCost.textContent = formatGameNumber(unlockCost);
-  }
-  
   if (cardinalElements.graphemeUnlockBtn) {
-    const canAffordUnlock = currentEquivalence >= unlockCost;
-    // Only base graphemes are unlockable via Equivalence.
     const allUnlocked = unlockedBaseCount >= baseGraphemeCount;
-    cardinalElements.graphemeUnlockBtn.disabled = !canAffordUnlock || allUnlocked;
+    cardinalElements.graphemeUnlockBtn.disabled = true;
     
     if (allUnlocked) {
-      cardinalElements.graphemeUnlockBtn.textContent = 'All Base Graphemes Unlocked';
+      cardinalElements.graphemeUnlockBtn.textContent = 'All 26 Graphemes Unlocked by Wave Progression';
     } else {
-      cardinalElements.graphemeUnlockBtn.innerHTML = `Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">${formatGameNumber(unlockCost)}</span> ℸ`;
-      cardinalElements.graphemeUnlockCost = document.getElementById('shin-grapheme-unlock-cost');
+      // Display milestone progression now that purchase-based grapheme unlocks were removed.
+      cardinalElements.graphemeUnlockBtn.textContent = `Next unlock at Wave ${nextUnlockWave}`;
     }
   }
-  
-  // Update drop chance display
+
   if (cardinalElements.dropChanceDisplay) {
-    cardinalElements.dropChanceDisplay.textContent = `${(dropChance * 100).toFixed(1)}%`;
+    // Keep legacy text element populated so stale DOM snapshots never show outdated values.
+    cardinalElements.dropChanceDisplay.textContent = '0%';
   }
-  
-  // Update drop chance upgrade button
-  if (cardinalElements.dropChanceCost) {
-    cardinalElements.dropChanceCost.textContent = formatGameNumber(dropChanceCost);
-  }
-  
   if (cardinalElements.dropChanceUpgradeBtn) {
-    const canAffordUpgrade = currentEquivalence >= dropChanceCost;
-    cardinalElements.dropChanceUpgradeBtn.disabled = !canAffordUpgrade;
+    cardinalElements.dropChanceUpgradeBtn.disabled = true;
+  }
+  if (cardinalElements.dropChanceCost) {
+    cardinalElements.dropChanceCost.textContent = '—';
   }
 }
 
@@ -1605,7 +1502,8 @@ function renderPhonemeDrops(ctx, canvas, gamePhase) {
   if (drops.length === 0) return;
   
   const time = Date.now();
-  const allGraphemesUnlocked = hasAllBaseGraphemesUnlocked();
+  // Base graphemes are fully unlocked once the 26 wave milestones have been completed.
+  const allGraphemesUnlocked = getUnlockedBaseGraphemeCount() >= getUnlockableGraphemeCount();
   
   // Auto-collect graphemes if all base graphemes are unlocked
   if (allGraphemesUnlocked) {
