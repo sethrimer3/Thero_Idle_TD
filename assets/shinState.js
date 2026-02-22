@@ -15,11 +15,11 @@ const shinState = {
   graphemes: [],                    // Collected graphemes (script characters) - each entry: { id: string, char: string, index: number, collectedAt: timestamp }
   activeGraphemeDrops: [],          // Currently visible grapheme drops on the battlefield - each entry: { id: string, char: string, index: number, x: number, y: number, spawnTime: number }
   graphemeIdCounter: 0,             // Counter for generating unique grapheme IDs
-  unlockedGraphemes: [0, 1, 2],     // Indices of unlocked graphemes (starts with first 3)
-  graphemeDropChance: 0.01,         // 1% base drop chance
-  graphemeUnlockCost: 250,          // Cost to unlock next grapheme
-  dropChanceUpgradeCost: 100,       // Cost to upgrade drop chance
-  dropChanceUpgradeLevel: 0,        // Number of drop chance upgrades purchased
+  unlockedGraphemes: [],            // Indices of unlocked graphemes unlocked by wave milestones
+  graphemeDropChance: 0,            // Legacy field retained for save compatibility (drops disabled)
+  graphemeUnlockCost: 0,            // Legacy field retained for save compatibility (manual unlock disabled)
+  dropChanceUpgradeCost: 0,         // Legacy field retained for save compatibility (upgrade removed)
+  dropChanceUpgradeLevel: 0,        // Legacy field retained for save compatibility
   purchasedWeapons: ['slot1'],      // Purchased weapons (weapon IDs) - starts with slot1
   weaponAttackLevels: {},           // Attack upgrade levels per weapon { weaponId: level }
   weaponSpeedLevels: {},            // Speed upgrade levels per weapon { weaponId: level }
@@ -77,26 +77,26 @@ export function initializeShinState(savedState = {}) {
   if (Array.isArray(savedState.unlockedGraphemes)) {
     shinState.unlockedGraphemes = savedState.unlockedGraphemes;
   } else {
-    shinState.unlockedGraphemes = [0, 1, 2]; // Start with first 3 graphemes
+    shinState.unlockedGraphemes = []; // Start with all base graphemes locked
   }
   
   // Initialize drop chance and upgrade systems
   if (savedState.graphemeDropChance !== undefined) {
     shinState.graphemeDropChance = savedState.graphemeDropChance;
   } else {
-    shinState.graphemeDropChance = 0.01; // 1% base drop chance
+    shinState.graphemeDropChance = 0; // Drop chance mechanic removed
   }
   
   if (savedState.graphemeUnlockCost !== undefined) {
     shinState.graphemeUnlockCost = savedState.graphemeUnlockCost;
   } else {
-    shinState.graphemeUnlockCost = 250;
+    shinState.graphemeUnlockCost = 0;
   }
   
   if (savedState.dropChanceUpgradeCost !== undefined) {
     shinState.dropChanceUpgradeCost = savedState.dropChanceUpgradeCost;
   } else {
-    shinState.dropChanceUpgradeCost = 100;
+    shinState.dropChanceUpgradeCost = 0;
   }
   
   if (savedState.dropChanceUpgradeLevel !== undefined) {
@@ -159,10 +159,10 @@ export function resetShinState() {
   shinState.graphemes = [];
   shinState.activeGraphemeDrops = [];
   shinState.graphemeIdCounter = 0;
-  shinState.unlockedGraphemes = [0, 1, 2]; // Start with first 3 graphemes
-  shinState.graphemeDropChance = 0.01; // 1% base drop chance
-  shinState.graphemeUnlockCost = 250;
-  shinState.dropChanceUpgradeCost = 100;
+  shinState.unlockedGraphemes = []; // Start with all base graphemes locked
+  shinState.graphemeDropChance = 0; // Drop chance mechanic removed
+  shinState.graphemeUnlockCost = 0;
+  shinState.dropChanceUpgradeCost = 0;
   shinState.dropChanceUpgradeLevel = 0;
 
   // Reset weapon and slot state
@@ -652,38 +652,44 @@ export function hasAllGraphemesUnlocked() {
  * @returns {Object} Result with success status and the unlocked grapheme index
  */
 export function unlockNextGrapheme() {
-  const cost = shinState.graphemeUnlockCost;
-  
-  if (shinState.equivalenceBank < cost) {
-    return { success: false, message: 'Not enough Equivalence' };
+  // Manual grapheme purchasing is disabled; wave progression controls unlocks.
+  return { success: false, message: 'Graphemes unlock automatically every 10 waves.' };
+}
+
+/**
+ * Unlock the wave-milestone grapheme if the wave qualifies and the grapheme is still locked.
+ * Formula: unlockIndex = (waveNumber / 10) - 1, valid for 10 <= waveNumber <= 260.
+ * @param {number} waveNumber - One-indexed wave number from Shin Spire simulation
+ * @returns {{success: boolean, unlockedIndex?: number, message?: string}} Unlock result
+ */
+export function unlockWaveMilestoneGrapheme(waveNumber) {
+  if (!Number.isFinite(waveNumber) || waveNumber % 10 !== 0 || waveNumber < 10 || waveNumber > 260) {
+    return { success: false, message: 'Wave is not a grapheme milestone.' };
   }
-  
-  // Find the next collectable grapheme to unlock
-  // Only base graphemes are unlockable via the standard progression.
-  const collectableGraphemes = GRAPHEME_CHARACTERS.filter(g => g.collectable && g.unlockable !== false);
-  const nextIndex = getUnlockedBaseGraphemeCount();
-  if (nextIndex >= collectableGraphemes.length) {
-    return { success: false, message: 'All graphemes already unlocked' };
+
+  const graphemeIndex = Math.floor(waveNumber / 10) - 1;
+  if (graphemeIndex < 0 || graphemeIndex >= BASE_GRAPHEME_COUNT) {
+    return { success: false, message: 'No grapheme mapped to this milestone.' };
   }
-  
-  // Get the actual index of the next collectable grapheme
-  const graphemeToUnlock = collectableGraphemes[nextIndex];
-  
-  // Spend the Equivalence
-  shinState.equivalenceBank -= cost;
-  
-  // Unlock the grapheme
-  shinState.unlockedGraphemes.push(graphemeToUnlock.index);
-  
-  // Multiply cost by 5 for next unlock
-  shinState.graphemeUnlockCost = Math.floor(cost * 5);
-  
-  return {
-    success: true,
-    unlockedIndex: graphemeToUnlock.index,
-    grapheme: graphemeToUnlock,
-    newCost: shinState.graphemeUnlockCost
-  };
+
+  if (shinState.unlockedGraphemes.includes(graphemeIndex)) {
+    return { success: false, message: 'Grapheme already unlocked.' };
+  }
+
+  const grapheme = GRAPHEME_CHARACTERS[graphemeIndex];
+  shinState.unlockedGraphemes.push(graphemeIndex);
+
+  // Add one collectible copy immediately so players can slot the newly unlocked grapheme.
+  shinState.graphemeIdCounter += 1;
+  shinState.graphemes.push({
+    id: `grapheme-${shinState.graphemeIdCounter}`,
+    index: grapheme.index,
+    name: grapheme.name,
+    property: grapheme.property,
+    collectedAt: Date.now(),
+  });
+
+  return { success: true, unlockedIndex: graphemeIndex };
 }
 
 /**
@@ -699,28 +705,8 @@ export function getGraphemeUnlockCost() {
  * @returns {Object} Result with success status and new drop chance
  */
 export function upgradeDropChance() {
-  const cost = shinState.dropChanceUpgradeCost;
-  
-  if (shinState.equivalenceBank < cost) {
-    return { success: false, message: 'Not enough Equivalence' };
-  }
-  
-  // Spend the Equivalence
-  shinState.equivalenceBank -= cost;
-  
-  // Increase drop chance by 1%
-  shinState.graphemeDropChance += 0.01;
-  shinState.dropChanceUpgradeLevel += 1;
-  
-  // Multiply cost by 10 for next upgrade
-  shinState.dropChanceUpgradeCost = Math.floor(cost * 10);
-  
-  return {
-    success: true,
-    newDropChance: shinState.graphemeDropChance,
-    level: shinState.dropChanceUpgradeLevel,
-    newCost: shinState.dropChanceUpgradeCost
-  };
+  // Drop chance upgrades are removed from Shin Spire progression.
+  return { success: false, message: 'Drop chance upgrades are disabled.' };
 }
 
 /**
@@ -728,7 +714,8 @@ export function upgradeDropChance() {
  * @returns {number} Drop chance as a decimal (0.01 = 1%)
  */
 export function getGraphemeDropChance() {
-  return shinState.graphemeDropChance;
+  // Chance-based grapheme drops are disabled, so the effective chance is always 0.
+  return 0;
 }
 
 /**
