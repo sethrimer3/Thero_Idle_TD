@@ -620,6 +620,66 @@ Before any refactoring begins, establish these baseline metrics:
   - Batch towers by sprite type if possible
   - Cache rotated sprites if performance critical
 
+### Phase 2.2.2: Tower Sprite Renderer (Build 487)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/TowerSpriteRenderer.js` (738 lines)
+
+**Responsibilities Extracted:**
+- `drawTowerConnectionParticles()` — renders orbit motes and launch/arrive arcs for beta/gamma tower connections
+- `drawConnectionEffects()` — renders in-transit connection particles moving between linked towers
+- `drawTowerPressGlow()` — draws accent ring + glyph echo when a tower is actively pressed
+- `drawPlacementPreview()` — renders the ghost tower body, range ring, κ tripwire link previews, and merge indicator during drag placement
+- `drawTowerGlyphTransition()` — orchestrates the promotion/demotion animation sequence (residue → particles → flash → text)
+- `drawTowerGlyphResidue()` — fades out the old glyph symbol during a transition
+- `drawTowerGlyphParticles()` — animates direction-aware particles that fan out during a glyph change
+- `getGlyphParticleColor()` — computes tinted promotion/demotion particle colour
+- `drawTowerGlyphFlash()` — radial gradient burst centred on the tower body during a glyph change
+- `drawTowerGlyphText()` — fades in the new glyph symbol with smoothstep easing
+- `drawTowers()` — main per-frame tower rendering: range rings, per-type extensions, body circles, glyph text, chain ring, selection ring
+- `drawZetaPendulums()` / `drawEtaOrbits()` / `drawDeltaSoldiers()` / `drawOmicronUnits()` — thin delegates to their respective tower module helpers
+
+**Consolidation:**
+- 15 functions extracted (4 public delegates + 11 tower body / glyph functions)
+- 5 glyph-transition constants moved to TowerSpriteRenderer.js: `GLYPH_DEFAULT_PROMOTION_VECTOR`, `GLYPH_DEFAULT_DEMOTION_VECTOR`, `PROMOTION_GLYPH_COLOR`, `DEMOTION_GLYPH_COLOR`, `GLYPH_FLASH_RAMP_MS`
+- 12 tower-helper imports removed from CanvasRenderer.js (`kappaTower`, `lambdaTower`, `muTower`, `nuTower` kill-particles, `xiTower`, `zetaTower`, `etaTower`, `deltaTower`, `thetaTower`, `omicronTower`, `piTower` ×3, `tauTower`, `upsilonTower`, `phiTower`)
+- `ALPHA_BASE_RADIUS_FACTOR`, `getTowerVisualConfig`, `getTowerDefinition`, `drawConnectionMoteGlow` imports removed from CanvasRenderer.js
+- Total code reduction: ~658 lines in CanvasRenderer.js (3,697 → 3,039 lines)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations; internal helpers are unexported module-level functions
+- All functions use the `.call(this)` convention: exported functions are called as `this.drawXxx()` from playfield.js via the `CanvasRenderer.*` namespace
+- `drawTowerPressGlow` retains its explicit `playfield` first-parameter signature (unchanged from original)
+- Internal calls within `drawTowers` that previously used `this.drawConnectionEffects(ctx)` and `this.drawTowerConnectionParticles(...)` now call the module-level functions directly: `drawConnectionEffects.call(this, ctx)`, `drawTowerConnectionParticles.call(this, ctx, tower, bodyRadius)`
+- `this.drawZetaPendulums(tower)` / `this.drawEtaOrbits(tower)` in `drawTowers` replaced with direct helper calls `drawZetaPendulumsHelper(this, tower)` / `drawEtaOrbitsHelper(this, tower)` to avoid prototype indirection
+- Public functions imported into CanvasRenderer.js and re-exported to preserve the `CanvasRenderer.drawXxx` namespace used by playfield.js
+
+**Dependencies:**
+- `ALPHA_BASE_RADIUS_FACTOR` from `../../../gameUnits.js`
+- `getTowerVisualConfig` from `../../../colorSchemeUtils.js`
+- `getTowerDefinition` from `../../../towersTab.js`
+- `colorToRgbaString` from `../../../../scripts/features/towers/powderTower.js`
+- `normalizeProjectileColor`, `drawConnectionMoteGlow` from `../../utils/rendering.js`
+- Per-type helpers imported directly: `zetaTower`, `etaTower`, `deltaTower`, `omicronTower`, `kappaTower`, `lambdaTower`, `muTower`, `nuTower`, `xiTower`, `thetaTower`, `piTower`, `tauTower`, `upsilonTower`, `phiTower`
+- `this.applyCanvasShadow`, `this.clearCanvasShadow` — shadow helpers remain on renderer instance
+- `this.resolveConnectionOrbitAnchor`, `this.resolveConnectionOrbitPosition` — playfield orbit helpers
+- `this.towerGlyphTransitions`, `this.connectionDragState`, `this.activeTowerMenu` — renderer state properties
+
+**Performance Considerations:**
+- `drawTowers` iterates all towers every frame; no algorithmic change, extraction is zero-cost
+- Internal function calls bypass prototype lookup: `drawConnectionEffects.call(this, ctx)` is marginally faster than `this.drawConnectionEffects(ctx)`
+- Glyph transition helpers run only when `towerGlyphTransitions` map has entries (typically rare)
+
+**Key Learnings:**
+- Grouping all tower body/glyph/placement/connection rendering into one file gives a clean "tower appearance" layer
+- `drawTowerPressGlow`'s explicit `playfield` parameter transferred without any change in calling convention
+- Moving internal calls from prototype-chained `this.fn()` to direct `fn.call(this)` is safe and slightly more explicit about ownership
+- Removing 12 tower-type helper imports from CanvasRenderer.js significantly declutters the import block
+- 658-line reduction is the largest single extraction in Phase 2.2
+
+---
+
 **Step 2.2.3: Extract Projectile Renderer**
 - **Target:** ~600 lines
 - **New File:** `assets/playfield/render/layers/ProjectileRenderer.js`
@@ -1756,7 +1816,7 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 1.9  
+**Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 486  
-**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 1/5 Canvas Renderer extractions complete)
+**Last Updated:** Build 487  
+**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 2/5 Canvas Renderer extractions complete)
