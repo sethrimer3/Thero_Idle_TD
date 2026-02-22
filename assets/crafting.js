@@ -50,16 +50,16 @@ const CRAFTING_TIER_NAME_SEQUENCE = [
 ];
 
 const EQUIPMENT_LENS_SPRITE_LOOKUP = new Map([
-  ['quartz', './assets/sprites/equipment/lens-quartz.svg'],
-  ['ruby', './assets/sprites/equipment/lens-ruby.svg'],
-  ['sunstone', './assets/sprites/equipment/lens-sunstone.svg'],
-  ['citrine', './assets/sprites/equipment/lens-citrine.svg'],
-  ['emerald', './assets/sprites/equipment/lens-emerald.svg'],
-  ['sapphire', './assets/sprites/equipment/lens-sapphire.svg'],
-  ['iolite', './assets/sprites/equipment/lens-iolite.svg'],
-  ['amethyst', './assets/sprites/equipment/lens-amethyst.svg'],
-  ['diamond', './assets/sprites/equipment/lens-diamond.svg'],
-  ['nullstone', './assets/sprites/equipment/lens-nullstone.svg'],
+  ['quartz', './assets/sprites/equipment/quartzLens.png'],
+  ['ruby', './assets/sprites/equipment/rubyLens.png'],
+  ['sunstone', './assets/sprites/equipment/sunstoneLens.png'],
+  ['citrine', './assets/sprites/equipment/citrineLens.png'],
+  ['emerald', './assets/sprites/equipment/emeraldLens.png'],
+  ['sapphire', './assets/sprites/equipment/sapphireLens.png'],
+  ['iolite', './assets/sprites/equipment/ioliteLens.png'],
+  ['amethyst', './assets/sprites/equipment/amethystLens.png'],
+  ['diamond', './assets/sprites/equipment/diamondLens.png'],
+  ['nullstone', './assets/sprites/equipment/nullstoneLens.png'],
 ]);
 
 function getEquipmentLensSpritePath(materialId) {
