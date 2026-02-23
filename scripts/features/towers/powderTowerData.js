@@ -22,8 +22,8 @@ export const STAR_MAX_LIFETIME_SECONDS = 12;
 export const STAR_FADE_MIN_SECONDS = 1.25;
 export const STAR_FADE_MAX_SECONDS = 2.4;
 
-// Pre-calculate PI constants to avoid repeated Math.PI calculations in render loops.
-export const TWO_PI = Math.PI * 2;
+// TWO_PI re-exported from shared TowerUtils for backward compatibility with powderTower.js imports.
+export { TWO_PI } from './shared/TowerUtils.js';
 
 /**
  * Generate a uniformly-distributed random number in [min, max).

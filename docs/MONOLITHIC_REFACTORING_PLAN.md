@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 499):**
+- TowerUtils.js expanded with `TWO_PI`, `HALF_PI`, `easeInCubic`, `easeOutCubic` (Build 499 - Phase 3.1.2/3.1.3 continued): 4 new exports added (124 lines total)
+- tsadiTower.js updated to import TWO_PI, HALF_PI from TowerUtils.js (removed 2 local duplicate const declarations)
+- fractalTreeSimulation.js updated to import TWO_PI, HALF_PI from TowerUtils.js (removed 2 local duplicate const declarations)
+- powderTowerData.js updated to re-export TWO_PI from TowerUtils.js (removed 1 local duplicate const; backward compat preserved for powderTower.js)
+- alphaTower.js updated to import easeInCubic, easeOutCubic from TowerUtils.js (removed 2 local duplicate function definitions; ~5 lines removed)
+
 **Progress Notes (Build 498):**
 - TowerUtils.js expanded with `lerp` function (Build 498 - Phase 3.1.2/3.1.3 continued): deltaTower.js and fractalRenderUtils.js updated to import lerp from TowerUtils.js; 2 more duplicate declarations removed
 

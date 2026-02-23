@@ -1,7 +1,7 @@
 // α tower particle system isolates visual math so playfield orchestration stays lean.
 import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
-import { clamp, normalizeParticleColor } from './shared/TowerUtils.js';
+import { clamp, normalizeParticleColor, easeInCubic, easeOutCubic } from './shared/TowerUtils.js';
 
 // α shot sprite path points at the white particle art that will be tinted by the active palette.
 const ALPHA_SHOT_SPRITE_PATH = './assets/sprites/towers/alpha/projectiles/alphaProjectile.png';
@@ -123,13 +123,6 @@ const ALPHA_PARTICLE_CONFIG = {
   // Link the sprite cache retrieval so the shared drawing logic can render α sprites.
   spriteCacheResolver: () => alphaShotSpriteCache,
   spriteSampleCount: ALPHA_SHOT_SPRITE_SAMPLE_COUNT,
-};
-
-// Ease helpers keep the spiral motion feeling fluid and controlled.
-const easeInCubic = (value) => value * value * value;
-const easeOutCubic = (value) => {
-  const inverted = 1 - value;
-  return 1 - inverted * inverted * inverted;
 };
 
 // Geometric constants for shape animations
