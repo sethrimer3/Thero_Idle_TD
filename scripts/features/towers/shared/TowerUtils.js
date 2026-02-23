@@ -5,13 +5,24 @@
  * multiple individual tower files.  Extracting them here prevents drift between
  * implementations and keeps tower modules focused on their unique mechanics.
  *
+ * Constants:
+ *   - TWO_PI  – Math.PI * 2, avoids repeated multiplication in render loops
+ *   - HALF_PI – Math.PI * 0.5, common angle offset constant
+ *
  * Math / geometry helpers (Phase 3.1.2):
- *   - clamp        – numeric clamping used in physics and animation
+ *   - lerp     – linear interpolation
+ *   - clamp    – numeric clamping used in physics and animation
+ *   - easeInCubic  – cubic ease-in (t³) for smooth acceleration
+ *   - easeOutCubic – cubic ease-out (1-(1-t)³) for smooth deceleration
  *   - distancePointToSegmentSquared – beam / laser hit detection
  *
  * Rendering helpers (Phase 3.1.3):
  *   - normalizeParticleColor – validate and clamp an RGB color object
  */
+
+// Pre-calculated PI constants to avoid repeated Math.PI multiplications in render loops.
+export const TWO_PI = Math.PI * 2;
+export const HALF_PI = Math.PI * 0.5;
 
 /**
  * Linearly interpolate between two values without clamping t.
@@ -22,6 +33,27 @@
  */
 export function lerp(a, b, t) {
   return a + (b - a) * t;
+}
+
+/**
+ * Cubic ease-in: acceleration from zero velocity.
+ * Equivalent to t³. Produces a smooth ramp-up effect.
+ * @param {number} t - Progress value in [0, 1].
+ * @returns {number} Eased value.
+ */
+export function easeInCubic(t) {
+  return t * t * t;
+}
+
+/**
+ * Cubic ease-out: deceleration to zero velocity.
+ * Equivalent to 1-(1-t)³. Produces a smooth ramp-down effect.
+ * @param {number} t - Progress value in [0, 1].
+ * @returns {number} Eased value.
+ */
+export function easeOutCubic(t) {
+  const inverted = 1 - t;
+  return 1 - inverted * inverted * inverted;
 }
 
 /**

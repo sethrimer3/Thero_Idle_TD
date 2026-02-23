@@ -24,15 +24,12 @@ import {
   LEGACY_MOLECULE_RECIPES,
   ADVANCED_MOLECULE_UNLOCK_TIER,
 } from './tsadiTowerData.js';
+import { TWO_PI, HALF_PI } from './shared/TowerUtils.js';
 
 // Sprite assets for the Tsadi spire particles and Waals binding agents.
 const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/particle.png', import.meta.url).href;
 // Sprite asset for Waals binding agents to match the new Tsadi spire art drop.
 const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/waalsParticle.png', import.meta.url).href;
-
-// Pre-calculated constants for performance optimization
-const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI * 0.5;
 
 /**
  * Normalize and sort a tier list so combinations ignore permutation order.
