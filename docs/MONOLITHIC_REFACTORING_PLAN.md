@@ -1146,6 +1146,10 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 495):**
+- lamedTowerData.js created: 84 lines (Build 495 - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class; Phase 3.1.1 start)
+- lamedTower.js reduced from 2,924 to 2,864 lines (60-line reduction; now imports static data from lamedTowerData.js)
+
 **Progress Notes (Build 490):**
 - CanvasRenderer.js reduced from 1,298 to 609 lines (Phase 2.2.6: TrackRenderer extraction; now a pure coordinator)
 - TrackRenderer.js created: 709 lines (Build 490 - drawPath, drawArcLight, drawPathLayerCache, drawEnemyGateSymbol, drawMindGateSymbol, drawNodes, path/tunnel/river/tracer helpers)
@@ -1228,7 +1232,8 @@ Update this section as refactoring progresses:
 - [x] Canvas Track Renderer extracted (Build 490) - path/tunnel/river track, arc tracer, gate symbols, path nodes
 
 #### Phase 3: Tower Logic Consolidation
-- [ ] All tower data tables extracted
+- [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
+- [ ] All remaining tower data tables extracted (powderTowerData.js)
 - [ ] Tower behavior patterns shared library created
 - [ ] Tower rendering helpers shared library created
 - [ ] Tower module structure standardized
@@ -1816,5 +1821,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 490  
-**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 6/6 Canvas Renderer extractions complete)
+**Last Updated:** Build 495  
+**Status:** Phase 2 Complete (6/6 Canvas Renderer extractions complete); Phase 3.1.1 started (lamedTowerData.js extracted)

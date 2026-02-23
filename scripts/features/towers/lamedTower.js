@@ -1,7 +1,7 @@
 /**
  * Lamed tower gravity simulation module.
  * Provides an idle physics simulation with orbital mechanics for stars around a central celestial body.
- * 
+ *
  * Features:
  * - Orbital mechanics with central gravity and softening
  * - Mass-based visual tiers (Proto-star through Black Hole)
@@ -10,83 +10,23 @@
  * - Trajectory trails colored by velocity
  * - Geyser particle bursts on high-mass absorptions
  * - Statistics tracking (mass inflow, absorptions)
+ *
+ * Static data (tier definitions, constants, SeededRandom) lives in lamedTowerData.js.
  */
 
-/**
- * Mass tier definitions for celestial body evolution.
- * Each tier has distinct visual properties.
- */
-const MASS_TIERS = [
-  { name: 'Proto-star', threshold: 10, color: '#FF6B6B', glow: 0.3 },
-  { name: 'Main Sequence', threshold: 100, color: '#FFD93D', glow: 0.5 },
-  { name: 'Blue Giant', threshold: 5000, color: '#3EC8FF', glow: 0.7 },
-  { name: 'Red Giant', threshold: 10000, color: '#FF8B94', glow: 0.85 },
-  { name: 'Supergiant', threshold: 50000, color: '#FFA07A', glow: 1.0 },
-  { name: 'Neutron Star', threshold: 1000000, color: '#B19CD9', glow: 1.2 },
-  { name: 'Black Hole', threshold: 10000000, color: '#2D2D2D', glow: 1.5 },
-];
-
-/**
- * Diameter percentages for each mass tier so the sun scales with the viewport width.
- * These map directly to MASS_TIERS indices and represent the on-screen diameter fraction.
- */
-const TIER_DIAMETER_PERCENTAGES = [0.01, 0.05, 0.1, 0.15, 0.25, 0.1, 0.01];
-
-/** Maximum relative diameter for the black hole tier so late-game cores can expand dramatically. */
-const BLACK_HOLE_MAX_DIAMETER_PERCENT = 0.5;
-
-/** Duration of the collapse animation (in seconds) when transitioning to smaller tiers. */
-const COLLAPSE_ANIMATION_SECONDS = 10;
-
-/** Minimum number of orbiting stars the render-cap slider can target. */
-const MIN_RENDERED_STARS = 1000;
-
-/** Maximum number of orbiting stars that can be rendered simultaneously. */
-const MAX_RENDERED_STARS = 10000;
-
-/** Cap how many stars are allowed to draw trails at any given time to protect performance. */
-const MAX_TRAIL_STARS = 50;
-
-/** Maximum decorative dust particle population when no stars are present. */
-const MAX_DUST_PARTICLES = 200;
-
-/**
- * Multiplier to scale star size relative to sun mass for better visibility.
- * 
- * This multiplier makes orbiting stars visible by scaling them up relative to the sun.
- * For example, if the sun has mass 5000 and a star has mass 50:
- * - Without multiplier: star would be 1% the size of the sun (barely visible)
- * - With multiplier of 100: star is 100% the size of the sun (clearly visible)
- * 
- * This multiplier applies to all orbiting stars rendered in the simulation.
- * It does not affect the sun's size or any UI elements.
- */
-const STAR_SIZE_MULTIPLIER = 100;
-
-/**
- * Calculate a reduced star cap while honoring the minimum render floor.
- */
-function resolveReducedStarCap(maxStars) {
-  return Math.max(MIN_RENDERED_STARS, Math.round(maxStars * 0.6));
-}
-
-/**
- * Deterministic pseudo-random number generator using seed.
- */
-class SeededRandom {
-  constructor(seed = 12345) {
-    this.seed = seed;
-  }
-  
-  next() {
-    this.seed = (this.seed * 9301 + 49297) % 233280;
-    return this.seed / 233280;
-  }
-  
-  range(min, max) {
-    return min + this.next() * (max - min);
-  }
-}
+import {
+  MASS_TIERS,
+  TIER_DIAMETER_PERCENTAGES,
+  BLACK_HOLE_MAX_DIAMETER_PERCENT,
+  COLLAPSE_ANIMATION_SECONDS,
+  MIN_RENDERED_STARS,
+  MAX_RENDERED_STARS,
+  MAX_TRAIL_STARS,
+  MAX_DUST_PARTICLES,
+  STAR_SIZE_MULTIPLIER,
+  resolveReducedStarCap,
+  SeededRandom,
+} from './lamedTowerData.js';
 
 /**
  * GravitySimulation for the Lamed Spire.
