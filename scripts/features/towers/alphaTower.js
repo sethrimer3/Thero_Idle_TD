@@ -2,6 +2,7 @@
 import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { clamp, normalizeParticleColor, easeInCubic, easeOutCubic } from './shared/TowerUtils.js';
+import { createShotSpriteCache } from './shared/TowerRenderHelpers.js';
 
 // α shot sprite path points at the white particle art that will be tinted by the active palette.
 const ALPHA_SHOT_SPRITE_PATH = './assets/sprites/towers/alpha/projectiles/alphaProjectile.png';
@@ -9,17 +10,10 @@ const ALPHA_SHOT_SPRITE_PATH = './assets/sprites/towers/alpha/projectiles/alphaP
 // Cache 12 tinted variants so palette swaps only pay the recolor cost once.
 const ALPHA_SHOT_SPRITE_SAMPLE_COUNT = 12;
 
-// Cache storage for palette-tinted α shot sprites.
-const alphaShotSpriteCache = [];
-
-// Hold the base sprite image so it can be recolored when palettes change.
-let alphaShotSpriteImage = null;
-
-// Track when the base sprite has finished loading.
-let alphaShotSpriteReady = false;
-
-// Remember that a palette refresh is pending while the sprite is still loading.
-let alphaShotSpriteNeedsRefresh = false;
+// Sprite cache state managed by the shared factory so boilerplate stays out of this module.
+const alphaShotSprite = createShotSpriteCache(ALPHA_SHOT_SPRITE_PATH, ALPHA_SHOT_SPRITE_SAMPLE_COUNT);
+// Alias kept for existing code that references the array directly (spriteCacheResolver and fallback draws).
+const alphaShotSpriteCache = alphaShotSprite.cache;
 
 // Soft energy palette alternates between magenta and cyan to keep α resonant.
 const ALPHA_PARTICLE_COLORS = [
@@ -30,68 +24,9 @@ const ALPHA_PARTICLE_COLORS = [
 // Offsets define where α samples the active palette gradient so bursts pick up both endpoints.
 const ALPHA_COLOR_OFFSETS = [0.18, 0.82];
 
-// Lazily load the base α sprite so cache generation can reuse the decoded image.
-function ensureAlphaShotSpriteImageLoaded() {
-  if (typeof Image === 'undefined') {
-    return null;
-  }
-  if (alphaShotSpriteImage) {
-    return alphaShotSpriteImage;
-  }
-  const image = new Image();
-  image.onload = () => {
-    // Mark the sprite ready and rebuild caches if a palette swap happened mid-load.
-    alphaShotSpriteReady = true;
-    if (alphaShotSpriteNeedsRefresh) {
-      alphaShotSpriteNeedsRefresh = false;
-      refreshAlphaShotSpritePaletteCache();
-    }
-  };
-  // Begin loading the white sprite so tinting can happen when palettes change.
-  image.src = ALPHA_SHOT_SPRITE_PATH;
-  alphaShotSpriteImage = image;
-  return image;
-}
-
-// Build a set of palette-tinted canvases that can be reused for fast sprite drawing.
-function buildAlphaShotSpriteCache() {
-  const image = ensureAlphaShotSpriteImageLoaded();
-  if (!image || !alphaShotSpriteReady || !image.naturalWidth || !image.naturalHeight) {
-    alphaShotSpriteNeedsRefresh = true;
-    return;
-  }
-  if (typeof document === 'undefined') {
-    return;
-  }
-  alphaShotSpriteCache.length = 0;
-  for (let index = 0; index < ALPHA_SHOT_SPRITE_SAMPLE_COUNT; index += 1) {
-    const ratio = ALPHA_SHOT_SPRITE_SAMPLE_COUNT > 1
-      ? index / (ALPHA_SHOT_SPRITE_SAMPLE_COUNT - 1)
-      : 0;
-    const color = normalizeParticleColor(samplePaletteGradient(ratio));
-    if (!color) {
-      continue;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      continue;
-    }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0);
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.globalCompositeOperation = 'source-over';
-    alphaShotSpriteCache.push(canvas);
-  }
-}
-
 // Refresh the cached sprite variants when the active palette changes.
 export function refreshAlphaShotSpritePaletteCache() {
-  buildAlphaShotSpriteCache();
+  alphaShotSprite.refresh();
 }
 
 // Pull two hues from the shared gradient so α motes echo the global palette while retaining a fallback.

@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 501):**
+- TowerRenderHelpers.js created in `scripts/features/towers/shared/`: 110 lines (Phase 3.1.3 - `createShotSpriteCache` factory for palette-tinted projectile sprite management)
+- alphaTower.js, betaTower.js, gammaTower.js updated to use `createShotSpriteCache` factory; ~191 lines of identical sprite-loading boilerplate removed across the three files
+  - Removed: module-level `xShotSpriteImage`, `xShotSpriteReady`, `xShotSpriteNeedsRefresh` state vars + `ensureXShotSpriteImageLoaded()` + `buildXShotSpriteCache()` per tower
+  - Kept: `refreshXShotSpritePaletteCache()` export (now a thin wrapper calling `xShotSprite.refresh()`)
+  - Net: alphaTower.js -65 lines, betaTower.js -67 lines, gammaTower.js -59 lines; new shared module +110 lines
+
 **Progress Notes (Build 500):**
 - TowerUtils.js expanded with `getEffectiveDevicePixelRatio(maxDevicePixelRatio)` (Build 500 - Phase 3.1.3): standalone DPR helper shared across lamedTower.js and tsadiTower.js (145 lines total)
 - tsadiTower.js and lamedTower.js updated to import and delegate to shared `getEffectiveDevicePixelRatio`; 2 duplicate 3-line implementations removed
@@ -1262,8 +1269,8 @@ Update this section as refactoring progresses:
 - [x] Tower shared utility module created (Build 497) - `shared/TowerUtils.js`: clamp, distancePointToSegmentSquared, normalizeParticleColor; de-duplicated across 7 tower files (Phase 3.1.2/3.1.3)
 - [x] tsadiTowerData.js expanded (Build 500) - tier utilities (normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo) and Quadtree class extracted; tsadiTower.js reduced by ~479 lines
 - [x] TowerUtils.js expanded (Build 500) - `getEffectiveDevicePixelRatio` shared between lamedTower.js and tsadiTower.js
+- [x] Tower rendering helpers shared library created (Build 501) - `shared/TowerRenderHelpers.js`: `createShotSpriteCache` factory de-duplicates ~191 lines of sprite-loading boilerplate from alphaTower.js, betaTower.js, gammaTower.js
 - [ ] Tower behavior patterns shared library expanded
-- [ ] Tower rendering helpers shared library expanded
 - [ ] Tower module structure standardized
 
 #### Phase 4: Rendering and UI Systems
@@ -1849,5 +1856,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 497  
-**Status:** Phase 2 Complete; Phase 3.1.1 and Phase 3.1.2/3.1.3 (partial) underway
+**Last Updated:** Build 501  
+**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) underway
