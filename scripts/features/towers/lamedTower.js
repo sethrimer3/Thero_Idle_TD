@@ -27,6 +27,7 @@ import {
   resolveReducedStarCap,
   SeededRandom,
 } from './lamedTowerData.js';
+import { getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
 
 /**
  * GravitySimulation for the Lamed Spire.
@@ -318,9 +319,7 @@ export class GravitySimulation {
    * @returns {number} Clamped device pixel ratio used for canvas sizing and coordinate math
    */
   getEffectiveDevicePixelRatio() {
-    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
-    return Math.max(1, Math.min(rawDpr, cap));
+    return getEffectiveDevicePixelRatio(this.maxDevicePixelRatio);
   }
 
   /**

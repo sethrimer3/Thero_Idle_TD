@@ -18,6 +18,9 @@
  *
  * Rendering helpers (Phase 3.1.3):
  *   - normalizeParticleColor – validate and clamp an RGB color object
+ *
+ * Canvas helpers (Phase 3.1.3):
+ *   - getEffectiveDevicePixelRatio – capped DPR for simulation canvases
  */
 
 // Pre-calculated PI constants to avoid repeated Math.PI multiplications in render loops.
@@ -120,4 +123,20 @@ export function normalizeParticleColor(color) {
     g: Math.max(0, Math.min(255, Math.round(g))),
     b: Math.max(0, Math.min(255, Math.round(b))),
   };
+}
+
+/**
+ * Return a safe device pixel ratio for a simulation canvas, capped at the provided maximum.
+ * Prevents runaway resolution on high-DPI displays or when a performance cap is configured.
+ *
+ * Extracted from GravitySimulation (lamedTower.js) and ParticleFusionSimulation (tsadiTower.js)
+ * where identical three-line implementations were previously duplicated.
+ *
+ * @param {number} maxDevicePixelRatio - The configured upper limit for DPR.
+ * @returns {number} Effective DPR clamped to [1, maxDevicePixelRatio].
+ */
+export function getEffectiveDevicePixelRatio(maxDevicePixelRatio) {
+  const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const cap = Number.isFinite(maxDevicePixelRatio) ? maxDevicePixelRatio : rawDpr;
+  return Math.max(1, Math.min(rawDpr, cap));
 }
