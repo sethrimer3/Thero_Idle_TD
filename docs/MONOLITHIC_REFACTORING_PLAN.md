@@ -1146,6 +1146,21 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 498):**
+- TowerUtils.js expanded with `lerp` function (Build 498 - Phase 3.1.2/3.1.3 continued): deltaTower.js and fractalRenderUtils.js updated to import lerp from TowerUtils.js; 2 more duplicate declarations removed
+
+**Progress Notes (Build 497):**
+- TowerUtils.js created in `scripts/features/towers/shared/`: 80 lines (Phase 3.1.2/3.1.3 start - clamp, distancePointToSegmentSquared, normalizeParticleColor)
+- 7 tower files updated to import from TowerUtils.js (alpha, beta, gamma, delta, lambda, nu, omega): removed ~75 lines of duplicated code across these files
+
+**Progress Notes (Build 496):**
+- powderTowerData.js created: 42 lines (Build 496 - MIN/MAX_STAR_SIZE, STAR_MAX_SPEED, star lifetime/fade constants, TWO_PI, randomInRange, MIN_MOTE_LANE_CELL_PX, POWDER_CELL_SIZE_PX, MOTE_RENDER_SCALE, MOTE_COLLISION_SCALE; Phase 3.1.1 complete)
+- powderTower.js reduced from 2,342 to 2,339 lines (imports from powderTowerData.js; re-exports public constants for backward compatibility)
+
+**Progress Notes (Build 495):**
+- lamedTowerData.js created: 84 lines (Build 495 - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class; Phase 3.1.1 start)
+- lamedTower.js reduced from 2,924 to 2,864 lines (60-line reduction; now imports static data from lamedTowerData.js)
+
 **Progress Notes (Build 490):**
 - CanvasRenderer.js reduced from 1,298 to 609 lines (Phase 2.2.6: TrackRenderer extraction; now a pure coordinator)
 - TrackRenderer.js created: 709 lines (Build 490 - drawPath, drawArcLight, drawPathLayerCache, drawEnemyGateSymbol, drawMindGateSymbol, drawNodes, path/tunnel/river/tracer helpers)
@@ -1228,9 +1243,11 @@ Update this section as refactoring progresses:
 - [x] Canvas Track Renderer extracted (Build 490) - path/tunnel/river track, arc tracer, gate symbols, path nodes
 
 #### Phase 3: Tower Logic Consolidation
-- [ ] All tower data tables extracted
-- [ ] Tower behavior patterns shared library created
-- [ ] Tower rendering helpers shared library created
+- [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
+- [x] powderTowerData.js extracted (Build 496) - star background constants, cell-size/mote constants, randomInRange helper
+- [x] Tower shared utility module created (Build 497) - `shared/TowerUtils.js`: clamp, distancePointToSegmentSquared, normalizeParticleColor; de-duplicated across 7 tower files (Phase 3.1.2/3.1.3)
+- [ ] Tower behavior patterns shared library expanded
+- [ ] Tower rendering helpers shared library expanded
 - [ ] Tower module structure standardized
 
 #### Phase 4: Rendering and UI Systems
@@ -1816,5 +1833,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 490  
-**Status:** Phase 2 In Progress (5/5 Cardinal Warden extractions complete; 6/6 Canvas Renderer extractions complete)
+**Last Updated:** Build 497  
+**Status:** Phase 2 Complete; Phase 3.1.1 and Phase 3.1.2/3.1.3 (partial) underway

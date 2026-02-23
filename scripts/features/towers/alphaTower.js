@@ -1,6 +1,7 @@
 // α tower particle system isolates visual math so playfield orchestration stays lean.
 import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { clamp, normalizeParticleColor } from './shared/TowerUtils.js';
 
 // α shot sprite path points at the white particle art that will be tinted by the active palette.
 const ALPHA_SHOT_SPRITE_PATH = './assets/sprites/towers/alpha/projectiles/alphaProjectile.png';
@@ -28,22 +29,6 @@ const ALPHA_PARTICLE_COLORS = [
 
 // Offsets define where α samples the active palette gradient so bursts pick up both endpoints.
 const ALPHA_COLOR_OFFSETS = [0.18, 0.82];
-
-// Normalize palette-derived colors to particle-friendly RGB objects.
-function normalizeParticleColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  const { r, g, b } = color;
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
-}
 
 // Lazily load the base α sprite so cache generation can reuse the decoded image.
 function ensureAlphaShotSpriteImageLoaded() {
@@ -166,11 +151,6 @@ const BETA_TRIANGLE_CYCLES = 1; // Complete triangle traversals
 const GAMMA_PENTAGRAM_CYCLES = 1; // Complete star traversals
 
 let burstIdCounter = 0;
-
-// Clamp helper keeps eased transitions within the unit interval.
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
 
 // Random integer helper keeps particle count ranges declarative per tower.
 function randomInt(min, max) {

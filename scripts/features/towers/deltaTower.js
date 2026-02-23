@@ -8,6 +8,7 @@ import {
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { formatGameNumber } from '../../core/formatting.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { clamp, lerp, normalizeParticleColor } from './shared/TowerUtils.js';
 
 // Δ ship sprite paths point at the white art that will be tinted by the active palette.
 // Note: Delta ship sprites are oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
@@ -54,12 +55,6 @@ const DELTA_RAM_SPEED_MULTIPLIER = 1.75;
 const DELTA_RAM_TURN_ANGLE = Math.PI * 0.55;
 const DELTA_RAM_COOLDOWN = 0.65;
 
-// Clamp helper ensures math stays within bounds even when towers feed edge cases.
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-// Linear interpolation keeps color channel blending smooth while sampling palette endpoints.
-const lerp = (start, end, t) => start + (end - start) * t;
-
 // Resolve a gradient color for the provided progress value using the active palette metadata.
 function sampleDeltaGradientColor(progress) {
   const t = clamp(Number.isFinite(progress) ? progress : 0, 0, 1);
@@ -79,22 +74,6 @@ function toRgba({ r, g, b }, alpha = 1) {
   const blue = clamp(Math.round(b), 0, 255);
   const safeAlpha = clamp(alpha, 0, 1);
   return `rgba(${red}, ${green}, ${blue}, ${safeAlpha})`;
-}
-
-// Normalize palette-derived colors to particle-friendly RGB objects.
-function normalizeParticleColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  const { r, g, b } = color;
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
 }
 
 // Lazily load the base Δ ship sprites so cache generation can reuse the decoded images.

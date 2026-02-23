@@ -3,6 +3,8 @@
  *
  * This module packages the powder basin rendering math so other systems can
  * reuse the same palette rules without depending on the main bundle.
+ *
+ * Static constants and pure helpers live in powderTowerData.js.
  */
 
 // Reuse the extracted palette and normalization helpers to shrink this bundle.
@@ -37,6 +39,23 @@ import {
   setWallGapTarget,
 } from './powderGridUtils.js';
 
+import {
+  MIN_MOTE_LANE_CELL_PX,
+  POWDER_CELL_SIZE_PX,
+  MOTE_RENDER_SCALE,
+  MOTE_COLLISION_SCALE,
+  MIN_STAR_SIZE,
+  MAX_STAR_SIZE,
+  STAR_MAX_SPEED,
+  GOLD_STAR_PROBABILITY,
+  STAR_MIN_LIFETIME_SECONDS,
+  STAR_MAX_LIFETIME_SECONDS,
+  STAR_FADE_MIN_SECONDS,
+  STAR_FADE_MAX_SECONDS,
+  TWO_PI,
+  randomInRange,
+} from './powderTowerData.js';
+
 // Re-export the helpers so existing imports from powderTower remain valid.
 export {
   DEFAULT_MOTE_PALETTE,
@@ -52,35 +71,13 @@ export {
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
-// Guarantee each mote lane cell remains legible on compact viewports.
-export const MIN_MOTE_LANE_CELL_PX = 4;
-
-export const POWDER_CELL_SIZE_PX = 1;
-// Render and collide motes at their base cell footprint so each grain appears one-third the previous size.
-export const MOTE_RENDER_SCALE = 1;
-export const MOTE_COLLISION_SCALE = 1;
-
-// Background star configuration constants
-const MIN_STAR_SIZE = 0.5;
-const MAX_STAR_SIZE = 2.5;
-const STAR_MAX_SPEED = 0.0002;
-const GOLD_STAR_PROBABILITY = 0.3;
-const STAR_MIN_LIFETIME_SECONDS = 6;
-const STAR_MAX_LIFETIME_SECONDS = 12;
-const STAR_FADE_MIN_SECONDS = 1.25;
-const STAR_FADE_MAX_SECONDS = 2.4;
-
-// Pre-calculate PI constants to avoid repeated Math.PI calculations in render loops.
-const TWO_PI = Math.PI * 2;
-
-function randomInRange(min, max) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return min;
-  }
-  const clampedMin = Math.min(min, max);
-  const clampedMax = Math.max(min, max);
-  return clampedMin + Math.random() * (clampedMax - clampedMin);
-}
+// Re-export cell-size and mote constants so existing callers importing from powderTower remain valid.
+export {
+  MIN_MOTE_LANE_CELL_PX,
+  POWDER_CELL_SIZE_PX,
+  MOTE_RENDER_SCALE,
+  MOTE_COLLISION_SCALE,
+} from './powderTowerData.js';
 
 export class PowderSimulation {
   constructor(options = {}) {

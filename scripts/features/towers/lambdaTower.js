@@ -4,6 +4,7 @@ import {
   getTowerEquationBlueprint,
 } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { clamp, distancePointToSegmentSquared } from './shared/TowerUtils.js';
 
 const PARAMETER_RECALC_INTERVAL = 0.35;
 const BASE_BEAM_DURATION = 0.12;
@@ -26,10 +27,6 @@ const LAMBDA_NOTE_SFX_KEYS = [
 ];
 // Controls how strongly higher enemy counts bias lambda toward higher notes.
 const LAMBDA_NOTE_BIAS_STRENGTH = 1.35;
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
 
 function lerp(a, b, t) {
   return a + (b - a) * clamp(t, 0, 1);
@@ -190,27 +187,6 @@ function selectLambdaNoteKey(normalizedEffect) {
     }
   }
   return keys[keys.length - 1];
-}
-
-function distancePointToSegmentSquared(point, start, end) {
-  if (!point || !start || !end) {
-    return Infinity;
-  }
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  if (!dx && !dy) {
-    const pdx = point.x - start.x;
-    const pdy = point.y - start.y;
-    return pdx * pdx + pdy * pdy;
-  }
-  const lengthSquared = dx * dx + dy * dy;
-  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
-  const clampedT = clamp(t, 0, 1);
-  const projX = start.x + clampedT * dx;
-  const projY = start.y + clampedT * dy;
-  const offsetX = point.x - projX;
-  const offsetY = point.y - projY;
-  return offsetX * offsetX + offsetY * offsetY;
 }
 
 function ensureLambdaStateInternal(playfield, tower) {
