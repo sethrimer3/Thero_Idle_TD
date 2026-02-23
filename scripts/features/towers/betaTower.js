@@ -7,6 +7,7 @@ import {
   drawTowerBursts,
 } from './alphaTower.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { normalizeParticleColor } from './shared/TowerUtils.js';
 
 // β shot sprite path points at the white particle art that will be tinted by the active palette.
 // Note: Beta projectile sprite is oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
@@ -35,22 +36,6 @@ const BETA_PARTICLE_COLORS = [
 
 // Β offsets bias toward the warmer half of the gradient to keep cascades distinct from α.
 const BETA_COLOR_OFFSETS = [0.32, 0.88];
-
-// Normalize palette-derived colors to particle-friendly RGB objects.
-function normalizeParticleColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  const { r, g, b } = color;
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
-}
 
 // Lazily load the base β sprite so cache generation can reuse the decoded image.
 function ensureBetaShotSpriteImageLoaded() {

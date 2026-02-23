@@ -1146,6 +1146,10 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 497):**
+- TowerUtils.js created in `scripts/features/towers/shared/`: 80 lines (Phase 3.1.2/3.1.3 start - clamp, distancePointToSegmentSquared, normalizeParticleColor)
+- 7 tower files updated to import from TowerUtils.js (alpha, beta, gamma, delta, lambda, nu, omega): removed ~75 lines of duplicated code across these files
+
 **Progress Notes (Build 496):**
 - powderTowerData.js created: 42 lines (Build 496 - MIN/MAX_STAR_SIZE, STAR_MAX_SPEED, star lifetime/fade constants, TWO_PI, randomInRange, MIN_MOTE_LANE_CELL_PX, POWDER_CELL_SIZE_PX, MOTE_RENDER_SCALE, MOTE_COLLISION_SCALE; Phase 3.1.1 complete)
 - powderTower.js reduced from 2,342 to 2,339 lines (imports from powderTowerData.js; re-exports public constants for backward compatibility)
@@ -1238,8 +1242,9 @@ Update this section as refactoring progresses:
 #### Phase 3: Tower Logic Consolidation
 - [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
 - [x] powderTowerData.js extracted (Build 496) - star background constants, cell-size/mote constants, randomInRange helper
-- [ ] Tower behavior patterns shared library created
-- [ ] Tower rendering helpers shared library created
+- [x] Tower shared utility module created (Build 497) - `shared/TowerUtils.js`: clamp, distancePointToSegmentSquared, normalizeParticleColor; de-duplicated across 7 tower files (Phase 3.1.2/3.1.3)
+- [ ] Tower behavior patterns shared library expanded
+- [ ] Tower rendering helpers shared library expanded
 - [ ] Tower module structure standardized
 
 #### Phase 4: Rendering and UI Systems
@@ -1825,5 +1830,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 496  
-**Status:** Phase 2 Complete; Phase 3.1.1 complete (lamedTowerData.js and powderTowerData.js extracted)
+**Last Updated:** Build 497  
+**Status:** Phase 2 Complete; Phase 3.1.1 and Phase 3.1.2/3.1.3 (partial) underway

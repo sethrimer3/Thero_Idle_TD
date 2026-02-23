@@ -7,6 +7,7 @@ import {
   drawTowerBursts,
 } from './alphaTower.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { normalizeParticleColor } from './shared/TowerUtils.js';
 
 // γ shot sprite path points at the white particle art that will be tinted by the active palette.
 // Note: Gamma projectile sprite is oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
@@ -35,22 +36,6 @@ const GAMMA_PARTICLE_COLORS = [
 
 // Γ offsets favor cooler values so piercing lasers inherit the outer gradient tail.
 const GAMMA_COLOR_OFFSETS = [0.08, 0.66];
-
-// Normalize palette-derived colors to particle-friendly RGB objects.
-function normalizeParticleColor(color) {
-  if (!color || typeof color !== 'object') {
-    return null;
-  }
-  const { r, g, b } = color;
-  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
-    return null;
-  }
-  return {
-    r: Math.max(0, Math.min(255, Math.round(r))),
-    g: Math.max(0, Math.min(255, Math.round(g))),
-    b: Math.max(0, Math.min(255, Math.round(b))),
-  };
-}
 
 // Lazily load the base γ sprite so cache generation can reuse the decoded image.
 function ensureGammaShotSpriteImageLoaded() {
