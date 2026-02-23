@@ -1146,6 +1146,10 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 496):**
+- powderTowerData.js created: 42 lines (Build 496 - MIN/MAX_STAR_SIZE, STAR_MAX_SPEED, star lifetime/fade constants, TWO_PI, randomInRange, MIN_MOTE_LANE_CELL_PX, POWDER_CELL_SIZE_PX, MOTE_RENDER_SCALE, MOTE_COLLISION_SCALE; Phase 3.1.1 complete)
+- powderTower.js reduced from 2,342 to 2,339 lines (imports from powderTowerData.js; re-exports public constants for backward compatibility)
+
 **Progress Notes (Build 495):**
 - lamedTowerData.js created: 84 lines (Build 495 - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class; Phase 3.1.1 start)
 - lamedTower.js reduced from 2,924 to 2,864 lines (60-line reduction; now imports static data from lamedTowerData.js)
@@ -1233,7 +1237,7 @@ Update this section as refactoring progresses:
 
 #### Phase 3: Tower Logic Consolidation
 - [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
-- [ ] All remaining tower data tables extracted (powderTowerData.js)
+- [x] powderTowerData.js extracted (Build 496) - star background constants, cell-size/mote constants, randomInRange helper
 - [ ] Tower behavior patterns shared library created
 - [ ] Tower rendering helpers shared library created
 - [ ] Tower module structure standardized
@@ -1821,5 +1825,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 495  
-**Status:** Phase 2 Complete (6/6 Canvas Renderer extractions complete); Phase 3.1.1 started (lamedTowerData.js extracted)
+**Last Updated:** Build 496  
+**Status:** Phase 2 Complete; Phase 3.1.1 complete (lamedTowerData.js and powderTowerData.js extracted)
