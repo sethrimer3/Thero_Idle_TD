@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 500):**
+- TowerUtils.js expanded with `getEffectiveDevicePixelRatio(maxDevicePixelRatio)` (Build 500 - Phase 3.1.3): standalone DPR helper shared across lamedTower.js and tsadiTower.js (145 lines total)
+- tsadiTower.js and lamedTower.js updated to import and delegate to shared `getEffectiveDevicePixelRatio`; 2 duplicate 3-line implementations removed
+- tsadiTowerData.js expanded: 14 tier utility functions + Quadtree class extracted from tsadiTower.js (~490 lines added to tsadiTowerData.js; tsadiTower.js reduced from 3,388 to ~2,909 lines)
+  - Moved: normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo, Quadtree
+  - Public API (tierToColor, getGreekTierInfo, ADVANCED_MOLECULE_UNLOCK_TIER) re-exported from tsadiTower.js for backward compatibility
+
 **Progress Notes (Build 499):**
 - TowerUtils.js expanded with `TWO_PI`, `HALF_PI`, `easeInCubic`, `easeOutCubic` (Build 499 - Phase 3.1.2/3.1.3 continued): 4 new exports added (124 lines total)
 - tsadiTower.js updated to import TWO_PI, HALF_PI from TowerUtils.js (removed 2 local duplicate const declarations)
@@ -1253,6 +1260,8 @@ Update this section as refactoring progresses:
 - [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
 - [x] powderTowerData.js extracted (Build 496) - star background constants, cell-size/mote constants, randomInRange helper
 - [x] Tower shared utility module created (Build 497) - `shared/TowerUtils.js`: clamp, distancePointToSegmentSquared, normalizeParticleColor; de-duplicated across 7 tower files (Phase 3.1.2/3.1.3)
+- [x] tsadiTowerData.js expanded (Build 500) - tier utilities (normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo) and Quadtree class extracted; tsadiTower.js reduced by ~479 lines
+- [x] TowerUtils.js expanded (Build 500) - `getEffectiveDevicePixelRatio` shared between lamedTower.js and tsadiTower.js
 - [ ] Tower behavior patterns shared library expanded
 - [ ] Tower rendering helpers shared library expanded
 - [ ] Tower module structure standardized
