@@ -14,6 +14,17 @@
  */
 
 /**
+ * Linearly interpolate between two values without clamping t.
+ * @param {number} a - Start value.
+ * @param {number} b - End value.
+ * @param {number} t - Blend factor.
+ * @returns {number} Interpolated value.
+ */
+export function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+/**
  * Clamp a numeric value to the [min, max] range.
  * Returns `Math.min(Math.max(value, min), max)` with no additional overhead.
  * @param {number} value

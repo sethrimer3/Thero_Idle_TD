@@ -8,7 +8,7 @@ import {
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { formatGameNumber } from '../../core/formatting.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
-import { clamp, normalizeParticleColor } from './shared/TowerUtils.js';
+import { clamp, lerp, normalizeParticleColor } from './shared/TowerUtils.js';
 
 // Δ ship sprite paths point at the white art that will be tinted by the active palette.
 // Note: Delta ship sprites are oriented with "forward" pointing upward (see docs/TOWER_SPRITE_ORIENTATION.md)
@@ -54,9 +54,6 @@ const DELTA_RAM_DISTANCE_METERS = 1;
 const DELTA_RAM_SPEED_MULTIPLIER = 1.75;
 const DELTA_RAM_TURN_ANGLE = Math.PI * 0.55;
 const DELTA_RAM_COOLDOWN = 0.65;
-
-// Linear interpolation keeps color channel blending smooth while sampling palette endpoints.
-const lerp = (start, end, t) => start + (end - start) * t;
 
 // Resolve a gradient color for the provided progress value using the active palette metadata.
 function sampleDeltaGradientColor(progress) {

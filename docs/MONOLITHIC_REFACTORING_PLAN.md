@@ -1146,6 +1146,9 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 498):**
+- TowerUtils.js expanded with `lerp` function (Build 498 - Phase 3.1.2/3.1.3 continued): deltaTower.js and fractalRenderUtils.js updated to import lerp from TowerUtils.js; 2 more duplicate declarations removed
+
 **Progress Notes (Build 497):**
 - TowerUtils.js created in `scripts/features/towers/shared/`: 80 lines (Phase 3.1.2/3.1.3 start - clamp, distancePointToSegmentSquared, normalizeParticleColor)
 - 7 tower files updated to import from TowerUtils.js (alpha, beta, gamma, delta, lambda, nu, omega): removed ~75 lines of duplicated code across these files
