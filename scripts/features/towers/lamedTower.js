@@ -28,6 +28,7 @@ import {
   SeededRandom,
 } from './lamedTowerData.js';
 import { getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
+import { LamedStarfieldRenderer } from './lamedStarfield.js';
 
 /**
  * GravitySimulation for the Lamed Spire.
@@ -154,6 +155,10 @@ export class GravitySimulation {
     this.dustAccumulator = 0;
     this.flashEffects = []; // Spawn flash effects
     this.showSpawnFlashes = true; // Toggle for spawn flash visibility (controlled by preferences).
+    // Parallax background starfield — created once; offscreen caches built in constructor.
+    this.starfieldRenderer = typeof document !== 'undefined' ? new LamedStarfieldRenderer() : null;
+    // Toggle for background starfield visibility (controlled by preferences).
+    this.showBackgroundStars = true;
     this.geyserParticles = []; // Geyser bursts triggered by high-tier absorptions
     this.visualEffectSettings = {
       /**
@@ -2032,6 +2037,12 @@ export class GravitySimulation {
     // Clear with black background
     ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(0, 0, this.width / dpr, this.height / dpr);
+
+    // Draw the parallax starfield behind all simulation elements.
+    if (this.showBackgroundStars && this.starfieldRenderer) {
+      const graphicsQuality = this.isLowGraphicsModeEnabled() ? 'low' : 'high';
+      this.starfieldRenderer.draw(ctx, this.width / dpr, this.height / dpr, graphicsQuality);
+    }
     
     // Pre-calculate scaled values used throughout rendering
     const centerXScaled = this.centerX / dpr;
