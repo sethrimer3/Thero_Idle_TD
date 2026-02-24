@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 508):**
+- kufCombatSystem.js created in `assets/`: 915 lines (Phase 4.1.2 continuation - all combat update and targeting methods extracted from KufBattlefieldSimulation)
+  - Moved: steerUnitToward, decelerateUnit, updateMarines, updateCoreShip, updateDrones, updateTurrets, triggerMineExplosion, updateExplosions, updateBullets, spawnBullet, fireTurret, getTurretAttackModifier, handleSupportDrone, findDamagedTurret, applyBulletEffects, updateMarineStatus, getFieldSlowMultiplier, findClosestTurret, findClosestMarine, findClosestPlayerTarget, findHit, isOnscreen (22 methods)
+  - kufSimulation.js reduced from 2,186 to 1,391 lines (795-line reduction); combat methods replaced with thin `.call(this)` delegates
+  - kufCombatSystem.js imports MARINE_CONFIG, SNIPER_CONFIG, SPLAYER_CONFIG, LASER_CONFIG, TURRET_CONFIG, STRUCTURE_CONFIG, GAMEPLAY_CONFIG, TWO_PI, KUF_CORE_SHIP_COMBAT, SPLAYER_SPIN_BOOST_MULTIPLIER, SPLAYER_SPIN_BOOST_DURATION from kufSimulationConfig.js
+  - Removed 9 now-unused local const aliases + SPLAYER_SPIN_BOOST_MULTIPLIER/DURATION imports + STRUCTURE_CONFIG import from kufSimulation.js
+
 **Progress Notes (Build 505):**
 - kufRenderer.js created in `assets/`: 904 lines (Phase 4.1.2 - all canvas render methods extracted from KufBattlefieldSimulation)
   - Moved: drawBackground, drawTrianglePattern, render, shouldSkipOverlays, drawMarines, drawDrones, drawTurrets, drawBullets, drawHealthBars, drawLevelIndicators, drawExplosions, drawSelectedEnemyBox, drawBaseCore, drawTrainingToolbar, drawHud, drawSelectionBox, drawWaypointMarker, drawUnitWaypointLines
@@ -1880,5 +1887,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 503  
-**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted)
+**Last Updated:** Build 508  
+**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted; kufCombatSystem.js extracted)
