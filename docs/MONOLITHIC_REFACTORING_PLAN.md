@@ -1146,6 +1146,16 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 511):**
+- fluidTerrariumShroomSimulation.js created in `assets/`: 652 lines (Phase 4: Mushroom Simulation - TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms)
+  - Moved: clamp, randomBetween helpers; PHI_SHROOM_COLORS, PSI_SHROOM_STYLE, SHROOM_CONFIG constants; TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes
+  - fluidTerrariumShrooms.js reduced from 1,092 to 440 lines (652-line reduction); main FluidTerrariumShrooms controller imports the classes from the companion module
+- advancedTowers.js replaced with a 22-line barrel re-export file (Phase 4.3.1: Tower equations split by tower type)
+  - 15 individual tower blueprint files created in `assets/towerEquations/advanced/`: kappaEquation.js (185), lambdaEquation.js (153), muEquation.js (152), nuEquation.js (213), xiEquation.js (193), omicronEquation.js (215), piEquation.js (192), rhoEquation.js (131), sigmaEquation.js (107), tauEquation.js (131), upsilonEquation.js (128), phiEquation.js (123), chiEquation.js (191), psiEquation.js (220), omegaEquation.js (213)
+  - Tower-specific helpers (BET1_GLYPH, PHI constants, CHI constants, clampChiValue, resolvePhiPower, resolveChiCorePower, prestige helpers) co-located with their respective tower files
+  - index.js unchanged — still imports from advancedTowers.js which re-exports everything; no calling-code changes required
+  - assets/towerEquations/agent.md updated to document the new advanced/ subdirectory structure
+
 **Progress Notes (Build 510):**
 - fluidTerrariumTreeSimulation.js created in `assets/`: 692 lines (Phase 4: Tree Growth Simulation - 24 tree lifecycle methods extracted from FluidTerrariumTrees)
   - Moved: getAdjustedBase, getAnchorKey, normalizeTreeState, computeLevelInfo, updateSimulationTarget, createLevelBadge, updateTreeBadge, handleUpgradeButton, spawnRipple, allocateToTree, stopHold, continueHold, attachTreeInput, attachUpgradeButton, refreshLayout, computeLayout, createCanvas, buildSimulation, isSimulationComplete, freezeTree, start, stop, handleFrame, destroy (24 methods)
@@ -1323,8 +1333,8 @@ Update this section as refactoring progresses:
 - [x] Kuf simulation config extended (Build 504) - remaining local constants (KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, TWO_PI, SPLAYER spin, KUF_TRAINING_CATALOG, KUF_TRAINING_SLOTS, etc.) moved to kufSimulationConfig.js
 - [x] Kuf simulation renderer extracted (Build 505) - `kufRenderer.js` (904 lines): all 18 canvas draw methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 3,047 to 2,186 lines (861-line total reduction)
 - [x] Tree growth simulation extracted (Build 510) - `fluidTerrariumTreeSimulation.js` (692 lines): 24 tree lifecycle methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines
-- [ ] Mushroom simulation extracted
-- [ ] Tower equations split by tower type
+- [x] Mushroom simulation extracted (Build 511) - `fluidTerrariumShroomSimulation.js` (652 lines): TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms; fluidTerrariumShrooms.js reduced from 1,092 to 440 lines
+- [x] Tower equations split by tower type (Build 511) - 15 individual `*.js` files created in `assets/towerEquations/advanced/`; `advancedTowers.js` (2,435 lines) replaced with 22-line barrel re-export
 
 #### Phase 5: Stylesheet Refactoring
 - [ ] CSS layer structure created
