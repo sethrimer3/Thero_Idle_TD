@@ -2041,7 +2041,16 @@ export class GravitySimulation {
     // Draw the parallax starfield behind all simulation elements.
     if (this.showBackgroundStars && this.starfieldRenderer) {
       const graphicsQuality = this.isLowGraphicsModeEnabled() ? 'low' : 'high';
-      this.starfieldRenderer.draw(ctx, this.width / dpr, this.height / dpr, graphicsQuality);
+      // Stars start huge (matching proto-star scale) and shrink to specks as the sun grows to a black hole.
+      // coreSizeState.percent tracks the sun's diameter as a fraction of canvas width:
+      //   proto-star = 0.01 (1%), black hole max = 0.5 (50%).
+      const protoStarPercent = TIER_DIAMETER_PERCENTAGES[0];
+      const currentSunPercent = Math.max(
+        this.coreSizeState?.percent ?? protoStarPercent,
+        protoStarPercent,
+      );
+      const starSizeScale = 10 * protoStarPercent / currentSunPercent;
+      this.starfieldRenderer.draw(ctx, this.width / dpr, this.height / dpr, graphicsQuality, starSizeScale);
     }
     
     // Pre-calculate scaled values used throughout rendering

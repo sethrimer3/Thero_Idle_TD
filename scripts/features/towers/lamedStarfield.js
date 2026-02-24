@@ -173,8 +173,11 @@ export class LamedStarfieldRenderer {
    * @param {number} screenWidth  - Canvas CSS pixel width.
    * @param {number} screenHeight - Canvas CSS pixel height.
    * @param {string} graphicsQuality - 'low' | 'medium' | 'high'.
+   * @param {number} [starSizeScale=1] - Global size multiplier for all stars.
+   *   Pass a value > 1 to make stars appear large (early-game, proto-star),
+   *   and < 1 to shrink them to specks (late-game, black hole).
    */
-  draw(ctx, screenWidth, screenHeight, graphicsQuality) {
+  draw(ctx, screenWidth, screenHeight, graphicsQuality, starSizeScale = 1) {
     const nowSeconds = performance.now() * 0.001;
 
     // Ambient sinusoidal orbit camera — provides visible parallax without user input.
@@ -215,7 +218,7 @@ export class LamedStarfieldRenderer {
 
         const flicker = 1 + 0.03 * Math.sin(star.phase + nowSeconds * Math.PI * 2 * star.flickerHz);
         const alpha = star.brightness * flicker * depthAlpha;
-        const renderedSizePx = star.sizePx * depthSizeMultiplier;
+        const renderedSizePx = star.sizePx * depthSizeMultiplier * starSizeScale;
 
         // Draw halo (soft glow).
         const haloRadiusPx = renderedSizePx * star.haloScale;
