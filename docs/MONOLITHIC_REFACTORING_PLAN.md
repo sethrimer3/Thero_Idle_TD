@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 509):**
+- betSpireForgeSystem.js created in `assets/`: 516 lines (Phase 4.1.1 continuation - all forge crunch state management and forge draw methods extracted from BetSpireRender)
+  - Moved: checkForgeCreunch, startForgeCrunch, updateForgeCrunch, getForgeRotationSpeedMultiplier, getSmallEquivalentForSize, completeForgeCrunch, drawForgeCrunch, drawCrunchGemAwards, drawForge, drawForgeInfluenceRing (10 methods)
+  - betSpireRender.js reduced from 2,208 to 1,751 lines (457-line reduction); forge methods replaced with thin `.call(this)` delegates
+  - betSpireForgeSystem.js imports moteGemState, resolveGemDefinition from enemies.js; PI, TWO_PI, PI_OVER_SIX, HALF, FORGE_RADIUS, MAX_FORGE_ATTRACTION_DISTANCE, PARTICLE_FACTOR_EXPONENT_INCREMENT, PARTICLE_TIERS, SMALL_SIZE_INDEX, MEDIUM_SIZE_INDEX, LARGE_SIZE_INDEX, EXTRA_LARGE_SIZE_INDEX, SIZE_SMALL_EQUIVALENTS from betSpireConfig.js
+  - Removed 5 now-exclusive imports from betSpireRender.js: PI, FORGE_RADIUS, MAX_FORGE_ATTRACTION_DISTANCE, PARTICLE_FACTOR_EXPONENT_INCREMENT, SIZE_SMALL_EQUIVALENTS; removed enemies.js import entirely
+
 **Progress Notes (Build 508):**
 - kufCombatSystem.js created in `assets/`: 915 lines (Phase 4.1.2 continuation - all combat update and targeting methods extracted from KufBattlefieldSimulation)
   - Moved: steerUnitToward, decelerateUnit, updateMarines, updateCoreShip, updateDrones, updateTurrets, triggerMineExplosion, updateExplosions, updateBullets, spawnBullet, fireTurret, getTurretAttackModifier, handleSupportDrone, findDamagedTurret, applyBulletEffects, updateMarineStatus, getFieldSlowMultiplier, findClosestTurret, findClosestMarine, findClosestPlayerTarget, findHit, isOnscreen (22 methods)
