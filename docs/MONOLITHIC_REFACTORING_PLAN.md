@@ -1146,6 +1146,11 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 503):**
+- betSpireParticle.js created in `assets/`: 359 lines (Phase 4.1.2 - Particle class extracted from betSpireRender.js)
+  - Moved: entire `Particle` class (constructor, update, draw, getTier, getSizeName, getSize, getColor, getDrawStyleKey, getDrawStyle, applyMinimumReleaseVelocity) with its own imports from betSpireConfig.js
+  - betSpireRender.js reduced from 2,549 to 2,208 lines (341-line reduction); imports Particle from betSpireParticle.js; 22 betSpireConfig.js imports that were exclusive to Particle removed from betSpireRender.js
+
 **Progress Notes (Build 502):**
 - betSpireConfig.js created in `assets/`: 214 lines (Phase 4.1.1 - all physics constants, data tables, and utility functions extracted from betSpireRender.js)
   - Moved: PI, TWO_PI, HALF_PI, QUARTER_PI, PI_OVER_SIX, DEG_TO_RAD, HALF; CANVAS_WIDTH, CANVAS_HEIGHT; all particle physics/performance/interaction/merge/spawner/veer constants; getRandomInRange, createTintedSpriteCanvas helpers; SPAWNER_POSITIONS, PARTICLE_TIERS, SIZE_TIERS, size config arrays
@@ -1280,7 +1285,7 @@ Update this section as refactoring progresses:
 
 #### Phase 4: Rendering and UI Systems
 - [x] Bet Spire config extracted (Build 502) - `betSpireConfig.js`: all physics constants, data tables, utilities moved out of betSpireRender.js; betSpireRender.js reduced from 2,677 to 2,549 lines
-- [ ] Bet Spire particle systems extracted (Particle class)
+- [x] Bet Spire particle class extracted (Build 503) - `betSpireParticle.js`: Particle class (constructor, physics update, draw, helpers) moved out of betSpireRender.js; betSpireRender.js reduced from 2,549 to 2,208 lines
 - [ ] Kuf simulation physics extracted
 - [ ] Tree growth simulation extracted
 - [ ] Mushroom simulation extracted
@@ -1862,5 +1867,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 502  
-**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 started
+**Last Updated:** Build 503  
+**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted)
