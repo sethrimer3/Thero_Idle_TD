@@ -1146,6 +1146,20 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 514):**
+- lamedTowerPhysics.js created in `scripts/features/towers/`: 1,169 lines (Phase 3 continuation - all physics update, spawn, and surface-generation methods extracted from GravitySimulation)
+  - Moved: updateCoreSizeState, generateValueNoiseTexture, sampleNoise, updateSurfaceAnimation, rebuildSunSurfaceTexture, updateSunBounce, scheduleNextShootingStar, spawnShootingStar, absorbStarImmediately, spawnStar, spawnMultipleStars, spawnDustParticles, spawnGeyserBurst, updateDustParticles, updateShootingStars, updateStars, updateAsteroids, updateEffects, updateGeyserParticles (19 methods)
+  - lamedTower.js reduced from 2,421 to 1,402 lines (1,019-line reduction); all methods replaced with thin `.call(this)` delegates
+  - lamedTowerPhysics.js imports MASS_TIERS, TIER_DIAMETER_PERCENTAGES, BLACK_HOLE_MAX_DIAMETER_PERCENT, COLLAPSE_ANIMATION_SECONDS from lamedTowerData.js; clamp from shared/TowerUtils.js
+- tsadiTowerPhysics.js created in `scripts/features/towers/`: 691 lines (Phase 3 continuation - all physics/collision methods extracted from ParticleFusionSimulation)
+  - Moved: updateParticles, applyRepellingForces, handleCollisions, handleFusion, createTierExplosion, handleAlephAbsorption, triggerAlephExplosion, resetSimulation, resolveElasticCollision (9 methods)
+  - tsadiTower.js reduced from 2,456 to 1,847 lines (609-line reduction); all methods replaced with thin `.call(this)` delegates
+- betSpireInputSystem.js created in `assets/`: 208 lines (Phase 4 continuation - input/event methods extracted from BetSpireRender)
+  - Moved: setupEventListeners, removeEventListeners, getCanvasCoordinates, spawnSandParticleAtEdge, handlePointerDown, handlePointerMove, handlePointerUp (7 methods)
+- betSpireDrawSystem.js created in `assets/`: 405 lines (Phase 4 continuation - draw/animate methods extracted from BetSpireRender)
+  - Moved: animate (main render loop), drawBatchedParticles, cacheGeneratorSpritesForTier, drawSpawners (4 methods)
+  - betSpireRender.js reduced from 1,751 to 1,221 lines (530-line reduction combined for both new modules); all methods replaced with thin `.call(this)` delegates
+
 **Progress Notes (Build 513):**
 - lamedTowerRenderer.js created in `scripts/features/towers/`: 483 lines (Phase 3 continuation - render methods extracted from GravitySimulation)
   - Moved: renderGeyserParticles (with GravitySimulation.clamp replaced by imported clamp), renderLamedSimulation (full render method)
@@ -1340,6 +1354,8 @@ Update this section as refactoring progresses:
 - [x] Tower rendering helpers shared library created (Build 501) - `shared/TowerRenderHelpers.js`: `createShotSpriteCache` factory de-duplicates ~191 lines of sprite-loading boilerplate from alphaTower.js, betaTower.js, gammaTower.js
 - [x] Lamed tower renderer extracted (Build 513) - `lamedTowerRenderer.js` (483 lines): `renderGeyserParticles` + `render` methods extracted; lamedTower.js reduced from 2,883 to 2,421 lines
 - [x] Tsadi tower renderer extracted (Build 513) - `tsadiTowerRenderer.js` (478 lines): `render`, `renderBindingAgents`, `brightenColor` extracted; tsadiTower.js reduced from 2,910 to 2,456 lines
+- [x] Lamed tower physics extracted (Build 514) - `lamedTowerPhysics.js` (1,169 lines): 19 update/spawn/surface methods extracted; lamedTower.js reduced from 2,421 to 1,402 lines
+- [x] Tsadi tower physics extracted (Build 514) - `tsadiTowerPhysics.js` (691 lines): 9 physics/collision methods extracted; tsadiTower.js reduced from 2,456 to 1,847 lines
 - [ ] Tower behavior patterns shared library expanded
 - [ ] Tower module structure standardized
 
@@ -1352,6 +1368,8 @@ Update this section as refactoring progresses:
 - [x] Mushroom simulation extracted (Build 511) - `fluidTerrariumShroomSimulation.js` (652 lines): TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms; fluidTerrariumShrooms.js reduced from 1,092 to 440 lines
 - [x] Tower equations split by tower type (Build 511) - 15 individual `*.js` files created in `assets/towerEquations/advanced/`; `advancedTowers.js` (2,435 lines) replaced with 22-line barrel re-export
 - [x] Kuf input controller extracted (Build 513) - `kufInputController.js` (408 lines): 20 camera/input methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,391 to 1,088 lines
+- [x] Bet Spire input system extracted (Build 514) - `betSpireInputSystem.js` (208 lines): 7 input/event methods extracted from BetSpireRender
+- [x] Bet Spire draw system extracted (Build 514) - `betSpireDrawSystem.js` (405 lines): animate + 3 draw helpers extracted; betSpireRender.js reduced from 1,751 to 1,221 lines
 
 #### Phase 5: Stylesheet Refactoring
 - [ ] CSS layer structure created

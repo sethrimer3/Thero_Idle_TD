@@ -6,7 +6,7 @@ import {
   BLACK_HOLE_MAX_DIAMETER_PERCENT,
   COLLAPSE_ANIMATION_SECONDS,
 } from './lamedTowerData.js';
-import { clamp } from './shared/TowerUtils.js';
+import { clamp, lerp } from './shared/TowerUtils.js';
 
 /**
  * Advance the responsive diameter so stage progress smoothly grows the sun.
@@ -55,7 +55,7 @@ export function updateCoreSizeState(dt) {
       ? newElapsed / this.coreSizeState.transitionDuration
       : 1;
     const eased = 1 - Math.pow(1 - progress, 3);
-    this.coreSizeState.percent = this.constructor.lerp(
+    this.coreSizeState.percent = lerp(
       this.coreSizeState.transitionStartPercent,
       this.coreSizeState.targetPercent,
       eased,
@@ -75,11 +75,11 @@ export function updateCoreSizeState(dt) {
     const extraMass = Math.max(0, this.starMass - lastTier.threshold);
     const range = Math.max(1, this.blackHoleGrowthRange || lastTier.threshold);
     const normalized = clamp(extraMass / range, 0, 1);
-    desiredPercent = this.constructor.lerp(startPercent, BLACK_HOLE_MAX_DIAMETER_PERCENT, normalized);
+    desiredPercent = lerp(startPercent, BLACK_HOLE_MAX_DIAMETER_PERCENT, normalized);
   } else if (tierInfo.nextTier) {
     const nextPercent = TIER_DIAMETER_PERCENTAGES[tierInfo.tierIndex + 1] || desiredPercent;
     if (nextPercent > desiredPercent) {
-      desiredPercent = this.constructor.lerp(
+      desiredPercent = lerp(
         desiredPercent,
         nextPercent,
         clamp(tierInfo.progress, 0, 1),
@@ -89,7 +89,7 @@ export function updateCoreSizeState(dt) {
 
   // Ease toward the desired size so growth appears smooth even on variable frame rates.
   const smoothing = dt <= 0 ? 1 : clamp(dt * 4, 0, 1);
-  this.coreSizeState.percent = this.constructor.lerp(this.coreSizeState.percent, desiredPercent, smoothing);
+  this.coreSizeState.percent = lerp(this.coreSizeState.percent, desiredPercent, smoothing);
 }
 
 /**
