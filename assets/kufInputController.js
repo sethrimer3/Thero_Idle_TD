@@ -253,6 +253,7 @@ export function handleTouchEnd(e) {
  * @returns {{ x: number, y: number }} World coordinates.
  */
 export function canvasToWorld(canvasX, canvasY) {
+  // Shift to canvas center, un-zoom, then shift back and add camera offset.
   return {
     x: (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x,
     y: (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y,
