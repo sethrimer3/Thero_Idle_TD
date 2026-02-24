@@ -1146,6 +1146,14 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 510):**
+- fluidTerrariumTreeSimulation.js created in `assets/`: 692 lines (Phase 4: Tree Growth Simulation - 24 tree lifecycle methods extracted from FluidTerrariumTrees)
+  - Moved: getAdjustedBase, getAnchorKey, normalizeTreeState, computeLevelInfo, updateSimulationTarget, createLevelBadge, updateTreeBadge, handleUpgradeButton, spawnRipple, allocateToTree, stopHold, continueHold, attachTreeInput, attachUpgradeButton, refreshLayout, computeLayout, createCanvas, buildSimulation, isSimulationComplete, freezeTree, start, stop, handleFrame, destroy (24 methods)
+  - Also moved: resolveTerrariumTreeLevel (exported for backward compat from fluidTerrariumTrees.js), BET_TREE_DEPTH_COLORS constant
+  - fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines (631-line reduction); all methods replaced with thin `.call(this)` delegates
+  - fluidTerrariumTreeSimulation.js imports FractalTreeSimulation, FernLSystemSimulation, FlameFractalSimulation, BrownianTreeSimulation, DragonCurveSimulation, KochSnowflakeSimulation, VoronoiSubdivisionSimulation, resolveTerrariumDevicePixelRatio
+  - Removed 8 imports from fluidTerrariumTrees.js: resolveTerrariumDevicePixelRatio + all 7 fractal simulation classes
+
 **Progress Notes (Build 509):**
 - betSpireForgeSystem.js created in `assets/`: 516 lines (Phase 4.1.1 continuation - all forge crunch state management and forge draw methods extracted from BetSpireRender)
   - Moved: checkForgeCreunch, startForgeCrunch, updateForgeCrunch, getForgeRotationSpeedMultiplier, getSmallEquivalentForSize, completeForgeCrunch, drawForgeCrunch, drawCrunchGemAwards, drawForge, drawForgeInfluenceRing (10 methods)
@@ -1314,7 +1322,7 @@ Update this section as refactoring progresses:
 - [x] Bet Spire particle class extracted (Build 503) - `betSpireParticle.js`: Particle class (constructor, physics update, draw, helpers) moved out of betSpireRender.js; betSpireRender.js reduced from 2,549 to 2,208 lines
 - [x] Kuf simulation config extended (Build 504) - remaining local constants (KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, TWO_PI, SPLAYER spin, KUF_TRAINING_CATALOG, KUF_TRAINING_SLOTS, etc.) moved to kufSimulationConfig.js
 - [x] Kuf simulation renderer extracted (Build 505) - `kufRenderer.js` (904 lines): all 18 canvas draw methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 3,047 to 2,186 lines (861-line total reduction)
-- [ ] Tree growth simulation extracted
+- [x] Tree growth simulation extracted (Build 510) - `fluidTerrariumTreeSimulation.js` (692 lines): 24 tree lifecycle methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines
 - [ ] Mushroom simulation extracted
 - [ ] Tower equations split by tower type
 
