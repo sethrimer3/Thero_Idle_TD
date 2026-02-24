@@ -1146,6 +1146,20 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 513):**
+- lamedTowerRenderer.js created in `scripts/features/towers/`: 483 lines (Phase 3 continuation - render methods extracted from GravitySimulation)
+  - Moved: renderGeyserParticles (with GravitySimulation.clamp replaced by imported clamp), renderLamedSimulation (full render method)
+  - lamedTower.js reduced from 2,883 to 2,421 lines (462-line reduction); both methods replaced with thin `.call(this)` delegates
+  - lamedTowerRenderer.js imports TIER_DIAMETER_PERCENTAGES from lamedTowerData.js, clamp from shared/TowerUtils.js
+- tsadiTowerRenderer.js created in `scripts/features/towers/`: 478 lines (Phase 3 continuation - render methods extracted from ParticleFusionSimulation)
+  - Moved: renderTsadiSimulation (full render() method), renderTsadiBindingAgents, brightenColor
+  - tsadiTower.js reduced from 2,910 to 2,456 lines (454-line reduction); all three methods replaced with thin `.call(this)` delegates
+  - tsadiTowerRenderer.js imports TWO_PI, HALF_PI from shared/TowerUtils.js; getTierClassification, applyAlphaToColor from tsadiTowerData.js
+- kufInputController.js created in `assets/`: 408 lines (Phase 4 continuation - camera and input methods extracted from KufBattlefieldSimulation)
+  - Moved: resize, getEffectiveDevicePixelRatio, attachCameraControls, detachCameraControls, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleClick, handleTouchStart, handleTouchMove, handleTouchEnd, canvasToWorld, findEnemyAtPoint, handleCommandTap, issueTargetCommand, completeSelection, setAttackMoveWaypoint, getFormationWaypoints, getFocusedEnemy (20 methods)
+  - kufSimulation.js reduced from 1,391 to 1,088 lines (303-line reduction); all 20 methods replaced with thin `.call(this)` delegates
+  - kufInputController.js imports MARINE_CONFIG, TURRET_CONFIG, CAMERA_CONFIG from kufSimulationConfig.js
+
 **Progress Notes (Build 511):**
 - fluidTerrariumShroomSimulation.js created in `assets/`: 652 lines (Phase 4: Mushroom Simulation - TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms)
   - Moved: clamp, randomBetween helpers; PHI_SHROOM_COLORS, PSI_SHROOM_STYLE, SHROOM_CONFIG constants; TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes
@@ -1324,6 +1338,8 @@ Update this section as refactoring progresses:
 - [x] tsadiTowerData.js expanded (Build 500) - tier utilities (normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo) and Quadtree class extracted; tsadiTower.js reduced by ~479 lines
 - [x] TowerUtils.js expanded (Build 500) - `getEffectiveDevicePixelRatio` shared between lamedTower.js and tsadiTower.js
 - [x] Tower rendering helpers shared library created (Build 501) - `shared/TowerRenderHelpers.js`: `createShotSpriteCache` factory de-duplicates ~191 lines of sprite-loading boilerplate from alphaTower.js, betaTower.js, gammaTower.js
+- [x] Lamed tower renderer extracted (Build 513) - `lamedTowerRenderer.js` (483 lines): `renderGeyserParticles` + `render` methods extracted; lamedTower.js reduced from 2,883 to 2,421 lines
+- [x] Tsadi tower renderer extracted (Build 513) - `tsadiTowerRenderer.js` (478 lines): `render`, `renderBindingAgents`, `brightenColor` extracted; tsadiTower.js reduced from 2,910 to 2,456 lines
 - [ ] Tower behavior patterns shared library expanded
 - [ ] Tower module structure standardized
 
@@ -1335,6 +1351,7 @@ Update this section as refactoring progresses:
 - [x] Tree growth simulation extracted (Build 510) - `fluidTerrariumTreeSimulation.js` (692 lines): 24 tree lifecycle methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines
 - [x] Mushroom simulation extracted (Build 511) - `fluidTerrariumShroomSimulation.js` (652 lines): TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms; fluidTerrariumShrooms.js reduced from 1,092 to 440 lines
 - [x] Tower equations split by tower type (Build 511) - 15 individual `*.js` files created in `assets/towerEquations/advanced/`; `advancedTowers.js` (2,435 lines) replaced with 22-line barrel re-export
+- [x] Kuf input controller extracted (Build 513) - `kufInputController.js` (408 lines): 20 camera/input methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,391 to 1,088 lines
 
 #### Phase 5: Stylesheet Refactoring
 - [ ] CSS layer structure created

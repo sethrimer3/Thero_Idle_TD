@@ -39,7 +39,7 @@ import {
   Quadtree,
 } from './tsadiTowerData.js';
 import { TWO_PI, HALF_PI, getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
-import { renderTsadiSimulation, renderTsadiBindingAgents, brightenColor } from './tsadiTowerRenderer.js';
+import { renderTsadiSimulation, renderTsadiBindingAgents, brightenColor as tsadiBrightenColor } from './tsadiTowerRenderer.js';
 
 // Sprite assets for the Tsadi spire particles and Waals binding agents.
 const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/particle.png', import.meta.url).href;
@@ -1939,7 +1939,7 @@ export class ParticleFusionSimulation {
   /**
    * Brighten a color for enhanced glow effects
    */
-  brightenColor(colorStr, intensity) { return brightenColor.call(this, colorStr, intensity); }
+  brightenColor(colorStr, intensity) { return tsadiBrightenColor.call(this, colorStr, intensity); }
   
   /**
    * Animation loop
