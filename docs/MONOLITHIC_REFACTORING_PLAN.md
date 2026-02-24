@@ -1146,6 +1146,18 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 505):**
+- kufRenderer.js created in `assets/`: 904 lines (Phase 4.1.2 - all canvas render methods extracted from KufBattlefieldSimulation)
+  - Moved: drawBackground, drawTrianglePattern, render, shouldSkipOverlays, drawMarines, drawDrones, drawTurrets, drawBullets, drawHealthBars, drawLevelIndicators, drawExplosions, drawSelectedEnemyBox, drawBaseCore, drawTrainingToolbar, drawHud, drawSelectionBox, drawWaypointMarker, drawUnitWaypointLines
+  - Also moved: HALF_PI, KUF_SPRITE_PATHS, KUF_SPRITE_CACHE, getKufSprite (render-only sprite infrastructure)
+  - kufSimulation.js reduced from 3,009 to 2,186 lines (823-line reduction); render methods replaced with thin `.call(this)` delegates
+  - kufRenderer.js imports TWO_PI, KUF_HUD_LAYOUT from kufSimulationConfig.js
+
+**Progress Notes (Build 504):**
+- kufSimulationConfig.js extended from 164 to 235 lines (+71 lines, Phase 4.1.2 - remaining local constants extracted from kufSimulation.js)
+  - Moved: TWO_PI, KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, SPLAYER_BASE_SPIN_SPEED/MULTIPLIER/DURATION, KUF_TRAINING_CATALOG, WORKER_BASE_COST/INCREMENT, KUF_EQUIPPABLE_UNIT_IDS, KUF_TRAINING_SLOTS
+  - kufSimulation.js reduced from 3,047 to 3,009 lines (38-line reduction); all moved constants now imported from kufSimulationConfig.js
+
 **Progress Notes (Build 503):**
 - betSpireParticle.js created in `assets/`: 359 lines (Phase 4.1.2 - Particle class extracted from betSpireRender.js)
   - Moved: entire `Particle` class (constructor, update, draw, getTier, getSizeName, getSize, getColor, getDrawStyleKey, getDrawStyle, applyMinimumReleaseVelocity) with its own imports from betSpireConfig.js
@@ -1286,7 +1298,8 @@ Update this section as refactoring progresses:
 #### Phase 4: Rendering and UI Systems
 - [x] Bet Spire config extracted (Build 502) - `betSpireConfig.js`: all physics constants, data tables, utilities moved out of betSpireRender.js; betSpireRender.js reduced from 2,677 to 2,549 lines
 - [x] Bet Spire particle class extracted (Build 503) - `betSpireParticle.js`: Particle class (constructor, physics update, draw, helpers) moved out of betSpireRender.js; betSpireRender.js reduced from 2,549 to 2,208 lines
-- [ ] Kuf simulation physics extracted
+- [x] Kuf simulation config extended (Build 504) - remaining local constants (KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, TWO_PI, SPLAYER spin, KUF_TRAINING_CATALOG, KUF_TRAINING_SLOTS, etc.) moved to kufSimulationConfig.js
+- [x] Kuf simulation renderer extracted (Build 505) - `kufRenderer.js` (904 lines): all 18 canvas draw methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 3,047 to 2,186 lines (861-line total reduction)
 - [ ] Tree growth simulation extracted
 - [ ] Mushroom simulation extracted
 - [ ] Tower equations split by tower type
