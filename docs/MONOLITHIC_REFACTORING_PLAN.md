@@ -1146,6 +1146,11 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 502):**
+- betSpireConfig.js created in `assets/`: 214 lines (Phase 4.1.1 - all physics constants, data tables, and utility functions extracted from betSpireRender.js)
+  - Moved: PI, TWO_PI, HALF_PI, QUARTER_PI, PI_OVER_SIX, DEG_TO_RAD, HALF; CANVAS_WIDTH, CANVAS_HEIGHT; all particle physics/performance/interaction/merge/spawner/veer constants; getRandomInRange, createTintedSpriteCanvas helpers; SPAWNER_POSITIONS, PARTICLE_TIERS, SIZE_TIERS, size config arrays
+  - betSpireRender.js reduced from 2,677 to 2,549 lines (128-line reduction); re-exports PARTICLE_TIERS for backward compatibility
+
 **Progress Notes (Build 501):**
 - TowerRenderHelpers.js created in `scripts/features/towers/shared/`: 110 lines (Phase 3.1.3 - `createShotSpriteCache` factory for palette-tinted projectile sprite management)
 - alphaTower.js, betaTower.js, gammaTower.js updated to use `createShotSpriteCache` factory; ~191 lines of identical sprite-loading boilerplate removed across the three files
@@ -1274,7 +1279,8 @@ Update this section as refactoring progresses:
 - [ ] Tower module structure standardized
 
 #### Phase 4: Rendering and UI Systems
-- [ ] Bet Spire particle systems extracted
+- [x] Bet Spire config extracted (Build 502) - `betSpireConfig.js`: all physics constants, data tables, utilities moved out of betSpireRender.js; betSpireRender.js reduced from 2,677 to 2,549 lines
+- [ ] Bet Spire particle systems extracted (Particle class)
 - [ ] Kuf simulation physics extracted
 - [ ] Tree growth simulation extracted
 - [ ] Mushroom simulation extracted
@@ -1856,5 +1862,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 501  
-**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) underway
+**Last Updated:** Build 502  
+**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 started

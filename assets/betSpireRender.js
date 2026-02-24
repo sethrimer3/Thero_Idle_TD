@@ -2,214 +2,86 @@
 // Tiered particle system with size merging at generator centers and tier conversion at the forge.
 
 import { moteGemState, resolveGemDefinition } from './enemies.js';
-
-// Pre-calculated Math constants for performance optimization in render loops
-const PI = Math.PI;
-const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI * 0.5;
-const QUARTER_PI = Math.PI * 0.25;
-const PI_OVER_SIX = Math.PI / 6;
-const DEG_TO_RAD = Math.PI / 180;
-const HALF = 0.5; // Pre-calculated reciprocal for multiplication instead of division by 2
-
-// Canvas dimensions matching Aleph Spire render
-const CANVAS_WIDTH = 240;
-const CANVAS_HEIGHT = 320;
-
-// Particle system configuration
-const TRAIL_FADE = 0.15; // Lower = longer trails
-const BASE_PARTICLE_SIZE = 0.75; // Base size for small particles (reduced from 1.5 to half size)
-const SIZE_MULTIPLIER = 2.5; // Each size tier is 2.5x bigger
-const EXTRA_LARGE_SIZE_BONUS = 1.5; // Extra-large particles are 50% larger than large.
-const MIN_VELOCITY = 0.312; // Minimum speed to keep particles swirling (30% faster: 0.24 * 1.3 = 0.312)
-const MAX_VELOCITY = 2;
-const ATTRACTION_STRENGTH = 1.5; // Increased to keep particles within field (was 0.5)
-const FORGE_RADIUS = 21; // Radius for forge attraction (30% smaller to tighten the forge well)
-const MAX_FORGE_ATTRACTION_DISTANCE = FORGE_RADIUS * 2 * 0.9; // Particles only feel forge gravity when within twice the forge radius (decreased by 10%)
-const DISTANCE_SCALE = 0.01; // Scale factor for distance calculations
-const FORCE_SCALE = 0.01; // Scale factor for force application
-const ORBITAL_FORCE = 0.15; // Increased tangential orbital force strength (was 0.1)
-const ORBITAL_RADIUS_MULTIPLIER = 2; // Multiplier for orbital effect radius
-const FORGE_REPULSION_DAMPING = 0.6; // Dampen outward push when particles slingshot past the forge
-const FORGE_ROTATION_SPEED = 0.01; // Rotation speed for forge triangles (50% slower base spin).
-const SPAWNER_GRAVITY_STRENGTH = 1.5; // Gentle attraction strength used by individual spawners.
-const SPAWNER_GRAVITY_RANGE_MULTIPLIER = 4; // Spawner gravity now reaches four times its radius for a wider pull
-const GENERATOR_CONVERSION_RADIUS = 16.5; // 10% larger radius for generator-centered conversions
-const SMALL_TIER_GENERATOR_GRAVITY_STRENGTH = 0.24; // Extremely gentle pull that nudges small particles toward their generator.
-const MEDIUM_TIER_FORGE_GRAVITY_STRENGTH = 0.15; // Extremely weak pull that guides medium particles toward the central forge.
-const PARTICLE_FACTOR_EXPONENT_INCREMENT = 1e-7; // Each nullstone small-equivalent crunch increases the particle factor exponent.
-
-// Performance optimization configuration
-const MAX_PARTICLES = 2000; // Hard limit on total particle count to prevent freezing
-const PERFORMANCE_THRESHOLD = 1500; // Start aggressive merging above this count
-const MAX_FRAME_TIME_MS = 16; // Target 60fps, skip updates if frame takes longer
-const TARGET_FRAME_TIME_MS = 1000 / 60; // Normalize physics updates so taps don't change simulation speed
-const PERF_WARN_MIN_PARTICLES = 250; // Skip heavy-frame warnings for tiny swarms to avoid noisy false positives during tab resume.
-const PERF_WARN_COOLDOWN_MS = 5000; // Limit heavy-frame warnings to once per cooldown window for cleaner diagnostics.
-
-// User interaction configuration
-const INTERACTION_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) / 10; // Doubled from /20 to /10
-const MOUSE_ATTRACTION_STRENGTH = 3.0;
-const INTERACTION_FADE_DURATION = 300; // milliseconds for circle fade
-const DRAG_RELEASE_STILLNESS_MS = 120; // Time threshold to consider the pointer held still before release.
-const DRAG_RELEASE_SPEED_THRESHOLD = 0.02; // Velocity threshold (px/ms) to treat the release as stationary.
-
-// Merge animation configuration
-const MERGE_GATHER_SPEED = 10.0; // Faster gather speed so size merges keep up with higher spawn rates
-const MERGE_GATHER_THRESHOLD = 2; // Distance threshold to consider particles gathered (pixels)
-const MERGE_TIMEOUT_MS = 2000; // Maximum time for merge animation (milliseconds)
-const SHOCKWAVE_SPEED = 3.0; // Speed at which shockwave expands
-const SHOCKWAVE_MAX_RADIUS = 40; // Maximum shockwave radius
-const SHOCKWAVE_DURATION = 500; // milliseconds for shockwave animation
-const SHOCKWAVE_PUSH_FORCE = 2.5; // Force applied to nearby particles by shockwave
-const SHOCKWAVE_EDGE_THICKNESS = 10; // Thickness of shockwave edge for force application (pixels)
-
-// Forge position at center of canvas (using HALF constant for optimization)
-const FORGE_POSITION = { x: CANVAS_WIDTH * HALF, y: CANVAS_HEIGHT * HALF };
-
-// Particle spawner configuration (mini forges for each unlocked particle type)
-const SPAWNER_SIZE = 8.8; // Size of spawner forge triangles (10% larger than before)
-const SPAWNER_ROTATION_SPEED = 0.01; // Rotation speed for spawner triangles
-const SPAWNER_COLOR_BRIGHTNESS_OFFSET = 30; // RGB offset for spawner triangle color variation
-const SPAWNER_GRAVITY_RADIUS = SPAWNER_SIZE * SPAWNER_GRAVITY_RANGE_MULTIPLIER * 1.15; // Influence radius for each spawner (increased by 15%)
-const GENERATOR_SPRITE_SCALE = 1.75; // Increase generator sprites by 75% for better legibility.
-const SPAWNER_SPRITE_SIZE = SPAWNER_SIZE * 2.6 * GENERATOR_SPRITE_SCALE; // Scale generator sprites to match the previous triangle footprint.
-
-// Particle veer behavior configuration (developer-toggleable).
-const VEER_ANGLE_MIN_DEG = 0.1; // Minimum veer angle in degrees.
-const VEER_ANGLE_MAX_DEG = 1; // Maximum veer angle in degrees.
-const VEER_INTERVAL_MIN_MS = 100; // Minimum interval between veer nudges in milliseconds.
-const VEER_INTERVAL_MAX_MS = 1000; // Maximum interval between veer nudges in milliseconds.
-
-// Utility to generate a random number within an inclusive range.
-const getRandomInRange = (min, max) => min + Math.random() * (max - min);
-// Utility to create a tinted sprite canvas from a monochrome base image.
-const createTintedSpriteCanvas = (sourceImage, color, size) => {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const drawSize = size;
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.drawImage(sourceImage, 0, 0, drawSize, drawSize);
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
-  ctx.fillRect(0, 0, drawSize, drawSize);
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(sourceImage, 0, 0, drawSize, drawSize);
-  ctx.globalCompositeOperation = 'source-over';
-
-  return canvas;
-};
-
-// Generator positions: sand at top center (12 o'clock), then 10 more in clockwise circle
-// All 11 generators are equidistant from each other on a circle around the forge
-const GENERATOR_CIRCLE_RADIUS = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.35; // Circle radius for generators
-const SPAWNER_POSITIONS = Array.from({ length: 11 }, (_, i) => {
-  // Start at top (12 o'clock = -90 degrees), then proceed clockwise (using pre-calculated constants)
-  const angle = -HALF_PI + (i * TWO_PI / 11);
-  return {
-    x: FORGE_POSITION.x + Math.cos(angle) * GENERATOR_CIRCLE_RADIUS,
-    y: FORGE_POSITION.y + Math.sin(angle) * GENERATOR_CIRCLE_RADIUS
-  };
-});
-
-// Particle tier definitions matching gem hierarchy
-// Sand is the base tier (pale yellow like motes from tower of inspiration)
-const PARTICLE_TIERS = [
-  {
-    id: 'sand',
-    name: 'Sand',
-    color: { r: 255, g: 215, b: 100 }, // Pale yellow like motes
-    glowColor: null, // No special glow
-  },
-  {
-    id: 'quartz',
-    name: 'Quartz',
-    color: { r: 245, g: 240, b: 235 }, // Light beige/off-white
-    glowColor: null,
-  },
-  {
-    id: 'ruby',
-    name: 'Ruby',
-    color: { r: 220, g: 50, b: 50 }, // Red
-    glowColor: null,
-  },
-  {
-    id: 'sunstone',
-    name: 'Sunstone',
-    color: { r: 255, g: 140, b: 60 }, // Orange
-    glowColor: null,
-  },
-  {
-    id: 'citrine',
-    name: 'Citrine',
-    color: { r: 230, g: 200, b: 80 }, // Yellow
-    glowColor: null,
-  },
-  {
-    id: 'emerald',
-    name: 'Emerald',
-    color: { r: 80, g: 180, b: 100 }, // Green
-    glowColor: null,
-  },
-  {
-    id: 'sapphire',
-    name: 'Sapphire',
-    color: { r: 60, g: 120, b: 200 }, // Blue
-    glowColor: null,
-  },
-  {
-    id: 'iolite',
-    name: 'Iolite',
-    color: { r: 100, g: 100, b: 180 }, // Indigo
-    glowColor: null,
-  },
-  {
-    id: 'amethyst',
-    name: 'Amethyst',
-    color: { r: 180, g: 100, b: 200 }, // Purple
-    glowColor: null,
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond',
-    color: { r: 240, g: 245, b: 250 }, // Bright white/cyan
-    glowColor: null,
-  },
-  {
-    id: 'nullstone',
-    name: 'Nullstone',
-    color: { r: 30, g: 30, b: 40 }, // Nearly black
-    glowColor: { r: 150, g: 100, b: 200 }, // Purple glow
-  },
-];
-
-// Size tiers: small, medium, large, extra-large.
-const SIZE_TIERS = ['small', 'medium', 'large', 'extra-large'];
-const SMALL_SIZE_INDEX = 0;
-const MEDIUM_SIZE_INDEX = 1;
-const LARGE_SIZE_INDEX = 2;
-const EXTRA_LARGE_SIZE_INDEX = 3;
-const MERGE_THRESHOLD = 100; // 100 particles merge into 1 of next size
-const SIZE_SMALL_EQUIVALENTS = [
-  1,
-  MERGE_THRESHOLD,
-  Math.pow(MERGE_THRESHOLD, 2),
-  Math.pow(MERGE_THRESHOLD, 3)
-]; // Map size index to its small-particle equivalent for nullstone crunch gains.
-const SIZE_SCALE_MULTIPLIERS = [
-  1.0,
+// All constants, data tables, and utility functions live in the companion config module.
+import {
+  PI,
+  TWO_PI,
+  HALF_PI,
+  QUARTER_PI,
+  PI_OVER_SIX,
+  DEG_TO_RAD,
+  HALF,
+  CANVAS_WIDTH,
+  CANVAS_HEIGHT,
+  TRAIL_FADE,
+  BASE_PARTICLE_SIZE,
   SIZE_MULTIPLIER,
-  SIZE_MULTIPLIER * SIZE_MULTIPLIER,
-  SIZE_MULTIPLIER * SIZE_MULTIPLIER * EXTRA_LARGE_SIZE_BONUS
-]; // Match size tiers while keeping extra-large at +50% over large.
-const SIZE_MIN_VELOCITY_MODIFIERS = [1.0, 0.8, 0.64, 0.15]; // Extra-large keeps a low minimum drift speed.
-const SIZE_MAX_VELOCITY_MODIFIERS = [1.0, 0.85, 0.7, 1.6]; // Extra-large can reach high top speeds.
-// Force modifiers scale how strongly particles respond to pulls; extra-large is intentionally sluggish.
-const SIZE_FORCE_MODIFIERS = [1.0, 0.85, 0.7, 0.12]; // Extra-large resists drag to feel heavy.
-const CONVERSION_SPREAD_VELOCITY = 3; // Velocity multiplier for spreading converted particles
+  EXTRA_LARGE_SIZE_BONUS,
+  MIN_VELOCITY,
+  MAX_VELOCITY,
+  ATTRACTION_STRENGTH,
+  FORGE_RADIUS,
+  MAX_FORGE_ATTRACTION_DISTANCE,
+  DISTANCE_SCALE,
+  FORCE_SCALE,
+  ORBITAL_FORCE,
+  ORBITAL_RADIUS_MULTIPLIER,
+  FORGE_REPULSION_DAMPING,
+  FORGE_ROTATION_SPEED,
+  SPAWNER_GRAVITY_STRENGTH,
+  SPAWNER_GRAVITY_RANGE_MULTIPLIER,
+  GENERATOR_CONVERSION_RADIUS,
+  SMALL_TIER_GENERATOR_GRAVITY_STRENGTH,
+  MEDIUM_TIER_FORGE_GRAVITY_STRENGTH,
+  PARTICLE_FACTOR_EXPONENT_INCREMENT,
+  MAX_PARTICLES,
+  PERFORMANCE_THRESHOLD,
+  MAX_FRAME_TIME_MS,
+  TARGET_FRAME_TIME_MS,
+  PERF_WARN_MIN_PARTICLES,
+  PERF_WARN_COOLDOWN_MS,
+  INTERACTION_RADIUS,
+  MOUSE_ATTRACTION_STRENGTH,
+  INTERACTION_FADE_DURATION,
+  DRAG_RELEASE_STILLNESS_MS,
+  DRAG_RELEASE_SPEED_THRESHOLD,
+  MERGE_GATHER_SPEED,
+  MERGE_GATHER_THRESHOLD,
+  MERGE_TIMEOUT_MS,
+  SHOCKWAVE_SPEED,
+  SHOCKWAVE_MAX_RADIUS,
+  SHOCKWAVE_DURATION,
+  SHOCKWAVE_PUSH_FORCE,
+  SHOCKWAVE_EDGE_THICKNESS,
+  FORGE_POSITION,
+  SPAWNER_SIZE,
+  SPAWNER_ROTATION_SPEED,
+  SPAWNER_COLOR_BRIGHTNESS_OFFSET,
+  SPAWNER_GRAVITY_RADIUS,
+  GENERATOR_SPRITE_SCALE,
+  SPAWNER_SPRITE_SIZE,
+  VEER_ANGLE_MIN_DEG,
+  VEER_ANGLE_MAX_DEG,
+  VEER_INTERVAL_MIN_MS,
+  VEER_INTERVAL_MAX_MS,
+  getRandomInRange,
+  createTintedSpriteCanvas,
+  GENERATOR_CIRCLE_RADIUS,
+  SPAWNER_POSITIONS,
+  PARTICLE_TIERS,
+  SIZE_TIERS,
+  SMALL_SIZE_INDEX,
+  MEDIUM_SIZE_INDEX,
+  LARGE_SIZE_INDEX,
+  EXTRA_LARGE_SIZE_INDEX,
+  MERGE_THRESHOLD,
+  SIZE_SMALL_EQUIVALENTS,
+  SIZE_SCALE_MULTIPLIERS,
+  SIZE_MIN_VELOCITY_MODIFIERS,
+  SIZE_MAX_VELOCITY_MODIFIERS,
+  SIZE_FORCE_MODIFIERS,
+  CONVERSION_SPREAD_VELOCITY,
+} from './betSpireConfig.js';
 
 // Particle class with tier and size
 class Particle {
