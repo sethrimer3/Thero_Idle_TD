@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 521):**
+- CardinalWardenEntities.js created in `scripts/features/towers/cardinalWarden/`: 773 lines (Phase 2.1.6 continuation - standalone entity classes and utilities extracted from CardinalWardenSimulation)
+  - Moved: normalizeAngle, reflectVector (module-level utilities); SeededRandom, OrbitalSquare, RingSquare, CardinalWarden, Bullet, FriendlyShip, MathBullet (7 entity classes)
+  - cardinalWardenSimulation.js reduced from 5,049 to 4,277 lines (772-line reduction); entity classes replaced with import from CardinalWardenEntities.js
+  - CardinalWardenEntities.js imports VISUAL_CONFIG, ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS, HOMING_CONFIG from cardinalWardenConfig.js
+  - Removed from simulation imports: ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS (moved to entities file)
+
 **Progress Notes (Build 520):**
 - CardinalWardenRenderer.js created in `scripts/features/towers/cardinalWarden/`: 1,502 lines (Phase 2.1.6 continuation - all render methods extracted from CardinalWardenSimulation)
   - Moved: renderScriptChar, renderWardenName, renderScorePopups, renderDamageNumbers, render, renderDeathAnimation, renderRespawnAnimation, renderWarden, renderAimTarget, renderWeaponTargets, renderFriendlyShips, renderEnemies, renderBosses, renderCircleCarrierBoss, renderPyramidBoss, renderHexagonFortressBoss, renderMegaBoss, renderUltraBoss, renderBullets, renderBeams, renderExpandingWaves, renderMines, renderSwarmShips, renderSwarmLasers, initializeLifeLines, updateLifeLine, renderUI (27 methods)
@@ -1985,5 +1992,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 520  
-**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js extracted); Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted; kufCombatSystem.js extracted; CardinalWardenRenderer.js extracted)
+**Last Updated:** Build 521  
+**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js + CardinalWardenEntities.js extracted); Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued
