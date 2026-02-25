@@ -26,8 +26,6 @@ import {
 } from './towersTab.js';
 import {
   spawnMoteGemDrop,
-  resolveEnemyGemDropMultiplier,
-  assignRandomShell,
 } from './enemies.js';
 import {
   registerEnemyEncounter,
@@ -67,6 +65,8 @@ import * as LevelResetSystem from './playfield/systems/LevelResetSystem.js';
 import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js';
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
+import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
+import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
@@ -94,8 +94,6 @@ import {
   rotateNormalizedPointClockwise,
   applyLevelOrientation,
 } from './playfield/orientationController.js';
-// Offset radial spawns beyond the playfield so they begin off-screen even at max zoom out.
-const RADIAL_SPAWN_OFFSCREEN_MARGIN = 0.08;
 import {
   updateAlphaBursts as updateAlphaBurstsHelper,
 } from '../scripts/features/towers/alphaTower.js';
@@ -106,7 +104,6 @@ import {
   updateGammaBursts as updateGammaBurstsHelper,
 } from '../scripts/features/towers/gammaTower.js';
 import {
-  getKappaPreviewParameters as getKappaPreviewParametersHelper,
   updateKappaTower as updateKappaTowerHelper,
 } from '../scripts/features/towers/kappaTower.js';
 import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
@@ -242,14 +239,8 @@ export function configurePlayfieldSystem(options = {}) {
   playfieldDependencies = { ...defaultDependencies, ...options };
 }
 
-const TOWER_HOLD_INDICATOR_OFFSET_PX = 40;
-const TOWER_PRESS_GLOW_FADE_MS = 200;
-const DEFAULT_COST_SCRIBBLE_COLORS = {
-  start: { r: 139, g: 247, b: 255 },
-  end: { r: 255, g: 138, b: 216 },
-  glow: { r: 255, g: 255, b: 255 },
-};
 // Promotion/demotion glyph effects borrow these tuning constants so both gestures feel distinct yet cohesive.
+const TOWER_PRESS_GLOW_FADE_MS = 200;
 const TOWER_GLYPH_NEW_SYMBOL_DELAY_MS = 120;
 const TOWER_GLYPH_NEW_SYMBOL_FADE_MS = 420;
 const TOWER_GLYPH_FLASH_DURATION_MS = 520;
@@ -1367,75 +1358,6 @@ export class SimplePlayfield {
     return this.isInteractiveLevelActive();
   }
 
-  retryCurrentWave() {
-    if (!this.isInteractiveLevelActive()) {
-      if (this.messageEl) {
-        this.messageEl.textContent = 'Enter an interactive level to retry the defense.';
-      }
-      return false;
-    }
-
-    if (this.audio) {
-      this.audio.unlock();
-    }
-
-    if (!this.towers.length) {
-      if (this.messageEl) {
-        this.messageEl.textContent = 'Anchor at least one tower before retrying the wave.';
-      }
-      return false;
-    }
-
-    this.cancelAutoStart();
-    this.combatActive = false;
-    this.resolvedOutcome = null;
-    this.waveIndex = 0;
-    this.waveTimer = 0;
-    this.enemyIdCounter = 0;
-    this.activeWave = null;
-    this.enemies.forEach((enemy) => this.clearEnemySlowEffects(enemy));
-    this.enemies = [];
-    this.resetChiSystems();
-    this.projectiles = [];
-    this.resetDamageNumbers();
-    this.resetEnemyDeathParticles();
-    this.resetWaveTallies();
-    this.alphaBursts = [];
-    this.betaBursts = [];
-    this.gammaBursts = [];
-      this.gammaStarBursts = [];
-    this.nuBursts = [];
-    this.swarmClouds = [];
-    this.floaters = [];
-    this.floaterConnections = [];
-    // Reset ambient swimmers when replaying a wave so the background loop restarts cleanly.
-    this.backgroundSwimmers = [];
-    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    this.currentWaveNumber = 1;
-    this.maxWaveReached = 0;
-
-    if (this.startButton) {
-      this.startButton.disabled = false;
-      this.startButton.textContent = 'Commence Wave';
-    }
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.disabled = false;
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-    }
-
-    this.updateHud();
-    this.updateProgress();
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
-
-    if (this.audio) {
-      this.audio.playSfx('uiToggle');
-    }
-
-    this.handleStartButton();
-    return true;
-  }
-
   handleCanvasPointerMove(event) {
     return InputController.handleCanvasPointerMove.call(this, event);
   }
@@ -1499,107 +1421,6 @@ export class SimplePlayfield {
     });
 
     return connections;
-  }
-
-  updatePlacementPreview(normalized, options = {}) {
-    const { towerType, dragging = false } = options;
-    if (!towerType || !normalized) {
-      this.hoverPlacement = null;
-      return;
-    }
-
-    const definition = getTowerDefinition(towerType);
-    let placementNormalized = { ...normalized };
-    const pointerPosition = this.getCanvasPosition(normalized);
-
-    if (dragging) {
-      const offsetX = this.dragPreviewOffset?.x || 0;
-      const dragElevation = this.getPixelsForMeters(2); // Keep tower previews suspended two meters above the pointer.
-      const offsetY = (this.dragPreviewOffset?.y || 0) - dragElevation;
-      const adjustedPosition = {
-        x: pointerPosition.x + offsetX,
-        y: pointerPosition.y + offsetY,
-      };
-      const adjustedNormalized = this.getNormalizedFromCanvasPosition(adjustedPosition);
-      if (adjustedNormalized) {
-        placementNormalized = adjustedNormalized;
-      }
-    }
-
-    let position = this.getCanvasPosition(placementNormalized);
-    const existing = this.findTowerAt(position);
-    const merging = Boolean(existing && existing.type === towerType);
-    const nextId = merging ? getNextTowerId(towerType) : null;
-    const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
-
-    if (merging && existing) {
-      position = { x: existing.x, y: existing.y };
-      const mergeNormalized = this.getNormalizedFromCanvasPosition(position);
-      if (mergeNormalized) {
-        placementNormalized = mergeNormalized;
-      }
-    }
-
-    const validation = merging
-      ? { valid: Boolean(nextDefinition), reason: nextDefinition ? '' : 'Peak tier reached.' }
-      : this.validatePlacement(placementNormalized, { allowPathOverlap: false });
-
-    if (!merging && validation.position) {
-      position = validation.position;
-    }
-
-    const baseCost = this.getCurrentTowerCost(towerType);
-    const mergeCost = nextDefinition ? this.getCurrentTowerCost(nextDefinition.id) : 0;
-    const actionCost = merging ? mergeCost : baseCost;
-    const hasFunds = this.energy >= actionCost;
-
-    let valid = validation.valid && hasFunds;
-    let reason = '';
-    const formattedCost = formatCombatNumber(Math.max(0, actionCost));
-    if (!validation.valid) {
-      reason = validation.reason || 'Maintain clearance from the glyph lane.';
-    } else if (!hasFunds) {
-      const deficit = Math.max(0, actionCost - this.energy);
-      const deficitLabel = formatCombatNumber(deficit);
-      if (merging && nextDefinition) {
-        reason = `Need ${deficitLabel} ${this.theroSymbol} to merge into ${nextDefinition.symbol}.`;
-      } else if (definition) {
-        reason = `Need ${deficitLabel} ${this.theroSymbol} to lattice ${definition.symbol}.`;
-      } else {
-        reason = `Need ${deficitLabel} ${this.theroSymbol} for this lattice.`;
-      }
-    } else if (merging && nextDefinition) {
-      reason = `Merge into ${nextDefinition.symbol} for ${formattedCost} ${this.theroSymbol}.`;
-    } else if (definition) {
-      reason = `Anchor ${definition.symbol} for ${formattedCost} ${this.theroSymbol}.`;
-    }
-
-    const rangeFactor = definition ? definition.range : 0.24;
-    const kappaPreview = towerType === 'kappa' ? getKappaPreviewParametersHelper(this) : null;
-    const previewRange = towerType === 'kappa' && kappaPreview?.rangePixels
-      ? kappaPreview.rangePixels
-      : Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
-    const connections = this.computePlacementConnections(position, {
-      towerType,
-      range: previewRange,
-      mergeTarget: merging ? existing : null,
-    });
-    this.hoverPlacement = {
-      normalized: { ...placementNormalized },
-      position,
-      range: previewRange,
-      valid,
-      reason,
-      towerType,
-      dragging,
-      mergeTarget: merging ? existing : null,
-      merge: merging,
-      cost: actionCost,
-      symbol: definition?.symbol || '·',
-      definition: definition || null,
-      tier: Number.isFinite(definition?.tier) ? definition.tier : null,
-      connections,
-    };
   }
 
   handleCanvasPointerLeave() {
@@ -1680,133 +1501,6 @@ export class SimplePlayfield {
     const nextCost = this.getCurrentTowerCost(nextId);
     const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
     return `Swipe ↑ to upgrade (${this.theroSymbol}${costLabel}) · Swipe ↓ to demote`;
-  }
-
-  spawnTowerUpgradeCostScribble(tower, text = '') {
-    if (!tower || !this.container) {
-      return null;
-    }
-    const scribbleText = text || this.getTowerHoldScribbleText(tower);
-    if (!scribbleText) {
-      return null;
-    }
-    if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-      return null;
-    }
-    const effect = document.createElement('div');
-    effect.className = 'tower-upgrade-cost-scribble';
-    effect.style.left = `${tower.x}px`;
-    effect.style.top = `${tower.y}px`;
-
-    const startColor = samplePaletteGradient(0.05) || DEFAULT_COST_SCRIBBLE_COLORS.start;
-    const endColor = samplePaletteGradient(0.85) || DEFAULT_COST_SCRIBBLE_COLORS.end;
-    const glowColor = samplePaletteGradient(0.5) || DEFAULT_COST_SCRIBBLE_COLORS.glow;
-    effect.style.setProperty('--tower-scribble-start', colorToRgbaString(startColor, 1));
-    effect.style.setProperty('--tower-scribble-end', colorToRgbaString(endColor, 1));
-    effect.style.setProperty('--tower-scribble-shadow', colorToRgbaString(glowColor, 0.65));
-
-    const textEl = document.createElement('span');
-    textEl.className = 'tower-upgrade-cost-scribble__text';
-    textEl.textContent = scribbleText;
-    effect.append(textEl);
-
-    const cleanup = () => {
-      effect.removeEventListener('animationend', handleAnimationEnd);
-      if (effect.parentNode) {
-        effect.parentNode.removeChild(effect);
-      }
-    };
-
-    const handleAnimationEnd = (animationEvent) => {
-      if (
-        animationEvent.target === effect &&
-        animationEvent.animationName === 'tower-upgrade-cost-scribble-dissipate'
-      ) {
-        cleanup();
-      }
-    };
-
-    effect.addEventListener('animationend', handleAnimationEnd);
-    this.container.append(effect);
-
-    const timeoutId = setTimeout(() => cleanup(), 2000);
-    return () => {
-      clearTimeout(timeoutId);
-      cleanup();
-    };
-  }
-
-  /**
-   * Spawn visual triangular indicators above/below tower during hold gesture.
-   * Shows upgrade arrow above, and either downgrade arrow or sell symbols below.
-   */
-  spawnTowerHoldIndicators(tower) {
-    if (!tower || !this.container) {
-      return null;
-    }
-    if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-      return null;
-    }
-
-    const indicators = [];
-    const cleanupFunctions = [];
-
-    // Always show upgrade indicator above tower (unless at max tier)
-    const nextId = getNextTowerId(tower.type);
-    if (nextId) {
-      const upgradeIndicator = document.createElement('div');
-      upgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--upgrade';
-      upgradeIndicator.style.left = `${tower.x}px`;
-      upgradeIndicator.style.top = `${tower.y - TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
-      
-      const startColor = samplePaletteGradient(0.15) || { r: 139, g: 247, b: 255 };
-      upgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(startColor, 0.85));
-      
-      this.container.append(upgradeIndicator);
-      indicators.push(upgradeIndicator);
-    }
-
-    // Show downgrade indicator below tower, or sell indicator if at alpha tier
-    const previousId = getPreviousTowerId(tower.type);
-    const isAlphaTower = !previousId; // Alpha is the lowest tier with no previous tier
-    
-    if (isAlphaTower) {
-      // Show sell indicator ($ and Þ symbols)
-      const sellIndicator = document.createElement('div');
-      sellIndicator.className = 'tower-hold-indicator tower-hold-indicator--sell';
-      sellIndicator.style.left = `${tower.x}px`;
-      sellIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
-      sellIndicator.textContent = `$${this.theroSymbol}`;
-      
-      const sellColor = samplePaletteGradient(0.75) || { r: 255, g: 200, b: 80 };
-      sellIndicator.style.setProperty('--indicator-color', colorToRgbaString(sellColor, 0.95));
-      
-      this.container.append(sellIndicator);
-      indicators.push(sellIndicator);
-    } else {
-      // Show downgrade indicator
-      const downgradeIndicator = document.createElement('div');
-      downgradeIndicator.className = 'tower-hold-indicator tower-hold-indicator--downgrade';
-      downgradeIndicator.style.left = `${tower.x}px`;
-      downgradeIndicator.style.top = `${tower.y + TOWER_HOLD_INDICATOR_OFFSET_PX}px`;
-      
-      const endColor = samplePaletteGradient(0.85) || { r: 255, g: 138, b: 216 };
-      downgradeIndicator.style.setProperty('--indicator-color', colorToRgbaString(endColor, 0.85));
-      
-      this.container.append(downgradeIndicator);
-      indicators.push(downgradeIndicator);
-    }
-
-    // Create cleanup function to remove all indicators
-    const cleanup = () => {
-      indicators.forEach(indicator => {
-        if (indicator.parentNode) {
-          indicator.parentNode.removeChild(indicator);
-        }
-      });
-    };
-
-    return cleanup;
   }
 
   /**
@@ -3114,55 +2808,6 @@ export class SimplePlayfield {
     return convertMathExpressionToPlainText(blueprint.baseEquation);
   }
 
-  spawnTowerEquationScribble(tower, options = {}) {
-    if (!tower || !this.container) {
-      return;
-    }
-    const { towerType = tower.type, silent = false } = options;
-    if (silent) {
-      return;
-    }
-    const equationText = this.getTowerEquationScribbleText(towerType);
-    if (!equationText) {
-      return;
-    }
-    if (!Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-      return;
-    }
-
-    const effect = document.createElement('div');
-    effect.className = 'tower-equation-scribble';
-    effect.style.left = `${tower.x}px`;
-    effect.style.top = `${tower.y}px`;
-
-    const text = document.createElement('span');
-    text.className = 'tower-equation-scribble__text';
-    text.textContent = equationText;
-    effect.append(text);
-
-    const cleanup = () => {
-      effect.removeEventListener('animationend', handleAnimationEnd);
-      if (effect.parentNode) {
-        effect.parentNode.removeChild(effect);
-      }
-    };
-
-    const handleAnimationEnd = (event) => {
-      if (event.target === effect && event.animationName === 'tower-scribble-dissipate') {
-        cleanup();
-      }
-    };
-
-    effect.addEventListener('animationend', handleAnimationEnd);
-    this.container.append(effect);
-
-    setTimeout(() => {
-      if (effect.parentNode) {
-        cleanup();
-      }
-    }, 2400);
-  }
-
   addTowerAt(normalized, options = {}) {
     // Delegate to TowerOrchestrationController
     if (this.towerOrchestrationController) {
@@ -3490,43 +3135,6 @@ export class SimplePlayfield {
    */
   drawConnectionEffects(ctx) {
     return CanvasRenderer.drawConnectionEffects.call(this, ctx);
-  }
-
-  validatePlacement(normalized, options = {}) {
-    const { allowPathOverlap = false } = options;
-    if (!this.levelConfig) {
-      return { valid: false, reason: 'Activate a level first.' };
-    }
-
-    const position = this.getCanvasPosition(normalized);
-    const minDimension = Math.min(this.renderWidth, this.renderHeight) || 1;
-    const towerBodyRadius = this.resolveTowerBodyRadius();
-    // Require at least a full body diameter plus a small buffer so lattices do not visually overlap.
-    const minSpacing = Math.max(towerBodyRadius * 2.1, 24);
-
-    for (let index = 0; index < this.towers.length; index += 1) {
-      const tower = this.towers[index];
-      const distance = Math.hypot(position.x - tower.x, position.y - tower.y);
-      if (distance < minSpacing) {
-        return { valid: false, reason: 'Too close to another lattice.', position };
-      }
-    }
-
-    if (!allowPathOverlap) {
-      const pathBuffer = minDimension * 0.06;
-      const clearance = this.getDistanceToPath(position);
-      if (clearance < pathBuffer) {
-        return { valid: false, reason: 'Maintain clearance from the glyph lane.', position };
-      }
-    }
-
-    // Check for Voronoi/Delaunay cell overlap
-    const cellAtPosition = this.findCellAt(position);
-    if (cellAtPosition && !cellAtPosition.isDestroyed) {
-      return { valid: false, reason: 'Cannot place tower on crystalline formation.', position };
-    }
-
-    return { valid: true, position };
   }
 
   getDistanceToPath(point) {
@@ -4533,66 +4141,6 @@ export class SimplePlayfield {
       : '◈';
   }
 
-  spawnEnemies(delta) {
-    if (!this.combatStateManager || !this.levelConfig) {
-      return;
-    }
-    
-    // Delegate to combat state manager for spawning
-    const spawnContext = {
-      pathPoints: this.pathPoints,
-      radialSpawn: this.levelConfig.radialSpawn && this.levelConfig.centerSpawn,
-      registerEnemy: (enemy) => {
-        // Enhance enemy with playfield-specific properties
-        const polygonSides = this.resolvePolygonSides(enemy);
-        const symbol = this.resolveEnemySymbol({ ...enemy, polygonSides });
-        const maxHp = Number.isFinite(enemy.hp) ? Math.max(1, enemy.hp) : 1;
-        const hpExponent = this.calculateHealthExponent(maxHp);
-        const gemDropMultiplier = resolveEnemyGemDropMultiplier(enemy);
-        
-        Object.assign(enemy, {
-          progress: 0,
-          baseSpeed: enemy.speed,
-          moteFactor: this.calculateMoteFactor(enemy),
-          symbol,
-          polygonSides,
-          hpExponent,
-          gemDropMultiplier,
-        });
-        
-        // Handle radial spawn positioning
-        if (spawnContext.radialSpawn) {
-          const edge = Math.floor(Math.random() * 4);
-          const offset = Math.random();
-          const spawnMargin = RADIAL_SPAWN_OFFSCREEN_MARGIN;
-          
-          let spawnX, spawnY;
-          if (edge === 0) {
-            spawnX = offset;
-            spawnY = -spawnMargin;
-          } else if (edge === 1) {
-            spawnX = 1 + spawnMargin;
-            spawnY = offset;
-          } else if (edge === 2) {
-            spawnX = offset;
-            spawnY = 1 + spawnMargin;
-          } else {
-            spawnX = -spawnMargin;
-            spawnY = offset;
-          }
-          
-          enemy.radialSpawnX = spawnX;
-          enemy.radialSpawnY = spawnY;
-          enemy.pathMode = 'direct';
-        }
-        
-        this.scheduleStatsPanelRefresh();
-      },
-    };
-    
-    this.combatStateManager.spawnEnemies(delta, spawnContext);
-  }
-
   /**
    * Route a connected lattice's cadence into its downstream partner instead of enemies.
    */
@@ -4971,78 +4519,6 @@ export class SimplePlayfield {
   }
 
   /**
-   * Resolve which debuffs are active on an enemy so visual indicators stay in sync with game logic.
-   */
-  resolveActiveDebuffTypes(enemy) {
-    const activeTypes = [];
-    if (!enemy) {
-      return activeTypes;
-    }
-
-    const amplifierActive =
-      (enemy.damageAmplifiers instanceof Map && enemy.damageAmplifiers.size > 0) ||
-      (enemy.damageAmplifiers && typeof enemy.damageAmplifiers === 'object' &&
-        Object.keys(enemy.damageAmplifiers).length > 0) ||
-      (Number.isFinite(enemy.iotaInversionTimer) && enemy.iotaInversionTimer > 0);
-    if (amplifierActive) {
-      activeTypes.push('iota');
-    }
-
-    const slowEffects = enemy.slowEffects;
-    const thetaActive = slowEffects instanceof Map
-      ? Array.from(slowEffects.values()).some((effect) => effect?.type === 'theta')
-      : slowEffects && typeof slowEffects === 'object'
-        ? Object.values(slowEffects).some((effect) => effect?.type === 'theta')
-        : false;
-    if (thetaActive) {
-      activeTypes.push('theta');
-    }
-
-    if (Number.isFinite(enemy.rhoSparkleTimer) && enemy.rhoSparkleTimer > 0) {
-      activeTypes.push('rho');
-    }
-
-    if (enemy.derivativeShield && enemy.derivativeShield.active) {
-      activeTypes.push('derivative-shield');
-    }
-
-    return activeTypes;
-  }
-
-  /**
-   * Ensure the debuff indicator list only includes active effects while preserving first-seen order.
-   */
-  syncEnemyDebuffIndicators(enemy, activeTypes = []) {
-    if (!enemy) {
-      return [];
-    }
-    if (!Array.isArray(enemy.debuffIndicators)) {
-      enemy.debuffIndicators = [];
-    }
-    const activeSet = new Set(activeTypes);
-    enemy.debuffIndicators = enemy.debuffIndicators.filter(
-      (entry) => entry && activeSet.has(entry.type),
-    );
-    if (!activeSet.size) {
-      return enemy.debuffIndicators;
-    }
-    const now =
-      typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
-    activeTypes.forEach((type) => {
-      const existing = enemy.debuffIndicators.find((entry) => entry?.type === type);
-      if (existing) {
-        existing.lastSeen = now;
-        return;
-      }
-      enemy.debuffIndicators.push({ type, appliedAt: now, lastSeen: now });
-    });
-    enemy.debuffIndicators.sort((a, b) => (a?.appliedAt || 0) - (b?.appliedAt || 0));
-    return enemy.debuffIndicators;
-  }
-
-  /**
    * Provide ordered debuff metadata to the renderer with pre-resolved glyphs for each effect.
    */
   getEnemyDebuffIndicators(enemy) {
@@ -5284,43 +4760,6 @@ export class SimplePlayfield {
     this.scheduleStatsPanelRefresh();
   }
 
-  handleEnemyBreach(enemy) {
-    this.clearEnemySlowEffects(enemy);
-    this.clearEnemyDamageAmplifiers(enemy);
-    const damage = this.estimateEnemyBreachDamage(enemy);
-    this.lives = Math.max(0, this.lives - damage);
-    if (this.audio) {
-      this.audio.playSfx('enemyBreach');
-      const maxLives = Number.isFinite(this.levelConfig?.lives)
-        ? Math.max(1, this.levelConfig.lives)
-        : null;
-      if (maxLives && damage / maxLives > 0.05) {
-        this.audio.playSfx('error');
-      }
-    }
-    if (this.messageEl) {
-      const label = enemy.label || 'Glyph';
-      // Clarify whether a breach actually removed integrity or was fully absorbed by defenses.
-      this.messageEl.textContent =
-        damage > 0
-          ? `${label} breached the core—Integrity −${damage}.`
-          : `${label} breached the core, but the gate held firm.`;
-    }
-    if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
-      this.clearEnemyHover();
-    }
-    if (this.focusedEnemyId === enemy.id) {
-      this.clearFocusedEnemy({ silent: true });
-    }
-    if (this.lives <= 0) {
-      this.handleDefeat();
-    }
-    this.updateHud();
-    this.updateProgress();
-    // Ensure the queue updates once the breached enemy is removed.
-    this.scheduleStatsPanelRefresh();
-  }
-
   // Create a mote gem at the fallen enemy's position so it can be collected later.
   spawnMoteGemFromEnemy(enemy) {
     if (!enemy) {
@@ -5331,66 +4770,6 @@ export class SimplePlayfield {
       return;
     }
     spawnMoteGemDrop(enemy, position);
-  }
-
-  processEnemyDefeat(enemy) {
-    const defeatPosition = this.getEnemyPosition(enemy);
-    
-    // First, handle playfield-specific defeat logic
-    // Trigger PsiCluster AoE if this is a Psi cluster
-    if (enemy.isPsiCluster) {
-      this.triggerPsiClusterAoE(enemy, defeatPosition);
-    }
-    
-    // Emit a burst of collapse motes before removing the enemy from active lists.
-    this.spawnEnemyDeathParticles(enemy);
-    this.captureEnemyHistory(enemy);
-    this.clearEnemySlowEffects(enemy);
-    this.clearEnemyDamageAmplifiers(enemy);
-    
-    if (this.hoverEnemy && this.hoverEnemy.enemyId === enemy.id) {
-      this.clearEnemyHover();
-    }
-    if (this.focusedEnemyId === enemy.id) {
-      this.clearFocusedEnemy({ silent: true });
-    }
-
-    this.handlePolygonSplitOnDefeat(enemy);
-
-    const baseGain =
-      (this.levelConfig?.theroPerKill ?? this.levelConfig?.energyPerKill ?? 0) +
-      (enemy.reward || 0);
-    const cap = this.getEnergyCap();
-    this.energy = Math.min(cap, this.energy + baseGain);
-
-    if (this.messageEl) {
-      const gainLabel = formatCombatNumber(baseGain);
-      this.messageEl.textContent = `${enemy.label || 'Glyph'} collapsed · +${gainLabel} ${this.theroSymbol}.`;
-    }
-    
-    // Spawn mote gem drops
-    this.spawnMoteGemFromEnemy(enemy);
-
-    // Now delegate to combat state manager to handle enemy removal and wave progression
-    if (this.combatStateManager) {
-      const deathContext = {
-        spawnDeathParticles: () => {}, // Already handled above
-        dropGems: () => {}, // Already handled above
-      };
-      this.combatStateManager.handleEnemyDeath(enemy, deathContext);
-    }
-    
-    this.updateHud();
-    this.updateProgress();
-    this.dependencies.updateStatusDisplays();
-
-    if (this.audio) {
-      this.audio.playSfx('enemyDefeat');
-    }
-
-    this.dependencies.notifyEnemyDefeated();
-    // Remove the defeated enemy from the live lists immediately.
-    this.scheduleStatsPanelRefresh();
   }
 
   // Spawn progressively simpler polygon shards when a polygonal splitter collapses.
@@ -5415,89 +4794,6 @@ export class SimplePlayfield {
         hpMultiplier,
         speedMultiplier,
         progressOffset: offset,
-      });
-    }
-  }
-
-  handleVictory() {
-    if (this.resolvedOutcome === 'victory') {
-      return;
-    }
-    if (this.audio) {
-      this.audio.playSfx('victory');
-    }
-    this.combatActive = false;
-    this.stopCombatStatsSession();
-    this.resolvedOutcome = 'victory';
-    this.activeWave = null;
-    const cap = this.getEnergyCap();
-    const reward = this.levelConfig.rewardThero ?? this.levelConfig.rewardEnergy ?? 0;
-    this.energy = Math.min(cap, this.energy + reward);
-    this.currentWaveNumber = this.baseWaveCount || this.currentWaveNumber;
-    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
-    if (this.startButton) {
-      this.startButton.disabled = false;
-      this.startButton.textContent = 'Run Again';
-    }
-    if (this.messageEl) {
-      const title = this.levelConfig.displayName || 'Defense';
-      this.messageEl.textContent = `Victory! ${title} is sealed.`;
-    }
-    this.updateHud();
-    this.updateProgress();
-    if (this.onVictory) {
-      this.onVictory(this.levelConfig.id, {
-        rewardScore: this.levelConfig.rewardScore,
-        rewardFlux: this.levelConfig.rewardFlux,
-        rewardThero: reward,
-        rewardEnergy: this.levelConfig.rewardEnergy,
-        towers: this.towers.length,
-        lives: this.lives,
-        maxWave: this.maxWaveReached,
-        startThero: this.levelConfig.startThero,
-      });
-    }
-    const calculateStartingThero = this.dependencies.calculateStartingThero;
-    const refreshedStart =
-      typeof calculateStartingThero === 'function' ? calculateStartingThero() : 0;
-    if (Number.isFinite(refreshedStart)) {
-      this.levelConfig.startThero = refreshedStart;
-      this.energy = Math.min(cap, Math.max(this.energy, refreshedStart));
-      this.updateHud();
-    }
-    this.dependencies.updateStatusDisplays();
-  }
-
-  handleDefeat() {
-    if (this.resolvedOutcome === 'defeat') {
-      return;
-    }
-    if (this.audio) {
-      this.audio.playSfx('defeat');
-    }
-    this.combatActive = false;
-    this.stopCombatStatsSession();
-    this.resolvedOutcome = 'defeat';
-    this.activeWave = null;
-    const cap = this.getEnergyCap();
-    const baseline = this.levelConfig.startThero ?? this.levelConfig.startEnergy ?? 0;
-    this.energy = Math.min(cap, Math.max(this.energy, baseline));
-    this.maxWaveReached = Math.max(this.maxWaveReached, this.currentWaveNumber);
-    if (this.startButton) {
-      this.startButton.disabled = false;
-      this.startButton.textContent = 'Retry Wave';
-    }
-    if (this.messageEl) {
-      const waveLabel = this.maxWaveReached > 0 ? ` at wave ${this.maxWaveReached}` : '';
-      this.messageEl.textContent = `Defense collapsed${waveLabel}—recalibrate the anchors and retry.`;
-    }
-    this.updateHud();
-    this.updateProgress();
-    this.dependencies.updateStatusDisplays();
-    if (this.onDefeat) {
-      this.onDefeat(this.levelConfig.id, {
-        towers: this.towers.length,
-        maxWave: this.maxWaveReached,
       });
     }
   }
@@ -6344,4 +5640,25 @@ Object.assign(SimplePlayfield.prototype, {
   updateTowerPositions: LevelResetSystem.updateTowerPositions,
   restoreTowersFromCheckpoint: LevelResetSystem.restoreTowersFromCheckpoint,
   retryFromEndlessCheckpoint: LevelResetSystem.retryFromEndlessCheckpoint,
+});
+
+// Enemy lifecycle system methods
+Object.assign(SimplePlayfield.prototype, {
+  spawnEnemies: EnemyLifecycleSystem.spawnEnemies,
+  resolveActiveDebuffTypes: EnemyLifecycleSystem.resolveActiveDebuffTypes,
+  syncEnemyDebuffIndicators: EnemyLifecycleSystem.syncEnemyDebuffIndicators,
+  handleEnemyBreach: EnemyLifecycleSystem.handleEnemyBreach,
+  processEnemyDefeat: EnemyLifecycleSystem.processEnemyDefeat,
+  handleVictory: EnemyLifecycleSystem.handleVictory,
+  handleDefeat: EnemyLifecycleSystem.handleDefeat,
+});
+
+// Tower interaction system methods
+Object.assign(SimplePlayfield.prototype, {
+  retryCurrentWave: TowerInteractionSystem.retryCurrentWave,
+  updatePlacementPreview: TowerInteractionSystem.updatePlacementPreview,
+  spawnTowerUpgradeCostScribble: TowerInteractionSystem.spawnTowerUpgradeCostScribble,
+  spawnTowerHoldIndicators: TowerInteractionSystem.spawnTowerHoldIndicators,
+  spawnTowerEquationScribble: TowerInteractionSystem.spawnTowerEquationScribble,
+  validatePlacement: TowerInteractionSystem.validatePlacement,
 });

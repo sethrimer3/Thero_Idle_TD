@@ -1146,6 +1146,19 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 527-528):**
+- TowerDispatchSystem.js created in `assets/playfield/systems/`: 436 lines (Phase 1 - tower update, targeting, fire routing, and visual emission extracted from SimplePlayfield)
+  - Moved: updateTowers, findTarget, resolveTowerShotDamage, emitTowerAttackVisuals, fireAtTarget (5 methods)
+  - playfield.js reduced from 7,561 to 7,047 lines (514-line reduction)
+- MoteGemSystem.js created in `assets/playfield/systems/`: 137 lines (Phase 1 - mote gem flight animation extracted)
+  - Moved: updateMoteGems (1 method)
+- ProjectileSpawnSystem.js created in `assets/playfield/systems/`: 259 lines (Phase 1 - projectile spawn helpers extracted)
+  - Moved: spawnSupplyProjectile, spawnBetaTriangleProjectile, spawnGammaStarProjectile, spawnOmegaWave, spawnPolygonShard (5 methods)
+- LevelResetSystem.js created in `assets/playfield/systems/`: 489 lines (Phase 1 - level lifecycle methods extracted)
+  - Moved: resetState, loadLevelCrystals, updateTowerPositions, restoreTowersFromCheckpoint, retryFromEndlessCheckpoint (5 methods)
+  - playfield.js reduced from 7,047 to 6,347 lines (700-line reduction)
+- All 4 systems use `Object.assign(SimplePlayfield.prototype, {...})` prototype assignment pattern (not .call(this) delegates)
+
 **Progress Notes (Build 526):**
 - EnemyUpdateSystem.js created in `assets/playfield/systems/`: ~260 lines (enemy state management extracted from SimplePlayfield)
   - Moved: resolveEnemySlowMultiplier, clearEnemySlowEffects, clearEnemyDamageAmplifiers, applyStunEffect, isEnemyStunned, clearEnemyStunEffects, updateDerivativeShieldStates, updateEnemies (8 methods)
@@ -2026,5 +2039,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 526  
-**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction; 9 subsystem modules extracted); Phase 3 and Phase 4 continued
+**Last Updated:** Build 528  
+**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction, 9 subsystem modules); Phase 1.1 continued (playfield.js: 7,839→6,347 lines, 5 new system modules Builds 526-528)
