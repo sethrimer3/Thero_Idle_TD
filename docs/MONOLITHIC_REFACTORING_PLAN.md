@@ -1146,6 +1146,12 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 526):**
+- EnemyUpdateSystem.js created in `assets/playfield/systems/`: ~260 lines (enemy state management extracted from SimplePlayfield)
+  - Moved: resolveEnemySlowMultiplier, clearEnemySlowEffects, clearEnemyDamageAmplifiers, applyStunEffect, isEnemyStunned, clearEnemyStunEffects, updateDerivativeShieldStates, updateEnemies (8 methods)
+  - Constants DERIVATIVE_SHIELD_RADIUS_SCALE, DERIVATIVE_SHIELD_MIN_RADIUS, DERIVATIVE_SHIELD_LINGER_MS duplicated into new file (were local consts in playfield.js)
+  - playfield.js reduced from 7,839 to 7,561 lines (278-line reduction)
+
 **Progress Notes (Build 525):**
 - CardinalWardenInputSystem.js created in `scripts/features/towers/cardinalWarden/`: 148 lines (Phase 2.1.6 continuation - input event handlers extracted from CardinalWardenSimulation)
   - Moved: applyRingColors, initialize, attachInputHandlers, detachInputHandlers, attachVisibilityHandler, detachVisibilityHandler, handleVisibilityChange, handlePointerDown, handlePointerMove, handlePointerUp, clearAimTarget, getAimTarget (12 methods)
@@ -2020,5 +2026,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 525  
+**Last Updated:** Build 526  
 **Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction; 9 subsystem modules extracted); Phase 3 and Phase 4 continued
