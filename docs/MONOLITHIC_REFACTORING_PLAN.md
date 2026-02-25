@@ -1146,6 +1146,17 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 515):**
+- tsadiBindingSystem.js created in `scripts/features/towers/`: 665 lines (Phase 3 continuation - all binding agent and molecule discovery methods extracted from ParticleFusionSimulation)
+  - Moved: getBindingAgentRadius, getBindingAgentMass, getBindingRodRange, getAvailableBindingAgents, setAvailableBindingAgents, addBindingAgents, setBindingAgentPreview, clearBindingAgentPreview, placeBindingAgent, findBindingAgentNear, disbandBindingAgentAt, normalizeMoleculeDescriptor, seedDiscoveredMolecules, recordDiscoveredMolecule, finalizeMoleculeDiscovery, queuePendingMolecule, processPendingMolecules, collectPendingMoleculesAt, flushPendingMolecules, areAdvancedMoleculesUnlocked, createCombinationDescriptor, recalculateMoleculeBonuses, popBindingAgent, updateBindingAgents, getDiscoveredMolecules, hasValidCombination (26 methods)
+  - tsadiTower.js reduced from 1,847 to 1,366 lines (481-line reduction); all methods replaced with thin `.call(this)` delegates
+  - tsadiBindingSystem.js imports NULL_TIER, LEGACY_MOLECULE_RECIPES, ADVANCED_MOLECULE_UNLOCK_TIER, normalizeTierList, sortTierListWithDuplicates, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations from tsadiTowerData.js
+  - Removed 7 now-exclusive imports from tsadiTower.js: LEGACY_MOLECULE_RECIPES, normalizeTierList, sortTierListWithDuplicates, hasDuplicateTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations; also removed unused hasValidMoleculeVariety import
+- fluidTerrariumStoreSystem.js created in `assets/`: 1,063 lines (Phase 4 continuation - store panel, drag system, and DEFAULT_TERRARIUM_STORE_ITEMS array extracted from FluidTerrariumTrees)
+  - Moved: DEFAULT_TERRARIUM_STORE_ITEMS constant (346-line array), STORE_STATUS_DEFAULT constant; listenForMenuClose, handleMenuCloseEvent, normalizeStoreItems, describeStoreItemType, describeStoreItemHabitat, createStoreTag, buildStorePanel, populateStoreItems, updateStoreBalanceDisplay, refreshStoreAffordances, handleStoreListPointerDown, handleStoreListPointerMove, handleStoreListPointerUp, toggleStorePanel, fadeStorePanelForDrag, restoreStorePanelOpacity, setStoreStatus, updateStoreSelectionVisuals, clearStoreSelection, getActiveStoreItem, getStoreItemById, canAffordStoreItem, purchaseStoreItem, selectStoreItem, createDragGhost, removeDragGhost, updateDragGhostPosition, updateDragGhostValidity, handleStoreItemDragStart, handleDragPointerMove, handleDragPointerUp, endStoreDrag, consumeStoreItem (33 methods)
+  - fluidTerrariumTrees.js reduced from 2,313 to 1,484 lines (829-line reduction); all methods replaced with thin `.call(this)` delegates; STORE_STATUS_DEFAULT re-imported for handleCancelPlacement
+  - No external module imports needed in fluidTerrariumStoreSystem.js (all state accessed via `this`)
+
 **Progress Notes (Build 514):**
 - lamedTowerPhysics.js created in `scripts/features/towers/`: 1,169 lines (Phase 3 continuation - all physics update, spawn, and surface-generation methods extracted from GravitySimulation)
   - Moved: updateCoreSizeState, generateValueNoiseTexture, sampleNoise, updateSurfaceAnimation, rebuildSunSurfaceTexture, updateSunBounce, scheduleNextShootingStar, spawnShootingStar, absorbStarImmediately, spawnStar, spawnMultipleStars, spawnDustParticles, spawnGeyserBurst, updateDustParticles, updateShootingStars, updateStars, updateAsteroids, updateEffects, updateGeyserParticles (19 methods)
@@ -1356,6 +1367,7 @@ Update this section as refactoring progresses:
 - [x] Tsadi tower renderer extracted (Build 513) - `tsadiTowerRenderer.js` (478 lines): `render`, `renderBindingAgents`, `brightenColor` extracted; tsadiTower.js reduced from 2,910 to 2,456 lines
 - [x] Lamed tower physics extracted (Build 514) - `lamedTowerPhysics.js` (1,169 lines): 19 update/spawn/surface methods extracted; lamedTower.js reduced from 2,421 to 1,402 lines
 - [x] Tsadi tower physics extracted (Build 514) - `tsadiTowerPhysics.js` (691 lines): 9 physics/collision methods extracted; tsadiTower.js reduced from 2,456 to 1,847 lines
+- [x] Tsadi binding system extracted (Build 515) - `tsadiBindingSystem.js` (665 lines): 26 binding agent/molecule methods extracted; tsadiTower.js reduced from 1,847 to 1,366 lines
 - [ ] Tower behavior patterns shared library expanded
 - [ ] Tower module structure standardized
 
@@ -1370,6 +1382,8 @@ Update this section as refactoring progresses:
 - [x] Kuf input controller extracted (Build 513) - `kufInputController.js` (408 lines): 20 camera/input methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,391 to 1,088 lines
 - [x] Bet Spire input system extracted (Build 514) - `betSpireInputSystem.js` (208 lines): 7 input/event methods extracted from BetSpireRender
 - [x] Bet Spire draw system extracted (Build 514) - `betSpireDrawSystem.js` (405 lines): animate + 3 draw helpers extracted; betSpireRender.js reduced from 1,751 to 1,221 lines
+- [x] Tsadi binding system extracted (Build 515) - `tsadiBindingSystem.js` (665 lines): 26 binding agent/molecule discovery methods extracted from ParticleFusionSimulation; tsadiTower.js reduced from 1,847 to 1,366 lines
+- [x] Fluid Terrarium store system extracted (Build 515) - `fluidTerrariumStoreSystem.js` (1,063 lines): DEFAULT_TERRARIUM_STORE_ITEMS array + STORE_STATUS_DEFAULT constant + 33 store panel/drag methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,313 to 1,484 lines
 
 #### Phase 5: Stylesheet Refactoring
 - [ ] CSS layer structure created
