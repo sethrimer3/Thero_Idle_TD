@@ -62,6 +62,8 @@ import * as ProjectileUpdateSystem from './playfield/systems/ProjectileUpdateSys
 import * as TowerDispatchSystem from './playfield/systems/TowerDispatchSystem.js';
 import * as MoteGemSystem from './playfield/systems/MoteGemSystem.js';
 import * as EnemyUpdateSystem from './playfield/systems/EnemyUpdateSystem.js';
+import * as ProjectileSpawnSystem from './playfield/systems/ProjectileSpawnSystem.js';
+import * as LevelResetSystem from './playfield/systems/LevelResetSystem.js';
 import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js';
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
@@ -1291,129 +1293,6 @@ export class SimplePlayfield {
     return this.lifecycleManager.leaveLevel();
   }
 
-  resetState() {
-    if (!this.levelConfig) {
-      // When no level is loaded, reset to null state
-      if (this.combatStateManager) {
-        this.combatStateManager.reset();
-      }
-      this.gateDefense = 0;
-    } else {
-      // Initialize manager if it doesn't exist
-      if (!this.combatStateManager) {
-        this.combatStateManager = createCombatStateManager({
-          levelConfig: this.levelConfig,
-          audio: this.audio,
-          onVictory: this.onVictory,
-          onDefeat: this.onDefeat,
-          onCombatStart: this.onCombatStart,
-          recordKillEvent: (towerId) => this.recordKillEvent(towerId),
-          tryConvertEnemyToChiThrall: (enemy, context) => this.tryConvertEnemyToChiThrall(enemy, context),
-          triggerPsiClusterAoE: (enemy) => this.triggerPsiClusterAoE(enemy),
-          notifyEnemyDeath: (enemy) => this.notifyEnemyDeath(enemy),
-        });
-      } else {
-        this.combatStateManager.reset();
-      }
-      // Initialize tower orchestration controller if it doesn't exist
-      if (!this.towerOrchestrationController) {
-        this.towerOrchestrationController = createTowerOrchestrationController({
-          playfield: this,
-          combatState: this.combatStateManager,
-          towerManager: TowerManager,
-          audio: this.audio,
-          messageEl: this.messageEl,
-          dependencies: this.dependencies,
-          theroSymbol: this.theroSymbol,
-        });
-      }
-      // Normalize any gate defense value supplied by the level configuration.
-      const configuredDefense = Number.isFinite(this.levelConfig.gateDefense)
-        ? this.levelConfig.gateDefense
-        : Number.isFinite(this.levelConfig.coreDefense)
-        ? this.levelConfig.coreDefense
-        : 0;
-      this.gateDefense = Math.max(0, configuredDefense);
-    }
-    this.towerIdCounter = 0;
-    this.arcOffset = 0;
-    this.resetChiSystems();
-    this.projectiles = [];
-    this.resetDamageNumbers();
-    this.resetEnemyDeathParticles();
-    this.resetWaveTallies();
-    this.alphaBursts = [];
-    this.betaBursts = [];
-    this.gammaBursts = [];
-      this.gammaStarBursts = [];
-    this.nuBursts = [];
-    this.swarmClouds = [];
-    this.floaters = [];
-    this.floaterConnections = [];
-    // Reset ambient swimmers whenever the battlefield is rebuilt for a new run.
-    this.backgroundSwimmers = [];
-    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    this.floaterBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    if (this.towerGlyphTransitions) {
-      this.towerGlyphTransitions.clear();
-    }
-    this.towers = [];
-    this.infinityTowers = [];
-    this.towerConnectionMap.clear();
-    this.towerConnectionSources.clear();
-    this.connectionEffects = [];
-    this.clearConnectionDragState();
-    this.hoverPlacement = null;
-    this.clearFocusedEnemy({ silent: true });
-    this.slots.forEach((slot) => {
-      slot.tower = null;
-      if (slot.button) {
-        slot.button.classList.remove('tower-built');
-        slot.button.setAttribute('aria-pressed', 'false');
-      }
-    });
-    this.updateTowerPositions();
-    this.updateHud();
-    this.updateProgress();
-    if (this.startButton) {
-      this.startButton.disabled = !this.levelConfig;
-    }
-    this.updateAutoAnchorButton();
-    this.updateSpeedButton();
-    this.scheduleStatsPanelRefresh();
-    this.refreshStatsPanel({ force: true });
-    refreshTowerLoadoutDisplay();
-  }
-
-  loadLevelCrystals() {
-    // Clear any existing developer crystals
-    if (typeof this.clearDeveloperCrystals === 'function') {
-      this.clearDeveloperCrystals({ silent: true });
-    }
-    
-    // Load crystals from level config if present
-    if (!this.levelConfig || !Array.isArray(this.levelConfig.crystals)) {
-      return;
-    }
-    
-    this.levelConfig.crystals.forEach((crystalConfig) => {
-      if (!crystalConfig || typeof crystalConfig.x !== 'number' || typeof crystalConfig.y !== 'number') {
-        return;
-      }
-      
-      const normalized = { x: crystalConfig.x, y: crystalConfig.y };
-      const options = {
-        integrity: crystalConfig.integrity,
-        thero: crystalConfig.thero || 0,
-        theroMultiplier: crystalConfig.theroMultiplier || 0,
-      };
-      
-      if (typeof this.addDeveloperCrystal === 'function') {
-        this.addDeveloperCrystal(normalized, options);
-      }
-    });
-  }
-
   enableSlots() {
     return HudBindings.enableSlots.call(this);
   }
@@ -1555,101 +1434,6 @@ export class SimplePlayfield {
 
     this.handleStartButton();
     return true;
-  }
-
-  updateTowerPositions() {
-    if (!this.levelConfig) {
-      return;
-    }
-    this.towers.forEach((tower) => {
-      const { x, y } = this.getCanvasPosition(tower.normalized);
-      tower.x = x;
-      tower.y = y;
-      const definition = getTowerDefinition(tower.type) || tower.definition;
-      if (tower.type === 'alpha') {
-        this.ensureAlphaState(tower);
-      }
-      if (tower.type === 'beta') {
-        this.ensureBetaState(tower);
-      }
-      if (tower.type === 'gamma') {
-        this.ensureGammaState(tower);
-      }
-      if (tower.type === 'kappa') {
-        this.ensureKappaState(tower);
-      }
-      if (tower.type === 'iota') {
-        this.ensureIotaState(tower);
-      }
-      if (tower.type === 'chi') {
-        this.ensureChiState(tower);
-      }
-      if (tower.type === 'omega') {
-        this.ensureOmegaState(tower);
-      }
-      if (tower.type === 'zeta') {
-        // Keep ζ pendulum geometry aligned with the tower's new coordinates.
-        this.ensureZetaState(tower);
-      } else if (tower.type === 'xi') {
-        // Initialize ξ chaining mechanics.
-        this.ensureXiState(tower);
-      } else if (tower.type === 'omicron') {
-        // Initialize ο soldier unit mechanics.
-        this.ensureOmicronState(tower);
-      } else {
-        const rangeFactor = definition ? definition.range : 0.24;
-        if (tower.type !== 'iota' && tower.type !== 'kappa') {
-          tower.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
-        }
-        if (tower.type === 'delta') {
-          this.updateDeltaAnchors(tower);
-        }
-        if (tower.type === 'theta') {
-          this.ensureThetaState(tower);
-        }
-      }
-    });
-    if (this.hoverPlacement) {
-      this.hoverPlacement.position = this.getCanvasPosition(this.hoverPlacement.normalized);
-      const definition = getTowerDefinition(this.hoverPlacement.towerType);
-      if (this.hoverPlacement.towerType === 'zeta') {
-        // Simulate ζ’s metrics so the placement preview reflects pendulum reach.
-        const baseRangeFactor = definition ? definition.range : 0.3;
-        const baseRange = Math.min(this.renderWidth, this.renderHeight) * baseRangeFactor;
-        const previewTower = {
-          id: 'zeta-preview',
-          type: 'zeta',
-          definition: definition || null,
-          normalized: { ...this.hoverPlacement.normalized },
-          x: this.hoverPlacement.position.x,
-          y: this.hoverPlacement.position.y,
-          range: baseRange,
-          baseRange,
-          baseDamage: 0,
-          baseRate: 0,
-        };
-        this.ensureZetaState(previewTower);
-        this.hoverPlacement.range = Number.isFinite(previewTower.range)
-          ? previewTower.range
-          : baseRange;
-      } else if (this.hoverPlacement.towerType === 'kappa') {
-        const kappaPreview = getKappaPreviewParametersHelper(this);
-        const rangeFactor = definition ? definition.range : 0.24;
-        const fallbackRange = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
-        this.hoverPlacement.range = kappaPreview?.rangePixels || fallbackRange;
-      } else {
-        const rangeFactor = definition ? definition.range : 0.24;
-        this.hoverPlacement.range = Math.min(this.renderWidth, this.renderHeight) * rangeFactor;
-      }
-      this.hoverPlacement.connections = this.computePlacementConnections(
-        this.hoverPlacement.position,
-        {
-          towerType: this.hoverPlacement.towerType,
-          range: this.hoverPlacement.range,
-          mergeTarget: this.hoverPlacement.mergeTarget,
-        },
-      );
-    }
   }
 
   handleCanvasPointerMove(event) {
@@ -5082,41 +4866,6 @@ export class SimplePlayfield {
     return selected;
   }
 
-  /**
-   * Emit a supply mote traveling between linked lattices.
-   */
-  spawnSupplyProjectile(sourceTower, targetTower, options = {}) {
-    if (!sourceTower || !targetTower) {
-      return;
-    }
-    const payload = options.payload || {};
-    const sourcePosition = { x: sourceTower.x, y: sourceTower.y };
-    const targetPosition = { x: targetTower.x, y: targetTower.y };
-    const dx = targetPosition.x - sourcePosition.x;
-    const dy = targetPosition.y - sourcePosition.y;
-    const distance = Math.hypot(dx, dy) || 1;
-    const projectile = {
-      patternType: 'supply',
-      sourceId: sourceTower.id,
-      targetTowerId: targetTower.id,
-      source: sourcePosition,
-      target: targetPosition,
-      currentPosition: { ...sourcePosition },
-      distance,
-      speed: Number.isFinite(options.speed) ? options.speed : 260,
-      progress: 0,
-      payload,
-    };
-    projectile.seeds = this.createSupplySeeds(sourcePosition, targetPosition, payload);
-    if (payload.type === 'beta') {
-      projectile.color = { r: 255, g: 214, b: 112 };
-    } else if (payload.type === 'gamma') {
-      projectile.color = { r: 180, g: 240, b: 255 };
-    } else {
-      projectile.color = { r: 255, g: 138, b: 216 };
-    }
-    this.projectiles.push(projectile);
-  }
 
   /**
    * Apply a delivered supply shot to its destination lattice.
@@ -5429,161 +5178,6 @@ export class SimplePlayfield {
     });
   }
 
-  // Spawn a β projectile that sticks to enemies, applies slow ticks, and traces a returning triangle.
-  spawnBetaTriangleProjectile(tower, enemy, effectPosition, resolvedDamage, triangleOrientation = 1) {
-    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
-      return;
-    }
-    const attackValue = computeTowerVariableValue('beta', 'attack');
-    const alphaValue = Math.max(1e-6, calculateTowerEquationResult('alpha'));
-    const bet1 = Math.max(0, attackValue / alphaValue);
-    this.projectiles.push({
-      patternType: 'betaTriangle',
-      towerId: tower.id,
-      damage: resolvedDamage,
-      position: { x: tower.x, y: tower.y },
-      previousPosition: { x: tower.x, y: tower.y },
-      origin: { x: tower.x, y: tower.y },
-      targetId: enemy.id,
-      targetPosition: effectPosition || { x: tower.x, y: tower.y },
-      hitRadius: this.getStandardShotHitRadius(),
-      speed: BETA_TRIANGLE_SPEED,
-      phase: 'seek',
-      bet1,
-      lifetime: 0,
-      maxLifetime: 10,
-      triangleOrientation: Number.isFinite(triangleOrientation)
-        ? Math.sign(triangleOrientation) || 1
-        : 1,
-    });
-  }
-
-  // Spawn a γ projectile that shoots straight to the screen edge, piercing all enemies and spawning star bursts on each hit.
-  spawnGammaStarProjectile(tower, enemy, effectPosition, resolvedDamage) {
-    if (!tower || !resolvedDamage || resolvedDamage <= 0) {
-      return;
-    }
-    
-    // Calculate direction from tower to target (or enemy position if available)
-    const targetPos = effectPosition || (enemy ? this.getEnemyPosition(enemy) : null);
-    if (!targetPos) {
-      return;
-    }
-    
-    const dx = targetPos.x - tower.x;
-    const dy = targetPos.y - tower.y;
-    const distance = Math.hypot(dx, dy);
-    
-    if (distance < 0.1) {
-      return; // No valid direction
-    }
-    
-    // Calculate direction vector
-    const dirX = dx / distance;
-    const dirY = dy / distance;
-    
-    // Calculate screen edge position in this direction
-    const renderWidth = this.renderWidth || 800;
-    const renderHeight = this.renderHeight || 600;
-    
-    // Find intersection with screen edges
-    let endX, endY;
-    const tX = dirX > 0 ? (renderWidth - tower.x) / dirX : (0 - tower.x) / dirX;
-    const tY = dirY > 0 ? (renderHeight - tower.y) / dirY : (0 - tower.y) / dirY;
-    const t = Math.min(Math.abs(tX), Math.abs(tY));
-    
-    endX = tower.x + dirX * t;
-    endY = tower.y + dirY * t;
-    
-    // Allow the pentagram orbit to persist based on the Brst glyph allocation.
-    const burstDuration = Math.max(0, computeTowerVariableValue('gamma', 'brst'));
-    const beamLength = Math.hypot(endX - tower.x, endY - tower.y);
-    const travelTime = beamLength / GAMMA_OUTBOUND_SPEED;
-    const maxLifetime = Math.max(travelTime + 1, burstDuration + travelTime + 1);
-    const minDimension = Math.max(1, Math.min(this.renderWidth || 0, this.renderHeight || 0));
-    const starRadius = metersToPixels(GAMMA_STAR_RADIUS_METERS, minDimension);
-    
-    this.projectiles.push({
-      patternType: 'gammaStar',
-      towerId: tower.id,
-      damage: resolvedDamage,
-      position: { x: tower.x, y: tower.y },
-      previousPosition: { x: tower.x, y: tower.y },
-      origin: { x: tower.x, y: tower.y },
-      targetPosition: { x: endX, y: endY },
-      direction: { x: dirX, y: dirY },
-      hitRadius: this.getStandardShotHitRadius(),
-      outboundSpeed: GAMMA_OUTBOUND_SPEED,
-      starSpeed: GAMMA_STAR_SPEED,
-      starRadius: Math.max(12, starRadius),
-      starBurstDuration: burstDuration,
-      phase: 'outbound',
-      hitEnemies: new Set(), // Track all enemies hit for piercing
-      enemyBursts: new Map(), // Track star burst state for each enemy hit
-      maxLifetime,
-    });
-  }
-
-
-
-  /**
-   * Legacy method removed - aleph chain towers have been replaced by the infinity tower.
-   * The infinity tower provides aura bonuses instead of chain attacks.
-   */
-
-  spawnOmegaWave(tower) {
-    if (!tower) {
-      return;
-    }
-    const tier = getTowerTierValue(tower);
-    if (!Number.isFinite(tier) || tier < 24) {
-      return;
-    }
-    const origin = { x: tower.x, y: tower.y };
-    const getOmegaPatternForTier = this.dependencies.getOmegaPatternForTier;
-    const pattern =
-      typeof getOmegaPatternForTier === 'function' ? getOmegaPatternForTier(tier) : [];
-    const visuals = getOmegaWaveVisualConfig(tower);
-    const count = Math.max(6, Math.floor(pattern.projectileCount || 0));
-    // Scale the omega wave motes down to a tenth of their previous footprint to keep the effect readable.
-    const scaledSize = (visuals.size ?? pattern.baseSize ?? 4) * 0.1;
-    const baseSize = Math.max(0.3, scaledSize);
-    const stage = Math.max(0, Math.floor(tier) - 24);
-    const jitterStrength = 0.06 + stage * 0.02;
-    const maxLifetime = Math.max(0.8, pattern.duration || 2);
-
-    for (let index = 0; index < count; index += 1) {
-      const phase = (TWO_PI * index) / count;
-      const ratioJitter = Math.sin(phase) * jitterStrength;
-      const swirlJitter = Math.cos(phase * 1.5) * jitterStrength * 1.2;
-      const radiusJitter = Math.sin(phase * 2) * stage * 4;
-      const parameters = {
-        ...pattern,
-        ratio: pattern.ratio + ratioJitter,
-        swirl: pattern.swirl + swirlJitter,
-        radius: pattern.radius + radiusJitter,
-        phaseShift: pattern.phaseShift + jitterStrength * 0.5,
-      };
-
-      this.projectiles.push({
-        patternType: 'omegaWave',
-        origin,
-        position: { ...origin },
-        previousPosition: { ...origin },
-        lifetime: 0,
-        maxLifetime,
-        parameters,
-        phase,
-        color: visuals.color,
-        trailColor: visuals.trailColor,
-        size: baseSize,
-        glowColor: visuals.glowColor,
-        glowBlur: visuals.glowBlur,
-      });
-    }
-  }
-
-
 
   // Snapshot the minimal tower data required to rebuild a checkpoint state.
   serializeTowerForCheckpoint(tower) {
@@ -5629,179 +5223,6 @@ export class SimplePlayfield {
     };
   }
 
-  // Rebuild tower placements and behavior from a stored checkpoint snapshot.
-  restoreTowersFromCheckpoint(towerSnapshots = []) {
-    const snapshots = Array.isArray(towerSnapshots) ? towerSnapshots : [];
-    this.towers.forEach((tower) => {
-      this.teardownDeltaTower(tower);
-      this.handleInfinityTowerRemoved(tower);
-    });
-    this.towers = [];
-    this.infinityTowers = [];
-    this.towerConnectionMap.clear();
-    this.towerConnectionSources.clear();
-    this.connectionEffects = [];
-    this.clearConnectionDragState();
-    this.slots.forEach((slot) => {
-      slot.tower = null;
-      if (slot.button) {
-        slot.button.classList.remove('tower-built');
-        slot.button.setAttribute('aria-pressed', 'false');
-      }
-    });
-    this.towerIdCounter = 0;
-
-    const restoredTowerMap = new Map();
-
-    snapshots.forEach((snapshot) => {
-      if (!snapshot || !snapshot.type) {
-        return;
-      }
-      const definition = getTowerDefinition(snapshot.type);
-      if (!definition) {
-        return;
-      }
-      const normalized = this.cloneNormalizedPoint(snapshot.normalized || {});
-      const position = this.getCanvasPosition(normalized);
-      const fallbackDamage = Number.isFinite(definition.damage) ? definition.damage : 0;
-      const fallbackRate = Number.isFinite(definition.rate) ? definition.rate : 1;
-      const fallbackRange = Math.min(this.renderWidth, this.renderHeight) * (definition.range ?? 0.24);
-      let towerId = typeof snapshot.id === 'string' && snapshot.id.trim() ? snapshot.id.trim() : null;
-      if (towerId) {
-        const match = towerId.match(/tower-(\d+)/);
-        if (match) {
-          const numeric = Number(match[1]);
-          if (Number.isFinite(numeric)) {
-            this.towerIdCounter = Math.max(this.towerIdCounter, numeric);
-          }
-        }
-      } else {
-        this.towerIdCounter += 1;
-        towerId = `tower-${this.towerIdCounter}`;
-      }
-      const tower = {
-        id: towerId,
-        type: snapshot.type,
-        definition,
-        symbol: definition.symbol,
-        tier: definition.tier,
-        normalized,
-        x: position.x,
-        y: position.y,
-        baseDamage: Number.isFinite(snapshot.baseDamage) ? snapshot.baseDamage : fallbackDamage,
-        baseRate: Number.isFinite(snapshot.baseRate) ? snapshot.baseRate : fallbackRate,
-        baseRange: Number.isFinite(snapshot.baseRange) ? snapshot.baseRange : fallbackRange,
-        damage: Number.isFinite(snapshot.damage) ? snapshot.damage : fallbackDamage,
-        rate: Number.isFinite(snapshot.rate) ? snapshot.rate : fallbackRate,
-        range: Number.isFinite(snapshot.range) ? snapshot.range : fallbackRange,
-        cooldown: Number.isFinite(snapshot.cooldown) ? snapshot.cooldown : 0,
-        slot: null,
-      };
-      tower.linkTargetId = null;
-      tower.linkSources = new Set();
-      tower.storedAlphaShots = 0;
-      tower.storedBetaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      tower.storedBetaSwirl = 0;
-      tower.storedGammaShots = 0;
-      tower.connectionParticles = [];
-      if (Number.isFinite(snapshot.storedAlphaShots)) {
-        tower.storedAlphaShots = Math.max(0, Math.floor(snapshot.storedAlphaShots));
-      }
-      if (Number.isFinite(snapshot.storedBetaShots)) {
-        tower.storedBetaShots = Math.max(0, Math.floor(snapshot.storedBetaShots));
-      }
-      if (Number.isFinite(snapshot.storedAlphaSwirl)) {
-        tower.storedAlphaSwirl = Math.max(0, Math.floor(snapshot.storedAlphaSwirl));
-      }
-      if (Number.isFinite(snapshot.storedBetaSwirl)) {
-        tower.storedBetaSwirl = Math.max(0, Math.floor(snapshot.storedBetaSwirl));
-      }
-      if (Number.isFinite(snapshot.storedGammaShots)) {
-        tower.storedGammaShots = Math.max(0, Math.floor(snapshot.storedGammaShots));
-      }
-      if (tower.type === 'eta') {
-        // Restore η lattice metadata before behavior defaults so orbital rings rebuild with the correct configuration.
-        const rawPrime = Number.isFinite(snapshot.etaPrime) ? snapshot.etaPrime : 0;
-        tower.etaPrime = Math.max(0, Math.min(rawPrime, ETA_MAX_PRESTIGE_MERGES));
-        tower.isPrestigeEta = snapshot.isPrestigeEta ? true : tower.etaPrime >= ETA_MAX_PRESTIGE_MERGES;
-      }
-      if (tower.type === 'sigma') {
-        const sigmaState = this.ensureSigmaState(tower);
-        if (sigmaState) {
-          sigmaState.storedDamage = 0;
-          sigmaState.totalAbsorbed = 0;
-          const restoredDamage = Number.isFinite(snapshot.sigmaStoredDamage)
-            ? Math.max(0, snapshot.sigmaStoredDamage)
-            : 0;
-          if (restoredDamage > 0) {
-            absorbSigmaDamageHelper(this, tower, restoredDamage);
-          }
-          if (Number.isFinite(snapshot.sigmaTotalAbsorbed)) {
-            sigmaState.totalAbsorbed = Math.max(
-              sigmaState.totalAbsorbed,
-              Math.max(0, snapshot.sigmaTotalAbsorbed),
-            );
-          }
-          tower.damage = sigmaState.storedDamage;
-          tower.baseDamage = sigmaState.storedDamage;
-        }
-      }
-      if (snapshot.slotId && this.slots.has(snapshot.slotId)) {
-        const slot = this.slots.get(snapshot.slotId);
-        tower.slot = slot;
-        slot.tower = tower;
-        if (slot.button) {
-          slot.button.classList.add('tower-built');
-          slot.button.setAttribute('aria-pressed', 'true');
-        }
-      }
-      tower.targetPriority = snapshot.targetPriority || 'first';
-      tower.behaviorMode = snapshot.behaviorMode || tower.behaviorMode;
-      this.applyTowerBehaviorDefaults(tower);
-      if (snapshot.behaviorMode && tower.type === 'delta') {
-        this.configureDeltaBehavior(tower, snapshot.behaviorMode);
-      }
-      if (tower.type === 'delta' && snapshot.deltaState?.manualTargetId) {
-        const state = this.ensureDeltaState(tower);
-        if (state) {
-          state.manualTargetId = snapshot.deltaState.manualTargetId;
-        }
-      }
-      this.towers.push(tower);
-      restoredTowerMap.set(tower.id, tower);
-      this.handleInfinityTowerAdded(tower);
-    });
-
-    snapshots.forEach((snapshot) => {
-      if (!snapshot || !snapshot.id || !snapshot.linkTargetId) {
-        return;
-      }
-      const source = restoredTowerMap.get(snapshot.id);
-      const target = restoredTowerMap.get(snapshot.linkTargetId);
-      if (source && target) {
-        this.addTowerConnection(source, target);
-      }
-    });
-
-    snapshots.forEach((snapshot) => {
-      if (!snapshot || !snapshot.id || !Array.isArray(snapshot.linkSources)) {
-        return;
-      }
-      const target = restoredTowerMap.get(snapshot.id);
-      if (!target) {
-        return;
-      }
-      snapshot.linkSources.forEach((sourceId) => {
-        const source = restoredTowerMap.get(sourceId);
-        if (source && source !== target) {
-          this.addTowerConnection(source, target);
-        }
-      });
-    });
-
-    refreshTowerLoadoutDisplay();
-  }
 
   // Record a fresh endless checkpoint whenever a cycle of waves concludes.
   captureEndlessCheckpoint() {
@@ -5833,86 +5254,6 @@ export class SimplePlayfield {
       available: !this.endlessCheckpointUsed,
       waveNumber: this.endlessCheckpoint.waveNumber || null,
     };
-  }
-
-  // Restore the battlefield to the last saved checkpoint and resume combat immediately.
-  retryFromEndlessCheckpoint() {
-    if (
-      !this.isEndlessMode ||
-      !this.endlessCheckpoint ||
-      this.endlessCheckpointUsed ||
-      !this.levelConfig ||
-      !Array.isArray(this.levelConfig.waves) ||
-      !this.levelConfig.waves.length
-    ) {
-      return false;
-    }
-
-    const snapshot = this.endlessCheckpoint;
-    const totalWaves = this.levelConfig.waves.length;
-    const targetIndex = Math.max(0, Math.min(totalWaves - 1, Number(snapshot.waveIndex) || 0));
-
-    this.cancelAutoStart();
-    this.shouldAnimate = true;
-    this.ensureLoop();
-
-    // Reset non-combat-state systems
-    this.resetChiSystems();
-    this.projectiles = [];
-    this.resetDamageNumbers();
-    this.resetEnemyDeathParticles();
-    this.resetWaveTallies();
-    this.alphaBursts = [];
-    this.betaBursts = [];
-    this.gammaBursts = [];
-      this.gammaStarBursts = [];
-    this.nuBursts = [];
-    this.swarmClouds = [];
-    this.floaters = [];
-    this.floaterConnections = [];
-    // Refresh ambient swimmers so checkpoint restores regenerate the soft background motion.
-    this.backgroundSwimmers = [];
-    this.swimmerBounds = { width: this.renderWidth || 0, height: this.renderHeight || 0 };
-    
-    // Restore combat state through the manager
-    if (this.combatStateManager) {
-      this.combatStateManager.startCombat({
-        startingWaveIndex: targetIndex,
-        startingLives: Number.isFinite(snapshot.lives) ? snapshot.lives : this.levelConfig.lives,
-        startingEnergy: Number.isFinite(snapshot.energy) ? snapshot.energy : 0,
-        endless: true,
-        endlessCycleStart: Math.max(0, Number(snapshot.endlessCycle) || 0),
-        initialSpawnDelay: 0,
-      });
-    }
-    
-    this.autoWaveEnabled = snapshot.autoWaveEnabled ?? this.autoWaveEnabled;
-    if (this.autoWaveCheckbox) {
-      this.autoWaveCheckbox.checked = this.autoWaveEnabled;
-    }
-    if (Array.isArray(snapshot.availableTowers)) {
-      this.availableTowers = snapshot.availableTowers.slice();
-    }
-
-    this.infinityTowers = [];
-    this.restoreTowersFromCheckpoint(snapshot.towers);
-
-    if (this.startButton) {
-      this.startButton.disabled = true;
-      this.startButton.textContent = 'Wave Running';
-    }
-    if (this.messageEl && this.activeWave?.config?.label) {
-      this.messageEl.textContent = `Wave ${this.currentWaveNumber} — ${this.activeWave.config.label}.`;
-    }
-
-    this.updateHud();
-    this.updateProgress();
-    this.updateSpeedButton();
-    this.updateAutoAnchorButton();
-    this.dependencies.updateStatusDisplays();
-    this.endlessCheckpointUsed = true;
-
-    return true;
   }
 
   advanceWave() {
@@ -6076,65 +5417,6 @@ export class SimplePlayfield {
         progressOffset: offset,
       });
     }
-  }
-
-  // Derive a child enemy from a parent polygonal shard using the configured health and speed multipliers.
-  spawnPolygonShard(parent, options = {}) {
-    if (!parent) {
-      return null;
-    }
-    const nextSides = Number.isFinite(options.polygonSides)
-      ? Math.max(1, Math.floor(options.polygonSides))
-      : this.resolveNextPolygonSides(parent.polygonSides);
-    if (!nextSides) {
-      return null;
-    }
-    const hpBase = Number.isFinite(parent.maxHp) ? parent.maxHp : parent.hp;
-    const baseSpeed = Number.isFinite(parent.baseSpeed) ? parent.baseSpeed : parent.speed;
-    const hpMultiplier = Number.isFinite(options.hpMultiplier) ? options.hpMultiplier : 0.1;
-    const speedMultiplier = Number.isFinite(options.speedMultiplier) ? options.speedMultiplier : 1;
-    const shardHp = Math.max(1, hpBase * hpMultiplier);
-    const shardSpeed = Math.max(0, baseSpeed * speedMultiplier);
-    const rewardRatio = hpBase > 0 && Number.isFinite(parent.reward) ? parent.reward / hpBase : 0.1;
-    const shardReward = Math.max(0, shardHp * rewardRatio);
-    const progressOffset = Number.isFinite(options.progressOffset) ? options.progressOffset : 0;
-    const shardProgress = Math.min(0.999, Math.max(0, (parent.progress || 0) + progressOffset));
-    const shardConfig = {
-      hp: shardHp,
-      speed: shardSpeed,
-      reward: shardReward,
-      color: parent.color,
-      label: parent.label,
-      codexId: parent.typeId || parent.codexId || null,
-      pathMode: parent.pathMode,
-      polygonSides: nextSides,
-    };
-    const symbol = this.resolveEnemySymbol({ ...shardConfig, polygonSides: nextSides });
-    const shard = {
-      id: this.enemyIdCounter += 1,
-      progress: shardProgress,
-      hp: shardHp,
-      maxHp: shardHp,
-      speed: shardSpeed,
-      baseSpeed: shardSpeed,
-      reward: shardReward,
-      color: parent.color,
-      label: parent.label,
-      typeId: parent.typeId || parent.codexId || null,
-      pathMode: parent.pathMode,
-      moteFactor: this.calculateMoteFactor(shardConfig),
-      symbol,
-      polygonSides: nextSides,
-      hpExponent: this.calculateHealthExponent(shardHp),
-      gemDropMultiplier: resolveEnemyGemDropMultiplier(shardConfig),
-    };
-    if (parent.isBoss) {
-      shard.isBoss = true;
-    }
-    assignRandomShell(shard);
-    this.enemies.push(shard);
-    this.scheduleStatsPanelRefresh();
-    return shard;
   }
 
   handleVictory() {
@@ -7044,4 +6326,22 @@ Object.assign(SimplePlayfield.prototype, {
 // Mote gem system methods
 Object.assign(SimplePlayfield.prototype, {
   updateMoteGems: MoteGemSystem.updateMoteGems,
+});
+
+// Projectile spawn system methods
+Object.assign(SimplePlayfield.prototype, {
+  spawnSupplyProjectile: ProjectileSpawnSystem.spawnSupplyProjectile,
+  spawnBetaTriangleProjectile: ProjectileSpawnSystem.spawnBetaTriangleProjectile,
+  spawnGammaStarProjectile: ProjectileSpawnSystem.spawnGammaStarProjectile,
+  spawnOmegaWave: ProjectileSpawnSystem.spawnOmegaWave,
+  spawnPolygonShard: ProjectileSpawnSystem.spawnPolygonShard,
+});
+
+// Level reset system methods
+Object.assign(SimplePlayfield.prototype, {
+  resetState: LevelResetSystem.resetState,
+  loadLevelCrystals: LevelResetSystem.loadLevelCrystals,
+  updateTowerPositions: LevelResetSystem.updateTowerPositions,
+  restoreTowersFromCheckpoint: LevelResetSystem.restoreTowersFromCheckpoint,
+  retryFromEndlessCheckpoint: LevelResetSystem.retryFromEndlessCheckpoint,
 });
