@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 522):**
+- CardinalWardenWeaponSystem.js created in `scripts/features/towers/cardinalWarden/`: 972 lines (Phase 2.1.6 continuation - weapon firing, mine spawning, friendly ship and swarm ship logic extracted from CardinalWardenSimulation)
+  - Moved: fireWeapon, spawnMine, updateFriendlyShips, checkFriendlyShipCollisions, updateSwarmShips, checkSwarmLaserCollisions (6 methods)
+  - cardinalWardenSimulation.js reduced from 4,277 to 3,366 lines (911-line reduction); all methods replaced with thin `.call(this)` delegates using `cwWeapon` prefix
+  - CardinalWardenWeaponSystem.js imports Bullet, FriendlyShip, MathBullet from CardinalWardenEntities.js; 11 config constants from cardinalWardenConfig.js; ExpandingWave/Beam/Mine/SwarmShip/SwarmLaser from subsystem files
+  - Removed from simulation imports: Bullet, FriendlyShip, ExpandingWave, Beam, Mine, SwarmShip, SwarmLaser, checkSwarmLaserCollisionsSystem + 11 config constants
+
 **Progress Notes (Build 521):**
 - CardinalWardenEntities.js created in `scripts/features/towers/cardinalWarden/`: 773 lines (Phase 2.1.6 continuation - standalone entity classes and utilities extracted from CardinalWardenSimulation)
   - Moved: normalizeAngle, reflectVector (module-level utilities); SeededRandom, OrbitalSquare, RingSquare, CardinalWarden, Bullet, FriendlyShip, MathBullet (7 entity classes)
@@ -1992,5 +1999,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 521  
-**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js + CardinalWardenEntities.js extracted); Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued
+**Last Updated:** Build 522  
+**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js + CardinalWardenEntities.js + CardinalWardenWeaponSystem.js extracted); Phase 3 and Phase 4 continued
