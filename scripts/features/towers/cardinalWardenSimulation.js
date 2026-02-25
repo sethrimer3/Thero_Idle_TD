@@ -62,19 +62,11 @@
  */
 
 import {
-  GRAPHEME_INDEX,
-  MASSIVE_BULLET_CONFIG,
-  MINE_CONFIG,
-  DAGESH_CONFIG,
   GAME_CONFIG,
   WEAPON_SLOT_IDS,
   WEAPON_SLOT_DEFINITIONS,
   LEGACY_WEAPON_DEFINITIONS,
-  ENEMY_SHIP_SPRITES,
   VISUAL_CONFIG,
-  SHIN_BULLET_SPRITE_URLS,
-  SHIN_BOSS_SPRITE_URLS,
-  SHIN_BOSS_MINION_SPRITE_URLS,
 } from './cardinalWardenConfig.js';
 import {
   SeededRandom,
@@ -149,6 +141,26 @@ import {
   updateLifeLine as renderCwUpdateLifeLine,
   renderUI as renderCwUI,
 } from './cardinalWarden/CardinalWardenRenderer.js';
+import {
+  applyColorMode as cwSpriteApplyColorMode,
+  updateWeaponColors as cwSpriteUpdateWeaponColors,
+  shiftHue as cwSpriteShiftHue,
+  rebuildTintedGraphemeCache as cwSpriteRebuildTintedGraphemeCache,
+  loadGraphemeSprites as cwSpriteLoadGraphemeSprites,
+  rebuildSingleTintedGrapheme as cwSpriteRebuildSingleTintedGrapheme,
+  loadBulletSprites as cwSpriteLoadBulletSprites,
+  loadWardenSprites as cwSpriteLoadWardenSprites,
+  loadEnemyShipSprites as cwSpriteLoadEnemyShipSprites,
+  loadBossSprites as cwSpriteLoadBossSprites,
+} from './cardinalWarden/CardinalWardenSpriteSystem.js';
+import {
+  getEffectiveGraphemeAssignments as cwCalcGetEffectiveGraphemeAssignments,
+  calculateFireRateMultiplier as cwCalcCalculateFireRateMultiplier,
+  calculateWeaponAttackSpeed as cwCalcCalculateWeaponAttackSpeed,
+  updateShieldRegeneration as cwCalcUpdateShieldRegeneration,
+  regenerateShield as cwCalcRegenerateShield,
+  updateWeaponTimers as cwCalcUpdateWeaponTimers,
+} from './cardinalWarden/CardinalWardenCalculations.js';
 
 // Configuration constants now imported from cardinalWardenConfig.js
 
@@ -446,63 +458,13 @@ export class CardinalWardenSimulation {
   /**
    * Update palette values based on day/night render mode.
    */
-  applyColorMode() {
-    const colorMode = this.nightMode ? VISUAL_CONFIG.NIGHT : VISUAL_CONFIG.DAY;
-    this.bgColor = colorMode.BG_COLOR;
-    this.wardenCoreColor = colorMode.WARDEN_CORE_COLOR;
-    this.wardenSquareColor = colorMode.WARDEN_SQUARE_COLOR;
-    this.bulletColor = colorMode.BULLET_COLOR;
-    this.ringStrokeColor = colorMode.RING_STROKE_COLOR;
-    this.uiTextColor = colorMode.UI_TEXT_COLOR;
-    this.enemyTrailColor = colorMode.ENEMY_TRAIL_COLOR;
-    this.enemySmokeColor = colorMode.ENEMY_SMOKE_COLOR;
-    this.activeScriptColor = this.nightMode ? this.scriptColorNight : this.scriptColorDay;
+  applyColorMode() { cwSpriteApplyColorMode.call(this); }
 
-    // Rebuild the tinted grapheme cache so glyphs match the active palette immediately.
-    this.rebuildTintedGraphemeCache();
-    
-    // Update weapon colors based on gradient
-    this.updateWeaponColors();
-  }
-  
   /**
    * Calculate weapon colors based on a gradient from the universal color palette.
-   * For now, we use a simple gradient from the warden core color.
-   * Weapon 1: top of gradient (wardenCoreColor)
-   * Weapon 2: middle of gradient (interpolated)
-   * Weapon 3: bottom of gradient (complementary color)
    */
-  updateWeaponColors() {
-    // Start with the warden core color
-    const baseColor = this.wardenCoreColor;
-    
-    // Parse base color to RGB
-    const r = parseInt(baseColor.slice(1, 3), 16);
-    const g = parseInt(baseColor.slice(3, 5), 16);
-    const b = parseInt(baseColor.slice(5, 7), 16);
-    
-    // Create a gradient with three colors
-    // Weapon 1: Base color (top of gradient)
-    const weapon1Color = baseColor;
-    
-    // Weapon 2: Shift hue by 120 degrees for middle color
-    const weapon2Color = this.shiftHue(r, g, b, 120);
-    
-    // Weapon 3: Shift hue by 240 degrees for bottom color
-    const weapon3Color = this.shiftHue(r, g, b, 240);
-    
-    // Update weapon definitions with new colors
-    if (WEAPON_SLOT_DEFINITIONS.slot1) {
-      WEAPON_SLOT_DEFINITIONS.slot1.color = weapon1Color;
-    }
-    if (WEAPON_SLOT_DEFINITIONS.slot2) {
-      WEAPON_SLOT_DEFINITIONS.slot2.color = weapon2Color;
-    }
-    if (WEAPON_SLOT_DEFINITIONS.slot3) {
-      WEAPON_SLOT_DEFINITIONS.slot3.color = weapon3Color;
-    }
-  }
-  
+  updateWeaponColors() { cwSpriteUpdateWeaponColors.call(this); }
+
   /**
    * Shift the hue of an RGB color by a specified amount in degrees.
    * @param {number} r - Red component (0-255)
@@ -511,296 +473,44 @@ export class CardinalWardenSimulation {
    * @param {number} degrees - Degrees to shift hue (0-360)
    * @returns {string} Hex color string
    */
-  shiftHue(r, g, b, degrees) {
-    // Convert RGB to HSL
-    const rNorm = r / 255;
-    const gNorm = g / 255;
-    const bNorm = b / 255;
-    
-    const max = Math.max(rNorm, gNorm, bNorm);
-    const min = Math.min(rNorm, gNorm, bNorm);
-    const delta = max - min;
-    
-    let h = 0;
-    let s = 0;
-    const l = (max + min) / 2;
-    
-    if (delta !== 0) {
-      s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
-      
-      if (max === rNorm) {
-        h = ((gNorm - bNorm) / delta + (gNorm < bNorm ? 6 : 0)) / 6;
-      } else if (max === gNorm) {
-        h = ((bNorm - rNorm) / delta + 2) / 6;
-      } else {
-        h = ((rNorm - gNorm) / delta + 4) / 6;
-      }
-    }
-    
-    // Shift hue
-    h = (h + degrees / 360) % 1;
-    
-    // Convert HSL back to RGB
-    let rOut, gOut, bOut;
-    
-    if (s === 0) {
-      rOut = gOut = bOut = l;
-    } else {
-      const hue2rgb = (p, q, t) => {
-        if (t < 0) t += 1;
-        if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t;
-        if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-        return p;
-      };
-      
-      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-      const p = 2 * l - q;
-      
-      rOut = hue2rgb(p, q, h + 1/3);
-      gOut = hue2rgb(p, q, h);
-      bOut = hue2rgb(p, q, h - 1/3);
-    }
-    
-    // Convert to hex
-    const rHex = Math.round(rOut * 255).toString(16).padStart(2, '0');
-    const gHex = Math.round(gOut * 255).toString(16).padStart(2, '0');
-    const bHex = Math.round(bOut * 255).toString(16).padStart(2, '0');
-    
-    return `#${rHex}${gHex}${bHex}`;
-  }
+  shiftHue(r, g, b, degrees) { return cwSpriteShiftHue.call(this, r, g, b, degrees); }
 
   /**
    * Create tinted copies of all loaded grapheme sprites so glyphs follow the active palette.
    */
-  rebuildTintedGraphemeCache() {
-    // Clear existing cache
-    this.tintedGraphemeCache.clear();
-    
-    // Rebuild colored versions for each loaded grapheme
-    for (const [index, img] of this.graphemeSprites.entries()) {
-      if (!this.graphemeSpriteLoaded.get(index)) continue;
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      ctx.globalCompositeOperation = 'source-in';
-      ctx.fillStyle = this.activeScriptColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      this.tintedGraphemeCache.set(index, canvas);
-    }
-  }
+  rebuildTintedGraphemeCache() { cwSpriteRebuildTintedGraphemeCache.call(this); }
 
   /**
    * Load individual SVG grapheme sprites for the Cardinal Warden name display.
-   * Each grapheme (A-Z plus dagesh variants) has its own white SVG file that gets colored.
    */
-  loadGraphemeSprites() {
-    // Skip sprite loading on non-browser contexts
-    if (typeof Image === 'undefined') {
-      return;
-    }
-    
-    // Letter mapping: index 0 = A, index 1 = B, ..., index 25 = Z.
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    // Dagesh sprite mapping for enhanced graphemes.
-    const dageshSprites = [
-      { index: GRAPHEME_INDEX.A_DAGESH, filename: 'grapheme-A-dagesh.svg' },
-      { index: GRAPHEME_INDEX.I_DAGESH, filename: 'grapheme-I-dagesh.svg' },
-      { index: GRAPHEME_INDEX.M_DAGESH, filename: 'grapheme-M-dagesh.svg' },
-      { index: GRAPHEME_INDEX.P_DAGESH, filename: 'grapheme-P-dagesh.svg' },
-      { index: GRAPHEME_INDEX.R_DAGESH, filename: 'grapheme-R-dagesh.svg' },
-      { index: GRAPHEME_INDEX.S_DAGESH, filename: 'grapheme-S-dagesh.svg' },
-      { index: GRAPHEME_INDEX.U_DAGESH, filename: 'grapheme-U-dagesh.svg' },
-    ];
-
-    const spriteSources = [
-      ...letters.map((letter, index) => ({ index, filename: `grapheme-${letter}.svg` })),
-      ...dageshSprites,
-    ];
-
-    spriteSources.forEach(({ index, filename }) => {
-      const img = new Image();
-
-      img.onload = () => {
-        this.graphemeSpriteLoaded.set(index, true);
-        // Rebuild the tinted cache entry for this grapheme.
-        this.rebuildSingleTintedGrapheme(index, img);
-      };
-
-      img.onerror = () => {
-        console.warn(`Failed to load grapheme sprite: ${filename}`);
-      };
-
-      // Load the SVG file for this grapheme.
-      img.src = `./assets/sprites/spires/shinSpire/graphemes/${filename}`;
-      this.graphemeSprites.set(index, img);
-    });
-  }
+  loadGraphemeSprites() { cwSpriteLoadGraphemeSprites.call(this); }
 
   /**
    * Create a tinted copy of a single grapheme sprite.
    * @param {number} index - The grapheme index (A-Z plus dagesh variants)
    * @param {Image} img - The loaded image
    */
-  rebuildSingleTintedGrapheme(index, img) {
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = this.activeScriptColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    this.tintedGraphemeCache.set(index, canvas);
-  }
+  rebuildSingleTintedGrapheme(index, img) { cwSpriteRebuildSingleTintedGrapheme.call(this, index, img); }
 
   /**
    * Load bullet sprites so Shin spire projectiles can render with the uploaded artwork.
    */
-  loadBulletSprites() {
-    // Skip sprite loading on non-browser contexts.
-    if (typeof Image === 'undefined') {
-      return;
-    }
-    SHIN_BULLET_SPRITE_URLS.forEach((url, index) => {
-      // Initialize each sprite entry for fast lookup during render.
-      const sprite = new Image();
-      sprite.onload = () => {
-        // Record sprite readiness by 1-based bullet level index.
-        this.bulletSpriteLoaded[index + 1] = true;
-      };
-      sprite.onerror = () => {
-        console.warn(`Failed to load Shin bullet sprite: ${url}`);
-      };
-      sprite.src = url;
-      this.bulletSprites[index + 1] = sprite;
-    });
-  }
-  
+  loadBulletSprites() { cwSpriteLoadBulletSprites.call(this); }
+
   /**
    * Load warden sprite artwork (core and rotating shards).
    */
-  loadWardenSprites() {
-    // Skip sprite loading on non-browser contexts.
-    if (typeof Image === 'undefined') {
-      return;
-    }
-    
-    // Load the warden core sprite (golden version)
-    this.wardenCoreSprite = new Image();
-    this.wardenCoreSprite.onload = () => {
-      this.wardenCoreLoaded = true;
-    };
-    this.wardenCoreSprite.onerror = () => {
-      console.warn('Failed to load warden core sprite');
-    };
-    this.wardenCoreSprite.src = './assets/sprites/spires/shinSpire/warden/wardenCoreGold.png';
-    
-    // Load all 37 warden shard sprites
-    for (let i = 1; i <= 37; i++) {
-      const sprite = new Image();
-      sprite.onload = () => {
-        this.wardenShardsLoaded[i - 1] = true;
-      };
-      sprite.onerror = () => {
-        console.warn(`Failed to load warden shard sprite ${i}`);
-      };
-      sprite.src = `./assets/sprites/spires/shinSpire/warden/wardenShard (${i}).png`;
-      this.wardenShardSprites[i - 1] = sprite;
-    }
-  }
+  loadWardenSprites() { cwSpriteLoadWardenSprites.call(this); }
 
   /**
    * Load enemy ship sprites for the 6 difficulty levels.
    */
-  loadEnemyShipSprites() {
-    // Skip sprite loading on non-browser contexts.
-    if (typeof Image === 'undefined') {
-      return;
-    }
-    
-    this.enemyShipSprites = [];
-    this.enemyShipSpritesLoaded = [];
-    
-    ENEMY_SHIP_SPRITES.forEach((url, index) => {
-      const sprite = new Image();
-      sprite.onload = () => {
-        this.enemyShipSpritesLoaded[index + 1] = true;
-      };
-      sprite.onerror = () => {
-        console.warn(`Failed to load enemy ship sprite: ${url}`);
-      };
-      sprite.src = url;
-      this.enemyShipSprites[index + 1] = sprite;
-    });
-
-    // Append two dedicated boss-minion sprites after the six standard enemy ships.
-    SHIN_BOSS_MINION_SPRITE_URLS.forEach((url, index) => {
-      const spriteLevel = ENEMY_SHIP_SPRITES.length + index + 1;
-      const sprite = new Image();
-      sprite.onload = () => {
-        this.enemyShipSpritesLoaded[spriteLevel] = true;
-      };
-      sprite.onerror = () => {
-        console.warn(`Failed to load boss minion sprite: ${url}`);
-      };
-      sprite.src = url;
-      this.enemyShipSprites[spriteLevel] = sprite;
-    });
-  }
+  loadEnemyShipSprites() { cwSpriteLoadEnemyShipSprites.call(this); }
 
   /**
    * Load milestone boss sprites and prebuild inverted-color variants.
    */
-  loadBossSprites() {
-    // Skip sprite loading on non-browser contexts.
-    if (typeof Image === 'undefined') {
-      return;
-    }
-
-    this.bossSprites = [];
-    this.bossSpritesLoaded = [];
-    this.invertedBossSpriteCache = [];
-
-    SHIN_BOSS_SPRITE_URLS.forEach((url, index) => {
-      const sprite = new Image();
-      sprite.onload = () => {
-        this.bossSpritesLoaded[index] = true;
-        // Precompute an inverted-color canvas for waves 140-260.
-        if (typeof document !== 'undefined') {
-          const canvas = document.createElement('canvas');
-          canvas.width = sprite.naturalWidth || sprite.width;
-          canvas.height = sprite.naturalHeight || sprite.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx && canvas.width > 0 && canvas.height > 0) {
-            ctx.drawImage(sprite, 0, 0);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            for (let i = 0; i < data.length; i += 4) {
-              data[i] = 255 - data[i];
-              data[i + 1] = 255 - data[i + 1];
-              data[i + 2] = 255 - data[i + 2];
-            }
-            ctx.putImageData(imageData, 0, 0);
-            this.invertedBossSpriteCache[index] = canvas;
-          }
-        }
-      };
-      sprite.onerror = () => {
-        console.warn(`Failed to load boss sprite: ${url}`);
-      };
-      sprite.src = url;
-      this.bossSprites[index] = sprite;
-    });
-  }
+  loadBossSprites() { cwSpriteLoadBossSprites.call(this); }
 
   /**
    * Render a character from the individual grapheme sprites.
@@ -1380,294 +1090,37 @@ export class CardinalWardenSimulation {
    * @param {Array} assignments - The raw grapheme assignments for a weapon slot
    * @returns {Array} The effective grapheme assignments after applying deactivation
    */
-  getEffectiveGraphemeAssignments(assignments) {
-    if (!Array.isArray(assignments) || assignments.length === 0) {
-      return [];
-    }
-    
-    // Find the first occurrence of grapheme G (index 6)
-    let seventhGraphemeSlot = -1;
-    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-      const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.G) {
-        seventhGraphemeSlot = slotIndex;
-        break;
-      }
-    }
-    
-    // If grapheme G found, deactivate everything to the LEFT
-    if (seventhGraphemeSlot !== -1) {
-      // Return assignments from grapheme G's slot to the end
-      return assignments.slice(seventhGraphemeSlot);
-    }
-    
-    // Find the first occurrence of grapheme C (index 2)
-    let thirdGraphemeSlot = -1;
-    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-      const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.C) {
-        thirdGraphemeSlot = slotIndex;
-        break;
-      }
-    }
-    
-    // If third grapheme found, deactivate everything to the RIGHT
-    if (thirdGraphemeSlot !== -1) {
-      return assignments.slice(0, thirdGraphemeSlot + 1);
-    }
-    
-    // Find all occurrences of grapheme L (index 11) and deactivate adjacent slots
-    const graphemeLSlots = [];
-    for (let slotIndex = 0; slotIndex < assignments.length; slotIndex++) {
-      const assignment = assignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.L) {
-        graphemeLSlots.push(slotIndex);
-      }
-    }
-    
-    // If grapheme L found, create a copy with adjacent slots nullified
-    // Note: If multiple L graphemes are adjacent, the L graphemes themselves remain active
-    // while their respective neighbors are nullified (e.g., L in slots 3 and 4 deactivates 2 and 5)
-    if (graphemeLSlots.length > 0) {
-      const effectiveAssignments = [...assignments];
-      for (const lSlot of graphemeLSlots) {
-        // Deactivate left neighbor (slot - 1)
-        if (lSlot > 0) {
-          effectiveAssignments[lSlot - 1] = null;
-        }
-        // Deactivate right neighbor (slot + 1)
-        if (lSlot < effectiveAssignments.length - 1) {
-          effectiveAssignments[lSlot + 1] = null;
-        }
-      }
-      return effectiveAssignments;
-    }
-    
-    // If no deactivation graphemes found, all assignments are active
-    return assignments;
-  }
-  
+  getEffectiveGraphemeAssignments(assignments) { return cwCalcGetEffectiveGraphemeAssignments.call(this, assignments); }
+
   /**
    * Calculate fire rate multiplier from second grapheme (index 1) and grapheme K (index 10) in effective assignments.
    * @param {Array} effectiveAssignments - The effective grapheme assignments for a weapon
    * @returns {number} Fire rate multiplier (1 = no change, 2 = 2x faster, etc.)
    */
-  calculateFireRateMultiplier(effectiveAssignments) {
-    let baseMultiplier = 1;
-    
-    // Check for grapheme B (index 1) - fire rate based on slot
-    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-      const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === 1) {
-        // Second grapheme found! Fire rate multiplier based on slot position
-        // Slot 0 = 1x (no change), Slot 1 = 2x faster, Slot 2 = 3x faster, etc.
-        baseMultiplier = slotIndex + 1;
-        break;
-      }
-    }
-    
-    // Check for grapheme K (index 10) - massive bullet or speed boost
-    for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-      const assignment = effectiveAssignments[slotIndex];
-      if (assignment && assignment.index === GRAPHEME_INDEX.K) {
-        if (slotIndex === 7) {
-          // Slot 8 (index 7): Speed boost mode - 10x attack speed
-          baseMultiplier *= MASSIVE_BULLET_CONFIG.SPEED_BOOST_MULTIPLIER;
-        } else {
-          // Slots 1-7 (indices 0-6): Massive bullet mode - 1/20 attack speed
-          baseMultiplier /= MASSIVE_BULLET_CONFIG.ATTACK_SPEED_DIVISOR;
-        }
-        break;
-      }
-    }
-    
-    return baseMultiplier;
-  }
-  
+  calculateFireRateMultiplier(effectiveAssignments) { return cwCalcCalculateFireRateMultiplier.call(this, effectiveAssignments); }
+
   /**
    * Calculate weapon attack speed (bullets per second) for a weapon.
    * @param {Object} weaponDef - The weapon definition
    * @param {number} fireRateMultiplier - Fire rate multiplier from graphemes
    * @returns {number} Attack speed in bullets per second
    */
-  calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier) {
-    const fireInterval = weaponDef.baseFireRate / fireRateMultiplier;
-    return 1000 / fireInterval; // bullets per second
-  }
-  
+  calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier) { return cwCalcCalculateWeaponAttackSpeed.call(this, weaponDef, fireRateMultiplier); }
+
   /**
    * Update shield regeneration based on fourth grapheme (index 3 - delta).
-   * Formula: 1 shield recovered over (slot_number × weapon_attack_speed) seconds
-   * where attack_speed is bullets per second for that weapon.
    */
-  updateShieldRegeneration(deltaTime) {
-    if (!this.warden || !this.canvas) return;
-    
-    const equippedWeapons = this.weapons.equipped || [];
-    const dt = deltaTime / 1000; // Convert to seconds
-    
-    for (const weaponId of equippedWeapons) {
-      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
-      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
-      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
-      if (!weaponDef) continue;
-      
-      // Check if fourth grapheme (index 3) is present in effective assignments
-      let fourthGraphemeSlot = -1;
-      for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
-        const assignment = effectiveAssignments[slotIndex];
-        if (assignment && assignment.index === 3) {
-          fourthGraphemeSlot = slotIndex;
-          break;
-        }
-      }
-      
-      // Skip if no fourth grapheme found
-      if (fourthGraphemeSlot === -1) continue;
-      
-      // Calculate weapon's attack speed (bullets per second)
-      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
-      const attackSpeed = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
-      
-      // Calculate time needed to recover 1 shield
-      // Formula: 1 / (slot_number × attack_speed) seconds per shield
-      // Slot numbering starts at 1 for formula (slot 0 = 1, slot 1 = 2, etc.)
-      const slotNumber = fourthGraphemeSlot + 1;
-      
-      // Guard against division by zero
-      if (slotNumber <= 0 || attackSpeed <= 0) continue;
-      
-      const timePerShield = 1 / (slotNumber * attackSpeed);
-      
-      // Initialize accumulator if needed
-      const key = `${weaponId}_slot${fourthGraphemeSlot}`;
-      if (this.shieldRegenAccumulators[key] === undefined) {
-        this.shieldRegenAccumulators[key] = 0;
-      }
-      
-      // Accumulate time
-      this.shieldRegenAccumulators[key] += dt;
-      
-      // Check if we've accumulated enough time to recover a shield
-      while (this.shieldRegenAccumulators[key] >= timePerShield) {
-        this.shieldRegenAccumulators[key] -= timePerShield;
-        this.regenerateShield();
-      }
-    }
-  }
-  
+  updateShieldRegeneration(deltaTime) { cwCalcUpdateShieldRegeneration.call(this, deltaTime); }
+
   /**
    * Regenerate one shield/life for the player.
-   * Reverses the life line state progression: gone → dashed → solid
-   * Priority: Restore dashed to solid before gone to dashed (complete partial healing first)
    */
-  regenerateShield() {
-    // First pass: Look for dashed lines to restore to solid (prioritize completing partial healing)
-    for (let i = 0; i < this.lifeLines.length; i++) {
-      if (this.lifeLines[i].state === 'dashed') {
-        this.lifeLines[i].state = 'solid';
-        return;
-      }
-    }
-    
-    // Second pass: If no dashed lines, restore a gone line to dashed (start new healing)
-    for (let i = 0; i < this.lifeLines.length; i++) {
-      if (this.lifeLines[i].state === 'gone') {
-        this.lifeLines[i].state = 'dashed';
-        return;
-      }
-    }
-  }
-  
+  regenerateShield() { cwCalcRegenerateShield.call(this); }
+
   /**
    * Update weapon timers and fire bullets when ready.
-   * All 8 weapon slots are always active.
    */
-  updateWeaponTimers(deltaTime) {
-    if (!this.warden || !this.canvas) return;
-    
-    // All weapon slots are always active
-    const equippedWeapons = this.weapons.equipped || [];
-    
-    // Decay glow state smoothly and quickly
-    const glowDecayRate = 3.0; // Higher = faster decay
-    for (const weaponId of equippedWeapons) {
-      if (this.weaponGlowState && this.weaponGlowState[weaponId] > 0) {
-        this.weaponGlowState[weaponId] = Math.max(0, this.weaponGlowState[weaponId] - (glowDecayRate * deltaTime / 1000));
-      }
-    }
-    
-    for (const weaponId of equippedWeapons) {
-      const weaponDef = WEAPON_SLOT_DEFINITIONS[weaponId];
-      if (!weaponDef) continue;
-      
-      // Initialize timer if needed
-      if (this.weaponTimers[weaponId] === undefined) {
-        this.weaponTimers[weaponId] = 0;
-      }
-      
-      // Calculate fire rate multiplier from second grapheme (index 1)
-      // Use effective assignments to respect third grapheme deactivation
-      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
-      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
-      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
-      
-      // Apply weapon-specific speed upgrade multiplier
-      const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
-      
-      // For weapons that aren't purchased, set fire rate to 60 minutes
-      // This effectively prevents them from firing while locked
-      const isPurchased = this.weapons.purchased[weaponId];
-      const baseFireInterval = isPurchased ? weaponDef.baseFireRate : GAME_CONFIG.LOCKED_WEAPON_FIRE_INTERVAL;
-      
-      // Apply fire rate multiplier by dividing the interval (higher multiplier = faster shooting)
-      const fireInterval = baseFireInterval / (fireRateMultiplier * weaponSpeedMult);
-      
-      this.weaponTimers[weaponId] += deltaTime;
-      
-      if (this.weaponTimers[weaponId] >= fireInterval) {
-        this.weaponTimers[weaponId] = 0;
-        this.fireWeapon(weaponId);
-      }
-      
-      // Check for grapheme M (index 12) - Mine spawning
-      let hasMineGrapheme = false;
-      // Track dagesh mine modifiers to boost spawn frequency and damage.
-      let useDageshMine = false;
-      let mineSpawnDivisor = MINE_CONFIG.SPAWN_RATE_DIVISOR;
-      for (const assignment of effectiveAssignments) {
-        if (assignment && assignment.index === GRAPHEME_INDEX.M) {
-          hasMineGrapheme = true;
-          break;
-        }
-        if (assignment && assignment.index === GRAPHEME_INDEX.M_DAGESH) {
-          hasMineGrapheme = true;
-          useDageshMine = true;
-          mineSpawnDivisor = DAGESH_CONFIG.M.SPAWN_RATE_DIVISOR;
-          break;
-        }
-      }
-      
-      if (hasMineGrapheme) {
-        // Initialize mine spawn accumulator if needed
-        if (this.mineSpawnAccumulators[weaponId] === undefined) {
-          this.mineSpawnAccumulators[weaponId] = 0;
-        }
-        
-        // Calculate mine spawn rate: (shots per second) / 20
-        const shotsPerSecond = this.calculateWeaponAttackSpeed(weaponDef, fireRateMultiplier);
-        const mineSpawnRate = shotsPerSecond / mineSpawnDivisor;
-        const mineSpawnInterval = 1000 / mineSpawnRate; // Interval in milliseconds
-        
-        this.mineSpawnAccumulators[weaponId] += deltaTime;
-        
-        if (this.mineSpawnAccumulators[weaponId] >= mineSpawnInterval) {
-          this.mineSpawnAccumulators[weaponId] = 0;
-          this.spawnMine(weaponId, { useDagesh: useDageshMine });
-        }
-      }
-    }
-  }
+  updateWeaponTimers(deltaTime) { cwCalcUpdateWeaponTimers.call(this, deltaTime); }
   
   /**
    * Fire a simple bullet from a specific weapon slot toward the aim target.
