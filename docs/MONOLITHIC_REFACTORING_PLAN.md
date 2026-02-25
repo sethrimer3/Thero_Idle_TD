@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 529):**
+- EnemyLifecycleSystem.js created in `assets/playfield/systems/`: 320 lines (Phase 1 - enemy spawn, debuff resolution, defeat/breach, victory/defeat handling extracted from SimplePlayfield)
+  - Moved: spawnEnemies, resolveActiveDebuffTypes, syncEnemyDebuffIndicators, handleEnemyBreach, processEnemyDefeat, handleVictory, handleDefeat (7 methods)
+- TowerInteractionSystem.js created in `assets/playfield/systems/`: 407 lines (Phase 1 - tower placement preview, cost scribbles, hold indicators, equation scribbles, placement validation, wave retry extracted)
+  - Moved: retryCurrentWave, updatePlacementPreview, spawnTowerUpgradeCostScribble, spawnTowerHoldIndicators, spawnTowerEquationScribble, validatePlacement (6 methods)
+  - playfield.js reduced from 6,347 to 5,664 lines (683-line reduction); total reduction from 7,839: 2,175 lines (28%)
+
 **Progress Notes (Build 527-528):**
 - TowerDispatchSystem.js created in `assets/playfield/systems/`: 436 lines (Phase 1 - tower update, targeting, fire routing, and visual emission extracted from SimplePlayfield)
   - Moved: updateTowers, findTarget, resolveTowerShotDamage, emitTowerAttackVisuals, fireAtTarget (5 methods)
@@ -2039,5 +2046,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 528  
-**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction, 9 subsystem modules); Phase 1.1 continued (playfield.js: 7,839→6,347 lines, 5 new system modules Builds 526-528)
+**Last Updated:** Build 529  
+**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction, 9 subsystem modules); Phase 1.1 continued (playfield.js: 7,839→5,664 lines, 7 new system modules Builds 526-529)
