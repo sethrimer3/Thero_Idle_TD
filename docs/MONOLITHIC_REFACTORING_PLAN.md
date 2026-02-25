@@ -1146,6 +1146,27 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 525):**
+- CardinalWardenInputSystem.js created in `scripts/features/towers/cardinalWarden/`: 148 lines (Phase 2.1.6 continuation - input event handlers extracted from CardinalWardenSimulation)
+  - Moved: applyRingColors, initialize, attachInputHandlers, detachInputHandlers, attachVisibilityHandler, detachVisibilityHandler, handleVisibilityChange, handlePointerDown, handlePointerMove, handlePointerUp, clearAimTarget, getAimTarget (12 methods)
+  - Delegate prefix `cwInput`; no config imports needed (all state via `this`)
+- CardinalWardenStateAPI.js created in `scripts/features/towers/cardinalWarden/`: 571 lines (Phase 2.1.6 continuation - settings, color modes, warden health, weapon management, and public state API extracted)
+  - Moved: setNightMode, setEnemyTrailQuality, setBulletTrailLength, setLegacyWardenGraphics, getEnemyTrailMaxLength, getEnemySmokeMaxCount, getEnemyTrailQuality, getBulletTrailMaxLength, refreshEnemyColorsForMode, refreshBossColorsForMode, refreshBulletColorsForMode, resolveBulletColor, resize, getState, setState, setHighScore, setHighestWave, getHighestWave, applyUpgrade, getAvailableWeapons, purchaseWeapon, purchaseWeaponWithoutCost, upgradeWeapon, upgradeWeaponWithoutCost, applyWeaponUpgrades, getWeaponAttackMultiplier, getWeaponSpeedMultiplier, equipWeapon, unequipWeapon, isWeaponEquipped, getEquippedWeapons, getWeaponState, setWeaponState, setWeaponGraphemeAssignments, getWeaponGraphemeAssignments, setGraphemeInventoryCounts, checkGameOver, startDeathAnimation (38 methods)
+  - Delegate prefix `cwState`; includes private `lightenHexColor` copy; imports WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, VISUAL_CONFIG from cardinalWardenConfig.js
+  - cardinalWardenSimulation.js reduced from 1,825 to 1,491 lines (334-line reduction)
+  - **Phase 2.1.6 target of ~1,500 lines achieved**: cardinalWardenSimulation.js is 1,491 lines (total reduction from 6,339: 76%)
+
+**Progress Notes (Build 523-524):**
+- CardinalWardenSpawnSystem.js created in `scripts/features/towers/cardinalWarden/`: 516 lines (Phase 2.1.6 continuation - enemy/boss spawn, death animation, respawn lifecycle extracted)
+  - Moved: updateDeathAnimation, createExplosionParticles, startRespawnAnimation, updateRespawnAnimation, getEnemySpawnInterval, spawnEnemy, getEnemyTypePool, getBossSpawnInterval, getBossTypePool, spawnBoss, handleWaveBossSpawns, spawnSpecificBoss, updateBosses, spawnShipFromBoss, updateEnemies (15 methods); delegate prefix `cwSpawn`
+- CardinalWardenCombatSystem.js created in `scripts/features/towers/cardinalWarden/`: 666 lines (Phase 2.1.6 continuation - bullet update, collision detection, score/damage, waves/mines)
+  - Moved: tryBounceBulletOffTrails, updateBullets, checkCollisions, checkBeamCollisions, addScore, spawnScorePopup, spawnDamageNumber, updateScorePopups, updateDamageNumbers, updateExpandingWaves, updateMines (11 methods); delegate prefix `cwCombat`
+  - cardinalWardenSimulation.js reduced from 3,366 to 2,372 lines (994-line combined reduction for Builds 523-524)
+- CardinalWardenSpriteSystem.js created in `scripts/features/towers/cardinalWarden/`: 375 lines (Phase 2.1.6 - sprite loading, color mode, tinted grapheme cache); delegate prefix `cwSprite`
+- CardinalWardenCalculations.js created in `scripts/features/towers/cardinalWarden/`: 311 lines (Phase 2.1.6 - grapheme assignment resolution, fire rate math, shield regen, weapon timers); delegate prefix `cwCalc`
+  - cardinalWardenSimulation.js reduced from 2,372 to 1,825 lines (547-line combined reduction for Builds 523-524)
+- SHIN sprite URL arrays and resolveBossSpriteForWave moved to cardinalWardenConfig.js as exports
+
 **Progress Notes (Build 522):**
 - CardinalWardenWeaponSystem.js created in `scripts/features/towers/cardinalWarden/`: 972 lines (Phase 2.1.6 continuation - weapon firing, mine spawning, friendly ship and swarm ship logic extracted from CardinalWardenSimulation)
   - Moved: fireWeapon, spawnMine, updateFriendlyShips, checkFriendlyShipCollisions, updateSwarmShips, checkSwarmLaserCollisions (6 methods)
@@ -1999,5 +2020,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 522  
-**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js + CardinalWardenEntities.js + CardinalWardenWeaponSystem.js extracted); Phase 3 and Phase 4 continued
+**Last Updated:** Build 525  
+**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction; 9 subsystem modules extracted); Phase 3 and Phase 4 continued
