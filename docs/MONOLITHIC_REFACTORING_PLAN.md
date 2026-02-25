@@ -1146,6 +1146,20 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 516–518):**
+- fluidTerrariumPlacementSystem.js created in `assets/`: 1,094 lines (Phase 4 continuation - all placement overlay, preview/confirmation, container events, bounds management, terrain mask, cave zone, and mask loading methods extracted from FluidTerrariumTrees)
+  - Moved: CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH/HEIGHT/PADDING, TERRAIN_SEARCH_MIN_RADIUS/PERCENTAGE, PLACEMENT_DIMENSIONS constants; initializeOverlay, hidePlacementPreview, updatePlacementPreview, showPlacementConfirmation, hidePlacementConfirmation, queuePlacementForConfirmation, handleCancelPlacement, handleConfirmPlacement, commitPendingPlacement, clearPendingPlacement, handleContainerPointerMove, handleContainerPointerLeave, handleContainerClick, getNormalizedPointFromClient, getPlacementValidity, isPlacementLocationValid, getCombinedAnchors, createPlacementAnchor, getPlacementId, createEphemeralTreeState, placeActiveStoreItem, observeContainer, handleResize, refreshBounds, updateRenderBounds, resolveCaveZones, isPointInCaveZone, requiresTerrainSurface, isPointOnWalkableTerrain, buildWalkableMask, syncLevelingMode, setCameraMode, emitState, loadMasks, handleMaskLoad, extractAnchorsFromMask (36 methods)
+  - fluidTerrariumTrees.js reduced from 1,484 to 642 lines (842-line reduction); all methods replaced with thin `.call(this)` delegates using `fttps` prefix
+  - fluidTerrariumPlacementSystem.js imports only STORE_STATUS_DEFAULT from fluidTerrariumStoreSystem.js; all other state accessed via `this`
+- betSpireMergeSystem.js created in `assets/`: 495 lines (Phase 4 continuation - particle merge, tier conversion, inventory tracking, and active merge processing extracted from BetSpireRender)
+  - Moved: updateInventory, canStartNewMerge, selectRandomParticles, getGeneratorCenterForTier, enforceParticleLimit, attemptMerge, attemptTierConversion, attemptLargeTierMerge, processActiveMerges (9 methods)
+  - betSpireRender.js reduced from 1,221 to 793 lines (428-line reduction); all methods replaced with thin `.call(this)` delegates using `betMerge` prefix
+  - betSpireMergeSystem.js imports SMALL_SIZE_INDEX, MEDIUM_SIZE_INDEX, LARGE_SIZE_INDEX, EXTRA_LARGE_SIZE_INDEX, MERGE_THRESHOLD, MERGE_GATHER_THRESHOLD, MERGE_TIMEOUT_MS, PERFORMANCE_THRESHOLD, GENERATOR_CONVERSION_RADIUS, CONVERSION_SPREAD_VELOCITY, PARTICLE_TIERS, SIZE_TIERS, SPAWNER_POSITIONS, TWO_PI, MAX_PARTICLES from betSpireConfig.js; Particle from betSpireParticle.js
+- kufTrainingSystem.js created in `assets/`: 243 lines (Phase 4 continuation - HUD layout, toolbar slot handling, unit training queue, and core ship initialization extracted from KufBattlefieldSimulation)
+  - Moved: getHudLayout, getToolbarSlotIndex, getTrainingSpecForSlot, cycleToolbarSlotUnit, clearToolbarGlow, handleToolbarTap, tryStartTraining, updateTraining, spawnTrainedUnit, getBaseWorldPosition, initializeCoreShip (11 methods)
+  - kufSimulation.js reduced from 1,088 to 937 lines (151-line reduction); all methods replaced with thin `.call(this)` delegates using `kufTraining` prefix
+  - kufTrainingSystem.js imports KUF_HUD_LAYOUT, KUF_TRAINING_CATALOG, KUF_EQUIPPABLE_UNIT_IDS, KUF_CORE_SHIP_COMBAT, WORKER_BASE_COST, WORKER_COST_INCREMENT from kufSimulationConfig.js
+
 **Progress Notes (Build 515):**
 - tsadiBindingSystem.js created in `scripts/features/towers/`: 665 lines (Phase 3 continuation - all binding agent and molecule discovery methods extracted from ParticleFusionSimulation)
   - Moved: getBindingAgentRadius, getBindingAgentMass, getBindingRodRange, getAvailableBindingAgents, setAvailableBindingAgents, addBindingAgents, setBindingAgentPreview, clearBindingAgentPreview, placeBindingAgent, findBindingAgentNear, disbandBindingAgentAt, normalizeMoleculeDescriptor, seedDiscoveredMolecules, recordDiscoveredMolecule, finalizeMoleculeDiscovery, queuePendingMolecule, processPendingMolecules, collectPendingMoleculesAt, flushPendingMolecules, areAdvancedMoleculesUnlocked, createCombinationDescriptor, recalculateMoleculeBonuses, popBindingAgent, updateBindingAgents, getDiscoveredMolecules, hasValidCombination (26 methods)
@@ -1384,6 +1398,9 @@ Update this section as refactoring progresses:
 - [x] Bet Spire draw system extracted (Build 514) - `betSpireDrawSystem.js` (405 lines): animate + 3 draw helpers extracted; betSpireRender.js reduced from 1,751 to 1,221 lines
 - [x] Tsadi binding system extracted (Build 515) - `tsadiBindingSystem.js` (665 lines): 26 binding agent/molecule discovery methods extracted from ParticleFusionSimulation; tsadiTower.js reduced from 1,847 to 1,366 lines
 - [x] Fluid Terrarium store system extracted (Build 515) - `fluidTerrariumStoreSystem.js` (1,063 lines): DEFAULT_TERRARIUM_STORE_ITEMS array + STORE_STATUS_DEFAULT constant + 33 store panel/drag methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,313 to 1,484 lines
+- [x] Fluid Terrarium placement system extracted (Build 516) - `fluidTerrariumPlacementSystem.js` (1,094 lines): 36 placement overlay/preview/confirmation/bounds/mask methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 1,484 to 642 lines
+- [x] Bet Spire merge system extracted (Build 517) - `betSpireMergeSystem.js` (495 lines): 9 merge/conversion/inventory methods extracted from BetSpireRender; betSpireRender.js reduced from 1,221 to 793 lines
+- [x] Kuf training system extracted (Build 518) - `kufTrainingSystem.js` (243 lines): 11 HUD/toolbar/training/core-ship methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,088 to 937 lines
 
 #### Phase 5: Stylesheet Refactoring
 - [ ] CSS layer structure created
