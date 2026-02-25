@@ -1146,6 +1146,13 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 520):**
+- CardinalWardenRenderer.js created in `scripts/features/towers/cardinalWarden/`: 1,502 lines (Phase 2.1.6 continuation - all render methods extracted from CardinalWardenSimulation)
+  - Moved: renderScriptChar, renderWardenName, renderScorePopups, renderDamageNumbers, render, renderDeathAnimation, renderRespawnAnimation, renderWarden, renderAimTarget, renderWeaponTargets, renderFriendlyShips, renderEnemies, renderBosses, renderCircleCarrierBoss, renderPyramidBoss, renderHexagonFortressBoss, renderMegaBoss, renderUltraBoss, renderBullets, renderBeams, renderExpandingWaves, renderMines, renderSwarmShips, renderSwarmLasers, initializeLifeLines, updateLifeLine, renderUI (27 methods)
+  - cardinalWardenSimulation.js reduced from 6,339 to 5,049 lines (1,290-line reduction); all methods replaced with thin `.call(this)` delegates using `renderCw` prefix
+  - CardinalWardenRenderer.js imports samplePaletteGradient from colorSchemeUtils.js; ELEMENTAL_CONFIG, VISUAL_CONFIG, LIFE_LINES_CONFIG, UI_CONFIG, WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS from cardinalWardenConfig.js; render delegates from BeamSystem, WaveSystem, MineSystem, SwarmSystem
+  - lightenHexColor utility duplicated locally in renderer (also retained in simulation for resolveBulletColor); samplePaletteGradient removed from simulation imports; renderBeamsSystem/renderWaveSystem/renderMinesSystem/renderSwarmShipsSystem/renderSwarmLasersSystem aliases removed from simulation
+
 **Progress Notes (Build 516–518):**
 - fluidTerrariumPlacementSystem.js created in `assets/`: 1,094 lines (Phase 4 continuation - all placement overlay, preview/confirmation, container events, bounds management, terrain mask, cave zone, and mask loading methods extracted from FluidTerrariumTrees)
   - Moved: CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH/HEIGHT/PADDING, TERRAIN_SEARCH_MIN_RADIUS/PERCENTAGE, PLACEMENT_DIMENSIONS constants; initializeOverlay, hidePlacementPreview, updatePlacementPreview, showPlacementConfirmation, hidePlacementConfirmation, queuePlacementForConfirmation, handleCancelPlacement, handleConfirmPlacement, commitPendingPlacement, clearPendingPlacement, handleContainerPointerMove, handleContainerPointerLeave, handleContainerClick, getNormalizedPointFromClient, getPlacementValidity, isPlacementLocationValid, getCombinedAnchors, createPlacementAnchor, getPlacementId, createEphemeralTreeState, placeActiveStoreItem, observeContainer, handleResize, refreshBounds, updateRenderBounds, resolveCaveZones, isPointInCaveZone, requiresTerrainSurface, isPointOnWalkableTerrain, buildWalkableMask, syncLevelingMode, setCameraMode, emitState, loadMasks, handleMaskLoad, extractAnchorsFromMask (36 methods)
@@ -1978,5 +1985,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 508  
-**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted; kufCombatSystem.js extracted)
+**Last Updated:** Build 520  
+**Status:** Phase 2.1.6 continued (CardinalWardenRenderer.js extracted); Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted; kufCombatSystem.js extracted; CardinalWardenRenderer.js extracted)
