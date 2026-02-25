@@ -63,9 +63,7 @@
 
 import {
   GAME_CONFIG,
-  WEAPON_SLOT_IDS,
   WEAPON_SLOT_DEFINITIONS,
-  LEGACY_WEAPON_DEFINITIONS,
   VISUAL_CONFIG,
 } from './cardinalWardenConfig.js';
 import {
@@ -161,33 +159,62 @@ import {
   regenerateShield as cwCalcRegenerateShield,
   updateWeaponTimers as cwCalcUpdateWeaponTimers,
 } from './cardinalWarden/CardinalWardenCalculations.js';
+import {
+  applyRingColors as cwInputApplyRingColors,
+  initialize as cwInputInitialize,
+  attachInputHandlers as cwInputAttachInputHandlers,
+  detachInputHandlers as cwInputDetachInputHandlers,
+  attachVisibilityHandler as cwInputAttachVisibilityHandler,
+  detachVisibilityHandler as cwInputDetachVisibilityHandler,
+  handleVisibilityChange as cwInputHandleVisibilityChange,
+  handlePointerDown as cwInputHandlePointerDown,
+  handlePointerMove as cwInputHandlePointerMove,
+  handlePointerUp as cwInputHandlePointerUp,
+  clearAimTarget as cwInputClearAimTarget,
+  getAimTarget as cwInputGetAimTarget,
+} from './cardinalWarden/CardinalWardenInputSystem.js';
+import {
+  setNightMode as cwStateSetNightMode,
+  setEnemyTrailQuality as cwStateSetEnemyTrailQuality,
+  setBulletTrailLength as cwStateSetBulletTrailLength,
+  setLegacyWardenGraphics as cwStateSetLegacyWardenGraphics,
+  getEnemyTrailMaxLength as cwStateGetEnemyTrailMaxLength,
+  getEnemySmokeMaxCount as cwStateGetEnemySmokeMaxCount,
+  getEnemyTrailQuality as cwStateGetEnemyTrailQuality,
+  getBulletTrailMaxLength as cwStateGetBulletTrailMaxLength,
+  refreshEnemyColorsForMode as cwStateRefreshEnemyColorsForMode,
+  refreshBossColorsForMode as cwStateRefreshBossColorsForMode,
+  refreshBulletColorsForMode as cwStateRefreshBulletColorsForMode,
+  resolveBulletColor as cwStateResolveBulletColor,
+  checkGameOver as cwStateCheckGameOver,
+  startDeathAnimation as cwStateStartDeathAnimation,
+  resize as cwStateResize,
+  getState as cwStateGetState,
+  setState as cwStateSetState,
+  setHighScore as cwStateSetHighScore,
+  setHighestWave as cwStateSetHighestWave,
+  getHighestWave as cwStateGetHighestWave,
+  applyUpgrade as cwStateApplyUpgrade,
+  getAvailableWeapons as cwStateGetAvailableWeapons,
+  purchaseWeapon as cwStatePurchaseWeapon,
+  purchaseWeaponWithoutCost as cwStatePurchaseWeaponWithoutCost,
+  upgradeWeapon as cwStateUpgradeWeapon,
+  upgradeWeaponWithoutCost as cwStateUpgradeWeaponWithoutCost,
+  applyWeaponUpgrades as cwStateApplyWeaponUpgrades,
+  getWeaponAttackMultiplier as cwStateGetWeaponAttackMultiplier,
+  getWeaponSpeedMultiplier as cwStateGetWeaponSpeedMultiplier,
+  equipWeapon as cwStateEquipWeapon,
+  unequipWeapon as cwStateUnequipWeapon,
+  isWeaponEquipped as cwStateIsWeaponEquipped,
+  getEquippedWeapons as cwStateGetEquippedWeapons,
+  getWeaponState as cwStateGetWeaponState,
+  setWeaponState as cwStateSetWeaponState,
+  setWeaponGraphemeAssignments as cwStateSetWeaponGraphemeAssignments,
+  getWeaponGraphemeAssignments as cwStateGetWeaponGraphemeAssignments,
+  setGraphemeInventoryCounts as cwStateSetGraphemeInventoryCounts,
+} from './cardinalWarden/CardinalWardenStateAPI.js';
 
 // Configuration constants now imported from cardinalWardenConfig.js
-
-/**
- * Lighten a hex color by blending it toward white.
- */
-function lightenHexColor(hex, amount = 0.2) {
-  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
-  if (normalized.length !== 6) {
-    return hex;
-  }
-
-  const num = parseInt(normalized, 16);
-  const r = (num >> 16) & 0xff;
-  const g = (num >> 8) & 0xff;
-  const b = num & 0xff;
-
-  const mix = (channel) => Math.round(channel + (255 - channel) * amount);
-
-  const nr = mix(r);
-  const ng = mix(g);
-  const nb = mix(b);
-
-  return `#${nr.toString(16).padStart(2, '0')}${ng.toString(16).padStart(2, '0')}${nb
-    .toString(16)
-    .padStart(2, '0')}`;
-}
 
 // WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, and ENEMY_TYPES
 // now imported from cardinalWardenConfig.js
@@ -531,255 +558,131 @@ export class CardinalWardenSimulation {
   /**
    * Propagate ring colors to existing warden rings so mode toggles are immediate.
    */
-  applyRingColors() {
-    if (!this.warden) return;
-    for (const ring of this.warden.ringSquares) {
-      ring.strokeColor = this.ringStrokeColor;
-    }
-  }
+  applyRingColors() { cwInputApplyRingColors.call(this); }
 
-  initialize() {
-    if (!this.canvas) return;
-    this.initWarden();
-    this.applyRingColors();
-    this.attachInputHandlers();
-    this.attachVisibilityHandler();
-  }
+  initialize() { cwInputInitialize.call(this); }
 
   /**
    * Attach input event handlers for aiming.
    */
-  attachInputHandlers() {
-    if (!this.canvas) return;
-    this.canvas.addEventListener('pointerdown', this.handlePointerDown);
-    this.canvas.addEventListener('pointermove', this.handlePointerMove);
-    this.canvas.addEventListener('pointerup', this.handlePointerUp);
-    this.canvas.addEventListener('pointercancel', this.handlePointerUp);
-    this.canvas.addEventListener('pointerleave', this.handlePointerUp);
-  }
+  attachInputHandlers() { cwInputAttachInputHandlers.call(this); }
 
   /**
    * Detach input event handlers.
    */
-  detachInputHandlers() {
-    if (!this.canvas) return;
-    this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
-    this.canvas.removeEventListener('pointermove', this.handlePointerMove);
-    this.canvas.removeEventListener('pointerup', this.handlePointerUp);
-    this.canvas.removeEventListener('pointercancel', this.handlePointerUp);
-    this.canvas.removeEventListener('pointerleave', this.handlePointerUp);
-  }
+  detachInputHandlers() { cwInputDetachInputHandlers.call(this); }
 
   /**
    * Attach visibility change handler to re-enable input when tab becomes visible.
    */
-  attachVisibilityHandler() {
-    if (typeof document === 'undefined') return;
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
-  }
+  attachVisibilityHandler() { cwInputAttachVisibilityHandler.call(this); }
 
   /**
    * Detach visibility change handler.
    */
-  detachVisibilityHandler() {
-    if (typeof document === 'undefined') return;
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-  }
+  detachVisibilityHandler() { cwInputDetachVisibilityHandler.call(this); }
 
   /**
    * Handle visibility change events - re-attach input handlers when tab becomes visible.
    */
-  handleVisibilityChange() {
-    if (document.visibilityState === 'visible') {
-      // Re-attach input handlers when tab becomes visible
-      this.detachInputHandlers();
-      this.attachInputHandlers();
-    }
-  }
+  handleVisibilityChange() { cwInputHandleVisibilityChange.call(this); }
 
   /**
    * Handle pointer down events for setting aim target.
    * @param {PointerEvent} event - The pointer event
    */
-  handlePointerDown(event) {
-    if (!this.canvas || this.gamePhase !== 'playing') return;
-    
-    // Track this pointer for drag-based aiming
-    this.aimPointerId = event.pointerId;
-    
-    // Get canvas-relative coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-    
-    const x = (event.clientX - rect.left) * scaleX;
-    const y = (event.clientY - rect.top) * scaleY;
-    
-    // Set the aim target
-    this.aimTarget = { x, y };
-  }
+  handlePointerDown(event) { cwInputHandlePointerDown.call(this, event); }
 
   /**
    * Handle pointer move events for dynamic aim target updating during drag.
    * @param {PointerEvent} event - The pointer event
    */
-  handlePointerMove(event) {
-    // Only update if we're tracking this pointer (started with pointerdown on canvas)
-    if (!this.canvas || this.aimPointerId !== event.pointerId || this.gamePhase !== 'playing') return;
-    
-    // Get canvas-relative coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const scaleX = this.canvas.width / rect.width;
-    const scaleY = this.canvas.height / rect.height;
-    
-    const x = (event.clientX - rect.left) * scaleX;
-    const y = (event.clientY - rect.top) * scaleY;
-    
-    // Update the aim target dynamically
-    this.aimTarget = { x, y };
-  }
+  handlePointerMove(event) { cwInputHandlePointerMove.call(this, event); }
 
   /**
    * Handle pointer up/cancel/leave events to stop tracking aim pointer.
    * @param {PointerEvent} event - The pointer event
    */
-  handlePointerUp(event) {
-    if (this.aimPointerId === event.pointerId) {
-      this.aimPointerId = null;
-    }
-  }
+  handlePointerUp(event) { cwInputHandlePointerUp.call(this, event); }
 
   /**
    * Clear the aim target (weapons will fire straight up).
    */
-  clearAimTarget() {
-    this.aimTarget = null;
-  }
+  clearAimTarget() { cwInputClearAimTarget.call(this); }
 
   /**
    * Get the current aim target.
    * @returns {Object|null} The aim target {x, y} or null
    */
-  getAimTarget() {
-    return this.aimTarget;
-  }
+  getAimTarget() { return cwInputGetAimTarget.call(this); }
 
   /**
    * Toggle the render palette between day and night variants.
    */
-  setNightMode(enabled) {
-    this.nightMode = Boolean(enabled);
-    this.applyColorMode();
-    this.applyRingColors();
-    this.refreshEnemyColorsForMode();
-    this.refreshBulletColorsForMode();
-    this.refreshBossColorsForMode();
-  }
+  setNightMode(enabled) { cwStateSetNightMode.call(this, enabled); }
 
   /**
    * Set enemy trail quality setting.
    * @param {string} quality - 'low', 'medium', or 'high'
    */
-  setEnemyTrailQuality(quality) {
-    const validQualities = ['low', 'medium', 'high'];
-    this.enemyTrailQuality = validQualities.includes(quality) ? quality : 'high';
-  }
+  setEnemyTrailQuality(quality) { cwStateSetEnemyTrailQuality.call(this, quality); }
 
   /**
    * Set bullet trail length setting.
    * @param {string} length - 'none', 'short', 'medium', or 'long'
    */
-  setBulletTrailLength(length) {
-    const validLengths = ['none', 'short', 'medium', 'long'];
-    this.bulletTrailLength = validLengths.includes(length) ? length : 'long';
-  }
+  setBulletTrailLength(length) { cwStateSetBulletTrailLength.call(this, length); }
   
   /**
    * Set legacy warden graphics mode.
    * @param {boolean} enabled - True to use old canvas rendering, false for new sprites
    */
-  setLegacyWardenGraphics(enabled) {
-    this.legacyWardenGraphics = Boolean(enabled);
-  }
+  setLegacyWardenGraphics(enabled) { cwStateSetLegacyWardenGraphics.call(this, enabled); }
 
   /**
    * Get the max trail length for enemies (always full length for gameplay).
    * @returns {number} Max trail entries
    */
-  getEnemyTrailMaxLength() {
-    // Trail length is always max for gameplay (collision detection)
-    return 28;
-  }
+  getEnemyTrailMaxLength() { return cwStateGetEnemyTrailMaxLength.call(this); }
 
   /**
    * Get the max smoke puffs for enemies (always full for gameplay).
    * @returns {number} Max smoke puffs
    */
-  getEnemySmokeMaxCount() {
-    // Smoke puffs always at max for gameplay
-    return 60;
-  }
+  getEnemySmokeMaxCount() { return cwStateGetEnemySmokeMaxCount.call(this); }
   
   /**
    * Get the enemy trail quality for rendering.
    * @returns {string} Quality level: 'low', 'medium', or 'high'
    */
-  getEnemyTrailQuality() {
-    return this.enemyTrailQuality || 'high';
-  }
+  getEnemyTrailQuality() { return cwStateGetEnemyTrailQuality.call(this); }
 
   /**
    * Get the max trail length for bullets based on current setting.
    * Bullets now have 4x longer trails by default (40 vs original 10).
    * @returns {number} Max trail entries
    */
-  getBulletTrailMaxLength() {
-    switch (this.bulletTrailLength) {
-      case 'none': return 0;
-      case 'short': return 10;
-      case 'medium': return 20;
-      case 'long': return 40;
-      default: return 40;
-    }
-  }
+  getBulletTrailMaxLength() { return cwStateGetBulletTrailMaxLength.call(this); }
 
   /**
    * Keep current enemies aligned with the active color mode.
    */
-  refreshEnemyColorsForMode() {
-    for (const enemy of this.enemies) {
-      enemy.color = this.nightMode ? '#ffffff' : enemy.baseColor;
-    }
-  }
+  refreshEnemyColorsForMode() { cwStateRefreshEnemyColorsForMode.call(this); }
 
   /**
    * Keep current bosses aligned with the active color mode.
    */
-  refreshBossColorsForMode() {
-    for (const boss of this.bosses) {
-      boss.color = this.nightMode ? '#ffffff' : boss.baseColor;
-    }
-  }
+  refreshBossColorsForMode() { cwStateRefreshBossColorsForMode.call(this); }
 
   /**
    * Lighten existing bullets when night mode is enabled for consistency.
    */
-  refreshBulletColorsForMode() {
-    for (const bullet of this.bullets) {
-      const sourceColor = bullet.baseColor || bullet.color;
-      bullet.color = this.resolveBulletColor(sourceColor);
-    }
-  }
+  refreshBulletColorsForMode() { cwStateRefreshBulletColorsForMode.call(this); }
 
   /**
    * Resolve an appropriate bullet tint for the active palette.
    */
-  resolveBulletColor(baseColor) {
-    if (this.nightMode) {
-      return lightenHexColor(baseColor || this.bulletColor, 0.35);
-    }
-    return baseColor || this.bulletColor;
-  }
+  resolveBulletColor(baseColor) { return cwStateResolveBulletColor.call(this, baseColor); }
 
   initWarden() {
     if (!this.canvas) return;
@@ -1317,46 +1220,12 @@ export class CardinalWardenSimulation {
   /**
    * Check if game over conditions are met.
    */
-  checkGameOver() {
-    const gameOver = this.enemiesPassedThrough >= this.maxEnemiesPassedThrough ||
-                     (this.warden && this.warden.health <= 0);
-
-    if (gameOver && this.gamePhase === 'playing') {
-      // Check for new high score before updating
-      const isNewHighScore = this.score > this.highScore;
-      
-      // Update high score before death animation
-      if (isNewHighScore) {
-        this.highScore = this.score;
-        if (this.onHighScoreChange) {
-          this.onHighScoreChange(this.highScore);
-        }
-      }
-
-      if (this.onGameOver) {
-        this.onGameOver({
-          score: this.score,
-          highScore: this.highScore,
-          wave: this.wave,
-          highestWave: this.highestWave,
-          isNewHighScore: isNewHighScore,
-        });
-      }
-
-      // Start death animation instead of immediate reset
-      this.startDeathAnimation();
-    }
-  }
+  checkGameOver() { cwStateCheckGameOver.call(this); }
   
   /**
    * Start the death animation sequence.
    */
-  startDeathAnimation() {
-    this.gamePhase = 'death';
-    this.deathAnimTimer = 0;
-    this.deathShakeIntensity = 0;
-    this.deathExplosionParticles = [];
-  }
+  startDeathAnimation() { cwStateStartDeathAnimation.call(this); }
 
   /**
    * Render the game.
@@ -1478,197 +1347,70 @@ export class CardinalWardenSimulation {
   /**
    * Handle canvas resize.
    */
-  resize(width, height) {
-    if (!this.canvas) return;
-
-    this.canvas.width = width;
-    this.canvas.height = height;
-
-    // Reposition warden
-    if (this.warden) {
-      this.warden.x = width / 2;
-      this.warden.y = height * 0.75;
-    }
-  }
+  resize(width, height) { cwStateResize.call(this, width, height); }
 
   /**
    * Get the current game state for persistence.
    */
-  getState() {
-    return {
-      score: this.score,
-      highScore: this.highScore,
-      highestWave: this.highestWave,
-      wave: this.wave,
-      difficultyLevel: this.difficultyLevel,
-      upgrades: { ...this.upgrades },
-      weapons: {
-        purchased: { ...this.weapons.purchased },
-        levels: { ...this.weapons.levels },
-        activeWeaponId: this.weapons.activeWeaponId,
-      },
-      baseHealthLevel: this.baseHealthLevel,
-    };
-  }
+  getState() { return cwStateGetState.call(this); }
 
   /**
    * Restore game state.
    */
-  setState(state) {
-    if (state.highScore !== undefined) {
-      this.highScore = state.highScore;
-    }
-    if (state.highestWave !== undefined) {
-      this.highestWave = state.highestWave;
-    }
-    if (state.upgrades) {
-      this.upgrades = { ...this.upgrades, ...state.upgrades };
-    }
-    if (state.weapons) {
-      this.setWeaponState(state.weapons);
-    }
-    if (state.baseHealthLevel !== undefined) {
-      this.setBaseHealthLevel(state.baseHealthLevel);
-    }
-  }
+  setState(state) { cwStateSetState.call(this, state); }
 
   /**
    * Set the high score externally.
    */
-  setHighScore(value) {
-    if (Number.isFinite(value) && value >= 0) {
-      this.highScore = value;
-    }
-  }
+  setHighScore(value) { cwStateSetHighScore.call(this, value); }
   
   /**
    * Set the highest wave externally.
    */
-  setHighestWave(value) {
-    if (Number.isFinite(value) && value >= 0) {
-      this.highestWave = Math.floor(value);
-    }
-  }
+  setHighestWave(value) { cwStateSetHighestWave.call(this, value); }
   
   /**
    * Get the highest wave reached.
    */
-  getHighestWave() {
-    return this.highestWave;
-  }
+  getHighestWave() { return cwStateGetHighestWave.call(this); }
 
   /**
    * Apply an upgrade to the Cardinal Warden.
    */
-  applyUpgrade(upgradeType, level = 1) {
-    switch (upgradeType) {
-      case 'bulletDamage':
-        this.upgrades.bulletDamage = Math.max(1, level);
-        break;
-      case 'bulletSpeed':
-        this.upgrades.bulletSpeed = Math.max(1, level);
-        break;
-      case 'bulletCount':
-        this.upgrades.bulletCount = Math.max(1, level);
-        break;
-      case 'fireRate':
-        this.upgrades.fireRate = Math.max(1, level);
-        break;
-      case 'pattern':
-        if (level && !this.upgrades.patterns.includes(level)) {
-          this.upgrades.patterns.push(level);
-        }
-        break;
-      default:
-        break;
-    }
-  }
+  applyUpgrade(upgradeType, level = 1) { cwStateApplyUpgrade.call(this, upgradeType, level); }
 
   /**
    * Get all available weapon slots with their state.
-   * All 3 slots are always active and cannot be purchased/upgraded individually.
-   * Later, lexemes can be placed into these slots to modify behavior.
    */
-  getAvailableWeapons() {
-    const weapons = [];
-    for (const weaponId of Object.keys(WEAPON_SLOT_DEFINITIONS)) {
-      const def = WEAPON_SLOT_DEFINITIONS[weaponId];
-      const isPurchased = this.weapons.purchased[weaponId] || false;
-      const level = this.weapons.levels[weaponId] || 1;
-      const isEquipped = true; // All slots are always equipped
-      const glowIntensity = this.weaponGlowState?.[weaponId] || 0;
-      const cooldownProgress = this.weaponTimers?.[weaponId] || 0;
-      
-      // Calculate actual fire interval considering graphemes and speed upgrades
-      const assignments = this.weaponGraphemeAssignments[weaponId] || [];
-      const effectiveAssignments = this.getEffectiveGraphemeAssignments(assignments);
-      const fireRateMultiplier = this.calculateFireRateMultiplier(effectiveAssignments);
-      const weaponSpeedMult = this.getWeaponSpeedMultiplier(weaponId);
-      const cooldownTotal = def.baseFireRate / (fireRateMultiplier * weaponSpeedMult);
-      
-      weapons.push({
-        id: weaponId,
-        name: def.name,
-        symbol: def.symbol,
-        description: def.description,
-        color: def.color,
-        cost: 0, // No cost - always available
-        isPurchased,
-        level,
-        maxLevel: 1, // No upgrades yet (lexemes will handle this later)
-        canUpgrade: false,
-        upgradeCost: null,
-        isEquipped,
-        canEquip: false,
-        canUnequip: false,
-        glowIntensity, // 0-1 value for UI glow effect
-        cooldownProgress, // Current cooldown timer value (ms)
-        cooldownTotal, // Total cooldown duration (ms)
-        slotIndex: def.slotIndex,
-      });
-    }
-    return weapons.sort((a, b) => a.slotIndex - b.slotIndex);
-  }
+  getAvailableWeapons() { return cwStateGetAvailableWeapons.call(this); }
 
   /**
    * Purchase a weapon using score points.
    * @deprecated All 3 weapon slots are always active - no purchase needed
    * @returns {boolean} Always returns false
    */
-  purchaseWeapon(weaponId) {
-    // All weapon slots are always active - no purchase needed
-    return false;
-  }
+  purchaseWeapon(weaponId) { return cwStatePurchaseWeapon.call(this, weaponId); }
 
   /**
    * Purchase a weapon without deducting score.
    * @deprecated All 3 weapon slots are always active - no purchase needed
    * @returns {boolean} Always returns false
    */
-  purchaseWeaponWithoutCost(weaponId) {
-    // All weapon slots are always active - no purchase needed
-    return false;
-  }
+  purchaseWeaponWithoutCost(weaponId) { return cwStatePurchaseWeaponWithoutCost.call(this, weaponId); }
 
   /**
    * Upgrade a purchased weapon.
    * @deprecated Weapon upgrades will be handled by lexemes in the future
    * @returns {boolean} Always returns false
    */
-  upgradeWeapon(weaponId) {
-    // Weapon upgrades will be handled by lexemes in the future
-    return false;
-  }
+  upgradeWeapon(weaponId) { return cwStateUpgradeWeapon.call(this, weaponId); }
 
   /**
    * Upgrade a purchased weapon without deducting score.
    * @deprecated Weapon upgrades will be handled by lexemes in the future
    * @returns {boolean} Always returns false
    */
-  upgradeWeaponWithoutCost(weaponId) {
-    // Weapon upgrades will be handled by lexemes in the future
-    return false;
-  }
+  upgradeWeaponWithoutCost(weaponId) { return cwStateUpgradeWeaponWithoutCost.call(this, weaponId); }
 
   /**
    * Apply weapon-specific upgrades (attack and speed levels).
@@ -1676,150 +1418,74 @@ export class CardinalWardenSimulation {
    * @param {number} attackLevel - Attack upgrade level
    * @param {number} speedLevel - Speed upgrade level
    */
-  applyWeaponUpgrades(weaponId, attackLevel, speedLevel) {
-    if (!this.weaponUpgrades[weaponId]) {
-      this.weaponUpgrades[weaponId] = { attackLevel: 0, speedLevel: 0 };
-    }
-    this.weaponUpgrades[weaponId].attackLevel = attackLevel;
-    this.weaponUpgrades[weaponId].speedLevel = speedLevel;
-  }
+  applyWeaponUpgrades(weaponId, attackLevel, speedLevel) { cwStateApplyWeaponUpgrades.call(this, weaponId, attackLevel, speedLevel); }
 
   /**
    * Get weapon-specific attack multiplier based on upgrade level.
    * @param {string} weaponId - The weapon ID
    * @returns {number} Attack multiplier (1.0 = no upgrades, increases with level)
    */
-  getWeaponAttackMultiplier(weaponId) {
-    const attackLevel = this.weaponUpgrades[weaponId]?.attackLevel || 0;
-    // Each level adds 10% damage
-    return 1 + (attackLevel * 0.1);
-  }
+  getWeaponAttackMultiplier(weaponId) { return cwStateGetWeaponAttackMultiplier.call(this, weaponId); }
 
   /**
    * Get weapon-specific speed multiplier based on upgrade level.
    * @param {string} weaponId - The weapon ID
    * @returns {number} Speed multiplier (1.0 = no upgrades, increases with level)
    */
-  getWeaponSpeedMultiplier(weaponId) {
-    const speedLevel = this.weaponUpgrades[weaponId]?.speedLevel || 0;
-    // Each level adds 10% fire rate
-    return 1 + (speedLevel * 0.1);
-  }
+  getWeaponSpeedMultiplier(weaponId) { return cwStateGetWeaponSpeedMultiplier.call(this, weaponId); }
 
   /**
    * Equip a weapon slot.
    * @deprecated All 3 weapon slots are always equipped
    * @returns {boolean} Always returns false
    */
-  equipWeapon(weaponId) {
-    // All 3 weapon slots are always equipped
-    return false;
-  }
+  equipWeapon(weaponId) { return cwStateEquipWeapon.call(this, weaponId); }
 
   /**
    * Unequip a weapon slot.
    * @deprecated All 3 weapon slots are always equipped
    * @returns {boolean} Always returns false
    */
-  unequipWeapon(weaponId) {
-    // All 3 weapon slots are always equipped
-    return false;
-  }
+  unequipWeapon(weaponId) { return cwStateUnequipWeapon.call(this, weaponId); }
 
   /**
    * Check if a weapon is currently equipped.
    * @param {string} weaponId - The ID of the weapon to check
    * @returns {boolean} True if equipped
    */
-  isWeaponEquipped(weaponId) {
-    return this.weapons.equipped?.includes(weaponId) || false;
-  }
+  isWeaponEquipped(weaponId) { return cwStateIsWeaponEquipped.call(this, weaponId); }
 
   /**
    * Get the list of currently equipped weapon IDs.
    * @returns {string[]} Array of equipped weapon IDs
    */
-  getEquippedWeapons() {
-    return [...(this.weapons.equipped || [])];
-  }
+  getEquippedWeapons() { return cwStateGetEquippedWeapons.call(this); }
 
   /**
    * Get current weapon state for UI.
    */
-  getWeaponState() {
-    return {
-      purchased: { ...this.weapons.purchased },
-      levels: { ...this.weapons.levels },
-      activeWeaponId: this.weapons.activeWeaponId,
-      equipped: [...(this.weapons.equipped || [])],
-    };
-  }
+  getWeaponState() { return cwStateGetWeaponState.call(this); }
 
   /**
    * Set weapon state from persistence.
    */
-  setWeaponState(state) {
-    if (state?.purchased) {
-      this.weapons.purchased = { ...this.weapons.purchased, ...state.purchased };
-    }
-    
-    if (state?.levels) {
-      this.weapons.levels = { ...this.weapons.levels, ...state.levels };
-    }
-    if (state?.activeWeaponId) {
-      this.weapons.activeWeaponId = state.activeWeaponId;
-    }
-    
-    // All 3 weapons are in the equipped list, but only fire if purchased
-    this.weapons.equipped = [...WEAPON_SLOT_IDS];
-    
-    // Initialize timers for all equipped weapons
-    for (const weaponId of WEAPON_SLOT_IDS) {
-      if (!this.weaponTimers[weaponId]) {
-        this.weaponTimers[weaponId] = 0;
-      }
-      if (this.weaponPhases[weaponId] === undefined) {
-        this.weaponPhases[weaponId] = 0; // Ensure phase accumulator exists after loading state.
-      }
-    }
-  }
+  setWeaponState(state) { cwStateSetWeaponState.call(this, state); }
 
   /**
    * Set weapon grapheme assignments for dynamic script rendering.
    * @param {Object} assignments - Object mapping weapon IDs to arrays of grapheme assignments
    */
-  setWeaponGraphemeAssignments(assignments) {
-    if (!assignments || typeof assignments !== 'object') return;
-    
-    // Update assignments for each weapon slot
-    for (const weaponId of WEAPON_SLOT_IDS) {
-      if (assignments[weaponId]) {
-        this.weaponGraphemeAssignments[weaponId] = assignments[weaponId];
-      }
-    }
-  }
+  setWeaponGraphemeAssignments(assignments) { cwStateSetWeaponGraphemeAssignments.call(this, assignments); }
 
   /**
    * Get current weapon grapheme assignments.
    * @returns {Object} Object mapping weapon IDs to arrays of grapheme assignments
    */
-  getWeaponGraphemeAssignments() {
-    return {
-      slot1: [...(this.weaponGraphemeAssignments.slot1 || [])],
-      slot2: [...(this.weaponGraphemeAssignments.slot2 || [])],
-      slot3: [...(this.weaponGraphemeAssignments.slot3 || [])],
-    };
-  }
+  getWeaponGraphemeAssignments() { return cwStateGetWeaponGraphemeAssignments.call(this); }
 
   /**
    * Set grapheme inventory counts for calculating excess grapheme bonus.
    * @param {Object} counts - Map of grapheme index to count
    */
-  setGraphemeInventoryCounts(counts) {
-    if (!counts || typeof counts !== 'object') {
-      this.graphemeInventoryCounts = {};
-      return;
-    }
-    this.graphemeInventoryCounts = { ...counts };
-  }
+  setGraphemeInventoryCounts(counts) { cwStateSetGraphemeInventoryCounts.call(this, counts); }
 }
