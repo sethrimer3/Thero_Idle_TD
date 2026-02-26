@@ -47,6 +47,8 @@ export function createCombatStateManager(config) {
 
   // Enemy lifecycle state
   let enemies = [];
+  // Fast O(1) enemy lookup by id, kept in sync with the enemies array.
+  let enemyById = new Map();
   let enemyIdCounter = 0;
   let enemyDeathParticles = [];
   let enemySwirlImpacts = [];
@@ -147,6 +149,7 @@ export function createCombatStateManager(config) {
     endlessCycle = options.endlessCycleStart || 0;
     
     enemies = [];
+    enemyById = new Map();
     enemyIdCounter = 0;
     enemyDeathParticles = [];
     enemySwirlImpacts = [];
@@ -320,6 +323,7 @@ export function createCombatStateManager(config) {
         }
 
         enemies.push(enemy);
+        enemyById.set(enemy.id, enemy);
 
         // Notify spawn context to register the enemy
         if (spawnContext.registerEnemy) {
@@ -451,6 +455,7 @@ export function createCombatStateManager(config) {
     const index = enemies.indexOf(enemy);
     if (index >= 0) {
       enemies.splice(index, 1);
+      enemyById.delete(enemy.id);
     }
 
     // Check if wave is complete
@@ -528,6 +533,7 @@ export function createCombatStateManager(config) {
     initialSpawnDelay = 0;
     
     enemies = [];
+    enemyById = new Map();
     enemyIdCounter = 0;
     enemyDeathParticles = [];
     enemySwirlImpacts = [];
@@ -559,6 +565,11 @@ export function createCombatStateManager(config) {
     handleEnemyDeath,
     getEnemies: () => enemies,
     getEnemyCount: () => enemies.length,
+    // O(1) enemy lookup by id.
+    getEnemyById: (id) => enemyById.get(id) ?? null,
+    // Helpers to keep the id map in sync when external code pushes/splices the array.
+    registerEnemy: (enemy) => { if (enemy?.id != null) enemyById.set(enemy.id, enemy); },
+    deregisterEnemy: (id) => { if (id != null) enemyById.delete(id); },
     
     // Victory/defeat
     checkVictoryCondition,
