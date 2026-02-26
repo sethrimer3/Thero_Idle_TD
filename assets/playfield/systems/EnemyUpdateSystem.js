@@ -228,6 +228,7 @@ export function updateEnemies(delta) {
     enemy.progress += enemy.speed * delta;
     if (enemy.progress >= 1) {
       this.clearEnemySlowEffects(enemy);
+      this.combatStateManager?.deregisterEnemy?.(enemy.id);
       this.enemies.splice(index, 1);
       this.handleEnemyBreach(enemy);
     }

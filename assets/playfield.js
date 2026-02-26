@@ -2509,7 +2509,7 @@ export class SimplePlayfield {
     if (!this.focusedEnemyId) {
       return null;
     }
-    const enemy = this.enemies.find((candidate) => candidate?.id === this.focusedEnemyId);
+    const enemy = this.getEnemyById(this.focusedEnemyId);
     if (!enemy || enemy.hp <= 0) {
       this.clearFocusedEnemy({ silent: true });
       return null;
@@ -2565,7 +2565,7 @@ export class SimplePlayfield {
     if (!Number.isFinite(enemyId)) {
       return false;
     }
-    const enemy = this.enemies.find((candidate) => candidate?.id === enemyId);
+    const enemy = this.getEnemyById(enemyId);
     if (!enemy) {
       this.clearFocusedEnemy({ silent: true });
       return false;
@@ -2692,7 +2692,7 @@ export class SimplePlayfield {
     }
 
     // Gracefully skip over any cleared enemy slots so tooltip updates never crash the render loop.
-    const enemy = this.enemies.find((candidate) => candidate?.id === this.hoverEnemy.enemyId);
+    const enemy = this.getEnemyById(this.hoverEnemy.enemyId);
     if (!enemy || !this.pointerPosition) {
       this.clearEnemyHover();
       return;
@@ -2857,6 +2857,14 @@ export class SimplePlayfield {
       return null;
     }
     return this.towers.find((candidate) => candidate?.id === towerId) || null;
+  }
+
+  /**
+   * Retrieve an active enemy by its numeric identifier in O(1) time.
+   * Delegates to the combat state manager's id map when available.
+   */
+  getEnemyById(id) {
+    return this.combatStateManager?.getEnemyById?.(id) ?? null;
   }
 
   /**
@@ -4268,7 +4276,7 @@ export class SimplePlayfield {
       }
       
       // Update center to track enemy if it still exists
-      const enemy = this.enemies.find(e => e && e.id === burst.enemyId);
+      const enemy = this.getEnemyById(burst.enemyId);
       if (enemy) {
         const enemyPos = this.getEnemyPosition(enemy);
         if (enemyPos) {

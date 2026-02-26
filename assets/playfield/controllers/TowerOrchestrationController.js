@@ -35,6 +35,8 @@ export function createTowerOrchestrationController(config) {
 
   // State
   let towers = [];
+  // Fast O(1) tower lookup by id, kept in sync with the towers array.
+  let towerById = new Map();
   let infinityTowers = [];
   let towerIdCounter = 0;
   let towerConnectionMap = new Map();
@@ -266,6 +268,7 @@ export function createTowerOrchestrationController(config) {
 
     playfield.applyTowerBehaviorDefaults(tower);
     towers.push(tower);
+    towerById.set(tower.id, tower);
     playfield.recordTowerCost(tower, actionCost);
     handleInfinityTowerAdded(tower);
     notifyTowerPlaced(towers.length);
@@ -582,6 +585,7 @@ export function createTowerOrchestrationController(config) {
     const index = towers.indexOf(tower);
     if (index >= 0) {
       towers.splice(index, 1);
+      towerById.delete(tower.id);
     }
     if (playfield.combatStats?.towerInstances instanceof Map) {
       // Flag the stats entry as retired immediately so the panel reflects the change before the next tick.
@@ -635,7 +639,7 @@ export function createTowerOrchestrationController(config) {
     if (!towerId) {
       return null;
     }
-    return towers.find((candidate) => candidate?.id === towerId) || null;
+    return towerById.get(towerId) ?? null;
   }
 
   /**
@@ -832,6 +836,11 @@ export function createTowerOrchestrationController(config) {
     // State setters (for backward compatibility with playfield.js delegation)
     set towers(value) {
       towers = value;
+      // Rebuild the lookup map whenever the array is replaced wholesale.
+      towerById = new Map();
+      if (Array.isArray(value)) {
+        value.forEach((t) => { if (t?.id != null) towerById.set(t.id, t); });
+      }
     },
     set infinityTowers(value) {
       infinityTowers = value;

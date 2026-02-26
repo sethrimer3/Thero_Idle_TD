@@ -254,6 +254,7 @@ export function spawnPolygonShard(parent, options = {}) {
   }
   assignRandomShell(shard);
   this.enemies.push(shard);
+  this.combatStateManager?.registerEnemy?.(shard);
   this.scheduleStatsPanelRefresh();
   return shard;
 }
