@@ -620,6 +620,43 @@ export const ORBITAL_SQUARE_CONFIG = {
   CORE_RADIUS: 16,       // Radius of the center orb
 };
 
+// Sprite assets for Shin spire bullet projectiles (levels 1-16).
+export const SHIN_BULLET_SPRITE_URLS = Array.from({ length: 16 }, (_, index) => (
+  new URL(`../../../assets/sprites/spires/shinSpire/bullets/bulletLevel${index + 1}.png`, import.meta.url).href
+));
+
+// Boss sprite art for Shin Spire milestone waves (10-130) in 10-wave steps.
+export const SHIN_BOSS_SPRITE_URLS = Array.from({ length: 13 }, (_, index) => (
+  new URL(`../../../assets/sprites/spires/shinSpire/bossEnemies/boss_${index + 1}.png`, import.meta.url).href
+));
+
+// Boss minion sprites are spawned by carrier-style bosses for visual variety.
+export const SHIN_BOSS_MINION_SPRITE_URLS = [
+  new URL('../../../assets/sprites/spires/shinSpire/bossEnemies/bossMinion_1.png', import.meta.url).href,
+  new URL('../../../assets/sprites/spires/shinSpire/bossEnemies/bossMinion_2.png', import.meta.url).href,
+];
+
+/**
+ * Resolve which Shin boss sprite to render for a wave milestone.
+ * Waves 10-130 map to sprite indices 0-12, waves 140-260 reuse those sprites with color inversion,
+ * and later waves repeat the base (non-inverted) 13-sprite cycle.
+ */
+export function resolveBossSpriteForWave(waveNumber) {
+  const safeWave = Number.isFinite(waveNumber) ? Math.max(1, Math.floor(waveNumber)) : 1;
+  const milestoneIndex = Math.max(0, Math.floor((safeWave - 10) / 10));
+
+  if (safeWave >= 10 && safeWave <= 130) {
+    return { index: milestoneIndex % SHIN_BOSS_SPRITE_URLS.length, invert: false };
+  }
+
+  if (safeWave >= 140 && safeWave <= 260) {
+    return { index: milestoneIndex % SHIN_BOSS_SPRITE_URLS.length, invert: true };
+  }
+
+  // Repeat base sprites after wave 260 (and for any waves below the first milestone).
+  return { index: (milestoneIndex % SHIN_BOSS_SPRITE_URLS.length + SHIN_BOSS_SPRITE_URLS.length) % SHIN_BOSS_SPRITE_URLS.length, invert: false };
+}
+
 /**
  * Life lines configuration.
  * Each line represents 2 lives and can be: 'solid' (2 lives), 'dashed' (1 life), or 'gone' (0 lives).

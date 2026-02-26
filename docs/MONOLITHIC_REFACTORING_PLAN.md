@@ -1146,6 +1146,74 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 529):**
+- EnemyLifecycleSystem.js created in `assets/playfield/systems/`: 320 lines (Phase 1 - enemy spawn, debuff resolution, defeat/breach, victory/defeat handling extracted from SimplePlayfield)
+  - Moved: spawnEnemies, resolveActiveDebuffTypes, syncEnemyDebuffIndicators, handleEnemyBreach, processEnemyDefeat, handleVictory, handleDefeat (7 methods)
+- TowerInteractionSystem.js created in `assets/playfield/systems/`: 407 lines (Phase 1 - tower placement preview, cost scribbles, hold indicators, equation scribbles, placement validation, wave retry extracted)
+  - Moved: retryCurrentWave, updatePlacementPreview, spawnTowerUpgradeCostScribble, spawnTowerHoldIndicators, spawnTowerEquationScribble, validatePlacement (6 methods)
+  - playfield.js reduced from 6,347 to 5,664 lines (683-line reduction); total reduction from 7,839: 2,175 lines (28%)
+
+**Progress Notes (Build 527-528):**
+- TowerDispatchSystem.js created in `assets/playfield/systems/`: 436 lines (Phase 1 - tower update, targeting, fire routing, and visual emission extracted from SimplePlayfield)
+  - Moved: updateTowers, findTarget, resolveTowerShotDamage, emitTowerAttackVisuals, fireAtTarget (5 methods)
+  - playfield.js reduced from 7,561 to 7,047 lines (514-line reduction)
+- MoteGemSystem.js created in `assets/playfield/systems/`: 137 lines (Phase 1 - mote gem flight animation extracted)
+  - Moved: updateMoteGems (1 method)
+- ProjectileSpawnSystem.js created in `assets/playfield/systems/`: 259 lines (Phase 1 - projectile spawn helpers extracted)
+  - Moved: spawnSupplyProjectile, spawnBetaTriangleProjectile, spawnGammaStarProjectile, spawnOmegaWave, spawnPolygonShard (5 methods)
+- LevelResetSystem.js created in `assets/playfield/systems/`: 489 lines (Phase 1 - level lifecycle methods extracted)
+  - Moved: resetState, loadLevelCrystals, updateTowerPositions, restoreTowersFromCheckpoint, retryFromEndlessCheckpoint (5 methods)
+  - playfield.js reduced from 7,047 to 6,347 lines (700-line reduction)
+- All 4 systems use `Object.assign(SimplePlayfield.prototype, {...})` prototype assignment pattern (not .call(this) delegates)
+
+**Progress Notes (Build 526):**
+- EnemyUpdateSystem.js created in `assets/playfield/systems/`: ~260 lines (enemy state management extracted from SimplePlayfield)
+  - Moved: resolveEnemySlowMultiplier, clearEnemySlowEffects, clearEnemyDamageAmplifiers, applyStunEffect, isEnemyStunned, clearEnemyStunEffects, updateDerivativeShieldStates, updateEnemies (8 methods)
+  - Constants DERIVATIVE_SHIELD_RADIUS_SCALE, DERIVATIVE_SHIELD_MIN_RADIUS, DERIVATIVE_SHIELD_LINGER_MS duplicated into new file (were local consts in playfield.js)
+  - playfield.js reduced from 7,839 to 7,561 lines (278-line reduction)
+
+**Progress Notes (Build 525):**
+- CardinalWardenInputSystem.js created in `scripts/features/towers/cardinalWarden/`: 148 lines (Phase 2.1.6 continuation - input event handlers extracted from CardinalWardenSimulation)
+  - Moved: applyRingColors, initialize, attachInputHandlers, detachInputHandlers, attachVisibilityHandler, detachVisibilityHandler, handleVisibilityChange, handlePointerDown, handlePointerMove, handlePointerUp, clearAimTarget, getAimTarget (12 methods)
+  - Delegate prefix `cwInput`; no config imports needed (all state via `this`)
+- CardinalWardenStateAPI.js created in `scripts/features/towers/cardinalWarden/`: 571 lines (Phase 2.1.6 continuation - settings, color modes, warden health, weapon management, and public state API extracted)
+  - Moved: setNightMode, setEnemyTrailQuality, setBulletTrailLength, setLegacyWardenGraphics, getEnemyTrailMaxLength, getEnemySmokeMaxCount, getEnemyTrailQuality, getBulletTrailMaxLength, refreshEnemyColorsForMode, refreshBossColorsForMode, refreshBulletColorsForMode, resolveBulletColor, resize, getState, setState, setHighScore, setHighestWave, getHighestWave, applyUpgrade, getAvailableWeapons, purchaseWeapon, purchaseWeaponWithoutCost, upgradeWeapon, upgradeWeaponWithoutCost, applyWeaponUpgrades, getWeaponAttackMultiplier, getWeaponSpeedMultiplier, equipWeapon, unequipWeapon, isWeaponEquipped, getEquippedWeapons, getWeaponState, setWeaponState, setWeaponGraphemeAssignments, getWeaponGraphemeAssignments, setGraphemeInventoryCounts, checkGameOver, startDeathAnimation (38 methods)
+  - Delegate prefix `cwState`; includes private `lightenHexColor` copy; imports WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, VISUAL_CONFIG from cardinalWardenConfig.js
+  - cardinalWardenSimulation.js reduced from 1,825 to 1,491 lines (334-line reduction)
+  - **Phase 2.1.6 target of ~1,500 lines achieved**: cardinalWardenSimulation.js is 1,491 lines (total reduction from 6,339: 76%)
+
+**Progress Notes (Build 523-524):**
+- CardinalWardenSpawnSystem.js created in `scripts/features/towers/cardinalWarden/`: 516 lines (Phase 2.1.6 continuation - enemy/boss spawn, death animation, respawn lifecycle extracted)
+  - Moved: updateDeathAnimation, createExplosionParticles, startRespawnAnimation, updateRespawnAnimation, getEnemySpawnInterval, spawnEnemy, getEnemyTypePool, getBossSpawnInterval, getBossTypePool, spawnBoss, handleWaveBossSpawns, spawnSpecificBoss, updateBosses, spawnShipFromBoss, updateEnemies (15 methods); delegate prefix `cwSpawn`
+- CardinalWardenCombatSystem.js created in `scripts/features/towers/cardinalWarden/`: 666 lines (Phase 2.1.6 continuation - bullet update, collision detection, score/damage, waves/mines)
+  - Moved: tryBounceBulletOffTrails, updateBullets, checkCollisions, checkBeamCollisions, addScore, spawnScorePopup, spawnDamageNumber, updateScorePopups, updateDamageNumbers, updateExpandingWaves, updateMines (11 methods); delegate prefix `cwCombat`
+  - cardinalWardenSimulation.js reduced from 3,366 to 2,372 lines (994-line combined reduction for Builds 523-524)
+- CardinalWardenSpriteSystem.js created in `scripts/features/towers/cardinalWarden/`: 375 lines (Phase 2.1.6 - sprite loading, color mode, tinted grapheme cache); delegate prefix `cwSprite`
+- CardinalWardenCalculations.js created in `scripts/features/towers/cardinalWarden/`: 311 lines (Phase 2.1.6 - grapheme assignment resolution, fire rate math, shield regen, weapon timers); delegate prefix `cwCalc`
+  - cardinalWardenSimulation.js reduced from 2,372 to 1,825 lines (547-line combined reduction for Builds 523-524)
+- SHIN sprite URL arrays and resolveBossSpriteForWave moved to cardinalWardenConfig.js as exports
+
+**Progress Notes (Build 522):**
+- CardinalWardenWeaponSystem.js created in `scripts/features/towers/cardinalWarden/`: 972 lines (Phase 2.1.6 continuation - weapon firing, mine spawning, friendly ship and swarm ship logic extracted from CardinalWardenSimulation)
+  - Moved: fireWeapon, spawnMine, updateFriendlyShips, checkFriendlyShipCollisions, updateSwarmShips, checkSwarmLaserCollisions (6 methods)
+  - cardinalWardenSimulation.js reduced from 4,277 to 3,366 lines (911-line reduction); all methods replaced with thin `.call(this)` delegates using `cwWeapon` prefix
+  - CardinalWardenWeaponSystem.js imports Bullet, FriendlyShip, MathBullet from CardinalWardenEntities.js; 11 config constants from cardinalWardenConfig.js; ExpandingWave/Beam/Mine/SwarmShip/SwarmLaser from subsystem files
+  - Removed from simulation imports: Bullet, FriendlyShip, ExpandingWave, Beam, Mine, SwarmShip, SwarmLaser, checkSwarmLaserCollisionsSystem + 11 config constants
+
+**Progress Notes (Build 521):**
+- CardinalWardenEntities.js created in `scripts/features/towers/cardinalWarden/`: 773 lines (Phase 2.1.6 continuation - standalone entity classes and utilities extracted from CardinalWardenSimulation)
+  - Moved: normalizeAngle, reflectVector (module-level utilities); SeededRandom, OrbitalSquare, RingSquare, CardinalWarden, Bullet, FriendlyShip, MathBullet (7 entity classes)
+  - cardinalWardenSimulation.js reduced from 5,049 to 4,277 lines (772-line reduction); entity classes replaced with import from CardinalWardenEntities.js
+  - CardinalWardenEntities.js imports VISUAL_CONFIG, ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS, HOMING_CONFIG from cardinalWardenConfig.js
+  - Removed from simulation imports: ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS (moved to entities file)
+
+**Progress Notes (Build 520):**
+- CardinalWardenRenderer.js created in `scripts/features/towers/cardinalWarden/`: 1,502 lines (Phase 2.1.6 continuation - all render methods extracted from CardinalWardenSimulation)
+  - Moved: renderScriptChar, renderWardenName, renderScorePopups, renderDamageNumbers, render, renderDeathAnimation, renderRespawnAnimation, renderWarden, renderAimTarget, renderWeaponTargets, renderFriendlyShips, renderEnemies, renderBosses, renderCircleCarrierBoss, renderPyramidBoss, renderHexagonFortressBoss, renderMegaBoss, renderUltraBoss, renderBullets, renderBeams, renderExpandingWaves, renderMines, renderSwarmShips, renderSwarmLasers, initializeLifeLines, updateLifeLine, renderUI (27 methods)
+  - cardinalWardenSimulation.js reduced from 6,339 to 5,049 lines (1,290-line reduction); all methods replaced with thin `.call(this)` delegates using `renderCw` prefix
+  - CardinalWardenRenderer.js imports samplePaletteGradient from colorSchemeUtils.js; ELEMENTAL_CONFIG, VISUAL_CONFIG, LIFE_LINES_CONFIG, UI_CONFIG, WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS from cardinalWardenConfig.js; render delegates from BeamSystem, WaveSystem, MineSystem, SwarmSystem
+  - lightenHexColor utility duplicated locally in renderer (also retained in simulation for resolveBulletColor); samplePaletteGradient removed from simulation imports; renderBeamsSystem/renderWaveSystem/renderMinesSystem/renderSwarmShipsSystem/renderSwarmLasersSystem aliases removed from simulation
+
 **Progress Notes (Build 516–518):**
 - fluidTerrariumPlacementSystem.js created in `assets/`: 1,094 lines (Phase 4 continuation - all placement overlay, preview/confirmation, container events, bounds management, terrain mask, cave zone, and mask loading methods extracted from FluidTerrariumTrees)
   - Moved: CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH/HEIGHT/PADDING, TERRAIN_SEARCH_MIN_RADIUS/PERCENTAGE, PLACEMENT_DIMENSIONS constants; initializeOverlay, hidePlacementPreview, updatePlacementPreview, showPlacementConfirmation, hidePlacementConfirmation, queuePlacementForConfirmation, handleCancelPlacement, handleConfirmPlacement, commitPendingPlacement, clearPendingPlacement, handleContainerPointerMove, handleContainerPointerLeave, handleContainerClick, getNormalizedPointFromClient, getPlacementValidity, isPlacementLocationValid, getCombinedAnchors, createPlacementAnchor, getPlacementId, createEphemeralTreeState, placeActiveStoreItem, observeContainer, handleResize, refreshBounds, updateRenderBounds, resolveCaveZones, isPointInCaveZone, requiresTerrainSurface, isPointOnWalkableTerrain, buildWalkableMask, syncLevelingMode, setCameraMode, emitState, loadMasks, handleMaskLoad, extractAnchorsFromMask (36 methods)
@@ -1978,5 +2046,5 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 **Document Version:** 2.0  
 **Created:** Build 443  
-**Last Updated:** Build 508  
-**Status:** Phase 2 Complete; Phase 3.1.1, 3.1.2, and 3.1.3 (partial) complete; Phase 4.1 continued (Particle class extracted; kufCombatSystem.js extracted)
+**Last Updated:** Build 529  
+**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction, 9 subsystem modules); Phase 1.1 continued (playfield.js: 7,839→5,664 lines, 7 new system modules Builds 526-529)
