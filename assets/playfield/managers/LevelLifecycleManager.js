@@ -184,7 +184,7 @@ export function createLevelLifecycleManager(config) {
     playfield.combatStateManager = createCombatStateManager({
       levelConfig: clonedConfig,
       audio: playfield.audio,
-      onVictory: playfield.onVictory,
+      onVictory: () => playfield.handleVictory(),
       onDefeat: playfield.onDefeat,
       onCombatStart: playfield.onCombatStart,
       recordKillEvent: (towerId) => playfield.recordKillEvent(towerId),

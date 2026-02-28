@@ -29,7 +29,7 @@ export function resetState() {
       this.combatStateManager = createCombatStateManager({
         levelConfig: this.levelConfig,
         audio: this.audio,
-        onVictory: this.onVictory,
+        onVictory: () => this.handleVictory(),
         onDefeat: this.onDefeat,
         onCombatStart: this.onCombatStart,
         recordKillEvent: (towerId) => this.recordKillEvent(towerId),
