@@ -194,12 +194,11 @@ export function createCombatStateManager(config) {
         activeWave = createWaveState(levelConfig.waves[0], { initialDelay: 0 });
         markWaveStart();
       } else if (enemies.length === 0) {
-        // Victory condition: all waves complete and no enemies remain
+        // Victory condition: all waves complete and no enemies remain.
+        // Set internal state then invoke the victory handler (which handles UI cleanup,
+        // audio, and the external game callback).
         resolvedOutcome = 'victory';
         combatActive = false;
-        if (audio) {
-          audio.playSfx('victory');
-        }
         if (onVictory) {
           onVictory(levelConfig.id, {
             waveNumber: currentWaveNumber,
@@ -217,6 +216,27 @@ export function createCombatStateManager(config) {
   }
 
   /**
+   * Resolve the enemy groups from a wave config, handling both the `enemyGroups` array
+   * format (used by the wave encoder) and the simple flat format with just a `count` field.
+   * @param {Object} waveConfig - Wave configuration object
+   * @returns {Array} Normalized array of enemy group objects
+   */
+  function resolveWaveGroups(waveConfig) {
+    if (Array.isArray(waveConfig.enemyGroups) && waveConfig.enemyGroups.length > 0) {
+      return waveConfig.enemyGroups;
+    }
+    // Simple wave format: synthesize a single group from wave-level properties.
+    let minionCount = 0;
+    if (Number.isFinite(waveConfig.minionCount)) {
+      minionCount = Math.max(0, Math.floor(waveConfig.minionCount));
+    } else if (Number.isFinite(waveConfig.count)) {
+      const bossOffset = waveConfig.boss ? 1 : 0;
+      minionCount = Math.max(0, Math.floor(waveConfig.count - bossOffset));
+    }
+    return minionCount > 0 ? [{ ...waveConfig, count: minionCount }] : [];
+  }
+
+  /**
    * Spawns enemies based on the active wave configuration and timer.
    * Updates activeWave.spawned and activeWave.nextSpawn as enemies are created.
    * @param {number} delta - Time elapsed since last update (seconds)
@@ -231,7 +251,7 @@ export function createCombatStateManager(config) {
     waveTimer += delta;
 
     const waveConfig = activeWave.config;
-    const groups = waveConfig.groups || [];
+    const groups = resolveWaveGroups(waveConfig);
     const boss = waveConfig.boss;
     
     // Calculate total enemy count for this wave
@@ -474,11 +494,10 @@ export function createCombatStateManager(config) {
    */
   function calculateTotalSpawnCount(waveConfig) {
     let total = 0;
-    if (waveConfig.groups) {
-      waveConfig.groups.forEach((group) => {
-        total += group.count || 0;
-      });
-    }
+    const groups = resolveWaveGroups(waveConfig);
+    groups.forEach((group) => {
+      total += group.count || 0;
+    });
     if (waveConfig.boss) {
       total += 1;
     }

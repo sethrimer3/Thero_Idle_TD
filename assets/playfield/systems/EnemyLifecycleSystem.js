@@ -236,10 +236,17 @@ export function processEnemyDefeat(enemy) {
   this.scheduleStatsPanelRefresh();
 }
 
+/**
+ * Handle a victory condition: play audio, update UI state, award energy reward,
+ * call the external onVictory callback with full stats, and refresh idle values.
+ * Invoked by the CombatStateManager's onVictory callback after all waves are complete
+ * and the enemies array is empty. The manager has already set combatActive=false and
+ * resolvedOutcome='victory' by the time this runs.
+ */
 export function handleVictory() {
-  if (this.resolvedOutcome === 'victory') {
-    return;
-  }
+  // The combat state manager sets resolvedOutcome and combatActive before invoking this
+  // callback, so we skip the old resolvedOutcome guard. Audio and UI cleanup are handled
+  // here so they run for every victory regardless of how it was triggered.
   if (this.audio) {
     this.audio.playSfx('victory');
   }
