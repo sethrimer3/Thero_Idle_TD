@@ -507,6 +507,10 @@ export class SimplePlayfield {
     this.minViewScale = 0.75;
     this.maxViewScale = 2.5;
     this.viewCenterNormalized = { x: 0.5, y: 0.5 };
+    // Zoom gesture state used by setZoom and applyCanvasShadow to reduce render cost during zoom.
+    this._zoomingActive = false;
+    this._zoomDebounceTimer = null;
+    this._zoomDrawPending = false;
 
     this.activePointers = new Map();
     this.pinchState = null;
