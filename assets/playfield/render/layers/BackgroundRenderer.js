@@ -40,9 +40,9 @@ const sketchSprites = [
 // ─── Crystalline Mosaic ───────────────────────────────────────────────────────
 
 /**
- * Render the crystalline mosaic edge decorations.
- * Called as the first layer in the render stack so crystals appear beneath all
- * game elements.
+ * Render the background-layer crystalline mosaic edge decorations.
+ * Called as the first layer in the render stack so background crystals appear beneath all
+ * game elements. Foreground shards are rendered separately after projectiles.
  */
 export function drawCrystallineMosaic() {
   if (!this.ctx) {
@@ -80,12 +80,51 @@ export function drawCrystallineMosaic() {
   // Use level config as version tracker (regenerate if level changes)
   const pathVersion = this.levelConfig?.id || null;
 
-  // Get focused cell ID if any
-  const focusedCellId = this.focusedCellId || null;
+  // Current camera centre for parallax calculation
+  const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
 
-  // Render the crystalline mosaic
+  // Render only the background layer; foreground layer is drawn after projectiles.
   const ctx = this.ctx;
-  mosaicManager.render(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, focusedCellId);
+  mosaicManager.renderBackground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
+}
+
+/**
+ * Render the foreground-layer crystalline mosaic shards.
+ * These are blurred and drawn in front of towers, projectiles and particles so they
+ * appear as close-up crystal fragments overlaying the play area.
+ */
+export function drawForegroundCrystallineMosaic() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Respect the same preference as the background layer.
+  if (!areEdgeCrystalsEnabled()) {
+    return;
+  }
+
+  const mosaicManager = getCrystallineMosaicManager();
+  if (!mosaicManager) {
+    return;
+  }
+
+  const viewportBounds = this._frameCache?.viewportBounds;
+  if (!viewportBounds) {
+    return;
+  }
+
+  const renderWidth = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+  const renderHeight = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  const levelBounds = (renderWidth && renderHeight)
+    ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+    : null;
+
+  const pathPoints = this.pathPoints || [];
+  const pathVersion = this.levelConfig?.id || null;
+  const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
+
+  const ctx = this.ctx;
+  mosaicManager.renderForeground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
 }
 
 // ─── Level Sketch Layer ───────────────────────────────────────────────────────

@@ -397,11 +397,5 @@ export function validatePlacement(normalized, options = {}) {
     }
   }
 
-  // Check for Voronoi/Delaunay cell overlap
-  const cellAtPosition = this.findCellAt(position);
-  if (cellAtPosition && !cellAtPosition.isDestroyed) {
-    return { valid: false, reason: 'Cannot place tower on crystalline formation.', position };
-  }
-
   return { valid: true, position };
 }

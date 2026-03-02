@@ -638,7 +638,7 @@ export class AudioManager {
         return null;
       }
       const audio = new Audio(source);
-      audio.preload = definition.preload || 'auto';
+      audio.preload = definition.preload || 'none';
       audio.loop = Boolean(definition.loop !== false);
       audio.volume = this._resolveMusicVolume(definition);
       // Track the entry key so suspended playback can resume the correct song.
@@ -672,7 +672,7 @@ export class AudioManager {
       const pool = [];
       for (let index = 0; index < poolSize; index += 1) {
         const audio = new Audio(source);
-        audio.preload = definition.preload || 'auto';
+        audio.preload = definition.preload || 'none';
         audio.volume = this._resolveSfxVolume(definition);
         pool.push(audio);
       }
@@ -701,7 +701,10 @@ export class AudioManager {
     }
     if (definition.file) {
       const sanitizedFolder = folder.endsWith('/') ? folder.slice(0, -1) : folder;
-      return `${sanitizedFolder}/${definition.file}`;
+      // Encode each path segment individually so special characters like # in filenames
+      // (e.g. 'tower_shot_kalimba_C#5.mp3') are percent-encoded without mangling slashes.
+      const encodedFile = definition.file.split('/').map(encodeURIComponent).join('/');
+      return `${sanitizedFolder}/${encodedFile}`;
     }
     return null;
   }
