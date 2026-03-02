@@ -107,11 +107,7 @@ export function renderLamedSimulation() {
     const baseGlowIntensity = Math.max(0.6, tier.glow);
     const glowProgressScale = 1 + progress; // 100% glow at start, 200% at next milestone threshold
 
-    // Sample the bounce spring so the core radius swells roughly 1% on every absorption.
-    const bounceScale = 1 + this.sunBounce.offset;
-    const pulseScale = Math.max(0.85, bounceScale);
-
-    // Track recent absorptions to brighten the glow without altering the bounce physics.
+    // Track recent absorptions to brighten the glow without changing the sun's size.
     const timeSinceAbsorption = this.elapsedTime - this.stats.lastAbsorptionTime;
     let absorptionGlowBoost = 0;
     if (timeSinceAbsorption < 0.3) {
@@ -130,8 +126,8 @@ export function renderLamedSimulation() {
 
     const tierColor = parseColor(tier.color);
 
-    // Derive the rendered core radius up front so blur passes and texture placement reference the same scale.
-    const coreRadius = starVisualRadius * pulseScale;
+    // Keep the sun at a fixed radius – splash effects (shock rings and geyser bursts) handle absorption feedback.
+    const coreRadius = starVisualRadius;
 
     // Rebuild the cached procedural texture before any blitting occurs (only if sprites not loaded).
     if (!this.spritesLoaded) {

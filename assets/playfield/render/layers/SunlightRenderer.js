@@ -195,8 +195,8 @@ export function drawMindGateSunlight() {
   if (!this.ctx) {
     return;
   }
-  // Skip in low-fidelity or while zooming to keep frame rate smooth.
-  if (this.isLowGraphicsMode?.() || this._zoomingActive) {
+  // Skip while zooming to keep frame rate smooth.
+  if (this._zoomingActive) {
     return;
   }
 

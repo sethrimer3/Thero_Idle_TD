@@ -743,8 +743,8 @@ export function updateShootingStars(deltaTime) {
 
   // Use the shared radius helper so launch positions orbit around the same core size used in rendering.
   const starVisualRadius = this.calculateCoreRadius();
-  // Mirror the bounce scale so collision detection matches the rendered radius.
-  const absorptionRadius = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset) * dpr;
+  // Use the fixed visual radius for collision detection so it matches the rendered sun size.
+  const absorptionRadius = starVisualRadius * dpr;
   const maxR = Math.min(this.width, this.height) / 2;
 
   for (let i = this.shootingStars.length - 1; i >= 0; i--) {
@@ -875,7 +875,8 @@ export function updateStars(deltaTime) {
     
     // Use the shared radius helper so absorption checks align with the rendered radius.
     const starVisualRadius = this.calculateCoreRadius();
-    const sunRadiusCss = starVisualRadius * Math.max(0.85, 1 + this.sunBounce.offset);
+    // Use the fixed visual radius so the sun size does not change during absorptions.
+    const sunRadiusCss = starVisualRadius;
     const starRadiusCss = this.calculateStarRadiusCss(star.mass, starVisualRadius);
     const collisionRadiusDevice = (sunRadiusCss + starRadiusCss) * dpr;
 
