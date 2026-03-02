@@ -141,7 +141,9 @@ function applyCanvasShadow(ctx, color, blur) {
   if (!ctx) {
     return;
   }
-  if (this.isLowGraphicsMode()) {
+  // Disable shadows during active zoom gestures or in low graphics mode to keep
+  // frame rate smooth while the player is pinching or scrolling to zoom.
+  if (this.isLowGraphicsMode() || this._zoomingActive) {
     ctx.shadowColor = 'rgba(0, 0, 0, 0)';
     ctx.shadowBlur = 0;
     return;
