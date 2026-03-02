@@ -5541,6 +5541,11 @@ Object.assign(SimplePlayfield.prototype, {
       this.combatStatsManager.recordKillEvent(tower);
     }
   },
+  notifyEnemyDeath(enemy) {
+    // Hook for external systems to observe enemy deaths. Actual defeat handling is
+    // performed by processEnemyDefeat; this no-op satisfies the CombatStateManager
+    // callback contract so the game loop is not interrupted by a missing method.
+  },
   captureEnemyHistory(enemy) {
     if (this.combatStatsManager) {
       this.combatStatsManager.captureEnemyHistory(enemy);
