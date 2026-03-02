@@ -67,12 +67,16 @@ export function createRenderCoordinator(config) {
       const finishUpdateSegment = beginPerformanceSegment('update');
       try {
         config.update(safeDelta);
+      } catch (updateError) {
+        console.error('Game update error:', updateError);
       } finally {
         finishUpdateSegment();
       }
       const finishDrawSegment = beginPerformanceSegment('draw');
       try {
         config.draw();
+      } catch (drawError) {
+        console.error('Game draw error:', drawError);
       } finally {
         finishDrawSegment();
       }
