@@ -50,6 +50,11 @@ import {
   drawMindGateSymbol,
   drawNodes,
 } from './layers/TrackRenderer.js';
+import {
+  drawMindGateSunlight,
+  drawSunlightShadows,
+  drawTowerSunShine,
+} from './layers/SunlightRenderer.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
 const TWO_PI = Math.PI * 2;
@@ -202,9 +207,12 @@ function draw() {
   this.drawArcLight();
   this.drawDeveloperCrystals();
   this.drawNodes();
+  this.drawMindGateSunlight();
+  this.drawSunlightShadows();
   this.drawDeveloperPathMarkers();
   this.drawPlacementPreview();
   this.drawTowers();
+  this.drawTowerSunShine();
   this.drawInfinityAuras();
   this.drawDeltaSoldiers();
   this.drawOmicronUnits();
@@ -584,6 +592,9 @@ export {
   drawEnemyGateSymbol,
   drawMindGateSymbol,
   drawNodes,
+  drawMindGateSunlight,
+  drawSunlightShadows,
+  drawTowerSunShine,
   drawChiThralls,
   drawChiLightTrails,
   drawDeveloperPathMarkers,

@@ -5201,6 +5201,18 @@ export class SimplePlayfield {
     return CanvasRenderer.drawNodes.call(this);
   }
 
+  drawMindGateSunlight() {
+    return CanvasRenderer.drawMindGateSunlight.call(this);
+  }
+
+  drawSunlightShadows() {
+    return CanvasRenderer.drawSunlightShadows.call(this);
+  }
+
+  drawTowerSunShine() {
+    return CanvasRenderer.drawTowerSunShine.call(this);
+  }
+
   drawChiThralls() {
     return CanvasRenderer.drawChiThralls.call(this);
   }
