@@ -452,7 +452,8 @@ export class CrystallineMosaicManager {
     this.cells = [];
     this.enabled = true;
     this.needsRegeneration = true;
-    this.lastViewBounds = null;
+    // Track stable level/world bounds (not viewport) to avoid zoom-triggered regeneration.
+    this.lastLevelBounds = null;
     this.lastPathVersion = null;
     // Track cell mutations so cached visible lists stay valid.
     this.cellStateVersion = 0;
@@ -461,13 +462,15 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Generate polygon cells for the visible viewport.
-   * @param {object} viewBounds - Viewport bounds {minX, minY, maxX, maxY}
+   * Generate polygon cells within the level's world bounds.
+   * Crystals are placed in stable world coordinates so zoom changes do not
+   * cause repositioning – the canvas transform handles zooming naturally.
+   * @param {object} levelBounds - Full level world bounds {minX, minY, maxX, maxY}
    * @param {Array} pathPoints - Track path points for distance checking
    * @param {string|number} [seed] - Level ID used as RNG seed for deterministic placement
    */
-  generateCells(viewBounds, pathPoints, seed) {
-    if (!this.enabled || !viewBounds) {
+  generateCells(levelBounds, pathPoints, seed) {
+    if (!this.enabled || !levelBounds) {
       return;
     }
 
@@ -479,12 +482,12 @@ export class CrystallineMosaicManager {
     // Use a pixel-based edge band so the mosaic hugs the playfield borders.
     const edgeBandPixels = Math.max(
       EDGE_BAND_MIN_PIXELS,
-      Math.min(viewBounds.maxX - viewBounds.minX, viewBounds.maxY - viewBounds.minY) * EDGE_BAND_FRACTION,
+      Math.min(levelBounds.maxX - levelBounds.minX, levelBounds.maxY - levelBounds.minY) * EDGE_BAND_FRACTION,
     );
     
     // Calculate area to cover
-    const width = viewBounds.maxX - viewBounds.minX;
-    const height = viewBounds.maxY - viewBounds.minY;
+    const width = levelBounds.maxX - levelBounds.minX;
+    const height = levelBounds.maxY - levelBounds.minY;
     const area = width * height;
     
     // Calculate number of cells based on density.
@@ -497,12 +500,12 @@ export class CrystallineMosaicManager {
     while (this.cells.length < targetCount && attempts < maxAttempts) {
       attempts++;
       
-      // Deterministic position within view bounds.
-      const x = viewBounds.minX + rand() * width;
-      const y = viewBounds.minY + rand() * height;
+      // Deterministic position within level bounds.
+      const x = levelBounds.minX + rand() * width;
+      const y = levelBounds.minY + rand() * height;
       
-      // Keep the mosaic close to the viewport edges.
-      if (!isPointNearEdge(x, y, viewBounds, edgeBandPixels)) {
+      // Keep the mosaic close to the level edges.
+      if (!isPointNearEdge(x, y, levelBounds, edgeBandPixels)) {
         continue;
       }
 
@@ -531,14 +534,15 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Check if cells need regeneration (viewport changed significantly).
+   * Check if cells need regeneration (level or path changed).
+   * Uses stable level world bounds so zoom changes never trigger regeneration.
    */
-  shouldRegenerate(viewBounds, pathVersion) {
+  shouldRegenerate(levelBounds, pathVersion) {
     if (this.needsRegeneration) {
       return true;
     }
     
-    if (!this.lastViewBounds || !viewBounds) {
+    if (!this.lastLevelBounds || !levelBounds) {
       return true;
     }
     
@@ -547,28 +551,17 @@ export class CrystallineMosaicManager {
       return true;
     }
     
-    // Check if viewport moved significantly (more than 30% of viewport size)
-    const threshold = 0.3;
-    const lastWidth = this.lastViewBounds.maxX - this.lastViewBounds.minX;
-    const lastHeight = this.lastViewBounds.maxY - this.lastViewBounds.minY;
-    const nextWidth = viewBounds.maxX - viewBounds.minX;
-    const nextHeight = viewBounds.maxY - viewBounds.minY;
-
-    // Regenerate when the viewport size changes so edge crystals stay aligned after resizes/fullscreen changes.
+    // Regenerate when the level size changes (e.g., actual screen resize or fullscreen toggle).
+    // Zoom changes do not affect levelBounds, so this check is immune to zoom.
     const sizeThreshold = 0.08;
+    const lastWidth = this.lastLevelBounds.maxX - this.lastLevelBounds.minX;
+    const lastHeight = this.lastLevelBounds.maxY - this.lastLevelBounds.minY;
+    const nextWidth = levelBounds.maxX - levelBounds.minX;
+    const nextHeight = levelBounds.maxY - levelBounds.minY;
     if (
       (lastWidth > 0 && Math.abs(nextWidth - lastWidth) > lastWidth * sizeThreshold) ||
       (lastHeight > 0 && Math.abs(nextHeight - lastHeight) > lastHeight * sizeThreshold)
     ) {
-      return true;
-    }
-    
-    const deltaX = Math.abs((viewBounds.minX + viewBounds.maxX) * HALF - 
-                            (this.lastViewBounds.minX + this.lastViewBounds.maxX) * HALF);
-    const deltaY = Math.abs((viewBounds.minY + viewBounds.maxY) * HALF - 
-                            (this.lastViewBounds.minY + this.lastViewBounds.maxY) * HALF);
-    
-    if (deltaX > lastWidth * threshold || deltaY > lastHeight * threshold) {
       return true;
     }
     
@@ -665,17 +658,27 @@ export class CrystallineMosaicManager {
 
   /**
    * Render all cells with SVG sprites using unified appearance.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {object} viewBounds - Viewport bounds used for visibility culling {minX, minY, maxX, maxY}
+   * @param {object} levelBounds - Full level world bounds used for stable crystal placement {minX, minY, maxX, maxY}
+   * @param {Array} pathPoints
+   * @param {string|number} pathVersion
+   * @param {string|null} focusedCellId
    */
-  render(ctx, viewBounds, pathPoints, pathVersion, focusedCellId = null) {
+  render(ctx, viewBounds, levelBounds, pathPoints, pathVersion, focusedCellId = null) {
     if (!this.enabled) {
       return;
     }
     
+    // Use levelBounds for generation so crystals stay stable across zoom/pan changes.
+    // Fall back to viewBounds if levelBounds is not available.
+    const generationBounds = levelBounds || viewBounds;
+    
     // Check if we need to regenerate cells.
-    if (this.shouldRegenerate(viewBounds, pathVersion)) {
+    if (this.shouldRegenerate(generationBounds, pathVersion)) {
       // Pass the level ID as seed so regeneration always produces the same layout for a given level.
-      this.generateCells(viewBounds, pathPoints, pathVersion);
-      this.lastViewBounds = viewBounds ? { ...viewBounds } : null;
+      this.generateCells(generationBounds, pathPoints, pathVersion);
+      this.lastLevelBounds = generationBounds ? { ...generationBounds } : null;
       this.lastPathVersion = pathVersion;
     }
     
