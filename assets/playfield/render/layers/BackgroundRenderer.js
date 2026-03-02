@@ -59,11 +59,20 @@ export function drawCrystallineMosaic() {
     return;
   }
 
-  // Viewport bounds are pre-computed at frame start and stored in _frameCache
+  // Viewport bounds are pre-computed at frame start and stored in _frameCache.
+  // These change with zoom and are used only for visibility culling.
   const viewportBounds = this._frameCache?.viewportBounds;
   if (!viewportBounds) {
     return;
   }
+
+  // Level world bounds are stable across zoom/pan – crystals are generated here
+  // so they never reposition when the player zooms in or out.
+  const renderWidth = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+  const renderHeight = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  const levelBounds = (renderWidth && renderHeight)
+    ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+    : null;
 
   // Get path points for distance checking
   const pathPoints = this.pathPoints || [];
@@ -76,7 +85,7 @@ export function drawCrystallineMosaic() {
 
   // Render the crystalline mosaic
   const ctx = this.ctx;
-  mosaicManager.render(ctx, viewportBounds, pathPoints, pathVersion, focusedCellId);
+  mosaicManager.render(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, focusedCellId);
 }
 
 // ─── Level Sketch Layer ───────────────────────────────────────────────────────
