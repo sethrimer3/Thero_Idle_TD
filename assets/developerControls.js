@@ -612,6 +612,11 @@ function updateDeveloperControlsVisibility() {
   if (typeof context.updateBetSpireDebugControlsVisibility === 'function') {
     context.updateBetSpireDebugControlsVisibility(active);
   }
+
+  // Update playfield layer toggle section visibility in the settings menu.
+  if (typeof context.updatePlayfieldDevLayerTogglesVisibility === 'function') {
+    context.updatePlayfieldDevLayerTogglesVisibility();
+  }
 }
 
 function handleDeveloperFieldCommit(event) {

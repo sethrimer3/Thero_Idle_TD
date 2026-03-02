@@ -177,26 +177,49 @@ const CELL_DESTRUCTION_FADE_TIME = 500; // Milliseconds for destruction fade ani
 let cellIdCounter = 0;
 
 /**
+ * Create a simple LCG seeded random number generator based on the level ID string.
+ * Returns a 0..1 float, matching the Math.random() interface.
+ * Same seed always produces the same sequence, ensuring identical crystal layouts
+ * for a given level regardless of viewport changes or zoom level.
+ *
+ * @param {string|number} seed - Seed value (level ID)
+ * @returns {() => number} Seeded random function
+ */
+function createSeededRandom(seed) {
+  // Derive a numeric seed from the string level identifier.
+  // The prime multiplier 31 is a standard choice for string hashing (similar to Java's
+  // String.hashCode) because it distributes character codes well with low collision rates.
+  let state = Array.from(String(seed ?? 'default')).reduce(
+    (acc, char) => ((acc * 31 + char.charCodeAt(0)) | 0) >>> 0,
+    1,
+  ) || 1;
+  return () => {
+    state = ((state * 1103515245 + 12345) & 0x7fffffff) >>> 0;
+    return state / 0x7fffffff;
+  };
+}
+
+/**
  * Polygon cell representing a single crystalline Voronoi-like region.
  * Now uses SVG sprites that are colored with the palette.
  * Targetable and destructible by towers.
  */
 class CrystallineCell {
-  constructor(x, y, size, colorStop, phase) {
+  constructor(x, y, size, colorStop, phase, rand = Math.random) {
     this.x = x;
     this.y = y;
     this.size = size;
     this.colorStop = colorStop; // Base position along gradient (0-1).
     this.phase = phase; // Animation phase offset.
-    this.brightness = BRIGHTNESS_MIN + Math.random() * (BRIGHTNESS_MAX - BRIGHTNESS_MIN);
+    this.brightness = BRIGHTNESS_MIN + rand() * (BRIGHTNESS_MAX - BRIGHTNESS_MIN);
     this.colorShift = colorStop; // Track the animated gradient position.
-    this.alphaBase = ALPHA_BASE + Math.random() * ALPHA_VARIATION; // Cache alpha for steady translucency.
+    this.alphaBase = ALPHA_BASE + rand() * ALPHA_VARIATION; // Cache alpha for steady translucency.
     
-    // Random sprite selection (0-based index for the array)
-    this.spriteIndex = Math.floor(Math.random() * SHARD_SPRITE_COUNT);
+    // Deterministic sprite selection and rotation using the seeded RNG.
+    this.spriteIndex = Math.floor(rand() * SHARD_SPRITE_COUNT);
     
-    // Random rotation for variety
-    this.rotation = Math.random() * TWO_PI;
+    // Deterministic rotation for variety
+    this.rotation = rand() * TWO_PI;
     
     // Targetable properties
     this.id = `cell_${cellIdCounter++}`; // Unique identifier
@@ -439,11 +462,18 @@ export class CrystallineMosaicManager {
 
   /**
    * Generate polygon cells for the visible viewport.
+   * @param {object} viewBounds - Viewport bounds {minX, minY, maxX, maxY}
+   * @param {Array} pathPoints - Track path points for distance checking
+   * @param {string|number} [seed] - Level ID used as RNG seed for deterministic placement
    */
-  generateCells(viewBounds, pathPoints) {
+  generateCells(viewBounds, pathPoints, seed) {
     if (!this.enabled || !viewBounds) {
       return;
     }
+
+    // Build a seeded RNG so the same level always produces the same crystal layout,
+    // regardless of viewport size or zoom level.
+    const rand = createSeededRandom(seed);
 
     const minDistancePixels = metersToPixels(MINIMUM_DISTANCE_FROM_TRACK_METERS);
     // Use a pixel-based edge band so the mosaic hugs the playfield borders.
@@ -467,9 +497,9 @@ export class CrystallineMosaicManager {
     while (this.cells.length < targetCount && attempts < maxAttempts) {
       attempts++;
       
-      // Random position within view bounds.
-      const x = viewBounds.minX + Math.random() * width;
-      const y = viewBounds.minY + Math.random() * height;
+      // Deterministic position within view bounds.
+      const x = viewBounds.minX + rand() * width;
+      const y = viewBounds.minY + rand() * height;
       
       // Keep the mosaic close to the viewport edges.
       if (!isPointNearEdge(x, y, viewBounds, edgeBandPixels)) {
@@ -481,17 +511,17 @@ export class CrystallineMosaicManager {
         continue;
       }
       
-      // Random size and gradient position.
-      const size = CELL_SIZE_MIN + Math.random() * (CELL_SIZE_MAX - CELL_SIZE_MIN);
+      // Deterministic size and gradient position.
+      const size = CELL_SIZE_MIN + rand() * (CELL_SIZE_MAX - CELL_SIZE_MIN);
       // Set seed spacing based on the cell size to prevent heavy overlap.
       const minSpacing = size * CELL_SPACING_RATIO;
       if (!isPointFarFromSeeds(x, y, this.cells, minSpacing)) {
         continue;
       }
-      const colorStop = Math.random(); // Position along gradient.
-      const phase = Math.random() * TWO_PI; // Random animation phase.
+      const colorStop = rand(); // Position along gradient.
+      const phase = rand() * TWO_PI; // Animation phase.
       
-      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase));
+      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase, rand));
     }
     // Bump the state version so render caches refresh after regeneration.
     this.cellStateVersion += 1;
@@ -643,7 +673,8 @@ export class CrystallineMosaicManager {
     
     // Check if we need to regenerate cells.
     if (this.shouldRegenerate(viewBounds, pathVersion)) {
-      this.generateCells(viewBounds, pathPoints);
+      // Pass the level ID as seed so regeneration always produces the same layout for a given level.
+      this.generateCells(viewBounds, pathPoints, pathVersion);
       this.lastViewBounds = viewBounds ? { ...viewBounds } : null;
       this.lastPathVersion = pathVersion;
     }
