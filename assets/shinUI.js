@@ -21,7 +21,6 @@ import { formatGameNumber } from '../scripts/core/formatting.js';
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 import { KochSnowflakeSimulation } from '../scripts/features/towers/kochSnowflakeSimulation.js';
 import { FernLSystemSimulation } from '../scripts/features/towers/fernLSystemSimulation.js';
-import { DragonCurveSimulation } from '../scripts/features/towers/dragonCurveSimulation.js';
 import { VoronoiSubdivisionSimulation } from '../scripts/features/towers/voronoiSubdivisionSimulation.js';
 import { BrownianTreeSimulation } from '../scripts/features/towers/brownianTreeSimulation.js';
 import { FlameFractalSimulation } from '../scripts/features/towers/flameFractalSimulation.js';
@@ -39,6 +38,21 @@ let fractalSimulations = new Map(); // Store simulation instances keyed by fract
 let animationFrameId = null;
 let fractalResizeObserver = null;
 let enemyEncounterUnsubscribe = null;
+
+// Load the dragon curve renderer lazily so the Shin UI can still initialize if that module fails to load.
+let DragonCurveSimulationClass = null;
+
+// Fall back to an already loaded fractal simulation so the dragon tab remains usable during load failures.
+const DragonCurveFallbackSimulation = KochSnowflakeSimulation;
+
+// Resolve the dragon simulation module asynchronously to avoid hard-failing startup on a 503 module response.
+import('../scripts/features/towers/dragonCurveSimulation.js')
+  .then((module) => {
+    DragonCurveSimulationClass = module?.DragonCurveSimulation || null;
+  })
+  .catch((error) => {
+    console.warn('[Shin UI] Dragon curve module unavailable; using fallback simulation.', error);
+  });
 
 function resolveShinMaxDevicePixelRatio() {
   const { graphicsLevel } = getShinVisualSettings();
@@ -102,7 +116,7 @@ const FRACTAL_RENDER_HANDLERS = new Map([
     }
   }],
   ['dragon', {
-    create: (canvas, fractal, state) => new DragonCurveSimulation({
+    create: (canvas, fractal, state) => new (DragonCurveSimulationClass || DragonCurveFallbackSimulation)({
       canvas,
       ...fractal.config,
       iterations: Math.min(fractal.config?.iterations || 10, 6 + (state?.layersCompleted || 0)),
@@ -882,4 +896,3 @@ function createEnemyEntry(enemy, isEncountered) {
 export function refreshEnemyAlmanac() {
   renderEnemyAlmanac();
 }
-
