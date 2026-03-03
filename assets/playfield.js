@@ -499,7 +499,6 @@ export class SimplePlayfield {
     this.hoverEnemy = null;
     this.pointerPosition = null;
     this.focusedEnemyId = null;
-    this.focusedCellId = null; // Track focused Voronoi/Delaunay cell
     this.focusMarkerAngle = 0;
     this.anchorTolerance = 0.06;
 
@@ -2576,67 +2575,6 @@ export class SimplePlayfield {
     }
     this.setFocusedEnemy(enemy, { silent: true });
     return true;
-  }
-
-  /**
-   * Find a Voronoi/Delaunay cell at the given position.
-   */
-  findCellAt(position) {
-    if (!position) {
-      return null;
-    }
-    const mosaicManager = getCrystallineMosaicManager();
-    if (!mosaicManager) {
-      return null;
-    }
-    return mosaicManager.findCellAt(position);
-  }
-
-  /**
-   * Toggle focus on a Voronoi/Delaunay cell.
-   */
-  toggleCellFocus(cell) {
-    if (!cell) {
-      this.clearFocusedCell();
-      return;
-    }
-    if (this.focusedCellId === cell.id) {
-      this.clearFocusedCell();
-    } else {
-      this.setFocusedCell(cell);
-    }
-  }
-
-  /**
-   * Set focused cell.
-   */
-  setFocusedCell(cell) {
-    if (!cell) {
-      this.clearFocusedCell();
-      return;
-    }
-    this.focusedCellId = cell.id;
-  }
-
-  /**
-   * Clear focused cell.
-   */
-  clearFocusedCell() {
-    this.focusedCellId = null;
-  }
-
-  /**
-   * Get the currently focused cell.
-   */
-  getFocusedCell() {
-    if (!this.focusedCellId) {
-      return null;
-    }
-    const mosaicManager = getCrystallineMosaicManager();
-    if (!mosaicManager) {
-      return null;
-    }
-    return mosaicManager.getCellById(this.focusedCellId);
   }
 
   renderEnemyTooltip(enemy) {
@@ -5165,6 +5103,10 @@ export class SimplePlayfield {
 
   drawCrystallineMosaic() {
     return CanvasRenderer.drawCrystallineMosaic.call(this);
+  }
+
+  drawForegroundCrystallineMosaic() {
+    return CanvasRenderer.drawForegroundCrystallineMosaic.call(this);
   }
 
   drawSketches() {

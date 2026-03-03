@@ -42,6 +42,8 @@ const BRIGHTNESS_PRECISION = 10; // Rounding precision for brightness in cache k
 // Sprite and cache management
 const shardSprites = []; // Array of loaded Image objects
 const shardSpriteCache = new Map(); // Cache for colored sprite canvases
+// Cache for pre-blurred foreground sprite canvases (keyed by sprite/color/brightness/blur)
+const blurredSpriteCache = new Map();
 let spritesLoaded = false;
 let spritesLoadingPromise = null;
 
@@ -162,16 +164,62 @@ function getColoredShardSprite(spriteIndex, color, brightness) {
  */
 export function clearShardSpriteCache() {
   shardSpriteCache.clear();
+  blurredSpriteCache.clear();
 }
 
 // Start loading sprites immediately
 loadShardSprites();
 
-// Cell health and destruction constants
-const CELL_MAX_HEALTH = 50; // Health points for each cell
-const CELL_HEALTH_BAR_WIDTH = 30; // Width of health bar in pixels
-const CELL_HEALTH_BAR_HEIGHT = 3; // Height of health bar in pixels
-const CELL_DESTRUCTION_FADE_TIME = 500; // Milliseconds for destruction fade animation
+// Pixel padding around blurred sprites to avoid clipping the blur effect
+const BLUR_PADDING = 16;
+const BLUR_CACHE_MAX_SIZE = 200;
+
+/**
+ * Get (or create and cache) a blurred version of a colored shard sprite.
+ * The blur is rendered once into an offscreen canvas so per-frame cost is just a drawImage.
+ * @param {number} spriteIndex
+ * @param {Object} color - {r,g,b}
+ * @param {number} brightness
+ * @param {number} blurRadius - CSS blur amount in pixels
+ * @returns {HTMLCanvasElement|null}
+ */
+function getBlurredShardSprite(spriteIndex, color, brightness, blurRadius) {
+  const source = getColoredShardSprite(spriteIndex, color, brightness);
+  if (!source) {
+    return null;
+  }
+  const brightnessRounded = Math.round(brightness * BRIGHTNESS_PRECISION) / BRIGHTNESS_PRECISION;
+  const blurKey = `blur_${spriteIndex}_${color.r}_${color.g}_${color.b}_${brightnessRounded}_${Math.round(blurRadius)}`;
+  if (blurredSpriteCache.has(blurKey)) {
+    return blurredSpriteCache.get(blurKey);
+  }
+  const pad = BLUR_PADDING;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width + pad * 2;
+  canvas.height = source.height + pad * 2;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return source;
+  }
+  ctx.filter = `blur(${blurRadius}px)`;
+  ctx.drawImage(source, pad, pad);
+  ctx.filter = 'none';
+  // Enforce cache size limit
+  if (blurredSpriteCache.size > BLUR_CACHE_MAX_SIZE) {
+    const firstKey = blurredSpriteCache.keys().next().value;
+    blurredSpriteCache.delete(firstKey);
+  }
+  blurredSpriteCache.set(blurKey, canvas);
+  return canvas;
+}
+
+// Parallax factors: background shards lag behind the camera; foreground shards lead.
+const BG_PARALLAX_FACTOR = 0.88; // Background moves at 88% of camera speed (slower = farther away)
+const FG_PARALLAX_FACTOR = 1.08; // Foreground moves at 108% of camera speed (faster = closer)
+// Fraction of cells assigned to the foreground layer
+const FOREGROUND_LAYER_FRACTION = 0.35;
+// Blur radius (in pixels) applied to cached foreground sprites
+const FG_BLUR_RADIUS = 4;
 
 // Counter for unique cell IDs
 let cellIdCounter = 0;
@@ -201,11 +249,12 @@ function createSeededRandom(seed) {
 
 /**
  * Polygon cell representing a single crystalline Voronoi-like region.
- * Now uses SVG sprites that are colored with the palette.
- * Targetable and destructible by towers.
+ * Uses SVG sprites coloured with the active palette.
+ * Purely decorative – not targetable or destructible.
+ * Cells are assigned to 'background' or 'foreground' layers for parallax rendering.
  */
 class CrystallineCell {
-  constructor(x, y, size, colorStop, phase, rand = Math.random) {
+  constructor(x, y, size, colorStop, phase, layer, rand = Math.random) {
     this.x = x;
     this.y = y;
     this.size = size;
@@ -220,25 +269,18 @@ class CrystallineCell {
     
     // Deterministic rotation for variety
     this.rotation = rand() * TWO_PI;
-    
-    // Targetable properties
-    this.id = `cell_${cellIdCounter++}`; // Unique identifier
-    this.maxHealth = CELL_MAX_HEALTH;
-    this.health = CELL_MAX_HEALTH;
-    this.isDestroyed = false;
-    this.destroyStartTime = null;
-    this.hitRadius = size; // Use size as hit detection radius
+
+    // Parallax layer: 'background' cells are crisp and slow; 'foreground' are blurred and fast.
+    this.layer = layer || 'background';
+
+    // Unique identifier (used for cache keys, not targeting)
+    this.id = `cell_${cellIdCounter++}`;
   }
 
   /**
-   * Update polygon animation state and destruction.
+   * Update polygon animation state.
    */
   update(deltaTime) {
-    // Handle destruction fade
-    if (this.isDestroyed) {
-      return; // Don't update destroyed cells
-    }
-    
     // Slowly oscillate brightness for the crystalline shimmer.
     this.phase += FADE_SPEED * deltaTime;
     this.brightness =
@@ -247,57 +289,12 @@ class CrystallineCell {
     // Drift along the palette gradient to mimic slow chromatic refraction.
     this.colorShift = (this.colorStop + COLOR_DRIFT * (0.5 + 0.5 * Math.sin(this.phase * 0.6))) % 1;
   }
-  
-  /**
-   * Damage the cell and check if it should be destroyed.
-   * @param {number} damage - Amount of damage to apply
-   * @returns {boolean} True if cell was destroyed
-   */
-  takeDamage(damage) {
-    if (this.isDestroyed) {
-      return false;
-    }
-    
-    this.health = Math.max(0, this.health - damage);
-    if (this.health <= 0) {
-      this.isDestroyed = true;
-      this.destroyStartTime = Date.now();
-      return true;
-    }
-    return false;
-  }
-  
-  /**
-   * Check if a point is inside this cell.
-   * @param {number} px - Point X coordinate
-   * @param {number} py - Point Y coordinate
-   * @returns {boolean} True if point is inside cell
-   */
-  containsPoint(px, py) {
-    if (this.isDestroyed) {
-      return false;
-    }
-    
-    // Simple circular hit detection using hit radius
-    const dx = px - this.x;
-    const dy = py - this.y;
-    return (dx * dx + dy * dy) <= (this.hitRadius * this.hitRadius);
-  }
 
   /**
    * Render the cell using SVG sprite to the canvas.
+   * Foreground cells use a pre-blurred cached sprite; background cells use the normal sprite.
    */
-  draw(ctx, paletteColor, showHealthBar = false) {
-    if (this.isDestroyed) {
-      // Fade out destroyed cells
-      const elapsed = Date.now() - this.destroyStartTime;
-      if (elapsed > CELL_DESTRUCTION_FADE_TIME) {
-        return; // Fully faded, don't render
-      }
-      const fadeAlpha = 1 - (elapsed / CELL_DESTRUCTION_FADE_TIME);
-      ctx.globalAlpha = fadeAlpha;
-    }
-    
+  draw(ctx, paletteColor) {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
@@ -307,19 +304,30 @@ class CrystallineCell {
     const g = Math.floor(paletteColor.g * this.brightness);
     const b = Math.floor(paletteColor.b * this.brightness);
     const alpha = this.alphaBase + 0.05 * Math.sin(this.phase * 0.4);
+    ctx.globalAlpha *= alpha;
 
-    // Get colored sprite from cache
-    const coloredSprite = getColoredShardSprite(this.spriteIndex, { r, g, b }, this.brightness);
-    
+    let coloredSprite;
+    if (this.layer === 'foreground') {
+      // Foreground shards use a cached blurred sprite for a depth-of-field effect.
+      coloredSprite = getBlurredShardSprite(this.spriteIndex, { r, g, b }, this.brightness, FG_BLUR_RADIUS);
+    } else {
+      coloredSprite = getColoredShardSprite(this.spriteIndex, { r, g, b }, this.brightness);
+    }
+
     if (coloredSprite) {
-      // Calculate scale to fit the desired size
-      const spriteSize = Math.max(coloredSprite.width, coloredSprite.height);
-      const scale = (this.size * 2) / spriteSize;
-      
-      // Apply alpha
-      ctx.globalAlpha *= alpha;
-      
-      // Draw the colored sprite centered
+      // Calculate scale to fit the desired size (account for blur padding on fg sprites).
+      let spriteNaturalSize;
+      if (this.layer === 'foreground') {
+        // Subtract the blur padding from each dimension before taking the max,
+        // clamping at 1 to prevent division by zero or negative values.
+        const naturalW = Math.max(1, coloredSprite.width - BLUR_PADDING * 2);
+        const naturalH = Math.max(1, coloredSprite.height - BLUR_PADDING * 2);
+        spriteNaturalSize = Math.max(naturalW, naturalH);
+      } else {
+        spriteNaturalSize = Math.max(coloredSprite.width, coloredSprite.height);
+      }
+      const scale = (this.size * 2) / Math.max(1, spriteNaturalSize);
+
       ctx.drawImage(
         coloredSprite,
         -coloredSprite.width * scale * HALF,
@@ -328,47 +336,14 @@ class CrystallineCell {
         coloredSprite.height * scale
       );
     } else {
-      // Fallback: draw a simple polygon if sprites aren't loaded yet
+      // Fallback: draw a simple circle if sprites aren't loaded yet
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
       ctx.beginPath();
       ctx.arc(0, 0, this.size, 0, TWO_PI);
       ctx.fill();
     }
-    
-    // Draw health bar if requested and cell is damaged
-    if (showHealthBar && this.health < this.maxHealth && !this.isDestroyed) {
-      this.drawHealthBar(ctx);
-    }
 
     ctx.restore();
-    
-    if (this.isDestroyed) {
-      ctx.globalAlpha = 1; // Reset alpha
-    }
-  }
-  
-  /**
-   * Draw health bar above the cell.
-   */
-  drawHealthBar(ctx) {
-    const barX = -CELL_HEALTH_BAR_WIDTH * HALF;
-    const barY = -this.size - 10; // Position above cell
-    const healthPercent = this.health / this.maxHealth;
-    
-    // Background
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(barX, barY, CELL_HEALTH_BAR_WIDTH, CELL_HEALTH_BAR_HEIGHT);
-    
-    // Health bar
-    ctx.fillStyle = healthPercent > 0.5 ? 'rgba(100, 200, 100, 0.9)' : 
-                    healthPercent > 0.25 ? 'rgba(200, 200, 50, 0.9)' : 
-                    'rgba(200, 50, 50, 0.9)';
-    ctx.fillRect(barX, barY, CELL_HEALTH_BAR_WIDTH * healthPercent, CELL_HEALTH_BAR_HEIGHT);
-    
-    // Border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(barX, barY, CELL_HEALTH_BAR_WIDTH, CELL_HEALTH_BAR_HEIGHT);
   }
 }
 
@@ -523,8 +498,10 @@ export class CrystallineMosaicManager {
       }
       const colorStop = rand(); // Position along gradient.
       const phase = rand() * TWO_PI; // Animation phase.
+      // Assign layer: a fraction of cells become foreground (blurred, parallax-forward).
+      const layer = rand() < FOREGROUND_LAYER_FRACTION ? 'foreground' : 'background';
       
-      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase, rand));
+      this.cells.push(new CrystallineCell(x, y, size, colorStop, phase, layer, rand));
     }
     // Bump the state version so render caches refresh after regeneration.
     this.cellStateVersion += 1;
@@ -569,132 +546,31 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Update polygon animations and remove destroyed cells.
+   * Update polygon animations.
    */
   update(deltaTime) {
     if (!this.enabled) {
       return;
     }
-    
-    // Update all cells
     for (const cell of this.cells) {
       cell.update(deltaTime);
     }
-    
-    // Remove fully faded destroyed cells
-    const now = Date.now();
-    const previousCellCount = this.cells.length;
-    this.cells = this.cells.filter(cell => {
-      if (!cell.isDestroyed) {
-        return true;
-      }
-      const elapsed = now - cell.destroyStartTime;
-      return elapsed <= CELL_DESTRUCTION_FADE_TIME;
-    });
-    // Refresh render caches whenever cells are culled after fading out.
-    if (this.cells.length !== previousCellCount) {
-      this.cellStateVersion += 1;
-      this.visibleCellsCache = null;
-    }
-  }
-  
-  /**
-   * Find a cell at the given position.
-   * @param {Object} position - {x, y} coordinates
-   * @returns {CrystallineCell|null} The cell at this position, or null
-   */
-  findCellAt(position) {
-    if (!this.enabled || !position) {
-      return null;
-    }
-    
-    // Check cells in reverse order (render order) for better hit detection
-    for (let i = this.cells.length - 1; i >= 0; i--) {
-      const cell = this.cells[i];
-      if (cell.containsPoint(position.x, position.y)) {
-        return cell;
-      }
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Get all alive (non-destroyed) cells.
-   * @returns {Array<CrystallineCell>} Array of alive cells
-   */
-  getAliveCells() {
-    return this.cells.filter(cell => !cell.isDestroyed);
-  }
-  
-  /**
-   * Damage a cell by ID.
-   * @param {string} cellId - The cell ID to damage
-   * @param {number} damage - Amount of damage
-   * @returns {boolean} True if cell was destroyed
-   */
-  damageCellById(cellId, damage) {
-    const cell = this.cells.find(c => c.id === cellId);
-    if (cell) {
-      const destroyed = cell.takeDamage(damage);
-      // Invalidate visibility cache when a cell is destroyed mid-frame.
-      if (destroyed) {
-        this.cellStateVersion += 1;
-        this.visibleCellsCache = null;
-      }
-      return destroyed;
-    }
-    return false;
-  }
-  
-  /**
-   * Get cell by ID.
-   * @param {string} cellId - The cell ID
-   * @returns {CrystallineCell|null} The cell or null
-   */
-  getCellById(cellId) {
-    return this.cells.find(c => c.id === cellId) || null;
   }
 
   /**
-   * Render all cells with SVG sprites using unified appearance.
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {object} viewBounds - Viewport bounds used for visibility culling {minX, minY, maxX, maxY}
-   * @param {object} levelBounds - Full level world bounds used for stable crystal placement {minX, minY, maxX, maxY}
-   * @param {Array} pathPoints
-   * @param {string|number} pathVersion
-   * @param {string|null} focusedCellId
+   * Build the filtered list of visible cells for the given viewport, using a cache.
+   * @private
    */
-  render(ctx, viewBounds, levelBounds, pathPoints, pathVersion, focusedCellId = null) {
-    if (!this.enabled) {
-      return;
-    }
-    
-    // Use levelBounds for generation so crystals stay stable across zoom/pan changes.
-    // Fall back to viewBounds if levelBounds is not available.
-    const generationBounds = levelBounds || viewBounds;
-    
-    // Check if we need to regenerate cells.
-    if (this.shouldRegenerate(generationBounds, pathVersion)) {
-      // Pass the level ID as seed so regeneration always produces the same layout for a given level.
-      this.generateCells(generationBounds, pathPoints, pathVersion);
-      this.lastLevelBounds = generationBounds ? { ...generationBounds } : null;
-      this.lastPathVersion = pathVersion;
-    }
-    
-    if (this.cells.length === 0) {
-      return;
-    }
-    
-    ctx.save();
-    // Cull to visible cells so the edge mosaic stays lightweight during camera movement.
+  _getVisibleCells(viewBounds, layer) {
     const viewKey = viewBounds
       ? `${Math.round(viewBounds.minX)}:${Math.round(viewBounds.minY)}:${Math.round(viewBounds.maxX)}:${Math.round(viewBounds.maxY)}`
       : 'no-bounds';
-    const cacheKey = `${viewKey}|v${this.cellStateVersion}`;
-    const cachedCells = this.visibleCellsCache?.key === cacheKey ? this.visibleCellsCache.cells : null;
-    const visibleCells = cachedCells || this.cells.filter((cell) => {
-      if (cell.isDestroyed) {
+    const cacheKey = `${layer}|${viewKey}|v${this.cellStateVersion}`;
+    if (this.visibleCellsCache?.key === cacheKey) {
+      return this.visibleCellsCache.cells;
+    }
+    const visible = this.cells.filter((cell) => {
+      if (cell.layer !== layer) {
         return false;
       }
       if (!viewBounds) {
@@ -708,36 +584,32 @@ export class CrystallineMosaicManager {
         cell.y - padding <= viewBounds.maxY
       );
     });
-    // Cache the latest visibility list so subsequent frames reuse the culled set.
-    if (!cachedCells) {
-      this.visibleCellsCache = { key: cacheKey, cells: visibleCells };
-    }
-    
-    // First pass: Render all cell fills to create unified mass
-    for (const cell of visibleCells) {
+    this.visibleCellsCache = { key: cacheKey, cells: visible };
+    return visible;
+  }
+
+  /**
+   * Draw a set of cells plus their connection lines.
+   * @private
+   */
+  _drawCells(ctx, cells) {
+    for (const cell of cells) {
       const paletteColor = samplePaletteGradient(cell.colorShift);
-      const showHealthBar = focusedCellId && cell.id === focusedCellId;
-      cell.draw(ctx, paletteColor, showHealthBar);
+      cell.draw(ctx, paletteColor);
     }
-    
-    // Second pass: Draw unified outline/edges to make them look connected
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; // Subtle unified edge color
-    ctx.lineWidth = 2;
-    ctx.globalCompositeOperation = 'source-over';
-    
-    // Draw connecting lines between nearby cells to enhance unified appearance.
-    if (visibleCells.length <= MAX_VISIBLE_CELL_CONNECTIONS) {
-      for (let i = 0; i < visibleCells.length; i++) {
-        const cell1 = visibleCells[i];
-        
-        for (let j = i + 1; j < visibleCells.length; j++) {
-          const cell2 = visibleCells[j];
-          
+
+    // Draw faint connecting lines between nearby same-layer cells.
+    if (cells.length <= MAX_VISIBLE_CELL_CONNECTIONS) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 2;
+      ctx.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < cells.length; i++) {
+        const cell1 = cells[i];
+        for (let j = i + 1; j < cells.length; j++) {
+          const cell2 = cells[j];
           const dx = cell2.x - cell1.x;
           const dy = cell2.y - cell1.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          // Connect cells that are close together.
           if (distance < (cell1.size + cell2.size) * 1.5) {
             ctx.beginPath();
             ctx.moveTo(cell1.x, cell1.y);
@@ -749,7 +621,88 @@ export class CrystallineMosaicManager {
         }
       }
     }
-    
+  }
+
+  /**
+   * Ensure cells are generated (shared between renderBackground and renderForeground).
+   * @private
+   */
+  _ensureCells(viewBounds, levelBounds, pathPoints, pathVersion) {
+    const generationBounds = levelBounds || viewBounds;
+    if (this.shouldRegenerate(generationBounds, pathVersion)) {
+      this.generateCells(generationBounds, pathPoints, pathVersion);
+      this.lastLevelBounds = generationBounds ? { ...generationBounds } : null;
+      this.lastPathVersion = pathVersion;
+    }
+  }
+
+  /**
+   * Render background-layer shards with a slow parallax offset.
+   * Background shards are crisp and appear to be further away than game elements.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {object} viewBounds - Viewport culling bounds {minX, minY, maxX, maxY}
+   * @param {object} levelBounds - Stable level bounds for crystal generation
+   * @param {Array} pathPoints
+   * @param {string|number} pathVersion
+   * @param {{x:number,y:number}} viewCenter - Current camera centre for parallax
+   */
+  renderBackground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter) {
+    if (!this.enabled) {
+      return;
+    }
+    this._ensureCells(viewBounds, levelBounds, pathPoints, pathVersion);
+    if (this.cells.length === 0) {
+      return;
+    }
+
+    const cells = this._getVisibleCells(viewBounds, 'background');
+    if (!cells.length) {
+      return;
+    }
+
+    ctx.save();
+    // Background parallax: shift slightly toward the camera centre so they lag behind movement.
+    if (viewCenter) {
+      const ox = viewCenter.x * (1 - BG_PARALLAX_FACTOR);
+      const oy = viewCenter.y * (1 - BG_PARALLAX_FACTOR);
+      ctx.translate(ox, oy);
+    }
+    this._drawCells(ctx, cells);
+    ctx.restore();
+  }
+
+  /**
+   * Render foreground-layer shards with a fast parallax offset.
+   * Foreground shards are blurred and appear in front of all game elements.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {object} viewBounds - Viewport culling bounds
+   * @param {object} levelBounds - Stable level bounds for crystal generation
+   * @param {Array} pathPoints
+   * @param {string|number} pathVersion
+   * @param {{x:number,y:number}} viewCenter - Current camera centre for parallax
+   */
+  renderForeground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter) {
+    if (!this.enabled) {
+      return;
+    }
+    this._ensureCells(viewBounds, levelBounds, pathPoints, pathVersion);
+    if (this.cells.length === 0) {
+      return;
+    }
+
+    const cells = this._getVisibleCells(viewBounds, 'foreground');
+    if (!cells.length) {
+      return;
+    }
+
+    ctx.save();
+    // Foreground parallax: shift slightly away from the camera centre so they lead movement.
+    if (viewCenter) {
+      const ox = viewCenter.x * (1 - FG_PARALLAX_FACTOR);
+      const oy = viewCenter.y * (1 - FG_PARALLAX_FACTOR);
+      ctx.translate(ox, oy);
+    }
+    this._drawCells(ctx, cells);
     ctx.restore();
   }
 

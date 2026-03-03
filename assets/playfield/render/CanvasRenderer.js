@@ -8,6 +8,7 @@ import {
 
 import {
   drawCrystallineMosaic,
+  drawForegroundCrystallineMosaic,
   drawSketches,
   drawSketchLayerCache,
   drawFloaters,
@@ -276,6 +277,10 @@ function draw() {
   }
   if (devLayerFlags.projectiles) {
     this.drawProjectiles();
+  }
+  // Foreground shards render on top of all game elements for a parallax depth effect.
+  if (devLayerFlags.background) {
+    this.drawForegroundCrystallineMosaic();
   }
   if (devLayerFlags.uiOverlay) {
     this.drawDamageNumbers();
@@ -642,6 +647,7 @@ export {
   drawConnectionEffects,
   draw,
   drawCrystallineMosaic,
+  drawForegroundCrystallineMosaic,
   drawSketches,
   drawFloaters,
   drawMoteGems,
