@@ -1090,8 +1090,7 @@ body.graphics-mode-low .control-button {
 
 /* Override touch-action for elements that need custom touch handling */
 .panel canvas,
-.panel .playfield,
-.panel [data-drag-scroll] {
+.panel .playfield {
   touch-action: none;
 }
 
