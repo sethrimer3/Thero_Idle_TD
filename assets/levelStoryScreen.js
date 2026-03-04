@@ -6,8 +6,8 @@ const WORD_DELAY_MS = 100;
 const SECTION_PAUSE_MS = 5000;
 const PROMPT_DELAY_AFTER_COMPLETE_MS = 5000;
 const STORY_BACKGROUND_IMAGE_PATHS = [
-  './assets/sprites/pages/blackboardMobile.png',
-  './assets/sprites/pages/blackboardDesktop.png',
+  './assets/sprites/backgrounds/blackboardMobile.png',
+  './assets/sprites/backgrounds/blackboardDesktop.png',
 ];
 const BACKGROUND_FADE_OUT_MS = 120;
 
