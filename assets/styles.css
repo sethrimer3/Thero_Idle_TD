@@ -929,7 +929,7 @@ body.graphics-mode-low .control-button {
   padding: clamp(1rem, 5vw, 3rem);
   /* Lock the story artwork to the viewport so it doesn't resize as text grows. */
   background-color: rgba(0, 0, 0, 0);
-  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardMobile.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -947,7 +947,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-story-overlay[data-background-ready='true'] {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardMobile.png');
 }
 
 /* Keep a short fade-out path when dismissing story so the board disappears before the overlay fully closes. */
@@ -1048,11 +1048,11 @@ body.graphics-mode-low .control-button {
 
   .level-story-overlay {
     /* Swap to the landscape chalkboard artwork for desktop story overlays. */
-    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardDesktop.png');
   }
 
   .level-story-overlay[data-background-ready='true'] {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardDesktop.png');
   }
 }
 
