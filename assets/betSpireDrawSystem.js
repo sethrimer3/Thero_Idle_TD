@@ -248,7 +248,7 @@ export function animate() {
     // Throttle frame warnings so intermittent spikes do not flood the console.
     if (nowMs - this.lastPerformanceWarningAt >= PERF_WARN_COOLDOWN_MS) {
       this.lastPerformanceWarningAt = nowMs;
-      console.warn(`Bet Spire frame took ${frameTime.toFixed(2)}ms with ${this.particles.length} particles`);
+      console.debug(`Bet Spire frame took ${frameTime.toFixed(2)}ms with ${this.particles.length} particles`);
     }
   }
   

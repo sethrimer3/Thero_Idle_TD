@@ -34,6 +34,7 @@ let cameraStateLabel = null;
 // Render size controls for the Aleph spire layout.
 let renderOverlapSelect = null;
 let renderOverlapRow = null;
+let developerOnlyRenderSizeOptions = [];
 // Provide a handler to synchronize the Aleph camera mode with the main controller.
 let cameraModeHandler = null;
 
@@ -147,9 +148,28 @@ function syncToggleUi() {
 function normalizeRenderOverlapLevel(value) {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed)) {
-    return 1; // Default to Medium if invalid
+    return 0; // Default to Small if invalid
   }
   return Math.min(MAX_RENDER_OVERLAP_LEVEL, Math.max(0, parsed));
+}
+
+// Restrict Medium/Large render sizes to developer mode while keeping Small always available.
+function syncDeveloperRenderSizeOptions(isDeveloperModeActive) {
+  const developerModeEnabled = Boolean(isDeveloperModeActive);
+  developerOnlyRenderSizeOptions.forEach((option) => {
+    if (!option) {
+      return;
+    }
+    option.hidden = !developerModeEnabled;
+    option.disabled = !developerModeEnabled;
+  });
+
+  if (!developerModeEnabled && settings.renderOverlapLevel !== 0) {
+    settings.renderOverlapLevel = 0;
+    persistSettings();
+    syncToggleUi();
+    applyRenderOverlapLayout();
+  }
 }
 
 // Apply the Aleph render size settings by offsetting the spire container.
@@ -224,6 +244,9 @@ export function bindPowderSpireOptions() {
   cameraStateLabel = document.getElementById('powder-camera-controls-state');
   renderOverlapSelect = document.getElementById('powder-render-overlap-select');
   renderOverlapRow = document.getElementById('powder-render-overlap-row');
+  developerOnlyRenderSizeOptions = Array.from(
+    document.querySelectorAll('[data-developer-only-render-size-option]'),
+  );
 
   if (glowToggle) {
     glowToggle.addEventListener('change', (event) => {
@@ -272,6 +295,7 @@ export function bindPowderSpireOptions() {
   }
 
   syncToggleUi();
+  syncDeveloperRenderSizeOptions(false);
 }
 
 /**
@@ -280,6 +304,7 @@ export function bindPowderSpireOptions() {
 export function initializePowderSpirePreferences() {
   loadSettings();
   syncToggleUi();
+  syncDeveloperRenderSizeOptions(false);
   applySettingsToSimulation();
   applyCameraModePreference();
   applyRenderOverlapLayout();
@@ -290,6 +315,14 @@ export function initializePowderSpirePreferences() {
  */
 export function applyPowderVisualSettings() {
   applySettingsToSimulation();
+}
+
+/**
+ * Toggle visibility of Aleph render-size options that should only be available in developer mode.
+ * @param {boolean} isDeveloperModeActive
+ */
+export function updatePowderRenderSizeControlsVisibility(isDeveloperModeActive) {
+  syncDeveloperRenderSizeOptions(isDeveloperModeActive);
 }
 
 // Recalculate overlap offsets on viewport changes to keep the render aligned.

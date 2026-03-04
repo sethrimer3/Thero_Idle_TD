@@ -436,6 +436,7 @@ import {
   initializePowderSpirePreferences,
   setPowderCameraModeHandler,
   setPowderSimulationGetter,
+  updatePowderRenderSizeControlsVisibility,
 } from './powderSpirePreferences.js';
 import {
   bindAchievementsTerrariumOptions,
@@ -2243,6 +2244,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
     updateBetSpireDebugControlsVisibility,
+    updatePowderRenderSizeControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
     updatePlayfieldDevLayerTogglesVisibility,
