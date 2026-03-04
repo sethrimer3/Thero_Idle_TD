@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Golden curvy lowercase alpha favicon for Thero Idle -->
+  <defs>
+    <!-- Dark background gradient -->
+    <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0a0a;stop-opacity:1" />
+    </radialGradient>
+    
+    <!-- Luxurious golden gradient -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#FFED4E;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#FFA500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF8C00;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Subtle glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="31" fill="url(#bgGradient)" stroke="#2a2a2a" stroke-width="1"/>
+  
+  <!-- Lowercase alpha (α) with elegant, curvy strokes -->
+  <g filter="url(#glow)">
+    <text 
+      x="32" 
+      y="48" 
+      font-family="Georgia, 'Times New Roman', serif" 
+      font-size="44" 
+      font-style="italic"
+      font-weight="600"
+      text-anchor="middle" 
+      fill="url(#goldGradient)"
+      stroke="#B8860B" 
+      stroke-width="0.8"
+      stroke-linejoin="round"
+      stroke-linecap="round">α</text>
+  </g>
+</svg>
