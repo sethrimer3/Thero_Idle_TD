@@ -110,13 +110,13 @@ body {
 /* Activate the gem cursor on desktop pointers without affecting touch targets. */
 body.mouse-cursor-gem {
   /* Swap cursor tokens to the gem sprite while keeping fallbacks for unsupported formats. */
-  --cursor-default: url('./sprites/mouse_cursor.png') 4 2, auto;
-  --cursor-pointer: url('./sprites/mouse_cursor.png') 4 2, pointer;
-  --cursor-not-allowed: url('./sprites/mouse_cursor.png') 4 2, not-allowed;
-  --cursor-grab: url('./sprites/mouse_cursor.png') 4 2, grab;
-  --cursor-grabbing: url('./sprites/mouse_cursor.png') 4 2, grabbing;
-  --cursor-crosshair: url('./sprites/mouse_cursor.png') 4 2, crosshair;
-  --cursor-progress: url('./sprites/mouse_cursor.png') 4 2, progress;
+  --cursor-default: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, auto;
+  --cursor-pointer: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, pointer;
+  --cursor-not-allowed: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, not-allowed;
+  --cursor-grab: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grab;
+  --cursor-grabbing: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grabbing;
+  --cursor-crosshair: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, crosshair;
+  --cursor-progress: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, progress;
 }
 
 button {
@@ -6996,7 +6996,7 @@ body.playfield-fullscreen .playfield canvas {
   --powder-overlap-inline-left: 0px;
   --powder-overlap-inline-right: 0px;
   --powder-overlap-top: 0px;
-  --powder-simulation-width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  --powder-simulation-width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75)); /* 220px leaves room for tab chrome and stacked HUD cards above each spire render. */
   --powder-simulation-max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
@@ -12851,9 +12851,9 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   grid-column: 1 / -1;
   justify-self: center;
   /* Grow Kuf Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   /* Keep the desktop card bounded so the 3:4 viewport ratio doesn't flatten. */
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .kuf-sim-header {
@@ -14029,8 +14029,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 .shin-cardinal-card {
   /* Match the responsive spire sizing used by Bet so the Shin render fills the same margins. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   padding: 0;
   background: transparent;
   border: none;
@@ -14049,7 +14049,6 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   aspect-ratio: 3 / 4;
   /* Let the viewport inherit the card sizing so the canvas fills the full width. */
   width: 100%;
-  /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
   max-width: 100%;
   max-height: calc(var(--stable-vh) - 220px);
 }
@@ -15856,31 +15855,25 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
-/* Shin and Kuf spires use custom viewport containers but need similar treatment */
-.shin-game-content .shin-cardinal-card {
-  width: 100%;
-  max-width: 100%;
+/* Keep advanced spire render wrappers vertically aligned with Aleph's top spacing. */
+#panel-fluid .panel-header,
+#panel-lamed .panel-header,
+#panel-tsadi .panel-header,
+#panel-shin .panel-header,
+#panel-kuf .panel-header {
+  display: none;
+}
+
+/* Match top spacing of non-Aleph spire render wrappers to the Aleph render position. */
+#panel-fluid .fluid-grid:first-of-type,
+#panel-lamed .lamed-grid,
+#panel-tsadi .tsadi-grid,
+#panel-shin .shin-game-content,
+#panel-kuf .kuf-grid {
+  padding-top: 0;
 }
 
 @media (max-width: 720px) {
-  /* Remove the empty spire headers so mobile renders can sit at the top edge. */
-  #panel-fluid .panel-header,
-  #panel-lamed .panel-header,
-  #panel-tsadi .panel-header,
-  #panel-shin .panel-header,
-  #panel-kuf .panel-header {
-    display: none;
-  }
-
-  /* Pull the advanced spire panels to the top so the render starts at the viewport edge. */
-  #panel-fluid,
-  #panel-lamed,
-  #panel-tsadi,
-  #panel-shin,
-  #panel-kuf {
-    padding-top: 0;
-  }
-
   /* Trim grid padding on mobile so render slots can reach the screen edges. */
   .fluid-grid,
   .lamed-grid,
