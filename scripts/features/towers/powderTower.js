@@ -211,6 +211,10 @@ export class PowderSimulation {
     this.touchdownWaveBandCells = Number.isFinite(options.touchdownWaveBandCells)
       ? Math.max(0.35, options.touchdownWaveBandCells)
       : 0.85;
+    // Keep a vertical tail so touchdown waves can continue through the full visible mote stack.
+    this.touchdownWaveTailStrength = Number.isFinite(options.touchdownWaveTailStrength)
+      ? Math.max(0, options.touchdownWaveTailStrength)
+      : 0.72;
     this.maxTouchdownWaves = Number.isFinite(options.maxTouchdownWaves)
       ? Math.max(1, Math.round(options.maxTouchdownWaves))
       : 12;
@@ -1429,13 +1433,21 @@ export class PowderSimulation {
         const grainCenterY = grain.y + colliderSize * 0.5;
         const waveIntensity = this.getTouchdownWaveIntensity(grainCenterX, grainCenterY);
         if (waveIntensity > 0) {
+          // Ease the response so wave tint transitions are smooth instead of stepping between bands.
+          const easedWaveIntensity = 1 - Math.pow(1 - clampUnitInterval(waveIntensity), 2);
           const waveBase = this.normalizeDropColor(fillColor) || resolvedColor;
-          const brightened = mixRgbColors(
+          // Add a warm crest tint before white lift so the wave reads like a soft color gradient across the pile.
+          const crestTint = mixRgbColors(
             waveBase,
+            { r: 255, g: 243, b: 214 },
+            Math.min(1, 0.18 + easedWaveIntensity * 0.42),
+          );
+          const brightened = mixRgbColors(
+            crestTint,
             { r: 255, g: 255, b: 255 },
             Math.min(
               this.maxTouchdownWaveBrightness,
-              this.baseTouchdownWaveBrightness + waveIntensity * this.touchdownWaveBrightnessScale,
+              this.baseTouchdownWaveBrightness + easedWaveIntensity * this.touchdownWaveBrightnessScale,
             ),
           );
           fillColor = colorToRgbaString(brightened, 1);
@@ -1801,20 +1813,34 @@ export class PowderSimulation {
     const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
     const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    // Normalize the tail strength once so the vertical continuation can be tuned via constructor options.
+    const tailStrength = Math.max(0, this.touchdownWaveTailStrength);
     let intensity = 0;
     for (const wave of this.touchdownWaves) {
       const ageRatio = clampUnitInterval(wave.ageMs / lifetime);
       const frontRadius = wave.ageMs * speedCellsPerMs;
       const distance = Math.hypot(x - wave.x, y - wave.y);
       const distanceFromFront = Math.abs(distance - frontRadius);
-      if (distanceFromFront > bandWidth) {
-        continue;
-      }
-      const frontStrength = 1 - distanceFromFront / bandWidth;
+      // Replace hard cutoffs with gaussian-style falloff so colors blend smoothly around the wavefront.
+      const frontStrength = Math.exp(-Math.pow(distanceFromFront / Math.max(0.001, bandWidth), 2));
+      // Keep a soft interior bloom behind the front so the wave does not render as a single harsh ring.
+      const interiorRadius = Math.max(bandWidth * 1.1, frontRadius * 0.7);
+      const interiorStrength = Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2));
+      // Extend the wave downward so the response reaches the bottom of the currently visible mote pile.
+      const visibleDepth = Math.max(1, (this.rows || 1) - wave.y);
+      const downwardDistance = y - wave.y;
+      const depthRatio = clampUnitInterval(downwardDistance / visibleDepth);
+      const horizontalSpread = Math.max(bandWidth * 2.4, frontRadius * 0.45 + bandWidth);
+      const horizontalStrength = Math.exp(-Math.pow(Math.abs(x - wave.x) / Math.max(0.001, horizontalSpread), 2));
+      const downwardTailStrength = downwardDistance >= 0
+        ? horizontalStrength * (1 - depthRatio * 0.68)
+        : 0;
       const fadeStrength = 1 - ageRatio;
-      intensity = Math.max(intensity, frontStrength * fadeStrength);
+      const blendedStrength = frontStrength * 0.6 + interiorStrength * 0.22 + downwardTailStrength * tailStrength;
+      intensity = Math.max(intensity, blendedStrength * fadeStrength);
     }
-    return intensity;
+    // Clamp to [0,1] so downstream color blending remains stable when multiple waves overlap.
+    return clampUnitInterval(intensity);
   }
 
   // Compact autosave helpers and compact-aware exportState/importState
