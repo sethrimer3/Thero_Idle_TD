@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Powder tower simulation utilities and shared mote palette helpers.
  *
  * This module packages the powder basin rendering math so other systems can
@@ -19,6 +19,7 @@ import {
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   parseCssColor,
+  hslToRgbColor,
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
@@ -68,6 +69,7 @@ export {
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   parseCssColor,
+  hslToRgbColor,
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
@@ -2496,3 +2498,5 @@ export class PowderSimulation {
     window.removeEventListener('resize', this.handleResize);
   }
 }
+
+
