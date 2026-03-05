@@ -654,6 +654,9 @@ export function fireTurret(turret, target) {
   const projectileSpeed = turret.projectileSpeed || TURRET_BULLET_SPEED;
   const damagePerShot = turret.attack * modifiers.damageMultiplier;
   const attackSpeed = Math.max(0.1, turret.attackSpeed * modifiers.attackSpeedMultiplier);
+  // Allow miniature enemy towers to opt into simplified tower-like behaviors (homing/pierce).
+  const homingProjectiles = Boolean(turret.homing ?? turret.extra?.homing);
+  const pierce = Math.max(0, Number(turret.pierce ?? turret.extra?.pierce) || 0);
   const shots = turret.multiShot || 1;
   const spread = turret.spreadAngle || 0;
   const baseAngle = Math.atan2(target.y - turret.y, target.x - turret.x);
@@ -669,8 +672,10 @@ export function fireTurret(turret, target) {
       target,
       speed: projectileSpeed,
       damage: damagePerShot,
+      homing: homingProjectiles,
       angle: baseAngle + angleOffset,
       effects: turret.projectileEffects || null,
+      pierce,
     });
   }
 
