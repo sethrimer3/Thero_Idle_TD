@@ -90,12 +90,22 @@ export function setElementVisibility(element, visible) {
     element.classList.remove('is-hidden');
     element.removeAttribute('hidden');
     element.removeAttribute('aria-hidden');
+    // Release inert mode so descendants can receive focus again when the section is visible.
+    element.removeAttribute('inert');
     return;
+  }
+
+  // Blur focus before hiding so no focused descendant is trapped inside an aria-hidden container.
+  const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+  if (activeElement && element.contains(activeElement) && typeof activeElement.blur === 'function') {
+    activeElement.blur();
   }
 
   element.classList.add('is-hidden');
   element.setAttribute('hidden', '');
   element.setAttribute('aria-hidden', 'true');
+  // Mark hidden regions as inert to prevent keyboard focus and pointer interaction while hidden.
+  element.setAttribute('inert', '');
 }
 
 /**
