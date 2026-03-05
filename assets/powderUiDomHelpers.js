@@ -6,6 +6,9 @@ import {
 } from '../scripts/features/towers/powderTower.js';
 import { formatAlephLabel, formatBetLabel } from './formatHelpers.js';
 
+const GOLD_ALEPH_SPRITE_PATH = 'assets/sprites/spires/alephSpire/Gold_Aleph.png';
+const GOLD_NUMBER_SPRITE_PATH_PREFIX = 'assets/sprites/goldNumbers/Gold_';
+
 /**
  * Factory that bundles DOM helpers used by the powder and Bet Spire Terrarium overlays.
  * @param {Object} options - Dependency injection container for DOM bindings and utilities.
@@ -39,6 +42,47 @@ export function createPowderUiDomHelpers(options = {}) {
     }
     return null;
   };
+
+  /**
+   * Render one Aleph wall glyph from the dedicated golden Aleph and golden digit sprites.
+   * @param {HTMLElement} glyphElement - Glyph container anchored to the wall.
+   * @param {number} index - Glyph index rendered as ℵ + decimal digits.
+   */
+  function renderPowderGlyphSprite(glyphElement, index) {
+    if (!glyphElement || typeof document === 'undefined') {
+      return;
+    }
+    const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+    const displayValue = `${normalized}`;
+    const currentSignature = `a:${displayValue}`;
+    if (glyphElement.dataset.spriteSignature === currentSignature) {
+      return;
+    }
+    glyphElement.dataset.spriteSignature = currentSignature;
+    glyphElement.textContent = '';
+    glyphElement.setAttribute('aria-label', formatAlephLabel(normalized));
+
+    const strip = document.createElement('span');
+    strip.className = 'powder-glyph-sprite-strip';
+
+    const alephSprite = document.createElement('img');
+    alephSprite.className = 'powder-glyph-sprite powder-glyph-sprite--aleph';
+    alephSprite.src = GOLD_ALEPH_SPRITE_PATH;
+    alephSprite.alt = '';
+    alephSprite.decoding = 'async';
+    strip.appendChild(alephSprite);
+
+    displayValue.split('').forEach((digit) => {
+      const digitSprite = document.createElement('img');
+      digitSprite.className = 'powder-glyph-sprite powder-glyph-sprite--digit';
+      digitSprite.src = `${GOLD_NUMBER_SPRITE_PATH_PREFIX}${digit}.png`;
+      digitSprite.alt = '';
+      digitSprite.decoding = 'async';
+      strip.appendChild(digitSprite);
+    });
+
+    glyphElement.appendChild(strip);
+  }
 
   // Collect references to the Bet Spire UI so powderDisplay can hydrate the fluid viewport.
   function bindFluidControls() {
@@ -345,7 +389,7 @@ export function createPowderUiDomHelpers(options = {}) {
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
-          glyph.textContent = formatAlephLabel(index);
+          renderPowderGlyphSprite(glyph, index);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;
           const topPx = basinHeight - relativeRows * cellSize;
