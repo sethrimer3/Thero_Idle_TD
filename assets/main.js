@@ -375,6 +375,7 @@ import {
   injectTowerCardPreviews,
   simplifyTowerCards,
   annotateTowerCardsWithCost,
+  stageTowerCardEntrance,
   initializeTowerSelection,
   initializeTowerVisibilityToggle,
   initializeTowerElementDebugControls,
@@ -6491,7 +6492,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           }
         }
         // Compact spire tabs no longer need stack state synchronization
-        if (tabId === 'fluid') {
+        if (tabId === 'towers') {
+          // Refresh visibility state first (fast, no rendering work).
+          updateTowerCardVisibility();
+          // Stagger the card entrance so the browser renders them incrementally
+          // rather than painting all cards synchronously in one frame.
+          requestAnimationFrame(() => {
+            stageTowerCardEntrance({ delayBetweenMs: 40 });
+          });
+        } else if (tabId === 'fluid') {
           updateFluidTabAvailability();
           if (powderState.simulationMode !== 'fluid') {
             applyPowderSimulationMode('fluid');

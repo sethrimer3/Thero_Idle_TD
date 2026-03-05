@@ -1887,6 +1887,50 @@ export function annotateTowerCardsWithCost() {
   });
 }
 
+/**
+ * Stagger the entrance animation for all visible tower cards so they fade and
+ * slide in one at a time rather than all painting in a single blocking frame.
+ *
+ * Cards are revealed in definition order (alpha → infinity) with a short delay
+ * between each so the browser can render incrementally without freezing.
+ *
+ * @param {object} [options]
+ * @param {number} [options.delayBetweenMs=40]  Milliseconds between each card.
+ * @param {number} [options.initialDelayMs=0]   Optional delay before the first card.
+ */
+export function stageTowerCardEntrance({ delayBetweenMs = 40, initialDelayMs = 0 } = {}) {
+  // Collect only the cards that are actually visible (unlocked / dev-mode shown).
+  const allCards = Array.from(document.querySelectorAll(TOWER_CARD_SELECTOR));
+  const visibleCards = allCards.filter((card) => {
+    if (!(card instanceof HTMLElement)) return false;
+    if (card.hidden) return false;
+    if (card.getAttribute('aria-hidden') === 'true') return false;
+    return true;
+  });
+
+  // Reset any prior entrance state so re-opening the tab replays the animation.
+  allCards.forEach((card) => {
+    if (card instanceof HTMLElement) {
+      card.classList.remove('is-entering');
+      // Only reset opacity on visible cards; hidden cards stay invisible.
+      if (!card.hidden && card.getAttribute('aria-hidden') !== 'true') {
+        card.style.opacity = '0';
+      }
+    }
+  });
+
+  visibleCards.forEach((card, index) => {
+    const delay = initialDelayMs + index * delayBetweenMs;
+    setTimeout(() => {
+      if (!(card instanceof HTMLElement)) return;
+      // Guard: card may have been hidden since the timeout was queued.
+      if (card.hidden || card.getAttribute('aria-hidden') === 'true') return;
+      card.style.removeProperty('opacity'); // Let CSS animation take over.
+      card.classList.add('is-entering');
+    }, delay);
+  });
+}
+
 export function initializeTowerSelection() {
   const buttons = document.querySelectorAll('[data-tower-toggle]');
   buttons.forEach((button) => {
