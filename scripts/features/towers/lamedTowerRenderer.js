@@ -87,7 +87,17 @@ export function renderLamedSimulation() {
         protoStarPercent,
       );
       const starSizeScale = 10 * protoStarPercent / currentSunPercent;
-      this.starfieldRenderer.draw(ctx, this.width / dpr, this.height / dpr, graphicsQuality, starSizeScale);
+      // Increase camera zoom-out as the sun grows so stars drift inward and more distant stars appear at the edges.
+      const sunGrowthScale = currentSunPercent / protoStarPercent;
+      const starfieldZoomOutScale = 1 + Math.max(0, Math.log2(Math.max(1, sunGrowthScale))) * 0.55;
+      this.starfieldRenderer.draw(
+        ctx,
+        this.width / dpr,
+        this.height / dpr,
+        graphicsQuality,
+        starSizeScale,
+        starfieldZoomOutScale,
+      );
     }
     
     // Pre-calculate scaled values used throughout rendering
