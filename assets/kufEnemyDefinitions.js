@@ -50,8 +50,8 @@ export const KUF_ENEMY_ORDER = Object.freeze([
 export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   small_turret: {
     type: 'small_turret',
-    name: 'Light Turret',
-    description: 'Compact autogun emplacements that guard the Kuf approach lanes.',
+    name: 'Mini α Sentry',
+    description: 'Enemy miniature Alpha tower that fires simple single-target rounds.',
     iconClass: 'turret',
     stats: {
       radius: TURRET_CONFIG.RADIUS,
@@ -65,8 +65,8 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   },
   big_turret: {
     type: 'big_turret',
-    name: 'Heavy Turret',
-    description: 'Bulky cannons that trade speed for punishing shells.',
+    name: 'Mini β Bastion',
+    description: 'Enemy miniature Beta tower that trades fire rate for heavier strikes.',
     iconClass: 'heavy-turret',
     stats: {
       radius: BIG_TURRET_CONFIG.RADIUS,
@@ -80,8 +80,8 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   },
   laser_turret: {
     type: 'laser_turret',
-    name: 'Laser Turret',
-    description: 'Rapid-fire beam pylons that stitch together overlapping lanes.',
+    name: 'Mini γ Lens',
+    description: 'Enemy miniature Gamma tower that sends fast piercing pulses.',
     iconClass: 'laser-turret',
     stats: {
       radius: TURRET_CONFIG.RADIUS,
@@ -91,12 +91,18 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       range: TURRET_CONFIG.RANGE * 1.1,
       goldValue: 8,
     },
-    extra: {},
+    extra: {
+      pierce: 1,
+      projectileSpeed: TURRET_CONFIG.BULLET_SPEED * 1.15,
+    },
+    almanacDetails: [
+      { label: 'Pierce', value: '+1 target' },
+    ],
   },
   rocket_turret: {
     type: 'rocket_turret',
-    name: 'Rocket Turret',
-    description: 'Guided pods that bombard clustered squads from midrange.',
+    name: 'Mini ε Seeker',
+    description: 'Enemy miniature Epsilon tower that uses simplified homing shots.',
     iconClass: 'rocket-turret',
     stats: {
       radius: BIG_TURRET_CONFIG.RADIUS * 0.9,
@@ -106,12 +112,18 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       range: BIG_TURRET_CONFIG.RANGE * 1.1,
       goldValue: 11,
     },
-    extra: {},
+    extra: {
+      homing: true,
+      projectileSpeed: TURRET_CONFIG.BULLET_SPEED * 0.9,
+    },
+    almanacDetails: [
+      { label: 'Guidance', value: 'Homing' },
+    ],
   },
   artillery_turret: {
     type: 'artillery_turret',
-    name: 'Artillery Turret',
-    description: 'Long-range cannons that punish slow advances.',
+    name: 'Mini Δ Field Cannon',
+    description: 'Enemy miniature Delta tower that adds a brief slowing field on hit.',
     iconClass: 'artillery-turret',
     stats: {
       radius: BIG_TURRET_CONFIG.RADIUS,
@@ -121,12 +133,21 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       range: BIG_TURRET_CONFIG.RANGE * 1.35,
       goldValue: 14,
     },
-    extra: {},
+    extra: {
+      projectileEffects: {
+        type: 'slow',
+        multiplier: 0.8,
+        duration: 1.2,
+      },
+    },
+    almanacDetails: [
+      { label: 'Slow', value: '20% for 1.2s' },
+    ],
   },
   plasma_turret: {
     type: 'plasma_turret',
-    name: 'Plasma Turret',
-    description: 'Ignites targets with lingering burn damage.',
+    name: 'Mini ζ Ember Coil',
+    description: 'Enemy miniature Zeta tower that applies a short burn.',
     iconClass: 'plasma-turret',
     stats: {
       radius: TURRET_CONFIG.RADIUS,
@@ -151,8 +172,8 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   },
   scatter_turret: {
     type: 'scatter_turret',
-    name: 'Scatter Turret',
-    description: 'Fanned volleys punish tightly packed units.',
+    name: 'Mini τ Scatter Arc',
+    description: 'Enemy miniature Tau tower that fires short fanned volleys.',
     iconClass: 'scatter-turret',
     stats: {
       radius: BIG_TURRET_CONFIG.RADIUS * 0.85,
