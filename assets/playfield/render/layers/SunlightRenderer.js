@@ -28,7 +28,7 @@ const VIEWPORT_CULL_MARGIN = 100;
 
 // Sunlight radius is a fraction of the larger playfield dimension so the effect
 // scales sensibly on both portrait (mobile) and landscape (desktop) orientations.
-const SUNLIGHT_RADIUS_FACTOR = 0.25;
+const SUNLIGHT_RADIUS_FACTOR = 0.5;
 
 // Bloom overlay covers a smaller central region for a brighter warm core.
 const BLOOM_RADIUS_FACTOR = 0.55;
@@ -141,7 +141,67 @@ function resolveSunlightRadius() {
   const w = this.renderWidth || 0;
   const h = this.renderHeight || 0;
   const larger = Math.max(w, h) || 1;
-  return larger * SUNLIGHT_RADIUS_FACTOR;
+  const viewScale = Math.max(0.1, this.viewScale || 1);
+  // Convert the desired screen-space sunlight radius into world units so the
+  // glow/shadow coverage remains consistent when players zoom in and out.
+  return (larger * SUNLIGHT_RADIUS_FACTOR) / viewScale;
+}
+
+/**
+ * Build/reuse a cached offscreen sprite for the two-layer sunlight glow.
+ * This removes per-frame gradient construction during zoom gestures.
+ */
+function resolveSunlightSprite(radius) {
+  if (!Number.isFinite(radius) || radius <= 0 || typeof document === 'undefined') {
+    return null;
+  }
+
+  const cacheRadius = Math.max(1, Math.round(radius));
+  const existing = this._sunlightSpriteCache;
+  if (existing?.radius === cacheRadius && existing?.canvas) {
+    return existing;
+  }
+
+  // Keep a small resolution floor so tiny radii remain smooth after scaling.
+  const size = Math.max(32, Math.ceil(cacheRadius * 2));
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+
+  const center = size * HALF;
+  const baseGradient = ctx.createRadialGradient(center, center, 0, center, center, cacheRadius);
+  baseGradient.addColorStop(0, 'rgba(255, 248, 220, 0.35)');
+  baseGradient.addColorStop(0.18, 'rgba(255, 192, 96, 0.28)');
+  baseGradient.addColorStop(0.42, 'rgba(255, 166, 70, 0.16)');
+  baseGradient.addColorStop(1, 'rgba(255, 140, 56, 0)');
+  ctx.globalCompositeOperation = 'screen';
+  ctx.beginPath();
+  ctx.arc(center, center, cacheRadius, 0, TWO_PI);
+  ctx.fillStyle = baseGradient;
+  ctx.fill();
+
+  // Render the bloom into the same sprite so drawMindGateSunlight only blits once.
+  const bloomRadius = cacheRadius * BLOOM_RADIUS_FACTOR;
+  const bloomGradient = ctx.createRadialGradient(center, center, 0, center, center, bloomRadius);
+  bloomGradient.addColorStop(0, 'rgba(255, 232, 178, 0.68)');
+  bloomGradient.addColorStop(0.16, 'rgba(255, 190, 104, 0.44)');
+  bloomGradient.addColorStop(0.38, 'rgba(255, 146, 74, 0.24)');
+  bloomGradient.addColorStop(1, 'rgba(255, 120, 45, 0)');
+  ctx.beginPath();
+  ctx.arc(center, center, bloomRadius, 0, TWO_PI);
+  ctx.fillStyle = bloomGradient;
+  ctx.fill();
+
+  this._sunlightSpriteCache = {
+    radius: cacheRadius,
+    canvas,
+    size,
+  };
+  return this._sunlightSpriteCache;
 }
 
 /**
@@ -199,10 +259,6 @@ export function drawMindGateSunlight() {
   if (!this.ctx) {
     return;
   }
-  // Skip while zooming to keep frame rate smooth.
-  if (this._zoomingActive) {
-    return;
-  }
 
   const gate = resolveMindGatePosition.call(this);
   if (!gate) {
@@ -210,35 +266,24 @@ export function drawMindGateSunlight() {
   }
 
   const sunlightRadius = resolveSunlightRadius.call(this);
+  if (sunlightRadius <= 0) {
+    return;
+  }
   const ctx = this.ctx;
+  const sunlightSprite = resolveSunlightSprite.call(this, sunlightRadius);
 
   ctx.save();
-
-  // Base warm glow layer
-  const baseGradient = ctx.createRadialGradient(gate.x, gate.y, 0, gate.x, gate.y, sunlightRadius);
-  baseGradient.addColorStop(0, 'rgba(255, 248, 220, 0.35)');
-  baseGradient.addColorStop(0.18, 'rgba(255, 192, 96, 0.28)');
-  baseGradient.addColorStop(0.42, 'rgba(255, 166, 70, 0.16)');
-  baseGradient.addColorStop(1, 'rgba(255, 140, 56, 0)');
-
   ctx.globalCompositeOperation = 'screen';
-  ctx.beginPath();
-  ctx.arc(gate.x, gate.y, sunlightRadius, 0, TWO_PI);
-  ctx.fillStyle = baseGradient;
-  ctx.fill();
-
-  // Bright bloom layer centered on the gate for a warm core glow
-  const bloomRadius = sunlightRadius * BLOOM_RADIUS_FACTOR;
-  const bloomGradient = ctx.createRadialGradient(gate.x, gate.y, 0, gate.x, gate.y, bloomRadius);
-  bloomGradient.addColorStop(0, 'rgba(255, 232, 178, 0.68)');
-  bloomGradient.addColorStop(0.16, 'rgba(255, 190, 104, 0.44)');
-  bloomGradient.addColorStop(0.38, 'rgba(255, 146, 74, 0.24)');
-  bloomGradient.addColorStop(1, 'rgba(255, 120, 45, 0)');
-
-  ctx.beginPath();
-  ctx.arc(gate.x, gate.y, bloomRadius, 0, TWO_PI);
-  ctx.fillStyle = bloomGradient;
-  ctx.fill();
+  if (sunlightSprite?.canvas) {
+    // Draw from cached sprite to keep zoom transitions smooth.
+    ctx.drawImage(
+      sunlightSprite.canvas,
+      gate.x - sunlightSprite.size * HALF,
+      gate.y - sunlightSprite.size * HALF,
+      sunlightSprite.size,
+      sunlightSprite.size,
+    );
+  }
 
   ctx.restore();
 }
@@ -253,7 +298,7 @@ export function drawSunlightShadows() {
   if (!this.ctx) {
     return;
   }
-  if (this.isLowGraphicsMode?.() || this._zoomingActive) {
+  if (this.isLowGraphicsMode?.()) {
     return;
   }
 
@@ -466,5 +511,4 @@ export function drawTowerSunShine() {
 
   ctx.restore();
 }
-
 
