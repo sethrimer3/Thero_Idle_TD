@@ -54,6 +54,7 @@ export function createPowderUiDomHelpers(options = {}) {
     }
     const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
     const displayValue = `${normalized}`;
+    // Prefix with "a:" so future glyph sprite families can reuse this cache key without collisions.
     const currentSignature = `a:${displayValue}`;
     if (glyphElement.dataset.spriteSignature === currentSignature) {
       return;
