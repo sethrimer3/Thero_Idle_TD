@@ -7562,7 +7562,8 @@ body.playfield-fullscreen .playfield canvas {
   background-repeat: repeat-y;
   background-size: 100% var(--powder-wall-tile-height);
   background-position: center var(--powder-wall-shift);
-  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
+  /* Desaturate Aleph wall sprites so their masonry keeps the monochrome look without blue edge outlines. */
+  filter: grayscale(1) drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
   z-index: -2;
 }
 
