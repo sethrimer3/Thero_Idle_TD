@@ -7671,19 +7671,31 @@ body.playfield-fullscreen .playfield canvas {
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
-  display: block;
-  text-align: center;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(2.6rem, 5.2vw, 4rem);
-  letter-spacing: 0.14em;
-  --powder-glyph-fill: #000;
-  color: var(--powder-glyph-fill);
-  -webkit-text-fill-color: var(--powder-glyph-fill);
-  -webkit-text-stroke: 3px #000;
-  paint-order: stroke fill;
-  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.65);
-  transition: color 0.3s ease, text-shadow 0.3s ease, -webkit-text-fill-color 0.3s ease;
+  display: flex;
+  justify-content: center;
+  --powder-glyph-glow: 0 3px 10px rgba(0, 0, 0, 0.65);
+  transition: filter 0.3s ease;
   pointer-events: none;
+}
+
+.powder-glyph-sprite-strip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.06rem, 0.24vw, 0.14rem);
+  opacity: 0.4;
+  filter: saturate(0.9) brightness(0.8) drop-shadow(var(--powder-glyph-glow));
+}
+
+.powder-glyph-sprite {
+  width: auto;
+  height: clamp(2.2rem, 4.6vw, 3.35rem);
+  object-fit: contain;
+  display: block;
+}
+
+.powder-glyph-sprite--aleph {
+  height: clamp(2.5rem, 5.2vw, 3.8rem);
 }
 
 .powder-glyph::before {
@@ -7703,8 +7715,12 @@ body.playfield-fullscreen .playfield canvas {
 
 /* Palette-aware glow lights reached glyphs with a golden outline. */
 .powder-glyph--achieved {
-  --powder-glyph-fill: var(--accent);
-  text-shadow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
+  --powder-glyph-glow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
+}
+
+.powder-glyph--achieved .powder-glyph-sprite-strip {
+  opacity: 1;
+  filter: drop-shadow(var(--powder-glyph-glow));
 }
 
 /* Hide the cross-line once a glyph is earned to keep the symbol unobstructed. */
@@ -7714,8 +7730,13 @@ body.playfield-fullscreen .playfield canvas {
 
 /* Target glyphs lean into the secondary palette hue while keeping the golden halo. */
 .powder-glyph--target {
-  text-shadow: 0 0 12px rgba(255, 232, 150, 0.55), 0 0 22px rgba(255, 200, 120, 0.45),
+  --powder-glyph-glow: 0 0 12px rgba(255, 232, 150, 0.55), 0 0 22px rgba(255, 200, 120, 0.45),
     0 0 30px rgba(255, 210, 140, 0.35);
+}
+
+.powder-glyph--target .powder-glyph-sprite-strip {
+  opacity: 1;
+  filter: drop-shadow(var(--powder-glyph-glow));
 }
 
 .powder-glyph--target::before {
