@@ -1813,6 +1813,10 @@ export class PowderSimulation {
     const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
     const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    // Keep gaussian blending but clip influence to local neighborhoods so base brightness does not tint the whole pile.
+    const boundedFrontRange = Math.max(0.5, bandWidth * 2.75);
+    const boundedInteriorRange = Math.max(0.65, bandWidth * 1.4);
+    const boundedTailRange = Math.max(bandWidth * 3, bandWidth * 1.25);
     // Normalize the tail strength once so the vertical continuation can be tuned via constructor options.
     const tailStrength = Math.max(0, this.touchdownWaveTailStrength);
     let intensity = 0;
@@ -1821,17 +1825,29 @@ export class PowderSimulation {
       const frontRadius = wave.ageMs * speedCellsPerMs;
       const distance = Math.hypot(x - wave.x, y - wave.y);
       const distanceFromFront = Math.abs(distance - frontRadius);
-      // Replace hard cutoffs with gaussian-style falloff so colors blend smoothly around the wavefront.
-      const frontStrength = Math.exp(-Math.pow(distanceFromFront / Math.max(0.001, bandWidth), 2));
+      // Restrict the front contribution to a finite shell around the moving touchdown ring.
+      const frontInRange = distanceFromFront <= boundedFrontRange;
+      const frontStrength = frontInRange
+        ? Math.exp(-Math.pow(distanceFromFront / Math.max(0.001, bandWidth), 2))
+        : 0;
       // Keep a soft interior bloom behind the front so the wave does not render as a single harsh ring.
       const interiorRadius = Math.max(bandWidth * 1.1, frontRadius * 0.7);
-      const interiorStrength = Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2));
+      // Restrict interior bloom to nearby motes so distant cells remain unlit.
+      const interiorInRange = distance <= Math.max(interiorRadius + boundedInteriorRange, boundedInteriorRange * 2);
+      const interiorStrength = interiorInRange
+        ? Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2))
+        : 0;
       // Extend the wave downward so the response reaches the bottom of the currently visible mote pile.
       const visibleDepth = Math.max(1, (this.rows || 1) - wave.y);
       const downwardDistance = y - wave.y;
       const depthRatio = clampUnitInterval(downwardDistance / visibleDepth);
       const horizontalSpread = Math.max(bandWidth * 2.4, frontRadius * 0.45 + bandWidth);
-      const horizontalStrength = Math.exp(-Math.pow(Math.abs(x - wave.x) / Math.max(0.001, horizontalSpread), 2));
+      const horizontalDistance = Math.abs(x - wave.x);
+      // Bound the downward tail horizontally to preserve a localized touchdown lane.
+      const horizontalInRange = horizontalDistance <= horizontalSpread + boundedTailRange;
+      const horizontalStrength = horizontalInRange
+        ? Math.exp(-Math.pow(horizontalDistance / Math.max(0.001, horizontalSpread), 2))
+        : 0;
       const downwardTailStrength = downwardDistance >= 0
         ? horizontalStrength * (1 - depthRatio * 0.68)
         : 0;
