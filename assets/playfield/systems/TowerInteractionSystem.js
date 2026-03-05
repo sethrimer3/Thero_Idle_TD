@@ -144,7 +144,7 @@ export function updatePlacementPreview(normalized, options = {}) {
   const actionCost = merging ? mergeCost : baseCost;
   const hasFunds = this.energy >= actionCost;
 
-  let valid = validation.valid && hasFunds;
+  let valid = validation.valid;
   let reason = '';
   const formattedCost = formatCombatNumber(Math.max(0, actionCost));
   if (!validation.valid) {
