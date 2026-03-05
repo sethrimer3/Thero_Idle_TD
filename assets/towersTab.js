@@ -1908,16 +1908,34 @@ export function stageTowerCardEntrance({ delayBetweenMs = 40, initialDelayMs = 0
     return true;
   });
 
+  // Respect low-motion settings by revealing cards instantly when animations are disabled.
+  const animationsSuppressed =
+    document.body?.classList.contains('graphics-mode-low') ||
+    (typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
   // Reset any prior entrance state so re-opening the tab replays the animation.
   allCards.forEach((card) => {
     if (card instanceof HTMLElement) {
       card.classList.remove('is-entering');
-      // Only reset opacity on visible cards; hidden cards stay invisible.
-      if (!card.hidden && card.getAttribute('aria-hidden') !== 'true') {
+      // Only reset opacity on visible cards while animation-based entrance is active.
+      if (!animationsSuppressed && !card.hidden && card.getAttribute('aria-hidden') !== 'true') {
         card.style.opacity = '0';
+      } else {
+        card.style.removeProperty('opacity');
       }
     }
   });
+
+  if (animationsSuppressed) {
+    visibleCards.forEach((card) => {
+      if (card instanceof HTMLElement) {
+        card.classList.add('is-entering');
+      }
+    });
+    return;
+  }
 
   visibleCards.forEach((card, index) => {
     const delay = initialDelayMs + index * delayBetweenMs;
@@ -2158,3 +2176,4 @@ initializeBlueprintContext({
   getTowerDefinition,
   computeTowerVariableValue,
 });
+

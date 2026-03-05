@@ -4955,8 +4955,10 @@ body.playfield-fullscreen .playfield canvas {
   opacity: 0;
 }
 
-/* Applying .is-entering triggers the fade+slide animation and holds the card visible. */
+/* Applying .is-entering triggers the fade+slide animation and keeps cards visible as a fallback. */
 .card[data-tower-id].is-entering {
+  opacity: 1;
+  transform: translateY(0);
   animation: tower-card-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
@@ -16064,3 +16066,4 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin-top: calc(-1 * var(--shin-size-top, 0px));
 }
 */
+

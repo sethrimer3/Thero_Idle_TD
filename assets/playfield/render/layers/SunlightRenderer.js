@@ -47,6 +47,10 @@ const SHADOW_COLOR_B = 5;
 const TOWER_SHADOW_NEAR_ALPHA = 0.25;
 // Enemy shadow is slightly softer.
 const ENEMY_SHADOW_NEAR_ALPHA = 0.18;
+// Enemy shadow circle is intentionally small so the cast shape reads as a compact dot.
+const ENEMY_SHADOW_RADIUS_FACTOR = 0.5;
+const ENEMY_SHADOW_RADIUS_MIN = 3.5;
+const ENEMY_SHADOW_RADIUS_MAX = 7;
 // Mote gem circle shadow is very subtle.
 const GEM_SHADOW_ALPHA = 0.12;
 
@@ -328,7 +332,12 @@ export function drawSunlightShadows() {
       }
 
       const metrics = this.getEnemyVisualMetrics ? this.getEnemyVisualMetrics(enemy) : null;
-      const coreRadius = metrics?.coreRadius ?? 9;
+      // Enemy shadows should cast from a small circle regardless of shell size.
+      const visualCoreRadius = metrics?.coreRadius ?? 9;
+      const coreRadius = Math.max(
+        ENEMY_SHADOW_RADIUS_MIN,
+        Math.min(ENEMY_SHADOW_RADIUS_MAX, visualCoreRadius * ENEMY_SHADOW_RADIUS_FACTOR),
+      );
 
       const invDist = dist > 0 ? 1 / dist : 0;
       const ux = dx * invDist;
@@ -457,3 +466,5 @@ export function drawTowerSunShine() {
 
   ctx.restore();
 }
+
+
