@@ -200,6 +200,29 @@ export class PowderSimulation {
     this.backgroundStarsEnabled = options.backgroundStarsEnabled !== false;
     this.moteTrailsEnabled = options.moteTrailsEnabled !== false;
     this.stars = [];
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
+    this.touchdownWaveLifetimeMs = Number.isFinite(options.touchdownWaveLifetimeMs)
+      ? Math.max(200, options.touchdownWaveLifetimeMs)
+      : 720;
+    this.touchdownWaveSpeedCells = Number.isFinite(options.touchdownWaveSpeedCells)
+      ? Math.max(1, options.touchdownWaveSpeedCells)
+      : 26;
+    this.touchdownWaveBandCells = Number.isFinite(options.touchdownWaveBandCells)
+      ? Math.max(0.35, options.touchdownWaveBandCells)
+      : 0.85;
+    this.maxTouchdownWaves = Number.isFinite(options.maxTouchdownWaves)
+      ? Math.max(1, Math.round(options.maxTouchdownWaves))
+      : 12;
+    this.baseTouchdownWaveBrightness = Number.isFinite(options.baseTouchdownWaveBrightness)
+      ? clampUnitInterval(options.baseTouchdownWaveBrightness)
+      : 0.35;
+    this.touchdownWaveBrightnessScale = Number.isFinite(options.touchdownWaveBrightnessScale)
+      ? Math.max(0, options.touchdownWaveBrightnessScale)
+      : 0.55;
+    this.maxTouchdownWaveBrightness = Number.isFinite(options.maxTouchdownWaveBrightness)
+      ? clampUnitInterval(options.maxTouchdownWaveBrightness)
+      : 0.88;
     this.initializeStars();
 
     this.defaultProfile = {
@@ -414,6 +437,8 @@ export class PowderSimulation {
     this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
     this.applyWallMask();
     this.grains = [];
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
     this.pendingDrops = [];
     this.spawnTimer = 0;
     this.lastFrame = 0;
@@ -528,6 +553,7 @@ export class PowderSimulation {
       this.updateGrains();
     }
 
+    this.updateTouchdownWaves(delta);
     this.updateHeightFromGrains();
     this.render();
   }
@@ -881,11 +907,14 @@ export class PowderSimulation {
 
   updateGrains() {
     if (!this.grains.length) {
+      this.hasSettledMound = false;
       return;
     }
 
     const survivors = [];
     const freefallSpeed = this.stabilized ? 2 : 3;
+    const hadSettledMound = this.hasSettledMound === true;
+    let hasSettledMound = false;
 
     this.grains.sort((a, b) => {
       const aSize = Number.isFinite(a.colliderSize) ? Math.max(1, a.colliderSize) : 1;
@@ -894,6 +923,7 @@ export class PowderSimulation {
     });
 
     for (const grain of this.grains) {
+      const wasResting = grain.resting === true;
       if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
         grain.colliderSize = this.computeColliderSize(grain.size);
       }
@@ -956,10 +986,17 @@ export class PowderSimulation {
       this.fillCells(grain);
       grain.inGrid = true;
       grain.resting = !moved;
+      if (grain.resting && !wasResting && (hadSettledMound || hasSettledMound)) {
+        this.triggerTouchdownWave(grain, colliderSize);
+      }
+      if (grain.resting) {
+        hasSettledMound = true;
+      }
       survivors.push(grain);
     }
 
     this.grains = survivors;
+    this.hasSettledMound = hasSettledMound;
     this.applyScrollIfNeeded();
   }
 
@@ -1005,6 +1042,16 @@ export class PowderSimulation {
     }
 
     this.grains = shifted;
+    if (this.touchdownWaves.length) {
+      const shiftedWaves = [];
+      for (const wave of this.touchdownWaves) {
+        wave.y += shift;
+        if (wave.y < this.rows + 2) {
+          shiftedWaves.push(wave);
+        }
+      }
+      this.touchdownWaves = shiftedWaves;
+    }
     this.populateGridFromGrains();
   }
 
@@ -1376,7 +1423,24 @@ export class PowderSimulation {
         mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.35),
         0.75,
       );
-      const fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      let fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      if (grain.resting && grain.inGrid && !grain.freefall) {
+        const grainCenterX = grain.x + colliderSize * 0.5;
+        const grainCenterY = grain.y + colliderSize * 0.5;
+        const waveIntensity = this.getTouchdownWaveIntensity(grainCenterX, grainCenterY);
+        if (waveIntensity > 0) {
+          const waveBase = this.normalizeDropColor(fillColor) || resolvedColor;
+          const brightened = mixRgbColors(
+            waveBase,
+            { r: 255, g: 255, b: 255 },
+            Math.min(
+              this.maxTouchdownWaveBrightness,
+              this.baseTouchdownWaveBrightness + waveIntensity * this.touchdownWaveBrightnessScale,
+            ),
+          );
+          fillColor = colorToRgbaString(brightened, 1);
+        }
+      }
       const seamlessPadding = Math.max(0.25, sizePx * 0.06);
       const seamlessX = px - seamlessPadding;
       const seamlessY = py - seamlessPadding;
@@ -1686,6 +1750,8 @@ export class PowderSimulation {
 
   releaseAllGrains() {
     this.clearGridPreserveWalls();
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
     this.grains.forEach((grain) => {
       grain.freefall = true;
       grain.inGrid = false;
@@ -1698,6 +1764,57 @@ export class PowderSimulation {
 
   getStatus() {
     return this.heightInfo;
+  }
+
+  triggerTouchdownWave(grain, colliderSize) {
+    const size = Number.isFinite(colliderSize) ? Math.max(1, colliderSize) : 1;
+    this.touchdownWaves.push({
+      x: grain.x + size * 0.5,
+      y: grain.y + size * 0.5,
+      ageMs: 0,
+    });
+    if (this.touchdownWaves.length > this.maxTouchdownWaves) {
+      this.touchdownWaves.splice(0, this.touchdownWaves.length - this.maxTouchdownWaves);
+    }
+  }
+
+  updateTouchdownWaves(delta) {
+    if (!this.touchdownWaves.length) {
+      return;
+    }
+    const frameDelta = Number.isFinite(delta) && delta > 0 ? delta : 16;
+    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const activeWaves = [];
+    for (const wave of this.touchdownWaves) {
+      wave.ageMs += frameDelta;
+      if (wave.ageMs < lifetime) {
+        activeWaves.push(wave);
+      }
+    }
+    this.touchdownWaves = activeWaves;
+  }
+
+  getTouchdownWaveIntensity(x, y) {
+    if (!this.touchdownWaves.length) {
+      return 0;
+    }
+    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    let intensity = 0;
+    for (const wave of this.touchdownWaves) {
+      const ageRatio = clampUnitInterval(wave.ageMs / lifetime);
+      const frontRadius = wave.ageMs * speedCellsPerMs;
+      const distance = Math.hypot(x - wave.x, y - wave.y);
+      const distanceFromFront = Math.abs(distance - frontRadius);
+      if (distanceFromFront > bandWidth) {
+        continue;
+      }
+      const frontStrength = 1 - distanceFromFront / bandWidth;
+      const fadeStrength = 1 - ageRatio;
+      intensity = Math.max(intensity, frontStrength * fadeStrength);
+    }
+    return intensity;
   }
 
   // Compact autosave helpers and compact-aware exportState/importState
