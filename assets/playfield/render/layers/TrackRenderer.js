@@ -26,6 +26,10 @@ enemyGateSprite.loading = 'eager';
 const TRACK_GATE_SIZE_SCALE = 0.5;
 // Scale the enemy gate glyph up so the spawn marker remains legible at a glance.
 const ENEMY_GATE_SYMBOL_SCALE = 2;
+// Keep the mind gate aura compact so the core marker reads crisply without flooding nearby terrain.
+const MIND_GATE_GLOW_RADIUS_SCALE = 0.72;
+// Add a subtle inversion halo to the enemy gate so it feels like a dark void in the field.
+const ENEMY_GATE_ANTIGLOW_RADIUS_SCALE = 0.68;
 // Reuse the same warm palette that powers the luminous arc tracer.
 const TRACK_TRACER_PRIMARY_COLOR = { r: 255, g: 180, b: 105 };
 const TRACK_TRACER_HALO_COLOR = { r: 255, g: 228, b: 180 };
@@ -490,10 +494,19 @@ function drawEnemyGateSymbol(ctx, position) {
   // Snap to whole pixels so the enlarged gate stays centered on the path anchor.
   ctx.translate(anchorX, anchorY);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
-  glow.addColorStop(0, 'rgba(74, 240, 255, 0.42)');
-  glow.addColorStop(1, 'rgba(15, 27, 63, 0)');
+  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
+  glow.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
+  glow.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
+  ctx.fill();
+
+  const antiGlow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
+  antiGlow.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
+  antiGlow.addColorStop(1, 'rgba(15, 27, 63, 0)');
+  ctx.fillStyle = antiGlow;
   ctx.beginPath();
   ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
   ctx.fill();
@@ -532,13 +545,13 @@ function drawMindGateSymbol(ctx, position) {
   ctx.save();
   ctx.translate(position.x, position.y);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.22, 0, 0, radius);
+  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE);
   glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
   glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
-  glow.addColorStop(1, 'rgba(139, 247, 255, 0.18)');
+  glow.addColorStop(1, 'rgba(139, 247, 255, 0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, TWO_PI);
+  ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
   ctx.fill();
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
