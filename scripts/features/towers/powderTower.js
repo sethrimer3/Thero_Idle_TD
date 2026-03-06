@@ -1,8 +1,10 @@
-/**
+﻿/**
  * Powder tower simulation utilities and shared mote palette helpers.
  *
  * This module packages the powder basin rendering math so other systems can
  * reuse the same palette rules without depending on the main bundle.
+ *
+ * Static constants and pure helpers live in powderTowerData.js.
  */
 
 // Reuse the extracted palette and normalization helpers to shrink this bundle.
@@ -17,6 +19,7 @@ import {
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   parseCssColor,
+  hslToRgbColor,
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
@@ -37,6 +40,23 @@ import {
   setWallGapTarget,
 } from './powderGridUtils.js';
 
+import {
+  MIN_MOTE_LANE_CELL_PX,
+  POWDER_CELL_SIZE_PX,
+  MOTE_RENDER_SCALE,
+  MOTE_COLLISION_SCALE,
+  MIN_STAR_SIZE,
+  MAX_STAR_SIZE,
+  STAR_MAX_SPEED,
+  GOLD_STAR_PROBABILITY,
+  STAR_MIN_LIFETIME_SECONDS,
+  STAR_MAX_LIFETIME_SECONDS,
+  STAR_FADE_MIN_SECONDS,
+  STAR_FADE_MAX_SECONDS,
+  TWO_PI,
+  randomInRange,
+} from './powderTowerData.js';
+
 // Re-export the helpers so existing imports from powderTower remain valid.
 export {
   DEFAULT_MOTE_PALETTE,
@@ -49,38 +69,17 @@ export {
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   parseCssColor,
+  hslToRgbColor,
   resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
-// Guarantee each mote lane cell remains legible on compact viewports.
-export const MIN_MOTE_LANE_CELL_PX = 4;
-
-export const POWDER_CELL_SIZE_PX = 1;
-// Render and collide motes at their base cell footprint so each grain appears one-third the previous size.
-export const MOTE_RENDER_SCALE = 1;
-export const MOTE_COLLISION_SCALE = 1;
-
-// Background star configuration constants
-const MIN_STAR_SIZE = 0.5;
-const MAX_STAR_SIZE = 2.5;
-const STAR_MAX_SPEED = 0.0002;
-const GOLD_STAR_PROBABILITY = 0.3;
-const STAR_MIN_LIFETIME_SECONDS = 6;
-const STAR_MAX_LIFETIME_SECONDS = 12;
-const STAR_FADE_MIN_SECONDS = 1.25;
-const STAR_FADE_MAX_SECONDS = 2.4;
-
-// Pre-calculate PI constants to avoid repeated Math.PI calculations in render loops.
-const TWO_PI = Math.PI * 2;
-
-function randomInRange(min, max) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return min;
-  }
-  const clampedMin = Math.min(min, max);
-  const clampedMax = Math.max(min, max);
-  return clampedMin + Math.random() * (clampedMax - clampedMin);
-}
+// Re-export cell-size and mote constants so existing callers importing from powderTower remain valid.
+export {
+  MIN_MOTE_LANE_CELL_PX,
+  POWDER_CELL_SIZE_PX,
+  MOTE_RENDER_SCALE,
+  MOTE_COLLISION_SCALE,
+} from './powderTowerData.js';
 
 export class PowderSimulation {
   constructor(options = {}) {
@@ -203,6 +202,33 @@ export class PowderSimulation {
     this.backgroundStarsEnabled = options.backgroundStarsEnabled !== false;
     this.moteTrailsEnabled = options.moteTrailsEnabled !== false;
     this.stars = [];
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
+    this.touchdownWaveLifetimeMs = Number.isFinite(options.touchdownWaveLifetimeMs)
+      ? Math.max(200, options.touchdownWaveLifetimeMs)
+      : 720;
+    this.touchdownWaveSpeedCells = Number.isFinite(options.touchdownWaveSpeedCells)
+      ? Math.max(1, options.touchdownWaveSpeedCells)
+      : 26;
+    this.touchdownWaveBandCells = Number.isFinite(options.touchdownWaveBandCells)
+      ? Math.max(0.35, options.touchdownWaveBandCells)
+      : 0.85;
+    // Keep a vertical tail so touchdown waves can continue through the full visible mote stack.
+    this.touchdownWaveTailStrength = Number.isFinite(options.touchdownWaveTailStrength)
+      ? Math.max(0, options.touchdownWaveTailStrength)
+      : 0.72;
+    this.maxTouchdownWaves = Number.isFinite(options.maxTouchdownWaves)
+      ? Math.max(1, Math.round(options.maxTouchdownWaves))
+      : 12;
+    this.baseTouchdownWaveBrightness = Number.isFinite(options.baseTouchdownWaveBrightness)
+      ? clampUnitInterval(options.baseTouchdownWaveBrightness)
+      : 0.35;
+    this.touchdownWaveBrightnessScale = Number.isFinite(options.touchdownWaveBrightnessScale)
+      ? Math.max(0, options.touchdownWaveBrightnessScale)
+      : 0.55;
+    this.maxTouchdownWaveBrightness = Number.isFinite(options.maxTouchdownWaveBrightness)
+      ? clampUnitInterval(options.maxTouchdownWaveBrightness)
+      : 0.88;
     this.initializeStars();
 
     this.defaultProfile = {
@@ -417,6 +443,8 @@ export class PowderSimulation {
     this.grid = Array.from({ length: this.rows }, () => new Array(this.cols).fill(0));
     this.applyWallMask();
     this.grains = [];
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
     this.pendingDrops = [];
     this.spawnTimer = 0;
     this.lastFrame = 0;
@@ -531,6 +559,7 @@ export class PowderSimulation {
       this.updateGrains();
     }
 
+    this.updateTouchdownWaves(delta);
     this.updateHeightFromGrains();
     this.render();
   }
@@ -884,11 +913,14 @@ export class PowderSimulation {
 
   updateGrains() {
     if (!this.grains.length) {
+      this.hasSettledMound = false;
       return;
     }
 
     const survivors = [];
     const freefallSpeed = this.stabilized ? 2 : 3;
+    const hadSettledMound = this.hasSettledMound === true;
+    let hasSettledMound = false;
 
     this.grains.sort((a, b) => {
       const aSize = Number.isFinite(a.colliderSize) ? Math.max(1, a.colliderSize) : 1;
@@ -897,6 +929,7 @@ export class PowderSimulation {
     });
 
     for (const grain of this.grains) {
+      const wasResting = grain.resting === true;
       if (!Number.isFinite(grain.colliderSize) || grain.colliderSize <= 0) {
         grain.colliderSize = this.computeColliderSize(grain.size);
       }
@@ -959,10 +992,17 @@ export class PowderSimulation {
       this.fillCells(grain);
       grain.inGrid = true;
       grain.resting = !moved;
+      if (grain.resting && !wasResting && (hadSettledMound || hasSettledMound)) {
+        this.triggerTouchdownWave(grain, colliderSize);
+      }
+      if (grain.resting) {
+        hasSettledMound = true;
+      }
       survivors.push(grain);
     }
 
     this.grains = survivors;
+    this.hasSettledMound = hasSettledMound;
     this.applyScrollIfNeeded();
   }
 
@@ -1008,6 +1048,16 @@ export class PowderSimulation {
     }
 
     this.grains = shifted;
+    if (this.touchdownWaves.length) {
+      const shiftedWaves = [];
+      for (const wave of this.touchdownWaves) {
+        wave.y += shift;
+        if (wave.y < this.rows + 2) {
+          shiftedWaves.push(wave);
+        }
+      }
+      this.touchdownWaves = shiftedWaves;
+    }
     this.populateGridFromGrains();
   }
 
@@ -1379,7 +1429,32 @@ export class PowderSimulation {
         mixRgbColors(resolvedColor, { r: 255, g: 255, b: 255 }, 0.35),
         0.75,
       );
-      const fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      let fillColor = this.getMoteColorForSize(visualSize, grain.freefall, grain.color);
+      if (grain.resting && grain.inGrid && !grain.freefall) {
+        const grainCenterX = grain.x + colliderSize * 0.5;
+        const grainCenterY = grain.y + colliderSize * 0.5;
+        const waveIntensity = this.getTouchdownWaveIntensity(grainCenterX, grainCenterY);
+        if (waveIntensity > 0) {
+          // Ease the response so wave tint transitions are smooth instead of stepping between bands.
+          const easedWaveIntensity = 1 - Math.pow(1 - clampUnitInterval(waveIntensity), 2);
+          const waveBase = this.normalizeDropColor(fillColor) || resolvedColor;
+          // Add a warm crest tint before white lift so the wave reads like a soft color gradient across the pile.
+          const crestTint = mixRgbColors(
+            waveBase,
+            { r: 255, g: 243, b: 214 },
+            Math.min(1, 0.18 + easedWaveIntensity * 0.42),
+          );
+          const brightened = mixRgbColors(
+            crestTint,
+            { r: 255, g: 255, b: 255 },
+            Math.min(
+              this.maxTouchdownWaveBrightness,
+              this.baseTouchdownWaveBrightness + easedWaveIntensity * this.touchdownWaveBrightnessScale,
+            ),
+          );
+          fillColor = colorToRgbaString(brightened, 1);
+        }
+      }
       const seamlessPadding = Math.max(0.25, sizePx * 0.06);
       const seamlessX = px - seamlessPadding;
       const seamlessY = py - seamlessPadding;
@@ -1689,6 +1764,8 @@ export class PowderSimulation {
 
   releaseAllGrains() {
     this.clearGridPreserveWalls();
+    this.touchdownWaves = [];
+    this.hasSettledMound = false;
     this.grains.forEach((grain) => {
       grain.freefall = true;
       grain.inGrid = false;
@@ -1701,6 +1778,92 @@ export class PowderSimulation {
 
   getStatus() {
     return this.heightInfo;
+  }
+
+  triggerTouchdownWave(grain, colliderSize) {
+    const size = Number.isFinite(colliderSize) ? Math.max(1, colliderSize) : 1;
+    this.touchdownWaves.push({
+      x: grain.x + size * 0.5,
+      y: grain.y + size * 0.5,
+      ageMs: 0,
+    });
+    if (this.touchdownWaves.length > this.maxTouchdownWaves) {
+      this.touchdownWaves.splice(0, this.touchdownWaves.length - this.maxTouchdownWaves);
+    }
+  }
+
+  updateTouchdownWaves(delta) {
+    if (!this.touchdownWaves.length) {
+      return;
+    }
+    const frameDelta = Number.isFinite(delta) && delta > 0 ? delta : 16;
+    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const activeWaves = [];
+    for (const wave of this.touchdownWaves) {
+      wave.ageMs += frameDelta;
+      if (wave.ageMs < lifetime) {
+        activeWaves.push(wave);
+      }
+    }
+    this.touchdownWaves = activeWaves;
+  }
+
+  getTouchdownWaveIntensity(x, y) {
+    if (!this.touchdownWaves.length) {
+      return 0;
+    }
+    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    // Keep gaussian blending but clip influence to local neighborhoods so base brightness does not tint the whole pile.
+    const boundedFrontRange = Math.max(0.5, bandWidth * 2.75);
+    const boundedInteriorRange = Math.max(0.65, bandWidth * 1.4);
+    const boundedTailRange = Math.max(bandWidth * 3, bandWidth * 1.25);
+    // Normalize the tail strength once so the vertical continuation can be tuned via constructor options.
+    const tailStrength = Math.max(0, this.touchdownWaveTailStrength);
+    let intensity = 0;
+    for (const wave of this.touchdownWaves) {
+      const ageRatio = clampUnitInterval(wave.ageMs / lifetime);
+      const frontRadius = wave.ageMs * speedCellsPerMs;
+      const distance = Math.hypot(x - wave.x, y - wave.y);
+      const distanceFromFront = Math.abs(distance - frontRadius);
+      // Restrict the front contribution to a finite shell around the moving touchdown ring.
+      const frontInRange = distanceFromFront <= boundedFrontRange;
+      const frontStrength = frontInRange
+        ? Math.exp(-Math.pow(distanceFromFront / Math.max(0.001, bandWidth), 2))
+        : 0;
+      // Keep a soft interior bloom behind the front so the wave does not render as a single harsh ring.
+      const interiorRadius = Math.max(bandWidth * 1.1, frontRadius * 0.7);
+      // Restrict interior bloom to nearby motes so distant cells remain unlit.
+      const interiorInRange = distance <= Math.max(interiorRadius + boundedInteriorRange, boundedInteriorRange * 2);
+      const interiorStrength = interiorInRange
+        ? Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2))
+        : 0;
+      // Propagate the touchdown response as a traveling downward front so the pile does not flash all at once.
+      const downwardDistance = y - wave.y;
+      // Keep the vertical lane narrow enough to read as a directed wave instead of a full-screen bloom.
+      const horizontalSpread = Math.max(bandWidth * 1.9, bandWidth + frontRadius * 0.2);
+      const horizontalDistance = Math.abs(x - wave.x);
+      // Bound the downward tail horizontally to preserve a localized touchdown lane.
+      const horizontalInRange = horizontalDistance <= horizontalSpread + boundedTailRange;
+      const horizontalStrength = horizontalInRange
+        ? Math.exp(-Math.pow(horizontalDistance / Math.max(0.001, horizontalSpread), 2))
+        : 0;
+      // Track how far the downward wavefront has travelled so lower motes light only when the front reaches them.
+      const downwardDistanceFromFront = Math.abs(downwardDistance - frontRadius);
+      const downwardFrontStrength = Math.exp(-Math.pow(
+        downwardDistanceFromFront / Math.max(0.001, bandWidth * 1.05),
+        2,
+      ));
+      const downwardTailStrength = downwardDistance >= 0 && downwardDistance <= frontRadius + bandWidth * 2
+        ? horizontalStrength * downwardFrontStrength
+        : 0;
+      const fadeStrength = 1 - ageRatio;
+      const blendedStrength = frontStrength * 0.58 + interiorStrength * 0.12 + downwardTailStrength * tailStrength;
+      intensity = Math.max(intensity, blendedStrength * fadeStrength);
+    }
+    // Clamp to [0,1] so downstream color blending remains stable when multiple waves overlap.
+    return clampUnitInterval(intensity);
   }
 
   // Compact autosave helpers and compact-aware exportState/importState
@@ -2340,3 +2503,4 @@ export class PowderSimulation {
     window.removeEventListener('resize', this.handleResize);
   }
 }
+

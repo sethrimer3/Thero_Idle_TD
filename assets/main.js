@@ -110,6 +110,7 @@ import {
   initializeSpireOptionsPlacementPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
+import { setDevLayerVisible, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
 import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
 import {
@@ -374,6 +375,7 @@ import {
   injectTowerCardPreviews,
   simplifyTowerCards,
   annotateTowerCardsWithCost,
+  stageTowerCardEntrance,
   initializeTowerSelection,
   initializeTowerVisibilityToggle,
   initializeTowerElementDebugControls,
@@ -435,6 +437,7 @@ import {
   initializePowderSpirePreferences,
   setPowderCameraModeHandler,
   setPowderSimulationGetter,
+  updatePowderRenderSizeControlsVisibility,
 } from './powderSpirePreferences.js';
 import {
   bindAchievementsTerrariumOptions,
@@ -760,6 +763,62 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const shouldShowSettings = Boolean(activeLevelId && activeLevelIsInteractive);
     playfieldSettingsWrapper.hidden = !shouldShowSettings;
     playfieldSettingsWrapper.setAttribute('aria-hidden', shouldShowSettings ? 'false' : 'true');
+  }
+
+  // Developer layer toggles – bind checkboxes to setDevLayerVisible and update state labels.
+  const devLayerToggleConfigs = [
+    { id: 'dev-layer-background-toggle', stateId: 'dev-layer-background-state', layer: 'background' },
+    { id: 'dev-layer-track-toggle', stateId: 'dev-layer-track-state', layer: 'track' },
+    { id: 'dev-layer-sunlight-toggle', stateId: 'dev-layer-sunlight-state', layer: 'sunlight' },
+    { id: 'dev-layer-towers-toggle', stateId: 'dev-layer-towers-state', layer: 'towers' },
+    { id: 'dev-layer-enemies-toggle', stateId: 'dev-layer-enemies-state', layer: 'enemies' },
+    { id: 'dev-layer-projectiles-toggle', stateId: 'dev-layer-projectiles-state', layer: 'projectiles' },
+    { id: 'dev-layer-ui-overlay-toggle', stateId: 'dev-layer-ui-overlay-state', layer: 'uiOverlay' },
+  ];
+
+  function bindDevLayerToggles() {
+    devLayerToggleConfigs.forEach(({ id, stateId, layer }) => {
+      const toggle = document.getElementById(id);
+      const stateLabel = document.getElementById(stateId);
+      if (!toggle) {
+        return;
+      }
+      toggle.addEventListener('change', (event) => {
+        const visible = Boolean(event?.target?.checked);
+        setDevLayerVisible(layer, visible);
+        if (stateLabel) {
+          stateLabel.textContent = visible ? 'On' : 'Off';
+        }
+        // Trigger an immediate redraw so the change is visible at once.
+        if (typeof playfield?.draw === 'function') {
+          playfield.draw();
+        }
+      });
+    });
+  }
+
+  function updatePlayfieldDevLayerTogglesVisibility() {
+    const section = document.getElementById('playfield-dev-layers-section');
+    if (!section) {
+      return;
+    }
+    const active = Boolean(developerModeActive);
+    section.hidden = !active;
+    section.setAttribute('aria-hidden', active ? 'false' : 'true');
+    // Reset all layer flags to visible when developer mode is turned off so the game renders normally.
+    if (!active) {
+      resetDevLayerFlags();
+      devLayerToggleConfigs.forEach(({ id, stateId }) => {
+        const toggle = document.getElementById(id);
+        const stateLabel = document.getElementById(stateId);
+        if (toggle) {
+          toggle.checked = true;
+        }
+        if (stateLabel) {
+          stateLabel.textContent = 'On';
+        }
+      });
+    }
   }
 
   /**
@@ -2186,8 +2245,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     updateShinDisplay,
     updateDeveloperMapElementsVisibility,
     updateBetSpireDebugControlsVisibility,
+    updatePowderRenderSizeControlsVisibility,
     getCurrentIdleMoteBank,
     getCurrentMoteDispenseRate,
+    updatePlayfieldDevLayerTogglesVisibility,
   });
 
   configureEnemyHandlers({ queueMoteDrop, recordPowderEvent });
@@ -6155,6 +6216,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindSpireOptionsPlacementButton();
     initializePlayfieldPreferences();
     bindPlayfieldOptions();
+    // Bind developer layer visibility toggles (only visible when developer mode is active).
+    bindDevLayerToggles();
 
     // Bind playfield settings dropdown using the spire options dropdown behavior
     bindSpireOptionsDropdown({
@@ -6429,7 +6492,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
           }
         }
         // Compact spire tabs no longer need stack state synchronization
-        if (tabId === 'fluid') {
+        if (tabId === 'towers') {
+          // Refresh visibility state first (fast, no rendering work).
+          updateTowerCardVisibility();
+          // Stagger the card entrance so the browser renders them incrementally
+          // rather than painting all cards synchronously in one frame.
+          requestAnimationFrame(() => {
+            stageTowerCardEntrance({ delayBetweenMs: 40 });
+          });
+        } else if (tabId === 'fluid') {
           updateFluidTabAvailability();
           if (powderState.simulationMode !== 'fluid') {
             applyPowderSimulationMode('fluid');

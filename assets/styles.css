@@ -110,13 +110,13 @@ body {
 /* Activate the gem cursor on desktop pointers without affecting touch targets. */
 body.mouse-cursor-gem {
   /* Swap cursor tokens to the gem sprite while keeping fallbacks for unsupported formats. */
-  --cursor-default: url('./sprites/mouse_cursor.png') 4 2, auto;
-  --cursor-pointer: url('./sprites/mouse_cursor.png') 4 2, pointer;
-  --cursor-not-allowed: url('./sprites/mouse_cursor.png') 4 2, not-allowed;
-  --cursor-grab: url('./sprites/mouse_cursor.png') 4 2, grab;
-  --cursor-grabbing: url('./sprites/mouse_cursor.png') 4 2, grabbing;
-  --cursor-crosshair: url('./sprites/mouse_cursor.png') 4 2, crosshair;
-  --cursor-progress: url('./sprites/mouse_cursor.png') 4 2, progress;
+  --cursor-default: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, auto;
+  --cursor-pointer: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, pointer;
+  --cursor-not-allowed: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, not-allowed;
+  --cursor-grab: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grab;
+  --cursor-grabbing: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grabbing;
+  --cursor-crosshair: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, crosshair;
+  --cursor-progress: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, progress;
 }
 
 button {
@@ -929,7 +929,7 @@ body.graphics-mode-low .control-button {
   padding: clamp(1rem, 5vw, 3rem);
   /* Lock the story artwork to the viewport so it doesn't resize as text grows. */
   background-color: rgba(0, 0, 0, 0);
-  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardMobile.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -947,7 +947,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-story-overlay[data-background-ready='true'] {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardMobile.png');
 }
 
 /* Keep a short fade-out path when dismissing story so the board disappears before the overlay fully closes. */
@@ -1048,11 +1048,11 @@ body.graphics-mode-low .control-button {
 
   .level-story-overlay {
     /* Swap to the landscape chalkboard artwork for desktop story overlays. */
-    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/pages/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardDesktop.png');
   }
 
   .level-story-overlay[data-background-ready='true'] {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/pages/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardDesktop.png');
   }
 }
 
@@ -1090,8 +1090,7 @@ body.graphics-mode-low .control-button {
 
 /* Override touch-action for elements that need custom touch handling */
 .panel canvas,
-.panel .playfield,
-.panel [data-drag-scroll] {
+.panel .playfield {
   touch-action: none;
 }
 
@@ -3936,6 +3935,8 @@ body.playfield-fullscreen .playfield canvas {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.78rem;
+  line-height: 1.3;
+  min-height: 40px;
   padding: 10px 18px;
   border-radius: 999px;
   border: 1px solid transparent;
@@ -4938,9 +4939,36 @@ body.playfield-fullscreen .playfield canvas {
   touch-action: pan-y;
 }
 
-/* Apply thin golden outline to tower cards in the towers tab. */
+/* ── Tower card staggered entrance ─────────────────────────────────────── */
+@keyframes tower-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply thin golden outline; cards default to invisible until the JS entrance scheduler reveals them. */
 .card[data-tower-id] {
   border: 1px solid rgba(255, 215, 0, 0.4);
+  opacity: 0;
+}
+
+/* Applying .is-entering triggers the fade+slide animation and keeps cards visible as a fallback. */
+.card[data-tower-id].is-entering {
+  opacity: 1;
+  transform: translateY(0);
+  animation: tower-card-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Hidden / locked cards stay invisible regardless of animation state. */
+.card[data-tower-id][hidden],
+.card[data-tower-id][aria-hidden="true"] {
+  opacity: 0 !important;
+  animation: none !important;
 }
 
 .card[data-tower-id][data-locked='false'] {
@@ -5119,6 +5147,8 @@ body.playfield-fullscreen .playfield canvas {
 
 .visual-settings-menu .action-button {
   width: 100%;
+  /* Add vertical room so uppercase serif labels do not clip in narrow/mobile layouts. */
+  min-height: 42px;
 }
 
 /* Palette preview line mirrors the active projectile gradient. */
@@ -6997,7 +7027,7 @@ body.playfield-fullscreen .playfield canvas {
   --powder-overlap-inline-left: 0px;
   --powder-overlap-inline-right: 0px;
   --powder-overlap-top: 0px;
-  --powder-simulation-width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  --powder-simulation-width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75)); /* 220px leaves room for tab chrome and stacked HUD cards above each spire render. */
   --powder-simulation-max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
@@ -7538,7 +7568,8 @@ body.playfield-fullscreen .playfield canvas {
   background-repeat: repeat-y;
   background-size: 100% var(--powder-wall-tile-height);
   background-position: center var(--powder-wall-shift);
-  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
+  /* Desaturate Aleph wall sprites so their masonry keeps the monochrome look without blue edge outlines. */
+  filter: grayscale(1) drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
   z-index: -2;
 }
 
@@ -7553,10 +7584,12 @@ body.playfield-fullscreen .playfield canvas {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(120, 190, 255, 0.22), rgba(120, 190, 255, 0.04));
-  border: 1px dashed rgba(120, 190, 255, 0.45);
+  /* Keep dev hitbox nodes inert so their old blue dotted guides never appear over wall art. */
+  background: transparent;
+  border: 0;
   pointer-events: none;
   opacity: 0;
+  display: none;
   transition: opacity 0.3s ease;
   z-index: 2;
 }
@@ -7596,12 +7629,14 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .powder-wall-right::before {
+  /* Pin the texture to the inner edge so any width overflow extends outward, not into the mote mound. */
   left: 0;
   right: auto;
   background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_right.png');
 }
 
 .powder-wall-right::after {
+  /* Match the texture anchor to keep the right-wall shading flush with the same inner seam. */
   left: 0;
   right: auto;
 }
@@ -7647,19 +7682,42 @@ body.playfield-fullscreen .playfield canvas {
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
-  display: block;
-  text-align: center;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(2.6rem, 5.2vw, 4rem);
-  letter-spacing: 0.14em;
-  --powder-glyph-fill: #000;
-  color: var(--powder-glyph-fill);
-  -webkit-text-fill-color: var(--powder-glyph-fill);
-  -webkit-text-stroke: 3px #000;
-  paint-order: stroke fill;
-  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.65);
-  transition: color 0.3s ease, text-shadow 0.3s ease, -webkit-text-fill-color 0.3s ease;
+  display: flex;
+  justify-content: center;
+  --powder-glyph-glow: 0 3px 10px rgba(0, 0, 0, 0.65);
+  transition: filter 0.3s ease;
   pointer-events: none;
+}
+
+.powder-glyph-sprite-strip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.06rem, 0.24vw, 0.14rem);
+  opacity: 0.4;
+  filter: saturate(0.9) brightness(0.8) drop-shadow(var(--powder-glyph-glow));
+}
+
+.powder-glyph-sprite {
+  width: auto;
+  height: clamp(2.2rem, 4.6vw, 3.35rem);
+  object-fit: contain;
+  display: block;
+}
+
+/* Shrink the right-hand Aleph level digits to 40% so the primary glyph remains visually dominant. */
+.powder-glyph-sprite--digit {
+  height: clamp(0.88rem, 1.84vw, 1.34rem);
+  /* Layer tiny black shadows around each gold number to emulate a crisp outline without repaint-heavy scripts. */
+  filter:
+    drop-shadow(0.6px 0 0 rgba(0, 0, 0, 0.95))
+    drop-shadow(-0.6px 0 0 rgba(0, 0, 0, 0.95))
+    drop-shadow(0 0.6px 0 rgba(0, 0, 0, 0.95))
+    drop-shadow(0 -0.6px 0 rgba(0, 0, 0, 0.95));
+}
+
+.powder-glyph-sprite--aleph {
+  height: clamp(2.5rem, 5.2vw, 3.8rem);
 }
 
 .powder-glyph::before {
@@ -7679,8 +7737,12 @@ body.playfield-fullscreen .playfield canvas {
 
 /* Palette-aware glow lights reached glyphs with a golden outline. */
 .powder-glyph--achieved {
-  --powder-glyph-fill: var(--accent);
-  text-shadow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
+  --powder-glyph-glow: 0 0 10px rgba(255, 220, 120, 0.55), 0 0 18px rgba(255, 186, 92, 0.45);
+}
+
+.powder-glyph--achieved .powder-glyph-sprite-strip {
+  opacity: 1;
+  filter: drop-shadow(var(--powder-glyph-glow));
 }
 
 /* Hide the cross-line once a glyph is earned to keep the symbol unobstructed. */
@@ -7690,8 +7752,13 @@ body.playfield-fullscreen .playfield canvas {
 
 /* Target glyphs lean into the secondary palette hue while keeping the golden halo. */
 .powder-glyph--target {
-  text-shadow: 0 0 12px rgba(255, 232, 150, 0.55), 0 0 22px rgba(255, 200, 120, 0.45),
+  --powder-glyph-glow: 0 0 12px rgba(255, 232, 150, 0.55), 0 0 22px rgba(255, 200, 120, 0.45),
     0 0 30px rgba(255, 210, 140, 0.35);
+}
+
+.powder-glyph--target .powder-glyph-sprite-strip {
+  opacity: 1;
+  filter: drop-shadow(var(--powder-glyph-glow));
 }
 
 .powder-glyph--target::before {
@@ -11834,6 +11901,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .lamed-spire-options-menu .action-button,
 .spire-options-menu .action-button {
   width: 100%;
+  /* Keep options buttons tall enough for the decorative typeface used across codex menus. */
+  min-height: 42px;
 }
 
 .lamed-spire-options-menu .settings-toggle,
@@ -12852,9 +12921,9 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   grid-column: 1 / -1;
   justify-self: center;
   /* Grow Kuf Spire to fill screen width on mobile while maintaining 3:4 aspect ratio. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   /* Keep the desktop card bounded so the 3:4 viewport ratio doesn't flatten. */
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
 .kuf-sim-header {
@@ -14030,8 +14099,8 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
 
 .shin-cardinal-card {
   /* Match the responsive spire sizing used by Bet so the Shin render fills the same margins. */
-  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
-  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75), 450px);
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
   padding: 0;
   background: transparent;
   border: none;
@@ -14050,7 +14119,6 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   aspect-ratio: 3 / 4;
   /* Let the viewport inherit the card sizing so the canvas fills the full width. */
   width: 100%;
-  /* 220px accounts for the tab bar (~80px), panel header (~40px), resource card (~100px) and padding. */
   max-width: 100%;
   max-height: calc(var(--stable-vh) - 220px);
 }
@@ -15857,31 +15925,25 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
-/* Shin and Kuf spires use custom viewport containers but need similar treatment */
-.shin-game-content .shin-cardinal-card {
-  width: 100%;
-  max-width: 100%;
+/* Keep advanced spire render wrappers vertically aligned with Aleph's top spacing. */
+#panel-fluid .panel-header,
+#panel-lamed .panel-header,
+#panel-tsadi .panel-header,
+#panel-shin .panel-header,
+#panel-kuf .panel-header {
+  display: none;
+}
+
+/* Match top spacing of non-Aleph spire render wrappers to the Aleph render position. */
+#panel-fluid .fluid-grid:first-of-type,
+#panel-lamed .lamed-grid,
+#panel-tsadi .tsadi-grid,
+#panel-shin .shin-game-content,
+#panel-kuf .kuf-grid {
+  padding-top: 0;
 }
 
 @media (max-width: 720px) {
-  /* Remove the empty spire headers so mobile renders can sit at the top edge. */
-  #panel-fluid .panel-header,
-  #panel-lamed .panel-header,
-  #panel-tsadi .panel-header,
-  #panel-shin .panel-header,
-  #panel-kuf .panel-header {
-    display: none;
-  }
-
-  /* Pull the advanced spire panels to the top so the render starts at the viewport edge. */
-  #panel-fluid,
-  #panel-lamed,
-  #panel-tsadi,
-  #panel-shin,
-  #panel-kuf {
-    padding-top: 0;
-  }
-
   /* Trim grid padding on mobile so render slots can reach the screen edges. */
   .fluid-grid,
   .lamed-grid,

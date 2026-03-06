@@ -13,7 +13,23 @@ assets/towerEquations/
 ├── mindGate.js           # Mind Gate special tower
 ├── basicTowers.js        # Alpha, Beta, Gamma (foundational towers)
 ├── greekTowers.js        # Delta, Epsilon, Zeta, Eta, Theta, Iota (mid-tier)
-├── advancedTowers.js     # Kappa, Lambda, Mu, Nu, Xi, Omicron, Pi (late-game)
+├── advancedTowers.js     # Barrel re-export for all advanced towers (late-game)
+├── advanced/             # Individual per-tower blueprint files (one file per tower)
+│   ├── kappaEquation.js  # κ: tripwire charge damage chain
+│   ├── lambdaEquation.js # λ: κ × effective enemy count laser
+│   ├── muEquation.js     # μ: fractal mine tiers (λ × tier × 10)
+│   ├── nuEquation.js     # ν: μ × (kills+1)^ln(dmgtot/…) beam
+│   ├── xiEquation.js     # ξ: ν × chain count exponent
+│   ├── omicronEquation.js# ο: δ × ξ triangle soldiers
+│   ├── piEquation.js     # π: ο^(|θ|/(100−Bet₁)) rotational beams
+│   ├── rhoEquation.js    # ρ: enemy thero yield × range (income)
+│   ├── sigmaEquation.js  # σ: stored ally damage discharge
+│   ├── tauEquation.js    # τ: spiral atk × internal particles
+│   ├── upsilonEquation.js# υ: fleet attack × cadence × size
+│   ├── phiEquation.js    # φ: Fibonacci golden-seed spread
+│   ├── chiEquation.js    # χ: φ²-powered thrall gate
+│   ├── psiEquation.js    # ψ: enemy merge clusters with AoE
+│   └── omegaEquation.js  # Ω: HP-slice orbital particles
 └── agent.md              # This file
 ```
 
@@ -36,16 +52,24 @@ assets/towerEquations/
 
 **Progression**: Mid-tier towers with more complex formulas and inter-tower dependencies.
 
-### Advanced Towers (`advancedTowers.js`)
-- **kappa** (κ): Late-game exponential scaling
-- **lambda** (λ): Lambda calculus inspired mechanics
-- **mu** (μ): Multiplicative compound effects
-- **nu** (ν): New mathematical operations
-- **xi** (ξ): Complex variable interactions
-- **omicron** (ο): Omnidirectional mechanics
-- **pi** (π): Circular/mathematical constant scaling
+### Advanced Towers (`advancedTowers.js` → `advanced/` subdirectory)
 
-**Progression**: End-game towers with sophisticated mechanics for veteran players.
+`advancedTowers.js` is a barrel re-export file. Each tower lives in its own file under `advanced/`:
+- **kappa** (κ): Late-game exponential scaling from γ × β × α tripwires
+- **lambda** (λ): κ × effective-enemy-count laser
+- **mu** (μ): Fractal mines that charge through tiers (λ × tier × 10)
+- **nu** (ν): Kill-count/damage-total powered beams with logarithmic exponent
+- **xi** (ξ): Chain-lightning with exponential multi-jump damage
+- **omicron** (ο): δ × ξ triangle soldiers
+- **pi** (π): Rotational beam lock-on (damage = ο^|θ|/(100−Bet₁))
+- **rho** (ρ): Enemy-death thero income multiplier
+- **sigma** (σ): Damage bank that discharges stored ally damage
+- **tau** (τ): Spiral attack × internal particles
+- **upsilon** (υ): Fleet of micro-triangle ships (attack × cadence × size)
+- **phi** (φ): Fibonacci golden-seed spread burst
+- **chi** (χ): φ²-powered thrall gate (core × hpFrac × speed × thralls)
+- **psi** (ψ): Enemy merge into clusters with AoE death explosion
+- **omega** (Ω): HP-slice particles orbiting targets
 
 ### Special Towers (`mindGate.js`)
 - **mind-gate** (\wp): Unique tower with special glyph mechanics for life and regeneration
@@ -82,7 +106,7 @@ This allows tower blueprints to access helper functions from `towersTab.js` with
 
 - **Basic mechanics?** → `basicTowers.js`
 - **Mid-tier complexity?** → `greekTowers.js`
-- **Advanced/late-game?** → `advancedTowers.js`
+- **Advanced/late-game?** → Create `advanced/<towerName>Equation.js` and re-export from `advancedTowers.js`
 - **Unique special mechanics?** → Create new file (e.g., `specialTowers.js`)
 
 ### 2. Define the Blueprint

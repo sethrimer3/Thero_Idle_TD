@@ -47,6 +47,8 @@ export function createCombatStateManager(config) {
 
   // Enemy lifecycle state
   let enemies = [];
+  // Fast O(1) enemy lookup by id, kept in sync with the enemies array.
+  let enemyById = new Map();
   let enemyIdCounter = 0;
   let enemyDeathParticles = [];
   let enemySwirlImpacts = [];
@@ -147,6 +149,7 @@ export function createCombatStateManager(config) {
     endlessCycle = options.endlessCycleStart || 0;
     
     enemies = [];
+    enemyById = new Map();
     enemyIdCounter = 0;
     enemyDeathParticles = [];
     enemySwirlImpacts = [];
@@ -191,12 +194,11 @@ export function createCombatStateManager(config) {
         activeWave = createWaveState(levelConfig.waves[0], { initialDelay: 0 });
         markWaveStart();
       } else if (enemies.length === 0) {
-        // Victory condition: all waves complete and no enemies remain
+        // Victory condition: all waves complete and no enemies remain.
+        // Set internal state then invoke the victory handler (which handles UI cleanup,
+        // audio, and the external game callback).
         resolvedOutcome = 'victory';
         combatActive = false;
-        if (audio) {
-          audio.playSfx('victory');
-        }
         if (onVictory) {
           onVictory(levelConfig.id, {
             waveNumber: currentWaveNumber,
@@ -214,6 +216,27 @@ export function createCombatStateManager(config) {
   }
 
   /**
+   * Resolve the enemy groups from a wave config, handling both the `enemyGroups` array
+   * format (used by the wave encoder) and the simple flat format with just a `count` field.
+   * @param {Object} waveConfig - Wave configuration object
+   * @returns {Array} Normalized array of enemy group objects
+   */
+  function resolveWaveGroups(waveConfig) {
+    if (Array.isArray(waveConfig.enemyGroups) && waveConfig.enemyGroups.length > 0) {
+      return waveConfig.enemyGroups;
+    }
+    // Simple wave format: synthesize a single group from wave-level properties.
+    let minionCount = 0;
+    if (Number.isFinite(waveConfig.minionCount)) {
+      minionCount = Math.max(0, Math.floor(waveConfig.minionCount));
+    } else if (Number.isFinite(waveConfig.count)) {
+      const bossOffset = waveConfig.boss ? 1 : 0;
+      minionCount = Math.max(0, Math.floor(waveConfig.count - bossOffset));
+    }
+    return minionCount > 0 ? [{ ...waveConfig, count: minionCount }] : [];
+  }
+
+  /**
    * Spawns enemies based on the active wave configuration and timer.
    * Updates activeWave.spawned and activeWave.nextSpawn as enemies are created.
    * @param {number} delta - Time elapsed since last update (seconds)
@@ -228,7 +251,7 @@ export function createCombatStateManager(config) {
     waveTimer += delta;
 
     const waveConfig = activeWave.config;
-    const groups = waveConfig.groups || [];
+    const groups = resolveWaveGroups(waveConfig);
     const boss = waveConfig.boss;
     
     // Calculate total enemy count for this wave
@@ -320,6 +343,7 @@ export function createCombatStateManager(config) {
         }
 
         enemies.push(enemy);
+        enemyById.set(enemy.id, enemy);
 
         // Notify spawn context to register the enemy
         if (spawnContext.registerEnemy) {
@@ -451,6 +475,7 @@ export function createCombatStateManager(config) {
     const index = enemies.indexOf(enemy);
     if (index >= 0) {
       enemies.splice(index, 1);
+      enemyById.delete(enemy.id);
     }
 
     // Check if wave is complete
@@ -469,11 +494,10 @@ export function createCombatStateManager(config) {
    */
   function calculateTotalSpawnCount(waveConfig) {
     let total = 0;
-    if (waveConfig.groups) {
-      waveConfig.groups.forEach((group) => {
-        total += group.count || 0;
-      });
-    }
+    const groups = resolveWaveGroups(waveConfig);
+    groups.forEach((group) => {
+      total += group.count || 0;
+    });
     if (waveConfig.boss) {
       total += 1;
     }
@@ -528,6 +552,7 @@ export function createCombatStateManager(config) {
     initialSpawnDelay = 0;
     
     enemies = [];
+    enemyById = new Map();
     enemyIdCounter = 0;
     enemyDeathParticles = [];
     enemySwirlImpacts = [];
@@ -559,6 +584,11 @@ export function createCombatStateManager(config) {
     handleEnemyDeath,
     getEnemies: () => enemies,
     getEnemyCount: () => enemies.length,
+    // O(1) enemy lookup by id.
+    getEnemyById: (id) => enemyById.get(id) ?? null,
+    // Helpers to keep the id map in sync when external code pushes/splices the array.
+    registerEnemy: (enemy) => { if (enemy?.id != null) enemyById.set(enemy.id, enemy); },
+    deregisterEnemy: (id) => { if (id != null) enemyById.delete(id); },
     
     // Victory/defeat
     checkVictoryCondition,

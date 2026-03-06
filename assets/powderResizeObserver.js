@@ -40,6 +40,26 @@ export function createPowderResizeObserver({
   let pendingPowderResizeFrame = null;
   let pendingPowderResizeIsTimeout = false;
   let observedPowderResizeElements = new WeakSet();
+  // Cache the most recent observer measurement so we can ignore self-triggered no-op resize loops.
+  let lastResizeSignature = '';
+
+  // Build a compact signature for all tracked resize targets using integer dimensions.
+  function buildResizeSignature(elements = []) {
+    if (!Array.isArray(elements) || elements.length === 0) {
+      return '';
+    }
+    return elements
+      .map((element) => {
+        if (!element || typeof element.getBoundingClientRect !== 'function') {
+          return 'missing';
+        }
+        const rect = element.getBoundingClientRect();
+        const width = Number.isFinite(rect?.width) ? Math.round(rect.width) : 0;
+        const height = Number.isFinite(rect?.height) ? Math.round(rect.height) : 0;
+        return `${width}x${height}`;
+      })
+      .join('|');
+  }
 
   function ensureObservedSet() {
     if (!(observedPowderResizeElements instanceof WeakSet)) {
@@ -59,6 +79,20 @@ export function createPowderResizeObserver({
         const { frame, usedTimeout } = scheduleResize(() => {
           pendingPowderResizeFrame = null;
           pendingPowderResizeIsTimeout = false;
+          const powderElements = resolveElements(getPowderElements);
+          const fluidElements = resolveElements(getFluidElements);
+          const signature = buildResizeSignature([
+            powderElements?.stage,
+            powderElements?.simulationCard,
+            powderElements?.basin,
+            fluidElements?.simulationCard,
+            fluidElements?.basin,
+          ]);
+          // Skip redundant resize work when observer callbacks carry the same layout dimensions.
+          if (signature && signature === lastResizeSignature) {
+            return;
+          }
+          lastResizeSignature = signature;
           const simulation = typeof getPowderSimulation === 'function' ? getPowderSimulation() : null;
           if (simulation && typeof simulation.handleResize === 'function') {
             simulation.handleResize();

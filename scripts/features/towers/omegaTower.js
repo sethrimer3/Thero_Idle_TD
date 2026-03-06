@@ -1,6 +1,7 @@
 // Ω tower particle orchestration: golden particles orbit enemies, then execute HP% slices.
 import { computeTowerVariableValue } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { clamp } from './shared/TowerUtils.js';
 
 // Golden particle colors for Omega tower
 const OMEGA_PARTICLE_COLORS = [
@@ -51,13 +52,6 @@ function updateTrail(particle) {
   if (particle.trail.length > 16) {
     particle.trail.shift();
   }
-}
-
-/**
- * Clamp a value between min and max.
- */
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 
 /**

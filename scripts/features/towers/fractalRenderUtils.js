@@ -7,6 +7,8 @@
  * allowing striking gradients.
  */
 
+import { lerp } from './shared/TowerUtils.js';
+
 /**
  * Predefined gradient stops keyed by palette identifier. Each stop contains a
  * relative position in [0, 1] and the corresponding RGB triplet.
@@ -38,18 +40,6 @@ const FRACTAL_PALETTES = {
     { t: 1, color: [255, 236, 200] }
   ]
 };
-
-/**
- * Linearly interpolate between two numbers.
- *
- * @param {number} a - Start value
- * @param {number} b - End value
- * @param {number} t - Blend factor in [0, 1]
- * @returns {number} Interpolated value
- */
-function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
 
 /**
  * Sample a palette by interpolating across its stops.

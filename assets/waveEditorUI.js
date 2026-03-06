@@ -18,6 +18,14 @@ const waveEditorState = {
 // DOM element references
 const waveEditorElements = {};
 
+// Attach stable id/name metadata so browser autofill diagnostics can classify dynamic editor fields.
+function assignWaveFieldIdentity(element, baseName, waveIndex, groupIndex = 'primary') {
+  const normalizedWave = String(waveIndex);
+  const normalizedGroup = String(groupIndex);
+  element.name = `wave-editor-${baseName}-w${normalizedWave}-g${normalizedGroup}`;
+  element.id = `wave-editor-${baseName}-w${normalizedWave}-g${normalizedGroup}`;
+}
+
 // Create a short display label for enemy types using the first four letters.
 function getEnemyTypeShortLabel(enemyLabel) {
   const normalized = String(enemyLabel || '').replace(/[^a-zA-Z]/g, '');
@@ -192,6 +200,7 @@ export function addWaveEditorRow(waveData = null) {
   countInput.min = 1;
   countInput.max = 999;
   countInput.title = 'Enemy count';
+  assignWaveFieldIdentity(countInput, 'count', row.dataset.waveIndex);
   countInput.addEventListener('input', () => updateGroupData(row.dataset.waveIndex, 0, 'count', parseInt(countInput.value, 10)));
   row.appendChild(countInput);
 
@@ -210,6 +219,7 @@ export function addWaveEditorRow(waveData = null) {
     }
     typeSelect.appendChild(option);
   });
+  assignWaveFieldIdentity(typeSelect, 'enemy-type', row.dataset.waveIndex);
   typeSelect.addEventListener('change', () => updateGroupData(row.dataset.waveIndex, 0, 'enemyType', typeSelect.value));
   row.appendChild(typeSelect);
 
@@ -219,6 +229,7 @@ export function addWaveEditorRow(waveData = null) {
   hpInput.className = 'wave-editor-item__input';
   hpInput.value = formatHpForInput(primaryGroup.hp);
   hpInput.title = 'HP (e.g., 1e5 or 100000)';
+  assignWaveFieldIdentity(hpInput, 'hp', row.dataset.waveIndex);
   hpInput.addEventListener('input', () => updateGroupData(row.dataset.waveIndex, 0, 'hp', parseHpFromInput(hpInput.value)));
   hpInput.addEventListener('blur', () => {
     const currentWave = waveEditorState.waves[row.dataset.waveIndex];
@@ -236,6 +247,7 @@ export function addWaveEditorRow(waveData = null) {
   intervalInput.max = 10;
   intervalInput.step = 0.1;
   intervalInput.title = 'Spawn interval (seconds)';
+  assignWaveFieldIdentity(intervalInput, 'interval', row.dataset.waveIndex);
   intervalInput.addEventListener('input', () => updateWaveData(row.dataset.waveIndex, 'interval', parseFloat(intervalInput.value)));
   row.appendChild(intervalInput);
 
@@ -248,6 +260,7 @@ export function addWaveEditorRow(waveData = null) {
   delayInput.max = 60;
   delayInput.step = 0.1;
   delayInput.title = 'Pre-wave delay (seconds)';
+  assignWaveFieldIdentity(delayInput, 'delay', row.dataset.waveIndex);
   delayInput.addEventListener('input', () => updateWaveData(row.dataset.waveIndex, 'delay', parseFloat(delayInput.value)));
   row.appendChild(delayInput);
 
@@ -257,6 +270,7 @@ export function addWaveEditorRow(waveData = null) {
   bossCheckbox.className = 'wave-editor-item__checkbox';
   bossCheckbox.checked = wave.hasBoss;
   bossCheckbox.title = 'Enable boss';
+  assignWaveFieldIdentity(bossCheckbox, 'boss-enabled', row.dataset.waveIndex);
   bossCheckbox.addEventListener('change', () => {
     updateWaveData(row.dataset.waveIndex, 'hasBoss', bossCheckbox.checked);
     if (bossCheckbox.checked) {
@@ -330,6 +344,7 @@ function addBossControls(row, bossHp) {
   bossHpInput.className = 'wave-editor-item__input';
   bossHpInput.value = formatHpForInput(bossHp);
   bossHpInput.title = 'Boss HP (e.g., 1e8 or 100000000)';
+  assignWaveFieldIdentity(bossHpInput, 'boss-hp', row.dataset.waveIndex);
   bossHpInput.addEventListener('input', () => updateWaveData(row.dataset.waveIndex, 'bossHp', parseHpFromInput(bossHpInput.value)));
   bossHpInput.addEventListener('blur', () => {
     const wave = waveEditorState.waves[row.dataset.waveIndex];
@@ -362,6 +377,7 @@ function createAdditionalGroupRow(waveIndex, groupIndex, groupData) {
   countInput.min = 1;
   countInput.max = 999;
   countInput.title = 'Enemy count';
+  assignWaveFieldIdentity(countInput, 'count', waveIndex, groupIndex);
   countInput.addEventListener('input', () => updateGroupData(waveIndex, groupIndex, 'count', parseInt(countInput.value, 10)));
   row.appendChild(countInput);
 
@@ -379,6 +395,7 @@ function createAdditionalGroupRow(waveIndex, groupIndex, groupData) {
     }
     typeSelect.appendChild(option);
   });
+  assignWaveFieldIdentity(typeSelect, 'enemy-type', waveIndex, groupIndex);
   typeSelect.addEventListener('change', () => updateGroupData(waveIndex, groupIndex, 'enemyType', typeSelect.value));
   row.appendChild(typeSelect);
 
@@ -387,6 +404,7 @@ function createAdditionalGroupRow(waveIndex, groupIndex, groupData) {
   hpInput.className = 'wave-editor-item__input';
   hpInput.value = formatHpForInput(groupData.hp);
   hpInput.title = 'HP (e.g., 1e5 or 100000)';
+  assignWaveFieldIdentity(hpInput, 'hp', waveIndex, groupIndex);
   hpInput.addEventListener('input', () => updateGroupData(waveIndex, groupIndex, 'hp', parseHpFromInput(hpInput.value)));
   hpInput.addEventListener('blur', () => {
     const wave = waveEditorState.waves[parseInt(waveIndex, 10)];

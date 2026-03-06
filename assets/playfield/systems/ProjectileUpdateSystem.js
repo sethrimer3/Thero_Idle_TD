@@ -147,7 +147,7 @@ function updateProjectiles(delta) {
     }
 
     if (projectile.patternType === 'gammaStar') {
-      const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+      const tower = this.getTowerById(projectile.towerId);
       if (!tower) {
         this.projectiles.splice(index, 1);
         continue;
@@ -245,7 +245,7 @@ function updateProjectiles(delta) {
     }
 
     if (projectile.patternType === 'betaTriangle') {
-      const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+      const tower = this.getTowerById(projectile.towerId);
       if (!tower) {
         this.projectiles.splice(index, 1);
         continue;
@@ -329,7 +329,7 @@ function updateProjectiles(delta) {
       };
 
       if (projectile.phase === 'seek') {
-        const targetEnemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId) || null;
+        const targetEnemy = this.getEnemyById(projectile.targetId);
         const targetPosition = targetEnemy
           ? this.getEnemyPosition(targetEnemy)
           : projectile.targetPosition || towerPosition;
@@ -361,7 +361,7 @@ function updateProjectiles(delta) {
       }
 
       if (projectile.phase === 'attached') {
-        const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.attachedEnemyId) || null;
+        const enemy = this.getEnemyById(projectile.attachedEnemyId);
         const position = enemy ? this.getEnemyPosition(enemy) : projectile.attachPosition || currentPosition;
         const previousPosition = projectile.position || position || currentPosition;
         projectile.previousPosition = { ...previousPosition };
@@ -375,7 +375,7 @@ function updateProjectiles(delta) {
           if (enemy) {
             this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
             this.applyBetaStickSlow(enemy, tower, projectile.bet1);
-            const enemyStillAlive = this.enemies.some((candidate) => candidate && candidate.id === enemy.id);
+            const enemyStillAlive = !!this.getEnemyById(enemy.id);
             if (!enemyStillAlive) {
               break;
             }
@@ -441,7 +441,7 @@ function updateProjectiles(delta) {
       }
 
       const targetEnemyId = projectile.attachedToEnemyId || projectile.enemyId;
-      const enemy = this.enemies.find((candidate) => candidate && candidate.id === targetEnemyId);
+      const enemy = this.getEnemyById(targetEnemyId);
       if (!enemy) {
         this.projectiles.splice(index, 1);
         continue;
@@ -527,7 +527,7 @@ function updateProjectiles(delta) {
 
       if (didHit) {
         // find source tower for stacking
-        const tower = this.towers.find((t) => t && t.id === projectile.towerId);
+        const tower = this.getTowerById(projectile.towerId);
         let stacks = 0;
         if (tower) {
           stacks = applyEpsilonHitHelper(this, tower, enemy.id) || 0;
@@ -535,7 +535,7 @@ function updateProjectiles(delta) {
         // Atk = (NumHits)^2, where stacks is NumHits after applying this hit
         const totalDamage = Math.max(0, stacks * stacks);
         this.applyDamageToEnemy(enemy, totalDamage, { sourceTower: tower || null });
-        const enemyStillActive = this.enemies.some((candidate) => candidate && candidate.id === enemy.id);
+        const enemyStillActive = !!this.getEnemyById(enemy.id);
         if (!enemyStillActive) {
           this.projectiles.splice(index, 1);
           continue;
@@ -562,7 +562,7 @@ function updateProjectiles(delta) {
       Number.isFinite(projectile.travelTime) &&
       projectile.travelTime > 0
     ) {
-      const enemy = this.enemies.find((candidate) => candidate && candidate.id === projectile.targetId);
+      const enemy = this.getEnemyById(projectile.targetId);
       if (!enemy) {
         this.projectiles.splice(index, 1);
         continue;
@@ -592,7 +592,7 @@ function updateProjectiles(delta) {
 
       // Apply damage on collision
       if (separation <= combinedRadius) {
-        const tower = this.towers.find((candidate) => candidate && candidate.id === projectile.towerId) || null;
+        const tower = this.getTowerById(projectile.towerId);
         this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
         this.projectiles.splice(index, 1);
         continue;

@@ -162,3 +162,74 @@ export const DEFAULT_UNIT_COUNTS = {
   // Default laser unit count starts at zero like other Kuf units.
   lasers: 0,
 };
+
+/**
+ * Pre-calculated math constant: two times Pi.
+ * Used in physics update loops and rendering arcs.
+ */
+export const TWO_PI = Math.PI * 2;
+
+/**
+ * HUD layout constants for the Kuf base core and training toolbar.
+ */
+export const KUF_HUD_LAYOUT = {
+  BASE_RADIUS: 22,
+  BASE_GLOW_RADIUS: 34,
+  BASE_TO_TOOLBAR_GAP: 20,
+  TOOLBAR_SLOT_SIZE: 46,
+  TOOLBAR_SLOT_GAP: 12,
+  TOOLBAR_BOTTOM_PADDING: 10,
+};
+
+/**
+ * Combat tuning for the core ship cannons anchored to the HUD base.
+ */
+export const KUF_CORE_SHIP_COMBAT = {
+  CANNON_RANGE: 210,
+  CANNON_DAMAGE: 1.4,
+  CANNON_ATTACK_SPEED: 0.7,
+  CANNON_PROJECTILE_SPEED: 340,
+  CANNON_SPREAD_RADIANS: 0.35,
+  CORE_COLLISION_SCALE: 0.65,
+};
+
+/**
+ * Splayer unit spin animation constants.
+ */
+export const SPLAYER_BASE_SPIN_SPEED = 0.6;
+export const SPLAYER_SPIN_BOOST_MULTIPLIER = 3;
+export const SPLAYER_SPIN_BOOST_DURATION = 2;
+
+/**
+ * Training catalog: cost and duration for each trainable Kuf unit.
+ */
+export const KUF_TRAINING_CATALOG = {
+  worker: { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
+  marine: { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
+  sniper: { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
+  splayer: { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
+  laser: { id: 'laser', label: 'Piercing Laser', icon: 'Λ', cost: 16, duration: 3.1 },
+};
+
+/**
+ * Worker cost escalation: first worker costs WORKER_BASE_COST; each subsequent
+ * worker costs WORKER_COST_INCREMENT more.
+ */
+export const WORKER_BASE_COST = 2;
+export const WORKER_COST_INCREMENT = 2;
+
+/**
+ * Ordered list of unit IDs available for the customizable toolbar slots.
+ */
+export const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer', 'laser'];
+
+/**
+ * Default training slot configuration shown along the base toolbar.
+ */
+export const KUF_TRAINING_SLOTS = [
+  { slotId: 'worker', unitId: 'worker', equipable: false },
+  { slotId: 'slot-1', unitId: 'marine', equipable: true },
+  { slotId: 'slot-2', unitId: 'sniper', equipable: true },
+  { slotId: 'slot-3', unitId: 'splayer', equipable: true },
+  { slotId: 'slot-4', unitId: 'laser', equipable: true },
+];

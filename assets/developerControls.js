@@ -612,6 +612,16 @@ function updateDeveloperControlsVisibility() {
   if (typeof context.updateBetSpireDebugControlsVisibility === 'function') {
     context.updateBetSpireDebugControlsVisibility(active);
   }
+
+  // Keep Aleph render size options limited to Small outside developer mode.
+  if (typeof context.updatePowderRenderSizeControlsVisibility === 'function') {
+    context.updatePowderRenderSizeControlsVisibility(active);
+  }
+
+  // Update playfield layer toggle section visibility in the settings menu.
+  if (typeof context.updatePlayfieldDevLayerTogglesVisibility === 'function') {
+    context.updatePlayfieldDevLayerTogglesVisibility();
+  }
 }
 
 function handleDeveloperFieldCommit(event) {

@@ -185,6 +185,15 @@ function resolveEpsilonNeedleSprite(paletteRatio = 0.5) {
 
 // Lazily construct a per-frame enemy lookup map so projectile targeting avoids repeated scans.
 function getEnemyLookupMap() {
+  // Use the persistent O(1) map from CombatStateManager when available.
+  // Cache a thin proxy object on the instance so it is only allocated once.
+  if (typeof this.getEnemyById === 'function') {
+    if (!this._enemyByIdProxy) {
+      this._enemyByIdProxy = { get: (id) => this.getEnemyById(id) };
+    }
+    return this._enemyByIdProxy;
+  }
+  // Fallback: build a per-frame map from the enemies array.
   if (!this._frameCache) {
     this._frameCache = {};
   }
@@ -445,12 +454,9 @@ export function drawProjectiles() {
           }
           let pos = this._frameCache.enemyPositionCache.get(projectile.targetId);
           if (!pos) {
-            // Prefer the per-frame lookup map so target resolution stays O(1) per projectile.
-            // Lazily build the lookup map so frames without target-based projectiles avoid extra work.
+            // Prefer the persistent O(1) map; fall back to a per-frame array scan.
             const enemyLookup = getEnemyLookupMap.call(this);
-            const enemy = enemyLookup
-              ? enemyLookup.get(projectile.targetId)
-              : this.enemies.find((candidate) => candidate.id === projectile.targetId);
+            const enemy = enemyLookup ? enemyLookup.get(projectile.targetId) : null;
             pos = enemy ? this.getEnemyPosition(enemy) : null;
             if (pos) {
               this._frameCache.enemyPositionCache.set(projectile.targetId, pos);

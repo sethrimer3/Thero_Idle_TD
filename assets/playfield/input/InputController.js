@@ -674,16 +674,6 @@ function handleCanvasClick(event) {
     return;
   }
 
-  // Check for Voronoi/Delaunay cell clicks
-  const cellTarget = this.findCellAt(position);
-  if (cellTarget) {
-    if (typeof this.resetTowerTapState === 'function') {
-      this.resetTowerTapState();
-    }
-    this.toggleCellFocus(cellTarget);
-    return;
-  }
-
   if (this.activeTowerMenu && this.handleTowerMenuClick(position)) {
     if (typeof this.resetTowerTapState === 'function') {
       this.resetTowerTapState();
@@ -768,7 +758,36 @@ function setZoom(targetScale, anchor) {
   }
   this.applyViewConstraints();
   const scaleChanged = Math.abs(previousScale - this.viewScale) > 0.0001;
-  this.draw();
+
+  // Mark that a zoom gesture is in progress so renders can skip expensive effects.
+  this._zoomingActive = true;
+  if (this._zoomDebounceTimer) {
+    clearTimeout(this._zoomDebounceTimer);
+  }
+  this._zoomDebounceTimer = setTimeout(() => {
+    this._zoomingActive = false;
+    this._zoomDebounceTimer = null;
+    // Trigger a final full-quality redraw after the zoom gesture settles.
+    if (!this.shouldAnimate) {
+      this.draw();
+    }
+  }, 150);
+
+  // When the animation loop is already running it will redraw on the next frame,
+  // so an immediate synchronous draw here would only add an extra render pass.
+  // When not animating, batch zoom-driven redraws into one draw per RAF frame.
+  if (!this.shouldAnimate) {
+    if (!this._zoomDrawPending) {
+      this._zoomDrawPending = true;
+      requestAnimationFrame(() => {
+        this._zoomDrawPending = false;
+        if (!this.shouldAnimate) {
+          this.draw();
+        }
+      });
+    }
+  }
+
   return scaleChanged;
 }
 

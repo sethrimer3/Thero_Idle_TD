@@ -31,6 +31,7 @@ import {
 } from '../../../assets/towersTab.js';
 import { canvasFractionToMeters, metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { clamp, distancePointToSegmentSquared } from './shared/TowerUtils.js';
 
 // Constants
 const BASE_RANGE_METERS = 3;
@@ -322,33 +323,6 @@ export function ensureNuState(playfield, tower) {
   state.needsRefresh = true;
   refreshNuParameters(playfield, tower, state);
   return state;
-}
-
-// Helper to clamp a value between min and max.
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-// Calculate squared distance from a point to a line segment.
-function distancePointToSegmentSquared(point, start, end) {
-  if (!point || !start || !end) {
-    return Infinity;
-  }
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  if (!dx && !dy) {
-    const pdx = point.x - start.x;
-    const pdy = point.y - start.y;
-    return pdx * pdx + pdy * pdy;
-  }
-  const lengthSquared = dx * dx + dy * dy;
-  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
-  const clampedT = clamp(t, 0, 1);
-  const projX = start.x + clampedT * dx;
-  const projY = start.y + clampedT * dy;
-  const offsetX = point.x - projX;
-  const offsetY = point.y - projY;
-  return offsetX * offsetX + offsetY * offsetY;
 }
 
 // Default beam thickness for Nu piercing laser collision detection.

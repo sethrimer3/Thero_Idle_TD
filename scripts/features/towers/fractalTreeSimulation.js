@@ -23,10 +23,9 @@ import {
   INITIAL_TREE_DEFAULTS,
   ANIMATION_DEFAULTS,
 } from './fractalTreeSimulationConfig.js';
+import { TWO_PI, HALF_PI } from './shared/TowerUtils.js';
 
-// Pre-calculated constants for performance optimization
-const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI * 0.5;
+// Per-module constants not shared with other tower files.
 const DEG_TO_RAD = Math.PI / 180;
 const MAX_COLOR_CACHE_SIZE = 1000; // Limit color interpolation cache to prevent memory issues
 

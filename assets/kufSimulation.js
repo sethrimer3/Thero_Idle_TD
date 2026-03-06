@@ -8,14 +8,99 @@ import {
   SPLAYER_CONFIG,
   LASER_CONFIG,
   TURRET_CONFIG,
-  STRUCTURE_CONFIG,
   RENDERING_CONFIG,
   CAMERA_CONFIG,
   GAMEPLAY_CONFIG,
   GRID_UNIT,
   DEFAULT_UNIT_STATS,
   DEFAULT_UNIT_COUNTS,
+  TWO_PI,
+  SPLAYER_BASE_SPIN_SPEED,
+  KUF_TRAINING_SLOTS,
 } from './kufSimulationConfig.js';
+// All canvas draw methods live in the companion renderer module.
+import {
+  drawBackground as kufDrawBackground,
+  drawTrianglePattern as kufDrawTrianglePattern,
+  render as kufRender,
+  shouldSkipOverlays as kufShouldSkipOverlays,
+  drawMarines as kufDrawMarines,
+  drawDrones as kufDrawDrones,
+  drawTurrets as kufDrawTurrets,
+  drawBullets as kufDrawBullets,
+  drawHealthBars as kufDrawHealthBars,
+  drawLevelIndicators as kufDrawLevelIndicators,
+  drawExplosions as kufDrawExplosions,
+  drawSelectedEnemyBox as kufDrawSelectedEnemyBox,
+  drawBaseCore as kufDrawBaseCore,
+  drawTrainingToolbar as kufDrawTrainingToolbar,
+  drawHud as kufDrawHud,
+  drawSelectionBox as kufDrawSelectionBox,
+  drawWaypointMarker as kufDrawWaypointMarker,
+  drawUnitWaypointLines as kufDrawUnitWaypointLines,
+} from './kufRenderer.js';
+// All combat update and targeting methods live in the companion combat system module.
+import {
+  steerUnitToward as kufSteerUnitToward,
+  decelerateUnit as kufDecelerateUnit,
+  updateMarines as kufUpdateMarines,
+  updateCoreShip as kufUpdateCoreShip,
+  updateDrones as kufUpdateDrones,
+  updateTurrets as kufUpdateTurrets,
+  triggerMineExplosion as kufTriggerMineExplosion,
+  updateExplosions as kufUpdateExplosions,
+  updateBullets as kufUpdateBullets,
+  spawnBullet as kufSpawnBullet,
+  fireTurret as kufFireTurret,
+  getTurretAttackModifier as kufGetTurretAttackModifier,
+  handleSupportDrone as kufHandleSupportDrone,
+  findDamagedTurret as kufFindDamagedTurret,
+  applyBulletEffects as kufApplyBulletEffects,
+  updateMarineStatus as kufUpdateMarineStatus,
+  getFieldSlowMultiplier as kufGetFieldSlowMultiplier,
+  findClosestTurret as kufFindClosestTurret,
+  findClosestMarine as kufFindClosestMarine,
+  findClosestPlayerTarget as kufFindClosestPlayerTarget,
+  findHit as kufFindHit,
+  isOnscreen as kufIsOnscreen,
+} from './kufCombatSystem.js';
+// All camera/input control methods live in the companion input controller module.
+import {
+  resize as kufResize,
+  getEffectiveDevicePixelRatio as kufGetEffectiveDevicePixelRatio,
+  attachCameraControls as kufAttachCameraControls,
+  detachCameraControls as kufDetachCameraControls,
+  handleMouseDown as kufHandleMouseDown,
+  handleMouseMove as kufHandleMouseMove,
+  handleMouseUp as kufHandleMouseUp,
+  handleWheel as kufHandleWheel,
+  handleClick as kufHandleClick,
+  handleTouchStart as kufHandleTouchStart,
+  handleTouchMove as kufHandleTouchMove,
+  handleTouchEnd as kufHandleTouchEnd,
+  canvasToWorld as kufCanvasToWorld,
+  findEnemyAtPoint as kufFindEnemyAtPoint,
+  handleCommandTap as kufHandleCommandTap,
+  issueTargetCommand as kufIssueTargetCommand,
+  completeSelection as kufCompleteSelection,
+  setAttackMoveWaypoint as kufSetAttackMoveWaypoint,
+  getFormationWaypoints as kufGetFormationWaypoints,
+  getFocusedEnemy as kufGetFocusedEnemy,
+} from './kufInputController.js';
+// All HUD layout, toolbar, training queue, and core ship init methods live in the companion training system module.
+import {
+  getHudLayout as kufTrainingGetHudLayout,
+  getToolbarSlotIndex as kufTrainingGetToolbarSlotIndex,
+  getTrainingSpecForSlot as kufTrainingGetTrainingSpecForSlot,
+  cycleToolbarSlotUnit as kufTrainingCycleToolbarSlotUnit,
+  clearToolbarGlow as kufTrainingClearToolbarGlow,
+  handleToolbarTap as kufTrainingHandleToolbarTap,
+  tryStartTraining as kufTrainingTryStartTraining,
+  updateTraining as kufTrainingUpdateTraining,
+  spawnTrainedUnit as kufTrainingSpawnTrainedUnit,
+  getBaseWorldPosition as kufTrainingGetBaseWorldPosition,
+  initializeCoreShip as kufTrainingInitializeCoreShip,
+} from './kufTrainingSystem.js';
 // Mirror the latest loaded map data so new simulation instances can start in sync.
 let sharedAvailableKufMaps = getCachedKufMaps();
 let sharedDefaultKufMapId = sharedAvailableKufMaps[0]?.id || KUF_FALLBACK_MAP_ID;
@@ -36,30 +121,20 @@ onKufMapsReady((maps) => {
 // All configuration constants now imported from kufSimulationConfig.js
 // Legacy constant names mapped to new config structure for backward compatibility
 const MARINE_MOVE_SPEED = MARINE_CONFIG.MOVE_SPEED;
-const MARINE_ACCELERATION = MARINE_CONFIG.ACCELERATION;
 const MARINE_RANGE = MARINE_CONFIG.RANGE;
 const MARINE_RADIUS = MARINE_CONFIG.RADIUS;
-const MARINE_BULLET_SPEED = MARINE_CONFIG.BULLET_SPEED;
 
 const SNIPER_RADIUS = SNIPER_CONFIG.RADIUS;
 const SNIPER_RANGE = SNIPER_CONFIG.RANGE;
-const SNIPER_BULLET_SPEED = SNIPER_CONFIG.BULLET_SPEED;
 
 const SPLAYER_RADIUS = SPLAYER_CONFIG.RADIUS;
 const SPLAYER_RANGE = SPLAYER_CONFIG.RANGE;
-const SPLAYER_ROCKET_SPEED = SPLAYER_CONFIG.ROCKET_SPEED;
 
 // Define the piercing laser unit's silhouette and engagement range.
 const LASER_RADIUS = LASER_CONFIG.RADIUS;
 const LASER_RANGE = LASER_CONFIG.RANGE;
-const LASER_BULLET_SPEED = LASER_CONFIG.BULLET_SPEED;
-// Define how many total hits a piercing laser beam can register before dissipating.
-const LASER_PIERCE_COUNT = 3;
 
 const TURRET_RADIUS = TURRET_CONFIG.RADIUS;
-const TURRET_BULLET_SPEED = TURRET_CONFIG.BULLET_SPEED;
-
-const MINE_EXPLOSION_RADIUS = STRUCTURE_CONFIG.MINE_EXPLOSION_RADIUS;
 
 const TRAIL_ALPHA = RENDERING_CONFIG.TRAIL_ALPHA;
 const LOW_TRAIL_ALPHA = RENDERING_CONFIG.LOW_TRAIL_ALPHA;
@@ -71,94 +146,6 @@ const MIN_ZOOM = CAMERA_CONFIG.MIN_ZOOM;
 const MAX_ZOOM = CAMERA_CONFIG.MAX_ZOOM;
 
 const SPAWN_AREA_MARGIN = GAMEPLAY_CONFIG.SPAWN_AREA_MARGIN;
-const BULLET_CULLING_MARGIN = GAMEPLAY_CONFIG.BULLET_CULLING_MARGIN;
-// Define the bottom HUD layout for the Kuf base and training toolbar.
-const KUF_HUD_LAYOUT = {
-  BASE_RADIUS: 22,
-  BASE_GLOW_RADIUS: 34,
-  BASE_TO_TOOLBAR_GAP: 20,
-  TOOLBAR_SLOT_SIZE: 46,
-  TOOLBAR_SLOT_GAP: 12,
-  TOOLBAR_BOTTOM_PADDING: 10,
-};
-// Define combat tuning for the core ship cannons anchored to the HUD base.
-const KUF_CORE_SHIP_COMBAT = {
-  CANNON_RANGE: 210,
-  CANNON_DAMAGE: 1.4,
-  CANNON_ATTACK_SPEED: 0.7,
-  CANNON_PROJECTILE_SPEED: 340,
-  CANNON_SPREAD_RADIANS: 0.35,
-  CORE_COLLISION_SCALE: 0.65,
-};
-// Define sprite asset paths for the Kuf spire ships.
-const KUF_SPRITE_PATHS = {
-  CORE_SHIP: './assets/sprites/spires/kufSpire/playerShips/coreShipLevel2.png',
-  SPLAYER: './assets/sprites/spires/kufSpire/playerShips/splayer.png',
-  ENEMY_BOSS: './assets/sprites/spires/kufSpire/enemyShips/enemyBoss1.png',
-  BULLET: './assets/sprites/spires/kufSpire/bullets/bullet1.png',
-};
-// Cache Kuf spire sprite assets so repeated draws do not reload images.
-const KUF_SPRITE_CACHE = new Map();
-// Load and cache a Kuf spire sprite image for canvas rendering.
-function getKufSprite(spritePath) {
-  if (!spritePath || typeof Image === 'undefined') {
-    return null;
-  }
-  const cached = KUF_SPRITE_CACHE.get(spritePath);
-  if (cached && cached.loaded && !cached.error) {
-    return cached;
-  }
-  if (cached && cached.error) {
-    return null;
-  }
-  if (cached) {
-    return cached;
-  }
-  const image = new Image();
-  const record = { image, loaded: false, error: false };
-  image.addEventListener('load', () => {
-    record.loaded = true;
-  });
-  image.addEventListener('error', () => {
-    record.error = true;
-  });
-  image.src = spritePath;
-  KUF_SPRITE_CACHE.set(spritePath, record);
-  return record;
-}
-// Pre-calculated constants for performance optimization in rendering loops
-const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI * 0.5;
-// Define baseline spin behavior for splayer units.
-const SPLAYER_BASE_SPIN_SPEED = 0.6;
-// Define the spin boost multiplier while the splayer is attacking.
-const SPLAYER_SPIN_BOOST_MULTIPLIER = 3;
-// Define how long the splayer keeps its boosted spin after firing.
-const SPLAYER_SPIN_BOOST_DURATION = 2;
-// Define the training catalog for Kuf units, including costs and durations.
-const KUF_TRAINING_CATALOG = {
-  worker: { id: 'worker', label: 'Worker', icon: '⟁', cost: 6, duration: 2.2 },
-  marine: { id: 'marine', label: 'Marine', icon: 'Μ', cost: 10, duration: 2.8 },
-  sniper: { id: 'sniper', label: 'Sniper', icon: 'Σ', cost: 14, duration: 3.3 },
-  splayer: { id: 'splayer', label: 'Splayer', icon: 'Ψ', cost: 18, duration: 3.8 },
-  // Add the piercing laser unit to the training catalog.
-  laser: { id: 'laser', label: 'Piercing Laser', icon: 'Λ', cost: 16, duration: 3.1 },
-};
-// Worker cost escalation constants for the economic training system.
-const WORKER_BASE_COST = 2; // First worker costs 2 gold
-const WORKER_COST_INCREMENT = 2; // Each subsequent worker costs 2 more gold
-// Define the equipable unit rotation for the customizable toolbar slots.
-// Extend the equippable roster to include the piercing laser unit.
-const KUF_EQUIPPABLE_UNIT_IDS = ['marine', 'sniper', 'splayer', 'laser'];
-// Define the fixed and customizable training slots displayed along the base toolbar.
-const KUF_TRAINING_SLOTS = [
-  { slotId: 'worker', unitId: 'worker', equipable: false },
-  { slotId: 'slot-1', unitId: 'marine', equipable: true },
-  { slotId: 'slot-2', unitId: 'sniper', equipable: true },
-  { slotId: 'slot-3', unitId: 'splayer', equipable: true },
-  // Add a fourth equipable slot for the new laser unit.
-  { slotId: 'slot-4', unitId: 'laser', equipable: true },
-];
 
 /**
  * @typedef {Object} KufSimulationConfig
@@ -260,242 +247,28 @@ export class KufBattlefieldSimulation {
   /**
    * Resize the canvas to fit its container while respecting device pixel ratio.
    */
-  resize() {
-    if (!this.canvas) {
-      return;
-    }
-    const parent = this.canvas.parentElement;
-    if (!parent) {
-      return;
-    }
-    // Derive canvas size from viewport bounds while preserving the battlefield aspect ratio.
-    // Fixed 3:4 aspect ratio (width:height) for consistency with Aleph and Bet Spires.
-    const aspectRatio = 3 / 4;
-    const parentWidth = parent.clientWidth || 640;
-    const viewportWidth = typeof window.innerWidth === 'number' ? Math.max(1, window.innerWidth - 48) : parentWidth;
-    const viewportHeight = typeof window.innerHeight === 'number' ? Math.max(240, window.innerHeight - 260) : parentWidth / aspectRatio;
-    // Limit horizontal growth when the viewport height becomes the constraining dimension.
-    const maxWidthByHeight = Math.max(240, viewportHeight * aspectRatio);
-    const width = Math.min(parentWidth, viewportWidth, maxWidthByHeight);
-    const height = width / aspectRatio;
-    const dpr = this.getEffectiveDevicePixelRatio();
-    this.pixelRatio = dpr;
-    this.canvas.width = Math.round(width * dpr);
-    this.canvas.height = Math.round(height * dpr);
-    this.canvas.style.width = `${width}px`;
-    this.canvas.style.height = `${height}px`;
-    if (this.ctx) {
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      this.bounds = { width, height };
-      this.drawBackground(true);
-    }
-  }
+  resize() { return kufResize.call(this); }
 
   /**
    * Clamp the canvas resolution to keep the Kuf encounter playable on high-DPI hardware.
    * @returns {number} Effective device pixel ratio for rendering
    */
-  getEffectiveDevicePixelRatio() {
-    const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const cap = Number.isFinite(this.maxDevicePixelRatio) ? this.maxDevicePixelRatio : rawDpr;
-    return Math.max(1, Math.min(rawDpr, cap));
-  }
+  getEffectiveDevicePixelRatio() { return kufGetEffectiveDevicePixelRatio.call(this); }
 
-  /**
-   * Attach camera control event listeners.
-   */
-  attachCameraControls() {
-    if (!this.canvas) {
-      return;
-    }
-    this.canvas.addEventListener('mousedown', this.handleMouseDown);
-    this.canvas.addEventListener('mousemove', this.handleMouseMove);
-    this.canvas.addEventListener('mouseup', this.handleMouseUp);
-    this.canvas.addEventListener('mouseleave', this.handleMouseUp);
-    this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
-    this.canvas.addEventListener('click', this.handleClick);
-    this.canvas.addEventListener('touchstart', this.handleTouchStart, { passive: false });
-    this.canvas.addEventListener('touchmove', this.handleTouchMove, { passive: false });
-    this.canvas.addEventListener('touchend', this.handleTouchEnd);
-    this.canvas.addEventListener('touchcancel', this.handleTouchEnd);
-  }
+  /** Attach camera control event listeners. */
+  attachCameraControls() { return kufAttachCameraControls.call(this); }
 
-  /**
-   * Remove camera control event listeners.
-   */
-  detachCameraControls() {
-    if (!this.canvas) {
-      return;
-    }
-    this.canvas.removeEventListener('mousedown', this.handleMouseDown);
-    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-    this.canvas.removeEventListener('mouseup', this.handleMouseUp);
-    this.canvas.removeEventListener('mouseleave', this.handleMouseUp);
-    this.canvas.removeEventListener('wheel', this.handleWheel);
-    this.canvas.removeEventListener('click', this.handleClick);
-    this.canvas.removeEventListener('touchstart', this.handleTouchStart);
-    this.canvas.removeEventListener('touchmove', this.handleTouchMove);
-    this.canvas.removeEventListener('touchend', this.handleTouchEnd);
-    this.canvas.removeEventListener('touchcancel', this.handleTouchEnd);
-  }
+  /** Remove camera control event listeners. */
+  detachCameraControls() { return kufDetachCameraControls.call(this); }
 
-  handleMouseDown(e) {
-    this.dragStartTime = performance.now();
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    this.selectionBox.startX = canvasX;
-    this.selectionBox.startY = canvasY;
-    this.selectionBox.endX = canvasX;
-    this.selectionBox.endY = canvasY;
-    this.selectionBox.active = false; // Will activate if drag continues
-    
-    // Also prepare camera drag in case it becomes a pan
-    this.cameraDrag.startX = e.clientX;
-    this.cameraDrag.startY = e.clientY;
-    this.cameraDrag.camStartX = this.camera.x;
-    this.cameraDrag.camStartY = this.camera.y;
-  }
-
-  handleMouseMove(e) {
-    const elapsed = performance.now() - this.dragStartTime;
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    // If we've been dragging for more than threshold, it's a selection drag
-    if (elapsed > this.dragThreshold) {
-      this.selectionBox.active = true;
-      this.selectionBox.endX = canvasX;
-      this.selectionBox.endY = canvasY;
-      this.canvas.style.cursor = 'crosshair';
-    }
-  }
-
-  handleMouseUp(e) {
-    const elapsed = performance.now() - this.dragStartTime;
-    const rect = this.canvas.getBoundingClientRect();
-    const canvasX = e.clientX - rect.left;
-    const canvasY = e.clientY - rect.top;
-    
-    if (this.selectionBox.active) {
-      // Complete selection - select units in the box
-      this.completeSelection();
-      this.selectionBox.active = false;
-      this.canvas.style.cursor = 'grab';
-    } else if (elapsed < this.dragThreshold) {
-      // Consume taps that land on the training toolbar before issuing commands.
-      if (this.handleToolbarTap(canvasX, canvasY)) {
-        this.cameraDrag.active = false;
-        this.canvas.style.cursor = 'grab';
-        return;
-      }
-      // It was a tap/click - issue attack-move command or handle double-tap
-      const now = performance.now();
-      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
-      this.lastTapTime = now;
-      
-      if (isDoubleTap) {
-        // Double-tap: deselect all units and return to "all units" mode
-        this.selectedUnits = [];
-        this.selectionMode = 'all';
-        this.attackMoveWaypoint = null;
-        // Clear targeted enemies when resetting the selection state.
-        this.selectedEnemy = null;
-      } else {
-        // Single tap: issue a contextual command (target or move).
-        this.handleCommandTap(canvasX, canvasY);
-      }
-    }
-    
-    this.cameraDrag.active = false;
-    this.canvas.style.cursor = 'grab';
-  }
-
-  handleWheel(e) {
-    e.preventDefault();
-    const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
-    this.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.camera.zoom * zoomDelta));
-  }
-
-  handleClick(e) {
-    // This is now mostly handled by handleMouseUp to detect taps vs drags
-    // Keep this for compatibility but the main logic is in handleMouseUp
-  }
-
-  handleTouchStart(e) {
-    e.preventDefault();
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      this.dragStartTime = performance.now();
-      const rect = this.canvas.getBoundingClientRect();
-      const canvasX = touch.clientX - rect.left;
-      const canvasY = touch.clientY - rect.top;
-      
-      this.selectionBox.startX = canvasX;
-      this.selectionBox.startY = canvasY;
-      this.selectionBox.endX = canvasX;
-      this.selectionBox.endY = canvasY;
-      this.selectionBox.active = false;
-      
-      this.cameraDrag.startX = touch.clientX;
-      this.cameraDrag.startY = touch.clientY;
-      this.cameraDrag.camStartX = this.camera.x;
-      this.cameraDrag.camStartY = this.camera.y;
-    }
-  }
-
-  handleTouchMove(e) {
-    e.preventDefault();
-    if (e.touches.length === 1) {
-      const touch = e.touches[0];
-      const elapsed = performance.now() - this.dragStartTime;
-      const rect = this.canvas.getBoundingClientRect();
-      const canvasX = touch.clientX - rect.left;
-      const canvasY = touch.clientY - rect.top;
-      
-      if (elapsed > this.dragThreshold) {
-        this.selectionBox.active = true;
-        this.selectionBox.endX = canvasX;
-        this.selectionBox.endY = canvasY;
-      }
-    }
-  }
-
-  handleTouchEnd(e) {
-    e.preventDefault();
-    const elapsed = performance.now() - this.dragStartTime;
-    
-    if (this.selectionBox.active) {
-      this.completeSelection();
-      this.selectionBox.active = false;
-    } else if (elapsed < this.dragThreshold && e.changedTouches.length === 1) {
-      const touch = e.changedTouches[0];
-      const rect = this.canvas.getBoundingClientRect();
-      const canvasX = touch.clientX - rect.left;
-      const canvasY = touch.clientY - rect.top;
-      // Consume taps that land on the training toolbar before issuing commands.
-      if (this.handleToolbarTap(canvasX, canvasY)) {
-        return;
-      }
-      
-      const now = performance.now();
-      const isDoubleTap = (now - this.lastTapTime) < this.doubleTapThreshold;
-      this.lastTapTime = now;
-      
-      if (isDoubleTap) {
-        this.selectedUnits = [];
-        this.selectionMode = 'all';
-        this.attackMoveWaypoint = null;
-        // Clear targeted enemies when resetting the selection state.
-        this.selectedEnemy = null;
-      } else {
-        // Single tap: issue a contextual command (target or move).
-        this.handleCommandTap(canvasX, canvasY);
-      }
-    }
-  }
+  handleMouseDown(e) { return kufHandleMouseDown.call(this, e); }
+  handleMouseMove(e) { return kufHandleMouseMove.call(this, e); }
+  handleMouseUp(e) { return kufHandleMouseUp.call(this, e); }
+  handleWheel(e) { return kufHandleWheel.call(this, e); }
+  handleClick(e) { return kufHandleClick.call(this, e); }
+  handleTouchStart(e) { return kufHandleTouchStart.call(this, e); }
+  handleTouchMove(e) { return kufHandleTouchMove.call(this, e); }
+  handleTouchEnd(e) { return kufHandleTouchEnd.call(this, e); }
 
   /**
    * Convert a canvas-space coordinate to world-space coordinates.
@@ -503,12 +276,7 @@ export class KufBattlefieldSimulation {
    * @param {number} canvasY - Y coordinate within the canvas.
    * @returns {{ x: number, y: number }} World coordinates.
    */
-  canvasToWorld(canvasX, canvasY) {
-    return {
-      x: (canvasX - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x,
-      y: (canvasY - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y,
-    };
-  }
+  canvasToWorld(canvasX, canvasY) { return kufCanvasToWorld.call(this, canvasX, canvasY); }
 
   /**
    * Resolve a turret/enemy under the tap point in world space.
@@ -516,148 +284,41 @@ export class KufBattlefieldSimulation {
    * @param {number} worldY - Y coordinate in world space.
    * @returns {object|null} Targeted enemy or null.
    */
-  findEnemyAtPoint(worldX, worldY) {
-    const hit = this.turrets.find((turret) => {
-      const dx = turret.x - worldX;
-      const dy = turret.y - worldY;
-      const radius = (turret.radius || TURRET_RADIUS) + 6;
-      return dx * dx + dy * dy <= radius * radius;
-    });
-    return hit || null;
-  }
+  findEnemyAtPoint(worldX, worldY) { return kufFindEnemyAtPoint.call(this, worldX, worldY); }
 
   /**
    * Handle tap-based commands to target enemies or set move destinations.
    * @param {number} canvasX - X coordinate within the canvas.
    * @param {number} canvasY - Y coordinate within the canvas.
    */
-  handleCommandTap(canvasX, canvasY) {
-    // Clear toolbar glow when clicking elsewhere in the battlefield.
-    this.clearToolbarGlow();
-    
-    const { x: worldX, y: worldY } = this.canvasToWorld(canvasX, canvasY);
-    const enemy = this.findEnemyAtPoint(worldX, worldY);
-    if (enemy) {
-      this.issueTargetCommand(enemy);
-      return;
-    }
-    // Clear any enemy focus before issuing a movement command.
-    this.selectedEnemy = null;
-    this.setAttackMoveWaypoint(worldX, worldY);
-  }
+  handleCommandTap(canvasX, canvasY) { return kufHandleCommandTap.call(this, canvasX, canvasY); }
 
   /**
    * Send a focused attack command on a tapped enemy.
    * @param {object} enemy - Enemy unit or structure to focus.
    */
-  issueTargetCommand(enemy) {
-    this.selectedEnemy = enemy;
-    // Clear any stored waypoints so units commit to the new focus target.
-    this.attackMoveWaypoint = null;
-    this.marines.forEach((marine) => {
-      marine.waypoint = null;
-    });
-  }
+  issueTargetCommand(enemy) { return kufIssueTargetCommand.call(this, enemy); }
 
-  /**
-   * Complete selection by finding all units within the selection rectangle.
-   */
-  completeSelection() {
-    const rect = this.canvas.getBoundingClientRect();
-    
-    // Convert selection box canvas coordinates to world coordinates
-    const minX = Math.min(this.selectionBox.startX, this.selectionBox.endX);
-    const maxX = Math.max(this.selectionBox.startX, this.selectionBox.endX);
-    const minY = Math.min(this.selectionBox.startY, this.selectionBox.endY);
-    const maxY = Math.max(this.selectionBox.startY, this.selectionBox.endY);
-    
-    // Select all marines within the box
-    this.selectedUnits = this.marines.filter((marine) => {
-      // Convert marine world position to canvas coordinates
-      const screenX = (marine.x - this.camera.x - this.bounds.width / 2) * this.camera.zoom + this.bounds.width / 2;
-      const screenY = (marine.y - this.camera.y - this.bounds.height / 2) * this.camera.zoom + this.bounds.height / 2;
-      
-      return screenX >= minX && screenX <= maxX && screenY >= minY && screenY <= maxY;
-    });
-    
-    if (this.selectedUnits.length > 0) {
-      this.selectionMode = 'specific';
-    } else {
-      this.selectionMode = 'all';
-    }
-  }
+  /** Complete selection by finding all units within the selection rectangle. */
+  completeSelection() { return kufCompleteSelection.call(this); }
 
-  /**
-   * Set attack-move waypoint for units.
-   */
-  setAttackMoveWaypoint(worldX, worldY) {
-    this.attackMoveWaypoint = { x: worldX, y: worldY };
-    
-    // Assign waypoint to selected units or all units
-    const unitsToCommand = this.selectionMode === 'specific' ? this.selectedUnits : this.marines;
-    // Build a compact formation so each unit gets a unique waypoint with diameter spacing.
-    const formationAssignments = this.getFormationWaypoints(unitsToCommand, worldX, worldY);
-    unitsToCommand.forEach((marine, index) => {
-      // Apply the formation slot to the unit waypoint for group movement.
-      marine.waypoint = formationAssignments[index] || { x: worldX, y: worldY };
-    });
-  }
+  /** Set attack-move waypoint for units. */
+  setAttackMoveWaypoint(worldX, worldY) { return kufSetAttackMoveWaypoint.call(this, worldX, worldY); }
 
   /**
    * Generate formation waypoints centered on the target with diameter gaps between units.
-   * 
-   * Units are arranged in a lattice grid where each unit is spaced 1 diameter apart (edge-to-edge).
-   * For example, if units are 1 meter in diameter, the center-to-center spacing will be 2 meters,
-   * resulting in 1 meter of clearance between unit edges so they never overlap.
-   * 
    * @param {Array<object>} units - Units that should be arranged into the formation.
    * @param {number} targetX - Formation center X coordinate.
    * @param {number} targetY - Formation center Y coordinate.
    * @returns {Array<{x: number, y: number}>} Array of world-space waypoints per unit.
    */
-  getFormationWaypoints(units, targetX, targetY) {
-    // Return a single waypoint when there are no units to arrange.
-    if (!units.length) {
-      return [{ x: targetX, y: targetY }];
-    }
-    // Use the largest unit radius to guarantee enough spacing for mixed unit sizes.
-    const maxRadius = Math.max(...units.map((unit) => unit.radius || MARINE_RADIUS));
-    // Spacing calculation: To keep units 1 diameter apart (edge-to-edge), the center-to-center
-    // distance must be 2 diameters = 4 radii. This ensures no unit will overlap during movement.
-    const diameter = maxRadius * 2;
-    const spacing = diameter * 2;  // Center-to-center distance = 2 diameters
-    // Calculate a near-square grid for even distribution around the center.
-    const columns = Math.ceil(Math.sqrt(units.length));
-    const rows = Math.ceil(units.length / columns);
-    // Precompute centered offsets to keep the formation anchored to the command point.
-    const offsetXStart = -((columns - 1) * spacing) / 2;
-    const offsetYStart = -((rows - 1) * spacing) / 2;
-
-    return units.map((_, index) => {
-      // Map the unit index to a row/column slot in the formation grid.
-      const row = Math.floor(index / columns);
-      const column = index % columns;
-      const offsetX = offsetXStart + column * spacing;
-      const offsetY = offsetYStart + row * spacing;
-      // Center each waypoint on the commanded location.
-      return { x: targetX + offsetX, y: targetY + offsetY };
-    });
-  }
+  getFormationWaypoints(units, targetX, targetY) { return kufGetFormationWaypoints.call(this, units, targetX, targetY); }
 
   /**
    * Resolve the currently focused enemy and clear invalid references.
    * @returns {object|null} Focused enemy or null when none is active.
    */
-  getFocusedEnemy() {
-    if (!this.selectedEnemy) {
-      return null;
-    }
-    if (this.selectedEnemy.health <= 0 || !this.turrets.includes(this.selectedEnemy)) {
-      this.selectedEnemy = null;
-      return null;
-    }
-    return this.selectedEnemy;
-  }
+  getFocusedEnemy() { return kufGetFocusedEnemy.call(this); }
 
   /**
    * Accelerate a unit toward a target point, returning true when close enough to stop.
@@ -667,51 +328,14 @@ export class KufBattlefieldSimulation {
    * @param {number} delta - Delta time in seconds.
    * @returns {boolean} True when the unit is within the stopping threshold.
    */
-  steerUnitToward(marine, targetX, targetY, delta) {
-    const dx = targetX - marine.x;
-    const dy = targetY - marine.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= 5) {
-      marine.vx = 0;
-      marine.vy = 0;
-      return true;
-    }
-    const targetVx = (dx / dist) * marine.moveSpeed;
-    const targetVy = (dy / dist) * marine.moveSpeed;
-    const acceleration = MARINE_ACCELERATION * delta;
-
-    if (marine.vx < targetVx) {
-      marine.vx = Math.min(targetVx, marine.vx + acceleration);
-    } else if (marine.vx > targetVx) {
-      marine.vx = Math.max(targetVx, marine.vx - acceleration);
-    }
-
-    if (marine.vy < targetVy) {
-      marine.vy = Math.min(targetVy, marine.vy + acceleration);
-    } else if (marine.vy > targetVy) {
-      marine.vy = Math.max(targetVy, marine.vy - acceleration);
-    }
-    return false;
-  }
+  steerUnitToward(marine, targetX, targetY, delta) { return kufSteerUnitToward.call(this, marine, targetX, targetY, delta); }
 
   /**
    * Ease a unit's velocity back to zero.
    * @param {object} marine - Unit to decelerate.
    * @param {number} delta - Delta time in seconds.
    */
-  decelerateUnit(marine, delta) {
-    const deceleration = MARINE_ACCELERATION * delta;
-    if (Math.abs(marine.vy) > deceleration) {
-      marine.vy += marine.vy > 0 ? -deceleration : deceleration;
-    } else {
-      marine.vy = 0;
-    }
-    if (Math.abs(marine.vx) > deceleration) {
-      marine.vx += marine.vx > 0 ? -deceleration : deceleration;
-    } else {
-      marine.vx = 0;
-    }
-  }
+  decelerateUnit(marine, delta) { kufDecelerateUnit.call(this, marine, delta); }
 
   /**
    * Convert grid coordinates to pixel coordinates.
@@ -884,24 +508,7 @@ export class KufBattlefieldSimulation {
    * Build the HUD layout for the base core and training toolbar.
    * @returns {{ baseCenter: { x: number, y: number }, baseRadius: number, slots: Array<{ x: number, y: number, size: number }> }}
    */
-  getHudLayout() {
-    const { TOOLBAR_SLOT_SIZE, TOOLBAR_SLOT_GAP, TOOLBAR_BOTTOM_PADDING, BASE_RADIUS, BASE_TO_TOOLBAR_GAP } = KUF_HUD_LAYOUT;
-    const toolbarWidth = TOOLBAR_SLOT_SIZE * this.trainingSlots.length + TOOLBAR_SLOT_GAP * (this.trainingSlots.length - 1);
-    const toolbarX = (this.bounds.width - toolbarWidth) / 2;
-    const toolbarY = this.bounds.height - TOOLBAR_BOTTOM_PADDING - TOOLBAR_SLOT_SIZE;
-    // Anchor the base core just above the toolbar so it feels docked to the player interface.
-    const baseCenter = {
-      x: this.bounds.width / 2,
-      y: toolbarY - BASE_TO_TOOLBAR_GAP - BASE_RADIUS,
-    };
-    const slots = this.trainingSlots.map((slot, index) => ({
-      x: toolbarX + index * (TOOLBAR_SLOT_SIZE + TOOLBAR_SLOT_GAP),
-      y: toolbarY,
-      size: TOOLBAR_SLOT_SIZE,
-      slot,
-    }));
-    return { baseCenter, baseRadius: BASE_RADIUS, slots };
-  }
+  getHudLayout() { return kufTrainingGetHudLayout.call(this); }
 
   /**
    * Convert a HUD-space point into a toolbar slot index if tapped.
@@ -909,16 +516,7 @@ export class KufBattlefieldSimulation {
    * @param {number} canvasY - Y coordinate within the canvas.
    * @returns {number|null} Toolbar slot index when hit, otherwise null.
    */
-  getToolbarSlotIndex(canvasX, canvasY) {
-    const { slots } = this.getHudLayout();
-    const hitSlot = slots.find((slot) =>
-      canvasX >= slot.x &&
-      canvasX <= slot.x + slot.size &&
-      canvasY >= slot.y &&
-      canvasY <= slot.y + slot.size
-    );
-    return hitSlot ? slots.indexOf(hitSlot) : null;
-  }
+  getToolbarSlotIndex(canvasX, canvasY) { return kufTrainingGetToolbarSlotIndex.call(this, canvasX, canvasY); }
 
   /**
    * Resolve the current unit spec for a toolbar slot.
@@ -926,37 +524,18 @@ export class KufBattlefieldSimulation {
    * @param {object} slot - Toolbar slot payload.
    * @returns {{ id: string, label: string, icon: string, cost: number, duration: number }} Unit spec.
    */
-  getTrainingSpecForSlot(slot) {
-    const baseSpec = KUF_TRAINING_CATALOG[slot?.unitId] || KUF_TRAINING_CATALOG.worker;
-    // If this is a worker slot, calculate dynamic cost based on current worker count.
-    if (baseSpec.id === 'worker') {
-      const workerCost = WORKER_BASE_COST + (this.workerCount * WORKER_COST_INCREMENT);
-      return { ...baseSpec, cost: workerCost };
-    }
-    return baseSpec;
-  }
+  getTrainingSpecForSlot(slot) { return kufTrainingGetTrainingSpecForSlot.call(this, slot); }
 
   /**
    * Cycle the equipped unit for a customizable toolbar slot.
    * @param {number} slotIndex - Index of the toolbar slot to update.
    */
-  cycleToolbarSlotUnit(slotIndex) {
-    const slot = this.trainingSlots[slotIndex];
-    if (!slot || !slot.equipable || slot.isTraining) {
-      return;
-    }
-    const currentIndex = KUF_EQUIPPABLE_UNIT_IDS.indexOf(slot.unitId);
-    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % KUF_EQUIPPABLE_UNIT_IDS.length : 0;
-    const nextUnitId = KUF_EQUIPPABLE_UNIT_IDS[nextIndex];
-    slot.unitId = nextUnitId;
-  }
+  cycleToolbarSlotUnit(slotIndex) { return kufTrainingCycleToolbarSlotUnit.call(this, slotIndex); }
 
   /**
    * Clear the glowing state for the toolbar slots.
    */
-  clearToolbarGlow() {
-    this.glowingToolbarSlotIndex = null;
-  }
+  clearToolbarGlow() { return kufTrainingClearToolbarGlow.call(this); }
 
   /**
    * Handle taps that land on the training toolbar.
@@ -964,152 +543,38 @@ export class KufBattlefieldSimulation {
    * @param {number} canvasY - Y coordinate within the canvas.
    * @returns {boolean} True when the tap was consumed by the toolbar.
    */
-  handleToolbarTap(canvasX, canvasY) {
-    const slotIndex = this.getToolbarSlotIndex(canvasX, canvasY);
-    if (slotIndex === null) {
-      return false;
-    }
-    const now = performance.now();
-    const isDoubleTap = this.lastToolbarTap.slotIndex === slotIndex &&
-      (now - this.lastToolbarTap.time) < this.doubleTapThreshold;
-    if (isDoubleTap) {
-      // Clear pending single-tap actions so double-tap starts training immediately.
-      if (this.toolbarTapTimer) {
-        clearTimeout(this.toolbarTapTimer);
-        this.toolbarTapTimer = null;
-        this.pendingToolbarSlotIndex = null;
-      }
-      // Clear the glow state when double-tapping to start training.
-      this.clearToolbarGlow();
-      this.lastToolbarTap = { time: 0, slotIndex: null };
-      this.tryStartTraining(slotIndex);
-      return true;
-    }
-    // Single tap: just make the slot glow (indicate selection).
-    this.lastToolbarTap = { time: now, slotIndex };
-    this.glowingToolbarSlotIndex = slotIndex;
-    // No need to schedule anything - the glow is just visual feedback.
-    return true;
-  }
+  handleToolbarTap(canvasX, canvasY) { return kufTrainingHandleToolbarTap.call(this, canvasX, canvasY); }
 
   /**
    * Start training a unit from the toolbar if the player can afford it.
    * @param {number} slotIndex - Index of the toolbar slot to train from.
    */
-  tryStartTraining(slotIndex) {
-    if (!this.active) {
-      return;
-    }
-    const slot = this.trainingSlots[slotIndex];
-    if (!slot || slot.isTraining) {
-      return;
-    }
-    // Resolve the currently equipped unit for this slot before spending gold.
-    const spec = this.getTrainingSpecForSlot(slot);
-    if (this.goldEarned < spec.cost) {
-      return;
-    }
-    // Deduct gold immediately so remaining gold is always spendable elsewhere.
-    this.goldEarned = Math.max(0, this.goldEarned - spec.cost);
-    slot.isTraining = true;
-    slot.progress = 0;
-  }
+  tryStartTraining(slotIndex) { return kufTrainingTryStartTraining.call(this, slotIndex); }
 
   /**
    * Update training timers and spawn completed units at the base.
    * @param {number} delta - Delta time in seconds.
    */
-  updateTraining(delta) {
-    this.trainingSlots.forEach((slot) => {
-      if (!slot.isTraining) {
-        return;
-      }
-      // Pull the equipped unit spec so progress and spawn timing match the icon.
-      const spec = this.getTrainingSpecForSlot(slot);
-      slot.progress = Math.min(spec.duration, slot.progress + delta);
-      if (slot.progress >= spec.duration) {
-        slot.isTraining = false;
-        slot.progress = 0;
-        this.spawnTrainedUnit(spec.id);
-      }
-    });
-  }
+  updateTraining(delta) { return kufTrainingUpdateTraining.call(this, delta); }
 
   /**
    * Spawn a trained unit at the base core exit.
    * Workers increase income per kill instead of spawning a combat unit.
    * @param {string} unitType - Unit archetype identifier.
    */
-  spawnTrainedUnit(unitType) {
-    // Workers increase income per kill by 1 and increment worker count.
-    if (unitType === 'worker') {
-      this.workerCount += 1;
-      this.baseIncomePerKill += 1;
-      return;
-    }
-    // Spawn combat units normally.
-    const stats = this.unitStats[unitType] || this.unitStats.marine;
-    const { x, y } = this.getBaseWorldPosition();
-    const jitter = 14;
-    const spawnX = x + (Math.random() - 0.5) * jitter;
-    const spawnY = y + (Math.random() - 0.5) * jitter;
-    this.createPlayerUnit(unitType, stats, spawnX, spawnY);
-  }
+  spawnTrainedUnit(unitType) { return kufTrainingSpawnTrainedUnit.call(this, unitType); }
 
   /**
    * Calculate the base core position in world coordinates for spawning units.
    * @returns {{ x: number, y: number }} World position of the base.
    */
-  getBaseWorldPosition() {
-    const { baseCenter } = this.getHudLayout();
-    return {
-      x: (baseCenter.x - this.bounds.width / 2) / this.camera.zoom + this.bounds.width / 2 + this.camera.x,
-      y: (baseCenter.y - this.bounds.height / 2) / this.camera.zoom + this.bounds.height / 2 + this.camera.y,
-    };
-  }
+  getBaseWorldPosition() { return kufTrainingGetBaseWorldPosition.call(this); }
 
   /**
    * Initialize the core ship hull integrity and cannon mounts for a new simulation.
    * @param {{ health: number, cannons: number, hullRepair: number, healingAura: number, shield: number, droneRate: number, droneHealth: number, droneDamage: number, level: number, scale: number }} coreShipStats - Derived core ship stats.
    */
-  initializeCoreShip(coreShipStats) {
-    const { baseRadius } = this.getHudLayout();
-    const basePosition = this.getBaseWorldPosition();
-    // Anchor the core ship to the HUD base so it stays docked to the toolbar.
-    this.coreShip = {
-      x: basePosition.x,
-      y: basePosition.y,
-      radius: baseRadius * KUF_CORE_SHIP_COMBAT.CORE_COLLISION_SCALE * (coreShipStats.scale || 1.0),
-      health: Math.max(1, coreShipStats.health),
-      maxHealth: Math.max(1, coreShipStats.health),
-      cannons: Math.max(0, Math.floor(coreShipStats.cannons || 0)),
-      cannonCooldown: 0,
-      // Hull repair regeneration (HP per second)
-      hullRepair: coreShipStats.hullRepair || 0,
-      hullRepairCooldown: 0,
-      // Healing aura
-      healingAura: coreShipStats.healingAura || 0,
-      healingAuraRadius: 150, // Radius for healing aura
-      healingAuraCooldown: 0,
-      // Shield system
-      maxShield: coreShipStats.shield > 0 ? coreShipStats.shield * 50 : 0, // 50 HP per upgrade
-      shield: 0, // Starts at 0, needs to regenerate
-      shieldRegenRate: coreShipStats.shield > 0 ? 5 + coreShipStats.shield * 2 : 0, // 5 + 2 per upgrade
-      shieldRegenDelay: 3, // Delay after taking damage
-      shieldRegenTimer: 0,
-      shieldBroken: false,
-      // Drone spawning
-      droneSpawnRate: coreShipStats.droneRate > 0 ? Math.max(0.5, 5 - coreShipStats.droneRate * 0.5) : 0, // Spawn every N seconds
-      droneSpawnTimer: 0,
-      droneHealth: 10 + coreShipStats.droneHealth * 5, // 10 base + 5 per upgrade
-      droneDamage: 1 + coreShipStats.droneDamage * 0.5, // 1 base + 0.5 per upgrade
-      // Level and visual scale
-      level: coreShipStats.level || 1,
-      scale: coreShipStats.scale || 1.0,
-    };
-    // Track spawned drones separately
-    this.drones = [];
-  }
+  initializeCoreShip(coreShipStats) { return kufTrainingInitializeCoreShip.call(this, coreShipStats); }
 
   /**
    * Resume a paused simulation without resetting game state.
@@ -1302,727 +767,43 @@ export class KufBattlefieldSimulation {
     }
   }
 
-  updateMarines(delta) {
-    const focusedEnemy = this.getFocusedEnemy();
-    this.marines.forEach((marine) => {
-      this.updateMarineStatus(marine, delta);
-      if (marine.health <= 0) {
-        return;
-      }
-      // Animate splayer rotation continuously, with optional boost after firing.
-      if (marine.type === 'splayer') {
-        const boostedSpin = marine.rotationBoostTimer > 0 ? SPLAYER_SPIN_BOOST_MULTIPLIER : 1;
-        marine.rotationBoostTimer = Math.max(0, marine.rotationBoostTimer - delta);
-        marine.rotation = (marine.rotation + marine.rotationSpeed * boostedSpin * delta) % TWO_PI;
-      }
-      marine.cooldown = Math.max(0, marine.cooldown - delta);
-      // Prioritize the focused enemy when one is set, only firing when it is in range.
-      let target = null;
-      if (focusedEnemy) {
-        const dx = focusedEnemy.x - marine.x;
-        const dy = focusedEnemy.y - marine.y;
-        if (dx * dx + dy * dy <= marine.range * marine.range) {
-          target = focusedEnemy;
-        }
-      } else {
-        // Otherwise scan for the nearest target in range.
-        target = this.findClosestTurret(marine.x, marine.y, marine.range);
-      }
-      
-      // Check if unit has a waypoint and hasn't reached it yet
-      const hasWaypoint = marine.waypoint && 
-        (Math.abs(marine.x - marine.waypoint.x) > 5 || Math.abs(marine.y - marine.waypoint.y) > 5);
-      
-      // Fire at target if in range
-      if (target && marine.cooldown <= 0) {
-        if (marine.type === 'splayer') {
-          // Launch a randomized ring of homing rockets toward the focused or nearest enemy.
-          const rocketCount = 8;
-          const rocketDamage = marine.attack * 0.25;
-          for (let i = 0; i < rocketCount; i++) {
-            const launchAngle = Math.random() * TWO_PI;
-            this.spawnBullet({
-              owner: 'marine',
-              type: 'splayer',
-              x: marine.x,
-              y: marine.y - marine.radius,
-              target,
-              speed: SPLAYER_ROCKET_SPEED,
-              damage: rocketDamage,
-              homing: true,
-              angle: launchAngle,
-            });
-          }
-          // Boost splayer spin rate briefly after firing.
-          marine.rotationBoostTimer = SPLAYER_SPIN_BOOST_DURATION;
-        } else if (marine.type === 'laser') {
-          // Fire a piercing laser bolt that can slice through multiple turrets.
-          this.spawnBullet({
-            owner: 'marine',
-            type: 'laser',
-            x: marine.x,
-            y: marine.y - marine.radius,
-            target,
-            speed: LASER_BULLET_SPEED,
-            damage: marine.attack,
-            homing: false,
-            pierce: LASER_PIERCE_COUNT,
-          });
-        } else {
-          // Fire a single projectile for non-splayer units.
-          this.spawnBullet({
-            owner: 'marine',
-            type: marine.type,
-            x: marine.x,
-            y: marine.y - marine.radius,
-            target,
-            speed: marine.type === 'sniper' ? SNIPER_BULLET_SPEED : MARINE_BULLET_SPEED,
-            damage: marine.attack,
-            homing: false,
-          });
-        }
-
-        marine.cooldown = 1 / marine.attackSpeed;
-      }
-      
-      // Handle movement independently of firing
-      if (focusedEnemy && !hasWaypoint) {
-        // Move toward the focused enemy while holding at max firing distance.
-        const dx = focusedEnemy.x - marine.x;
-        const dy = focusedEnemy.y - marine.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const desiredDistance = Math.max(0, marine.range - this.targetHoldBuffer);
-        const deltaDistance = dist - desiredDistance;
-        const holdTolerance = this.targetHoldBuffer;
-        if (Math.abs(deltaDistance) > holdTolerance) {
-          // Navigate to the stand-off point that keeps the unit at optimal range.
-          const standOffX = focusedEnemy.x - (dx / dist) * desiredDistance;
-          const standOffY = focusedEnemy.y - (dy / dist) * desiredDistance;
-          this.steerUnitToward(marine, standOffX, standOffY, delta);
-        } else {
-          // Hold position at max range until the target moves.
-          this.decelerateUnit(marine, delta);
-        }
-      } else if (hasWaypoint) {
-        // Move toward waypoint (attack-move behavior) - continue even if firing.
-        const reached = this.steerUnitToward(marine, marine.waypoint.x, marine.waypoint.y, delta);
-        if (reached) {
-          // Reached waypoint - clear it and stop.
-          marine.waypoint = null;
-        }
-      } else {
-        // No waypoint, default behavior: accelerate forward (negative y is up)
-        const targetVy = -marine.moveSpeed;
-        const acceleration = MARINE_ACCELERATION * delta;
-        if (marine.vy > targetVy) {
-          marine.vy = Math.max(targetVy, marine.vy - acceleration);
-        } else if (marine.vy < targetVy) {
-          marine.vy = Math.min(targetVy, marine.vy + acceleration);
-        }
-        
-        // Decelerate x velocity to 0 when moving in default mode
-        const deceleration = MARINE_ACCELERATION * delta;
-        if (Math.abs(marine.vx) > deceleration) {
-          marine.vx += marine.vx > 0 ? -deceleration : deceleration;
-        } else {
-          marine.vx = 0;
-        }
-      }
-      
-      // Apply velocity
-      marine.x += marine.vx * delta;
-      marine.y += marine.vy * delta;
-    });
-    this.marines = this.marines.filter((marine) => marine.health > 0 && marine.y + marine.radius > -40);
-  }
+  updateMarines(delta) { kufUpdateMarines.call(this, delta); }
 
   /**
    * Update core ship position, hull integrity, and cannon firing cadence.
    * @param {number} delta - Delta time in seconds.
    */
-  updateCoreShip(delta) {
-    if (!this.coreShip) {
-      return;
-    }
-    // Keep the core ship anchored to the HUD base even as the camera pans.
-    const basePosition = this.getBaseWorldPosition();
-    this.coreShip.x = basePosition.x;
-    this.coreShip.y = basePosition.y;
-    
-    // Hull repair regeneration (level 2+)
-    if (this.coreShip.hullRepair > 0 && this.coreShip.health < this.coreShip.maxHealth) {
-      this.coreShip.hullRepairCooldown = Math.max(0, this.coreShip.hullRepairCooldown - delta);
-      if (this.coreShip.hullRepairCooldown <= 0) {
-        const repairAmount = this.coreShip.hullRepair * delta; // HP per second
-        this.coreShip.health = Math.min(this.coreShip.maxHealth, this.coreShip.health + repairAmount);
-        this.coreShip.hullRepairCooldown = 0.1; // Check every 0.1 seconds
-      }
-    }
-    
-    // Healing aura (level 3+)
-    if (this.coreShip.healingAura > 0) {
-      this.coreShip.healingAuraCooldown = Math.max(0, this.coreShip.healingAuraCooldown - delta);
-      if (this.coreShip.healingAuraCooldown <= 0) {
-        const healAmount = this.coreShip.healingAura * 0.1; // HP per tick
-        this.marines.forEach((marine) => {
-          const dx = marine.x - this.coreShip.x;
-          const dy = marine.y - this.coreShip.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist <= this.coreShip.healingAuraRadius && marine.health < marine.maxHealth) {
-            marine.health = Math.min(marine.maxHealth, marine.health + healAmount);
-          }
-        });
-        this.coreShip.healingAuraCooldown = 0.1; // Heal every 0.1 seconds
-      }
-    }
-    
-    // Shield regeneration (level 4+)
-    if (this.coreShip.maxShield > 0) {
-      if (this.coreShip.shieldBroken) {
-        // Shield needs to fully regenerate before coming back online
-        this.coreShip.shieldRegenTimer += delta;
-        if (this.coreShip.shieldRegenTimer >= this.coreShip.shieldRegenDelay) {
-          this.coreShip.shield = Math.min(this.coreShip.maxShield, this.coreShip.shield + this.coreShip.shieldRegenRate * delta);
-          if (this.coreShip.shield >= this.coreShip.maxShield) {
-            this.coreShip.shield = this.coreShip.maxShield;
-            this.coreShip.shieldBroken = false;
-          }
-        }
-      } else if (this.coreShip.shield < this.coreShip.maxShield) {
-        // Shield regenerates when not broken
-        this.coreShip.shieldRegenTimer += delta;
-        if (this.coreShip.shieldRegenTimer >= this.coreShip.shieldRegenDelay) {
-          this.coreShip.shield = Math.min(this.coreShip.maxShield, this.coreShip.shield + this.coreShip.shieldRegenRate * delta);
-        }
-      }
-    }
-    
-    // Drone spawning (level 5+)
-    if (this.coreShip.droneSpawnRate > 0) {
-      this.coreShip.droneSpawnTimer += delta;
-      if (this.coreShip.droneSpawnTimer >= this.coreShip.droneSpawnRate) {
-        this.coreShip.droneSpawnTimer = 0;
-        // Spawn a drone near the core ship
-        const angle = Math.random() * TWO_PI;
-        const spawnDist = this.coreShip.radius + 15;
-        const droneX = this.coreShip.x + Math.cos(angle) * spawnDist;
-        const droneY = this.coreShip.y + Math.sin(angle) * spawnDist;
-        this.drones.push({
-          x: droneX,
-          y: droneY,
-          vx: 0,
-          vy: 0,
-          radius: 4,
-          health: this.coreShip.droneHealth,
-          maxHealth: this.coreShip.droneHealth,
-          attack: this.coreShip.droneDamage,
-          attackSpeed: 1.5,
-          cooldown: 0,
-          moveSpeed: 80,
-          range: 120,
-        });
-      }
-    }
-    
-    // Update drones
-    this.updateDrones(delta);
-    
-    if (this.coreShip.health <= 0) {
-      return;
-    }
-    if (this.coreShip.cannons <= 0) {
-      return;
-    }
-    this.coreShip.cannonCooldown = Math.max(0, this.coreShip.cannonCooldown - delta);
-    if (this.coreShip.cannonCooldown > 0) {
-      return;
-    }
-    const target = this.findClosestTurret(
-      this.coreShip.x,
-      this.coreShip.y,
-      KUF_CORE_SHIP_COMBAT.CANNON_RANGE
-    );
-    if (!target) {
-      return;
-    }
-    const totalCannons = this.coreShip.cannons;
-    const spread = KUF_CORE_SHIP_COMBAT.CANNON_SPREAD_RADIANS;
-    for (let i = 0; i < totalCannons; i++) {
-      const lerp = totalCannons > 1 ? (i / (totalCannons - 1)) - 0.5 : 0;
-      const angleOffset = spread * lerp;
-      const heading = Math.atan2(target.y - this.coreShip.y, target.x - this.coreShip.x) + angleOffset;
-      // Core ship cannon fire behaves like turret shots, but scales with cannon count.
-      this.spawnBullet({
-        owner: 'coreShip',
-        type: 'coreShip',
-        x: this.coreShip.x,
-        y: this.coreShip.y,
-        target,
-        speed: KUF_CORE_SHIP_COMBAT.CANNON_PROJECTILE_SPEED,
-        damage: KUF_CORE_SHIP_COMBAT.CANNON_DAMAGE,
-        angle: heading,
-      });
-    }
-    this.coreShip.cannonCooldown = 1 / KUF_CORE_SHIP_COMBAT.CANNON_ATTACK_SPEED;
-  }
+  updateCoreShip(delta) { kufUpdateCoreShip.call(this, delta); }
   
   /**
    * Update drone AI and combat behavior.
    * @param {number} delta - Delta time in seconds.
    */
-  updateDrones(delta) {
-    this.drones.forEach((drone) => {
-      drone.cooldown = Math.max(0, drone.cooldown - delta);
-      
-      // Find closest enemy
-      const target = this.findClosestTurret(drone.x, drone.y, Infinity);
-      if (!target) {
-        return;
-      }
-      
-      const dx = target.x - drone.x;
-      const dy = target.y - drone.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      if (dist > drone.range) {
-        // Move toward enemy
-        const moveX = (dx / dist) * drone.moveSpeed * delta;
-        const moveY = (dy / dist) * drone.moveSpeed * delta;
-        drone.x += moveX;
-        drone.y += moveY;
-      } else {
-        // In range - attack
-        if (drone.cooldown <= 0) {
-          this.spawnBullet({
-            owner: 'marine',
-            type: 'drone',
-            x: drone.x,
-            y: drone.y,
-            target,
-            speed: MARINE_BULLET_SPEED,
-            damage: drone.attack,
-          });
-          drone.cooldown = 1 / drone.attackSpeed;
-        }
-      }
-    });
-    
-    // Remove dead drones
-    this.drones = this.drones.filter((drone) => drone.health > 0);
-  }
+  updateDrones(delta) { kufUpdateDrones.call(this, delta); }
 
-  updateTurrets(delta) {
-    this.turrets.forEach((turret) => {
-      turret.cooldown = Math.max(0, turret.cooldown - delta);
-      if (turret.fieldPulse !== undefined) {
-        turret.fieldPulse = (turret.fieldPulse + delta) % 1.5;
-      }
-      if (turret.healVisualTimer !== undefined) {
-        turret.healVisualTimer = Math.max(0, turret.healVisualTimer - delta);
-      }
+  updateTurrets(delta) { kufUpdateTurrets.call(this, delta); }
 
-      // Handle barracks spawning
-      if (turret.isBarracks) {
-        turret.spawnTimer -= delta;
-        if (turret.spawnTimer <= 0 && turret.currentSpawns < turret.maxSpawns) {
-          // Check if barracks is under attack or if any player targets are nearby.
-          const isUnderAttack = turret.health < turret.maxHealth;
-          const nearbyPlayerTarget = this.findClosestPlayerTarget(
-            turret.x,
-            turret.y,
-            isUnderAttack ? Infinity : turret.spawnRange
-          );
-          if (nearbyPlayerTarget) {
-            // Spawn a unit near the barracks
-            const angle = Math.random() * TWO_PI;
-            const dist = turret.radius + 10;
-            const spawnX = turret.x + Math.cos(angle) * dist;
-            const spawnY = turret.y + Math.sin(angle) * dist;
-            this.createEnemy(turret.spawnType, spawnX, spawnY, turret.level);
-            turret.currentSpawns++;
-            turret.spawnTimer = turret.spawnCooldown;
-          }
-        }
-        return;
-      }
+  triggerMineExplosion(mine) { kufTriggerMineExplosion.call(this, mine); }
 
-      if (turret.isSupport) {
-        this.handleSupportDrone(turret, delta);
-        return;
-      }
+  updateExplosions(delta) { kufUpdateExplosions.call(this, delta); }
 
-      // Handle mobile units - always pursue the closest player-controlled target.
-      if (turret.isMobile) {
-        const nearbyPlayerTarget = this.findClosestPlayerTarget(turret.x, turret.y, Infinity);
-        if (nearbyPlayerTarget) {
-          // Move toward the marine if out of attack range
-          const dx = nearbyPlayerTarget.x - turret.x;
-          const dy = nearbyPlayerTarget.y - turret.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          if (dist > turret.range) {
-            // Move toward marine
-            const moveX = (dx / dist) * turret.moveSpeed * delta;
-            const moveY = (dy / dist) * turret.moveSpeed * delta;
-            turret.x += moveX;
-            turret.y += moveY;
-          } else {
-            // In range - attack
-            if (turret.cooldown <= 0 && turret.attack > 0) {
-              this.fireTurret(turret, nearbyPlayerTarget);
-            }
-          }
-        }
-        return;
-      }
+  updateBullets(delta) { kufUpdateBullets.call(this, delta); }
 
-      // Handle stationary turrets
-      if (turret.attack > 0 && !turret.isWall && !turret.isMine) {
-        const target = this.findClosestPlayerTarget(turret.x, turret.y, turret.range);
-        if (target && turret.cooldown <= 0) {
-          this.fireTurret(turret, target);
-        }
-      }
-    });
+  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false, angle = null, effects = null, pierce = 0 }) { kufSpawnBullet.call(this, { owner, type, x, y, target, speed, damage, homing, angle, effects, pierce }); }
 
-    // Remove dead enemies, but check for mine explosions first
-    this.turrets = this.turrets.filter((turret) => {
-      if (turret.health <= 0) {
-        // Trigger mine explosion
-        if (turret.isMine) {
-          this.triggerMineExplosion(turret);
-        }
-        return false;
-      }
-      return true;
-    });
-  }
+  fireTurret(turret, target) { kufFireTurret.call(this, turret, target); }
 
-  triggerMineExplosion(mine) {
-    // Damage all units (both player and enemy) within explosion radius
-    const explosionRadius = mine.explosionRadius || MINE_EXPLOSION_RADIUS;
-    
-    // Damage marines
-    this.marines.forEach((marine) => {
-      const dx = marine.x - mine.x;
-      const dy = marine.y - mine.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= explosionRadius) {
-        marine.health -= mine.attack * mine.level;
-      }
-    });
+  getTurretAttackModifier(turret) { return kufGetTurretAttackModifier.call(this, turret); }
 
-    // Damage enemies
-    this.turrets.forEach((turret) => {
-      const dx = turret.x - mine.x;
-      const dy = turret.y - mine.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= explosionRadius) {
-        turret.health -= mine.attack * mine.level;
-      }
-    });
+  handleSupportDrone(drone, delta) { kufHandleSupportDrone.call(this, drone, delta); }
 
-    // Add visual explosion effect
-    this.explosions.push({
-      x: mine.x,
-      y: mine.y,
-      radius: 0,
-      maxRadius: explosionRadius,
-      life: 0.5,
-      maxLife: 0.5,
-    });
-  }
+  findDamagedTurret(x, y, range, exclude) { return kufFindDamagedTurret.call(this, x, y, range, exclude); }
 
-  updateExplosions(delta) {
-    this.explosions.forEach((explosion) => {
-      explosion.life -= delta;
-      const progress = 1 - (explosion.life / explosion.maxLife);
-      explosion.radius = explosion.maxRadius * progress;
-    });
-    this.explosions = this.explosions.filter((explosion) => explosion.life > 0);
-  }
+  applyBulletEffects(target, effects) { kufApplyBulletEffects.call(this, target, effects); }
 
-  updateBullets(delta) {
-    this.bullets.forEach((bullet) => {
-      // Heat-seeking logic for splayer rockets
-      if (bullet.homing && bullet.target && bullet.target.health > 0) {
-        const dx = bullet.target.x - bullet.x;
-        const dy = bullet.target.y - bullet.y;
-        const angle = Math.atan2(dy, dx);
-        const turnRate = 3.0; // Radians per second
-        const currentAngle = Math.atan2(bullet.vy, bullet.vx);
-        let angleDiff = angle - currentAngle;
-        
-        // Normalize angle difference
-        while (angleDiff > Math.PI) angleDiff -= TWO_PI;
-        while (angleDiff < -Math.PI) angleDiff += TWO_PI;
-        
-        const turnAmount = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate * delta);
-        const newAngle = currentAngle + turnAmount;
-        
-        bullet.vx = Math.cos(newAngle) * bullet.speed;
-        bullet.vy = Math.sin(newAngle) * bullet.speed;
-      }
-      
-      bullet.x += bullet.vx * delta;
-      bullet.y += bullet.vy * delta;
-      bullet.life -= delta;
-      
-      if (bullet.owner === 'marine' || bullet.owner === 'coreShip') {
-        const hit = this.findHit(this.turrets, bullet);
-        if (hit && hit.health > 0) {
-          hit.health -= bullet.damage;
-          // Track the hit so piercing rounds do not repeatedly strike the same target.
-          if (bullet.hitTargets) {
-            bullet.hitTargets.add(hit);
-          }
-          // Remove non-piercing bullets immediately, otherwise decrement remaining pierces.
-          if (bullet.pierce > 0) {
-            bullet.pierce -= 1;
-            if (bullet.pierce <= 0) {
-              bullet.life = 0;
-            }
-          } else {
-            bullet.life = 0;
-          }
-          if (hit.health <= 0) {
-            // Base reward from enemy's configured value, plus income per kill bonus (1 + workers).
-            const enemyGoldValue = typeof hit.goldValue === 'number' ? hit.goldValue : 5;
-            const reward = enemyGoldValue + this.baseIncomePerKill;
-            this.goldEarned += reward;
-            this.destroyedTurrets += 1;
-          }
-        }
-      } else {
-        const hit = this.findHit(this.marines, bullet);
-        if (hit && hit.health > 0) {
-          hit.health -= bullet.damage;
-          if (bullet.effects) {
-            this.applyBulletEffects(hit, bullet.effects);
-          }
-          bullet.life = 0;
-        } else {
-          // Check for drone hits
-          const droneHit = this.findHit(this.drones, bullet);
-          if (droneHit && droneHit.health > 0) {
-            droneHit.health -= bullet.damage;
-            bullet.life = 0;
-          } else if (this.coreShip && this.coreShip.health > 0) {
-            // Allow enemy projectiles to damage the core ship hull when marines are absent.
-            const dx = this.coreShip.x - bullet.x;
-            const dy = this.coreShip.y - bullet.y;
-            const radius = this.coreShip.radius || MARINE_RADIUS;
-            if (dx * dx + dy * dy <= radius * radius) {
-              // Check for shield first
-              if (this.coreShip.shield > 0 && !this.coreShip.shieldBroken) {
-                this.coreShip.shield -= bullet.damage;
-                if (this.coreShip.shield <= 0) {
-                  this.coreShip.shield = 0;
-                  this.coreShip.shieldBroken = true;
-                  this.coreShip.shieldRegenTimer = 0;
-                }
-              } else {
-                this.coreShip.health -= bullet.damage;
-              }
-              // Reset shield regen timer on hit
-              this.coreShip.shieldRegenTimer = 0;
-              bullet.life = 0;
-            }
-          }
-        }
-      }
-    });
-    this.bullets = this.bullets.filter((bullet) => bullet.life > 0 && this.isOnscreen(bullet));
-    this.turrets = this.turrets.filter((turret) => turret.health > 0);
-  }
+  updateMarineStatus(marine, delta) { kufUpdateMarineStatus.call(this, marine, delta); }
 
-  spawnBullet({ owner, type, x, y, target, speed, damage, homing = false, angle = null, effects = null, pierce = 0 }) {
-    const heading = angle !== null ? angle : Math.atan2(target.y - y, target.x - x);
-    const vx = Math.cos(heading) * speed;
-    const vy = Math.sin(heading) * speed;
-    // Initialize hit tracking when bullets are allowed to pierce through multiple targets.
-    const hitTargets = pierce > 0 ? new Set() : null;
-    this.bullets.push({
-      owner,
-      type: type || 'marine',
-      x,
-      y,
-      vx,
-      vy,
-      damage,
-      life: 2.5,
-      homing,
-      target: homing ? target : null,
-      speed,
-      effects,
-      // Store remaining pierce count so lasers can keep traveling after impacts.
-      pierce,
-      hitTargets,
-    });
-  }
-
-  fireTurret(turret, target) {
-    const modifiers = this.getTurretAttackModifier(turret);
-    const projectileSpeed = turret.projectileSpeed || TURRET_BULLET_SPEED;
-    const damagePerShot = turret.attack * modifiers.damageMultiplier;
-    const attackSpeed = Math.max(0.1, turret.attackSpeed * modifiers.attackSpeedMultiplier);
-    const shots = turret.multiShot || 1;
-    const spread = turret.spreadAngle || 0;
-    const baseAngle = Math.atan2(target.y - turret.y, target.x - turret.x);
-
-    for (let i = 0; i < shots; i++) {
-      const lerp = shots > 1 ? (i / (shots - 1)) - 0.5 : 0;
-      const angleOffset = spread * lerp;
-      this.spawnBullet({
-        owner: 'turret',
-        type: turret.type,
-        x: turret.x,
-        y: turret.y + (turret.radius || 0),
-        target,
-        speed: projectileSpeed,
-        damage: damagePerShot,
-        angle: baseAngle + angleOffset,
-        effects: turret.projectileEffects || null,
-      });
-    }
-
-    turret.cooldown = 1 / attackSpeed;
-  }
-
-  getTurretAttackModifier(turret) {
-    let attackSpeedMultiplier = 1;
-    let damageMultiplier = 1;
-    this.turrets.forEach((node) => {
-      if (node === turret || !node.isBuffNode) {
-        return;
-      }
-      const dx = node.x - turret.x;
-      const dy = node.y - turret.y;
-      const distanceSq = dx * dx + dy * dy;
-      const radius = node.buffRadius || 0;
-      if (radius > 0 && distanceSq <= radius * radius) {
-        if (node.attackSpeedMultiplier) {
-          attackSpeedMultiplier *= node.attackSpeedMultiplier;
-        }
-        if (node.damageMultiplier) {
-          damageMultiplier *= node.damageMultiplier;
-        }
-      }
-    });
-    return { attackSpeedMultiplier, damageMultiplier };
-  }
-
-  handleSupportDrone(drone, delta) {
-    const target = this.findDamagedTurret(drone.x, drone.y, drone.sightRange, drone);
-    if (!target) {
-      return;
-    }
-
-    const dx = target.x - drone.x;
-    const dy = target.y - drone.y;
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-
-    if (distance > (drone.healRange || 80)) {
-      const moveX = (dx / distance) * drone.moveSpeed * delta;
-      const moveY = (dy / distance) * drone.moveSpeed * delta;
-      drone.x += moveX;
-      drone.y += moveY;
-      drone.activeHealTarget = null;
-    } else {
-      const healAmount = (drone.healPerSecond || 4) * delta;
-      target.health = Math.min(target.maxHealth, target.health + healAmount);
-      drone.healVisualTimer = 0.25;
-      drone.activeHealTarget = { x: target.x, y: target.y };
-    }
-  }
-
-  findDamagedTurret(x, y, range, exclude) {
-    let closest = null;
-    let bestDist = range * range;
-    this.turrets.forEach((turret) => {
-      if (turret === exclude || turret.health >= turret.maxHealth) {
-        return;
-      }
-      const dx = turret.x - x;
-      const dy = turret.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= bestDist) {
-        closest = turret;
-        bestDist = distSq;
-      }
-    });
-    return closest;
-  }
-
-  applyBulletEffects(target, effects) {
-    if (!effects) {
-      return;
-    }
-    if (!target.statusEffects) {
-      target.statusEffects = [];
-    }
-    if (effects.type === 'burn') {
-      target.statusEffects.push({
-        type: 'burn',
-        damagePerSecond: effects.damagePerSecond || 1,
-        remaining: effects.duration || 2,
-      });
-    }
-    if (effects.type === 'slow') {
-      target.statusEffects.push({
-        type: 'slow',
-        multiplier: Math.max(0.1, effects.multiplier || 0.5),
-        remaining: effects.duration || 2,
-      });
-    }
-  }
-
-  updateMarineStatus(marine, delta) {
-    if (!marine.statusEffects) {
-      marine.statusEffects = [];
-    }
-    const remainingEffects = [];
-    let slowMultiplier = 1;
-
-    marine.statusEffects.forEach((effect) => {
-      effect.remaining -= delta;
-      if (effect.type === 'burn') {
-        marine.health -= (effect.damagePerSecond || 0) * delta;
-      }
-      if (effect.type === 'slow') {
-        slowMultiplier *= Math.max(0.1, effect.multiplier || 1);
-      }
-      if (effect.remaining > 0) {
-        remainingEffects.push(effect);
-      }
-    });
-
-    marine.statusEffects = remainingEffects;
-
-    const fieldMultiplier = this.getFieldSlowMultiplier(marine);
-    const combinedMultiplier = Math.max(0.2, slowMultiplier * fieldMultiplier);
-    marine.moveSpeed = marine.baseMoveSpeed * combinedMultiplier;
-  }
-
-  getFieldSlowMultiplier(marine) {
-    let multiplier = 1;
-    this.turrets.forEach((turret) => {
-      if (!turret.isStasisField) {
-        return;
-      }
-      const dx = turret.x - marine.x;
-      const dy = turret.y - marine.y;
-      const radius = turret.slowRadius || 0;
-      if (radius <= 0) {
-        return;
-      }
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq <= radius * radius) {
-        multiplier *= 1 - Math.min(0.9, turret.slowAmount || 0.3);
-      }
-    });
-    return Math.max(0.2, multiplier);
-  }
+  getFieldSlowMultiplier(marine) { return kufGetFieldSlowMultiplier.call(this, marine); }
 
   getMapById(mapId) {
     if (!mapId) {
@@ -2072,45 +853,9 @@ export class KufBattlefieldSimulation {
     return this.defaultMapId || sharedDefaultKufMapId;
   }
 
-  findClosestTurret(x, y, range) {
-    // If there's a selected enemy and it's in range, prioritize it
-    if (this.selectedEnemy && this.selectedEnemy.health > 0) {
-      const dx = this.selectedEnemy.x - x;
-      const dy = this.selectedEnemy.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= range * range) {
-        return this.selectedEnemy;
-      }
-    }
+  findClosestTurret(x, y, range) { return kufFindClosestTurret.call(this, x, y, range); }
 
-    let closest = null;
-    let bestDist = range * range;
-    this.turrets.forEach((turret) => {
-      const dx = turret.x - x;
-      const dy = turret.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= bestDist) {
-        closest = turret;
-        bestDist = distSq;
-      }
-    });
-    return closest;
-  }
-
-  findClosestMarine(x, y, range) {
-    let closest = null;
-    let bestDist = range * range;
-    this.marines.forEach((marine) => {
-      const dx = marine.x - x;
-      const dy = marine.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= bestDist) {
-        closest = marine;
-        bestDist = distSq;
-      }
-    });
-    return closest;
-  }
+  findClosestMarine(x, y, range) { return kufFindClosestMarine.call(this, x, y, range); }
 
   /**
    * Find the closest player-controlled target, including marines, drones, and the core ship hull.
@@ -2119,60 +864,11 @@ export class KufBattlefieldSimulation {
    * @param {number} range - Targeting range in pixels.
    * @returns {object|null} Closest target in range.
    */
-  findClosestPlayerTarget(x, y, range) {
-    let closest = this.findClosestMarine(x, y, range);
-    let bestDist = closest ? ((closest.x - x) ** 2 + (closest.y - y) ** 2) : range * range;
-    
-    // Check drones
-    this.drones.forEach((drone) => {
-      const dx = drone.x - x;
-      const dy = drone.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= bestDist) {
-        closest = drone;
-        bestDist = distSq;
-      }
-    });
-    
-    // Check core ship
-    if (this.coreShip && this.coreShip.health > 0) {
-      const dx = this.coreShip.x - x;
-      const dy = this.coreShip.y - y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq <= bestDist) {
-        closest = this.coreShip;
-        bestDist = distSq;
-      }
-    }
-    return closest;
-  }
+  findClosestPlayerTarget(x, y, range) { return kufFindClosestPlayerTarget.call(this, x, y, range); }
 
-  findHit(targets, bullet) {
-    return targets.find((target) => {
-      if (bullet.hitTargets && bullet.hitTargets.has(target)) {
-        return false;
-      }
-      const dx = target.x - bullet.x;
-      const dy = target.y - bullet.y;
-      const radius = target.radius || MARINE_RADIUS;
-      return dx * dx + dy * dy <= radius * radius;
-    }) || null;
-  }
+  findHit(targets, bullet) { return kufFindHit.call(this, targets, bullet); }
 
-  isOnscreen(bullet) {
-    // Use a larger margin in world space to prevent bullets from disappearing prematurely.
-    // Account for camera movement by using the visible area in world coordinates.
-    const viewLeft = this.camera.x - BULLET_CULLING_MARGIN;
-    const viewRight = this.camera.x + this.bounds.width / this.camera.zoom + BULLET_CULLING_MARGIN;
-    const viewTop = this.camera.y - BULLET_CULLING_MARGIN;
-    const viewBottom = this.camera.y + this.bounds.height / this.camera.zoom + BULLET_CULLING_MARGIN;
-    return (
-      bullet.x > viewLeft &&
-      bullet.x < viewRight &&
-      bullet.y > viewTop &&
-      bullet.y < viewBottom
-    );
-  }
+  isOnscreen(bullet) { return kufIsOnscreen.call(this, bullet); }
 
   checkVictoryConditions() {
     if (this.coreShip && this.coreShip.health <= 0) {
@@ -2197,851 +893,45 @@ export class KufBattlefieldSimulation {
     }
   }
 
-  drawBackground(force = false) {
-    if (!this.ctx) {
-      return;
-    }
-    const ctx = this.ctx;
-    ctx.save();
-    // Always fully clear the canvas for smooth rendering without trails or "exposure rate" effects.
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#050715';
-    ctx.fillRect(0, 0, this.bounds.width, this.bounds.height);
-    if (force) {
-      this.drawTrianglePattern();
-    }
-    ctx.restore();
-  }
-
-  drawTrianglePattern() {
-    const ctx = this.ctx;
-    const size = 90;
-    const halfSize = size * 0.5;
-    const doubleSize = size * 2;
-    for (let y = -size; y < this.bounds.height + size; y += size) {
-      for (let x = -size; x < this.bounds.width + size; x += size) {
-        ctx.fillStyle = y % doubleSize === 0 ? 'rgba(20, 30, 70, 0.35)' : 'rgba(10, 15, 40, 0.4)';
-        ctx.beginPath();
-        ctx.moveTo(x, y + size);
-        ctx.lineTo(x + size, y + size);
-        ctx.lineTo(x + halfSize, y);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-  }
-
-  render() {
-    if (!this.ctx) {
-      return;
-    }
-    const ctx = this.ctx;
-    this.drawBackground();
-    
-    // Apply camera transform for game objects
-    ctx.save();
-    ctx.translate(this.bounds.width / 2, this.bounds.height / 2);
-    ctx.scale(this.camera.zoom, this.camera.zoom);
-    ctx.translate(-this.bounds.width / 2 - this.camera.x, -this.bounds.height / 2 - this.camera.y);
-
-    this.drawTurrets();
-    this.drawMarines();
-    this.drawDrones();
-    this.drawBullets();
-    this.drawExplosions();
-    const skipOverlays = this.shouldSkipOverlays();
-    if (!skipOverlays) {
-      this.drawHealthBars();
-      this.drawLevelIndicators();
-      this.drawSelectedEnemyBox();
-    }
-    
-    // Draw waypoint marker if set
-    this.drawWaypointMarker();
-    // Draw lines from units to their waypoints
-    this.drawUnitWaypointLines();
-
-    ctx.restore();
-
-    // Draw selection box and HUD without camera transform
-    this.drawSelectionBox();
-    this.drawHud();
-  }
-
-
-  /**
-   * Skip overlay-heavy layers intermittently when running in lightweight mode to save GPU/CPU time.
-   * @returns {boolean} True when this frame should omit overlays.
-   */
-  shouldSkipOverlays() {
-    if (this.renderProfile === 'high') {
-      return false;
-    }
-    this.overlaySkipCounter = (this.overlaySkipCounter + 1) % this.overlaySkipInterval;
-    return this.overlaySkipCounter !== 0;
-  }
-
-
-
-  drawMarines() {
-    const ctx = this.ctx;
-    const glowsEnabled = this.glowOverlaysEnabled;
-    this.marines.forEach((marine) => {
-      const healthRatio = marine.health / marine.maxHealth;
-      const isSelected = this.selectionMode === 'specific' && this.selectedUnits.includes(marine);
-      ctx.save();
-      
-      // Draw selection indicator for selected units
-      if (isSelected) {
-        ctx.strokeStyle = 'rgba(100, 255, 100, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(marine.x, marine.y, marine.radius + 4, 0, TWO_PI);
-        ctx.stroke();
-        // Show the selected unit's firing range as a thin halo.
-        ctx.strokeStyle = 'rgba(120, 255, 180, 0.35)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(marine.x, marine.y, marine.range, 0, TWO_PI);
-        ctx.stroke();
-      }
-
-      // Use the dedicated splayer sprite when available.
-      const splayerSprite = marine.type === 'splayer' ? getKufSprite(KUF_SPRITE_PATHS.SPLAYER) : null;
-      const useSplayerSprite = marine.type === 'splayer' && splayerSprite && splayerSprite.loaded;
-      if (useSplayerSprite) {
-        const spriteSize = marine.radius * 6;
-        const halfSpriteSize = spriteSize * 0.5;
-        const marineGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 24) : 0;
-        ctx.save();
-        ctx.translate(marine.x, marine.y);
-        ctx.rotate(marine.rotation || 0);
-        ctx.shadowBlur = marineGlow;
-        ctx.shadowColor = glowsEnabled ? 'rgba(255, 66, 180, 0.8)' : 'transparent';
-        ctx.drawImage(splayerSprite.image, -halfSpriteSize, -halfSpriteSize, spriteSize, spriteSize);
-        ctx.shadowBlur = 0;
-        ctx.restore();
-        return;
-      }
-      
-      // Different colors for different unit types
-      let mainColor, shadowColor;
-      if (marine.type === 'sniper') {
-        mainColor = 'rgba(255, 200, 100, 0.9)';
-        shadowColor = 'rgba(255, 180, 66, 0.8)';
-      } else if (marine.type === 'laser') {
-        // Piercing lasers glow with sharp teal highlights.
-        mainColor = 'rgba(120, 255, 210, 0.9)';
-        shadowColor = 'rgba(80, 230, 190, 0.8)';
-      } else if (marine.type === 'splayer') {
-        mainColor = 'rgba(255, 100, 200, 0.9)';
-        shadowColor = 'rgba(255, 66, 180, 0.8)';
-      } else if (marine.type === 'worker') {
-        // Workers use a softer cyan glow to read as support units.
-        mainColor = 'rgba(160, 220, 255, 0.85)';
-        shadowColor = 'rgba(90, 180, 220, 0.75)';
-      } else {
-        mainColor = 'rgba(140, 255, 255, 0.9)';
-        shadowColor = 'rgba(66, 224, 255, 0.8)';
-      }
-      
-      const marineGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 24) : 0;
-      ctx.shadowBlur = marineGlow;
-      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-      ctx.fillStyle = mainColor;
-      ctx.beginPath();
-      ctx.arc(marine.x, marine.y, marine.radius, 0, TWO_PI);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = this.renderProfile === 'light' ? 2 : 3;
-      ctx.strokeStyle = `rgba(${80 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.85)`;
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(15, 20, 40, 0.65)';
-      ctx.beginPath();
-      ctx.arc(marine.x, marine.y, marine.radius * 0.5, 0, TWO_PI);
-      ctx.fill();
-      ctx.restore();
-    });
-  }
-
-  drawDrones() {
-    const ctx = this.ctx;
-    const glowsEnabled = this.glowOverlaysEnabled;
-    this.drones.forEach((drone) => {
-      const healthRatio = drone.health / drone.maxHealth;
-      
-      // Drones use a teal/cyan glow to distinguish them from other units
-      const mainColor = 'rgba(100, 220, 255, 0.9)';
-      const shadowColor = 'rgba(80, 200, 240, 0.8)';
-      
-      const droneGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
-      ctx.shadowBlur = droneGlow;
-      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-      ctx.fillStyle = mainColor;
-      ctx.beginPath();
-      ctx.arc(drone.x, drone.y, drone.radius, 0, TWO_PI);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.lineWidth = this.renderProfile === 'light' ? 1.5 : 2;
-      ctx.strokeStyle = `rgba(${80 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.85)`;
-      ctx.stroke();
-    });
-  }
-
-  drawTurrets() {
-    const ctx = this.ctx;
-    const glowsEnabled = this.glowOverlaysEnabled;
-    this.turrets.forEach((turret) => {
-      const healthRatio = Math.max(0, turret.health / turret.maxHealth);
-      ctx.save();
-
-      if (turret.isStasisField && turret.slowRadius) {
-        ctx.save();
-        const gradient = ctx.createRadialGradient(
-          turret.x,
-          turret.y,
-          turret.slowRadius * 0.1,
-          turret.x,
-          turret.y,
-          turret.slowRadius
-        );
-        gradient.addColorStop(0, 'rgba(120, 200, 255, 0.25)');
-        gradient.addColorStop(1, 'rgba(20, 40, 70, 0)');
-        ctx.fillStyle = gradient;
-        ctx.globalAlpha = 0.45 + 0.25 * Math.sin((turret.fieldPulse || 0) * TWO_PI);
-        ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.slowRadius, 0, TWO_PI);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      if (turret.isBuffNode && turret.buffRadius) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 200, 120, 0.35)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 6]);
-        ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.buffRadius, 0, TWO_PI);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Different colors and styles for different enemy types
-      let mainColor, shadowColor, strokeColor;
-
-      if (turret.isWall) {
-        mainColor = 'rgba(120, 120, 140, 0.9)';
-        shadowColor = 'rgba(80, 80, 100, 0.8)';
-        strokeColor = `rgba(${100 + healthRatio * 80}, ${100 + healthRatio * 80}, ${120 + healthRatio * 60}, 0.9)`;
-      } else if (turret.isMine) {
-        mainColor = 'rgba(255, 100, 50, 0.9)';
-        shadowColor = 'rgba(255, 80, 30, 0.8)';
-        strokeColor = 'rgba(255, 120, 80, 0.9)';
-      } else if (turret.isBarracks) {
-        mainColor = 'rgba(180, 100, 200, 0.7)';
-        shadowColor = 'rgba(160, 80, 180, 0.8)';
-        strokeColor = `rgba(${160 + healthRatio * 60}, ${100 + healthRatio * 100}, 200, 0.9)`;
-      } else if (turret.isSupport) {
-        mainColor = 'rgba(120, 255, 200, 0.8)';
-        shadowColor = 'rgba(80, 220, 180, 0.85)';
-        strokeColor = `rgba(120, ${200 + healthRatio * 40}, 210, 0.9)`;
-      } else if (turret.isMobile) {
-        if (turret.type === 'melee_unit') {
-          mainColor = 'rgba(255, 80, 80, 0.8)';
-          shadowColor = 'rgba(255, 60, 60, 0.8)';
-          strokeColor = `rgba(255, ${80 + healthRatio * 120}, ${80 + healthRatio * 120}, 0.9)`;
-        } else {
-          mainColor = 'rgba(255, 180, 80, 0.8)';
-          shadowColor = 'rgba(255, 160, 60, 0.8)';
-          strokeColor = `rgba(255, ${160 + healthRatio * 60}, ${80 + healthRatio * 120}, 0.9)`;
-        }
-      } else if (turret.type === 'plasma_turret') {
-        mainColor = 'rgba(255, 150, 80, 0.82)';
-        shadowColor = 'rgba(255, 110, 50, 0.88)';
-        strokeColor = `rgba(255, ${100 + healthRatio * 110}, ${80 + healthRatio * 70}, 0.9)`;
-      } else if (turret.type === 'scatter_turret') {
-        mainColor = 'rgba(255, 210, 140, 0.78)';
-        shadowColor = 'rgba(255, 190, 120, 0.85)';
-        strokeColor = `rgba(255, ${150 + healthRatio * 80}, ${120 + healthRatio * 80}, 0.92)`;
-      } else if (turret.isStructure) {
-        // Distinct palette for non-lethal objectives so players can recognize mandatory targets.
-        mainColor = 'rgba(130, 200, 255, 0.65)';
-        shadowColor = 'rgba(90, 160, 220, 0.7)';
-        strokeColor = `rgba(160, ${170 + healthRatio * 60}, 255, 0.85)`;
-        if (turret.isStasisField) {
-          mainColor = 'rgba(140, 200, 255, 0.72)';
-          shadowColor = 'rgba(110, 180, 240, 0.82)';
-          strokeColor = `rgba(160, ${190 + healthRatio * 40}, 255, 0.9)`;
-        }
-        if (turret.isBuffNode) {
-          mainColor = 'rgba(255, 200, 130, 0.78)';
-          shadowColor = 'rgba(255, 170, 90, 0.85)';
-          strokeColor = `rgba(255, ${190 + healthRatio * 40}, ${140 + healthRatio * 60}, 0.92)`;
-        }
-      } else if (turret.type === 'rocket_turret') {
-        // Rocket turrets glow with a saturated magenta hue to highlight their burst damage threat.
-        mainColor = 'rgba(255, 120, 200, 0.8)';
-        shadowColor = 'rgba(255, 90, 180, 0.85)';
-        strokeColor = `rgba(255, ${90 + healthRatio * 120}, ${180 + healthRatio * 40}, 0.9)`;
-      } else if (turret.type === 'artillery_turret') {
-        // Artillery cannons feel heavier through a deep amber palette.
-        mainColor = 'rgba(255, 180, 120, 0.8)';
-        shadowColor = 'rgba(255, 150, 90, 0.85)';
-        strokeColor = `rgba(255, ${140 + healthRatio * 50}, ${100 + healthRatio * 80}, 0.9)`;
-      } else if (turret.type === 'laser_turret') {
-        // Laser towers shimmer with icy cyan so players can quickly read their rapid-fire style.
-        mainColor = 'rgba(120, 220, 255, 0.8)';
-        shadowColor = 'rgba(90, 200, 255, 0.85)';
-        strokeColor = `rgba(${120 + healthRatio * 80}, ${200 + healthRatio * 40}, 255, 0.9)`;
-      } else if (turret.type === 'big_turret') {
-        mainColor = 'rgba(255, 100, 150, 0.8)';
-        shadowColor = 'rgba(255, 80, 130, 0.8)';
-        strokeColor = `rgba(255, ${60 + healthRatio * 140}, ${150 + healthRatio * 80}, 0.9)`;
-      } else {
-        mainColor = 'rgba(255, 150, 210, 0.7)';
-        shadowColor = 'rgba(255, 110, 170, 0.8)';
-        strokeColor = `rgba(255, ${80 + healthRatio * 120}, 200, 0.9)`;
-      }
-
-      const turretGlow = glowsEnabled ? (this.renderProfile === 'light' ? 10 : 18) : 0;
-      ctx.shadowBlur = turretGlow;
-      ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-      ctx.fillStyle = mainColor;
-      ctx.beginPath();
-      ctx.arc(turret.x, turret.y, turret.radius, 0, TWO_PI);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = strokeColor;
-      const lineWidth = this.renderProfile === 'light' ? 1.5 : turret.type === 'big_turret' ? 3 : 2;
-      ctx.lineWidth = lineWidth;
-      ctx.stroke();
-
-      // Overlay the boss ship sprite on designated large turrets.
-      const bossSprite = turret.type === 'big_turret' ? getKufSprite(KUF_SPRITE_PATHS.ENEMY_BOSS) : null;
-      if (bossSprite && bossSprite.loaded) {
-        const spriteSize = turret.radius * 6.5;
-        const halfSpriteSize = spriteSize * 0.5;
-        ctx.drawImage(
-          bossSprite.image,
-          turret.x - halfSpriteSize,
-          turret.y - halfSpriteSize,
-          spriteSize,
-          spriteSize
-        );
-      }
-
-      if (turret.healVisualTimer > 0 && turret.activeHealTarget) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(120, 255, 210, 0.75)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(turret.x, turret.y);
-        ctx.lineTo(turret.activeHealTarget.x, turret.activeHealTarget.y);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Draw selection indicator
-      if (turret === this.selectedEnemy) {
-        ctx.strokeStyle = 'rgba(255, 255, 100, 0.9)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(turret.x, turret.y, turret.radius + 4, 0, TWO_PI);
-        ctx.stroke();
-        // Add a target reticle to emphasize the focused enemy.
-        ctx.strokeStyle = 'rgba(255, 230, 120, 0.85)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(turret.x - turret.radius - 8, turret.y);
-        ctx.lineTo(turret.x - turret.radius - 2, turret.y);
-        ctx.moveTo(turret.x + turret.radius + 2, turret.y);
-        ctx.lineTo(turret.x + turret.radius + 8, turret.y);
-        ctx.moveTo(turret.x, turret.y - turret.radius - 8);
-        ctx.lineTo(turret.x, turret.y - turret.radius - 2);
-        ctx.moveTo(turret.x, turret.y + turret.radius + 2);
-        ctx.lineTo(turret.x, turret.y + turret.radius + 8);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-    });
-  }
-
-  drawBullets() {
-    const ctx = this.ctx;
-    const glowsEnabled = this.glowOverlaysEnabled;
-    // Load the bullet sprite if available.
-    const bulletSprite = getKufSprite(KUF_SPRITE_PATHS.BULLET);
-    const useBulletSprite = bulletSprite && bulletSprite.loaded && !bulletSprite.error;
-    
-    this.bullets.forEach((bullet) => {
-      let color, shadowColor, size;
-      if (bullet.owner === 'marine') {
-        if (bullet.type === 'sniper') {
-          color = 'rgba(255, 220, 120, 0.95)';
-          shadowColor = 'rgba(255, 200, 80, 0.9)';
-          size = 6;
-        } else if (bullet.type === 'laser') {
-          // Tint piercing lasers with a sharp cyan highlight.
-          color = 'rgba(120, 255, 220, 0.95)';
-          shadowColor = 'rgba(80, 240, 200, 0.9)';
-          size = 5;
-        } else if (bullet.type === 'splayer') {
-          color = 'rgba(255, 120, 200, 0.95)';
-          shadowColor = 'rgba(255, 80, 180, 0.9)';
-          size = 3;
-        } else {
-          color = 'rgba(120, 255, 255, 0.95)';
-          shadowColor = 'rgba(120, 255, 255, 0.9)';
-          size = 5;
-        }
-      } else {
-        if (bullet.type === 'plasma_turret') {
-          color = 'rgba(255, 140, 90, 0.95)';
-          shadowColor = 'rgba(255, 120, 60, 0.9)';
-          size = 6;
-        } else if (bullet.type === 'scatter_turret') {
-          color = 'rgba(255, 210, 140, 0.92)';
-          shadowColor = 'rgba(255, 190, 120, 0.85)';
-          size = 4;
-        } else {
-          color = 'rgba(255, 120, 170, 0.95)';
-          shadowColor = 'rgba(255, 120, 170, 0.9)';
-          size = 5;
-        }
-      }
-      
-      // Draw sprite if available for marine bullets, otherwise draw circle.
-      if (useBulletSprite && bullet.owner === 'marine') {
-        const spriteSize = size * 2.5;
-        const halfSpriteSize = spriteSize * 0.5;
-        const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
-        ctx.shadowBlur = bulletGlow;
-        ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-        ctx.drawImage(bulletSprite.image, bullet.x - halfSpriteSize, bullet.y - halfSpriteSize, spriteSize, spriteSize);
-      } else {
-        const bulletGlow = glowsEnabled ? (this.renderProfile === 'light' ? 8 : 16) : 0;
-        ctx.shadowBlur = bulletGlow;
-        ctx.shadowColor = glowsEnabled ? shadowColor : 'transparent';
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(bullet.x, bullet.y, size, 0, TWO_PI);
-        ctx.fill();
-      }
-      ctx.shadowBlur = 0;
-    });
-  }
-
-  drawHealthBars() {
-    const ctx = this.ctx;
-    
-    // Draw health bars for damaged marines
-    this.marines.forEach((marine) => {
-      if (marine.health < marine.maxHealth) {
-        const barWidth = marine.radius * 2;
-        const halfBarWidth = barWidth * 0.5;
-        const barHeight = 3;
-        const barY = marine.y - marine.radius - 6;
-        const healthRatio = marine.health / marine.maxHealth;
-        
-        // Background
-        ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
-        ctx.fillRect(marine.x - halfBarWidth, barY, barWidth, barHeight);
-        // Health
-        ctx.fillStyle = 'rgba(100, 255, 100, 0.9)';
-        ctx.fillRect(marine.x - halfBarWidth, barY, barWidth * healthRatio, barHeight);
-      }
-    });
-
-    // Draw health bars for damaged enemies
-    this.turrets.forEach((turret) => {
-      if (turret.health < turret.maxHealth) {
-        const barWidth = turret.radius * 2;
-        const halfBarWidth = barWidth * 0.5;
-        const barHeight = 3;
-        const barY = turret.y - turret.radius - 6;
-        const healthRatio = turret.health / turret.maxHealth;
-        
-        // Background
-        ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
-        ctx.fillRect(turret.x - halfBarWidth, barY, barWidth, barHeight);
-        // Health
-        ctx.fillStyle = 'rgba(255, 100, 100, 0.9)';
-        ctx.fillRect(turret.x - halfBarWidth, barY, barWidth * healthRatio, barHeight);
-      }
-    });
-  }
-
-  drawLevelIndicators() {
-    const ctx = this.ctx;
-    
-    this.turrets.forEach((turret) => {
-      if (turret.level > 1) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(255, 255, 100, 0.95)';
-        ctx.font = '600 9px "Space Mono", monospace';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        const textX = turret.x + turret.radius;
-        const textY = turret.y - turret.radius;
-        ctx.fillText(String(turret.level), textX, textY);
-        ctx.restore();
-      }
-    });
-  }
-
-  drawExplosions() {
-    const ctx = this.ctx;
-    
-    this.explosions.forEach((explosion) => {
-      const alpha = explosion.life / explosion.maxLife;
-      ctx.strokeStyle = `rgba(255, 150, 50, ${alpha * 0.8})`;
-      ctx.fillStyle = `rgba(255, 100, 30, ${alpha * 0.3})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(explosion.x, explosion.y, explosion.radius, 0, TWO_PI);
-      ctx.fill();
-      ctx.stroke();
-    });
-  }
-
-  drawSelectedEnemyBox() {
-    if (!this.selectedEnemy || this.selectedEnemy.health <= 0) {
-      this.selectedEnemy = null;
-      return;
-    }
-
-    const ctx = this.ctx;
-    const enemy = this.selectedEnemy;
-    
-    ctx.save();
-    
-    // Draw semi-transparent box above the enemy
-    const boxWidth = 120;
-    const boxHeight = 60;
-    const boxX = enemy.x - boxWidth * 0.5;
-    const boxY = enemy.y - enemy.radius - boxHeight - 10;
-    
-    ctx.fillStyle = 'rgba(20, 20, 40, 0.8)';
-    ctx.strokeStyle = 'rgba(255, 255, 100, 0.7)';
-    ctx.lineWidth = 1;
-    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-    ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-    
-    // Draw enemy stats
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.font = '500 10px "Space Mono", monospace';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    
-    const padding = 5;
-    let lineY = boxY + padding;
-    const lineHeight = 12;
-    
-    ctx.fillText(`Type: ${enemy.type}`, boxX + padding, lineY);
-    lineY += lineHeight;
-    ctx.fillText(`HP: ${Math.ceil(enemy.health)}/${enemy.maxHealth}`, boxX + padding, lineY);
-    lineY += lineHeight;
-    if (enemy.attack > 0) {
-      ctx.fillText(`ATK: ${enemy.attack.toFixed(1)}`, boxX + padding, lineY);
-      lineY += lineHeight;
-    }
-    if (enemy.level > 1) {
-      ctx.fillText(`Level: ${enemy.level}`, boxX + padding, lineY);
-    }
-    
-    ctx.restore();
-  }
+  drawBackground(force = false) { kufDrawBackground.call(this, force); }
+  drawTrianglePattern() { kufDrawTrianglePattern.call(this); }
+  render() { kufRender.call(this); }
+  shouldSkipOverlays() { return kufShouldSkipOverlays.call(this); }
+  drawMarines() { kufDrawMarines.call(this); }
+  drawDrones() { kufDrawDrones.call(this); }
+  drawTurrets() { kufDrawTurrets.call(this); }
+  drawBullets() { kufDrawBullets.call(this); }
+  drawHealthBars() { kufDrawHealthBars.call(this); }
+  drawLevelIndicators() { kufDrawLevelIndicators.call(this); }
+  drawExplosions() { kufDrawExplosions.call(this); }
+  drawSelectedEnemyBox() { kufDrawSelectedEnemyBox.call(this); }
 
   /**
    * Render the base core that anchors the training toolbar.
    * @param {{ baseCenter: { x: number, y: number }, baseRadius: number }} layout - HUD layout details.
    */
-  drawBaseCore(layout) {
-    const ctx = this.ctx;
-    const { baseCenter, baseRadius } = layout;
-    // Derive hull integrity ratio so the base ring can visualize core ship health.
-    const coreShipHealthRatio = this.coreShip
-      ? Math.max(0, Math.min(1, this.coreShip.health / this.coreShip.maxHealth))
-      : 1;
-    
-    // Scale the sprite based on level
-    const scale = this.coreShip ? this.coreShip.scale : 1.0;
-    
-    ctx.save();
-    const glowRadius = KUF_HUD_LAYOUT.BASE_GLOW_RADIUS * scale;
-    const gradient = ctx.createRadialGradient(
-      baseCenter.x,
-      baseCenter.y,
-      baseRadius * 0.2 * scale,
-      baseCenter.x,
-      baseCenter.y,
-      glowRadius
-    );
-    gradient.addColorStop(0, 'rgba(190, 240, 255, 0.75)');
-    gradient.addColorStop(1, 'rgba(40, 80, 140, 0.08)');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(baseCenter.x, baseCenter.y, glowRadius, 0, TWO_PI);
-    ctx.fill();
-
-    // Draw healing aura if active (level 3+)
-    if (this.coreShip && this.coreShip.healingAura > 0) {
-      ctx.save();
-      const healingGradient = ctx.createRadialGradient(
-        baseCenter.x,
-        baseCenter.y,
-        0,
-        baseCenter.x,
-        baseCenter.y,
-        this.coreShip.healingAuraRadius
-      );
-      healingGradient.addColorStop(0, 'rgba(100, 255, 150, 0.15)');
-      healingGradient.addColorStop(1, 'rgba(100, 255, 150, 0)');
-      ctx.fillStyle = healingGradient;
-      ctx.beginPath();
-      ctx.arc(baseCenter.x, baseCenter.y, this.coreShip.healingAuraRadius, 0, TWO_PI);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // Draw the core ship sprite scaled by level (20% per level).
-    const coreSprite = getKufSprite(KUF_SPRITE_PATHS.CORE_SHIP);
-    if (coreSprite && coreSprite.loaded) {
-      const spriteSize = baseRadius * 2.2 * scale;
-      const halfSpriteSize = spriteSize * 0.5;
-      ctx.drawImage(
-        coreSprite.image,
-        baseCenter.x - halfSpriteSize,
-        baseCenter.y - halfSpriteSize,
-        spriteSize,
-        spriteSize
-      );
-    }
-    
-    // Draw shield if active (level 4+)
-    if (this.coreShip && this.coreShip.maxShield > 0 && this.coreShip.shield > 0 && !this.coreShip.shieldBroken) {
-      const shieldRatio = this.coreShip.shield / this.coreShip.maxShield;
-      ctx.strokeStyle = `rgba(100, 200, 255, ${0.5 + shieldRatio * 0.3})`;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(
-        baseCenter.x,
-        baseCenter.y,
-        (baseRadius + 10) * scale,
-        0,
-        TWO_PI
-      );
-      ctx.stroke();
-    }
-
-    // Draw the core ship hull integrity arc to reflect remaining health.
-    ctx.strokeStyle = 'rgba(255, 200, 120, 0.8)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(
-      baseCenter.x,
-      baseCenter.y,
-      (baseRadius + 3) * scale,
-      -HALF_PI,
-      -HALF_PI + TWO_PI * coreShipHealthRatio
-    );
-    ctx.stroke();
-
-    // Render attached cannons around the core ring to visualize cannon upgrades.
-    if (this.coreShip && this.coreShip.cannons > 0) {
-      const cannonCount = this.coreShip.cannons;
-      const orbitRadius = (baseRadius + 6) * scale;
-      for (let i = 0; i < cannonCount; i++) {
-        const angle = (TWO_PI * i) / cannonCount - HALF_PI;
-        const cannonX = baseCenter.x + Math.cos(angle) * orbitRadius;
-        const cannonY = baseCenter.y + Math.sin(angle) * orbitRadius;
-        ctx.fillStyle = 'rgba(255, 210, 150, 0.9)';
-        ctx.beginPath();
-        ctx.arc(cannonX, cannonY, 2.6, 0, TWO_PI);
-        ctx.fill();
-      }
-    }
-    ctx.restore();
-  }
+  drawBaseCore(layout) { kufDrawBaseCore.call(this, layout); }
 
   /**
    * Render the training toolbar with unit slots, costs, and progress fills.
    * @param {{ slots: Array<{ x: number, y: number, size: number, slot: object }> }} layout - HUD layout details.
    */
-  drawTrainingToolbar(layout) {
-    const ctx = this.ctx;
-    layout.slots.forEach(({ x, y, size, slot }, index) => {
-      ctx.save();
-      // Pull the live spec for the currently equipped unit in this slot.
-      const spec = this.getTrainingSpecForSlot(slot);
-      const canAfford = this.goldEarned >= spec.cost;
-      const isGlowing = this.glowingToolbarSlotIndex === index;
-      
-      ctx.fillStyle = 'rgba(10, 15, 35, 0.8)';
-      ctx.strokeStyle = isGlowing ? 'rgba(120, 255, 200, 0.9)' : 'rgba(160, 210, 255, 0.6)';
-      ctx.lineWidth = isGlowing ? 3 : 2;
-      ctx.fillRect(x, y, size, size);
-      ctx.strokeRect(x, y, size, size);
-      
-      // Add a subtle glow effect when the slot is selected
-      if (isGlowing) {
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = 'rgba(120, 255, 200, 0.6)';
-        ctx.strokeRect(x, y, size, size);
-        ctx.shadowBlur = 0;
-      }
+  drawTrainingToolbar(layout) { kufDrawTrainingToolbar.call(this, layout); }
 
-      if (slot.isTraining) {
-        // Darken the icon area while the unit is training.
-        ctx.fillStyle = 'rgba(5, 10, 20, 0.6)';
-        ctx.fillRect(x, y, size, size);
-        const progress = spec.duration > 0 ? slot.progress / spec.duration : 0;
-        ctx.fillStyle = 'rgba(110, 220, 255, 0.35)';
-        ctx.fillRect(x, y + size * (1 - progress), size, size * progress);
-      }
+  drawHud() { kufDrawHud.call(this); }
 
-      ctx.fillStyle = canAfford ? 'rgba(200, 240, 255, 0.95)' : 'rgba(120, 140, 160, 0.7)';
-      ctx.font = '700 16px "Space Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(spec.icon, x + size / 2, y + size / 2 - 4);
-
-      ctx.font = '600 9px "Space Mono", monospace';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = canAfford ? 'rgba(180, 210, 255, 0.9)' : 'rgba(120, 140, 160, 0.7)';
-      ctx.fillText(`${spec.cost}g`, x + size / 2, y + size - 6);
-      ctx.restore();
-    });
-  }
-
-  drawHud() {
-    const ctx = this.ctx;
-    const hudLayout = this.getHudLayout();
-    ctx.save();
-    ctx.fillStyle = 'rgba(170, 220, 255, 0.92)';
-    ctx.font = '600 16px "Space Mono", monospace';
-    // Lift HUD text above the training toolbar for readability.
-    const hudY = Math.min(this.bounds.height - 24, hudLayout.slots[0].y - 18);
-    ctx.fillText(`Gold: ${this.goldEarned}`, 20, hudY);
-    ctx.fillText(`Enemies: ${this.turrets.length}`, 20, hudY - 24);
-    if (this.currentMap?.name) {
-      ctx.font = '600 12px "Space Mono", monospace';
-      ctx.fillText(`Map: ${this.currentMap.name}`, 20, hudY - 48);
-    }
-    // Render the base core and training toolbar above the HUD text.
-    this.drawBaseCore(hudLayout);
-    this.drawTrainingToolbar(hudLayout);
-    ctx.restore();
-  }
-  
   /**
    * Draw the selection rectangle while dragging.
    */
-  drawSelectionBox() {
-    if (!this.selectionBox.active) {
-      return;
-    }
-    const ctx = this.ctx;
-    ctx.save();
-    
-    const minX = Math.min(this.selectionBox.startX, this.selectionBox.endX);
-    const maxX = Math.max(this.selectionBox.startX, this.selectionBox.endX);
-    const minY = Math.min(this.selectionBox.startY, this.selectionBox.endY);
-    const maxY = Math.max(this.selectionBox.startY, this.selectionBox.endY);
-    
-    // Draw selection box fill
-    ctx.fillStyle = 'rgba(100, 255, 100, 0.1)';
-    ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
-    
-    // Draw selection box border
-    ctx.strokeStyle = 'rgba(100, 255, 100, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
-    ctx.setLineDash([]);
-    
-    ctx.restore();
-  }
-  
+  drawSelectionBox() { kufDrawSelectionBox.call(this); }
+
   /**
    * Draw waypoint marker in the world.
    */
-  drawWaypointMarker() {
-    if (!this.attackMoveWaypoint) {
-      return;
-    }
-    const ctx = this.ctx;
-    ctx.save();
-    
-    const wp = this.attackMoveWaypoint;
-    const time = performance.now() / 1000;
-    const pulse = Math.sin(time * 4) * 0.3 + 0.7;
-    
-    // Draw outer circle
-    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse * 0.6})`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(wp.x, wp.y, 15, 0, TWO_PI);
-    ctx.stroke();
-    
-    // Draw inner circle
-    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(wp.x, wp.y, 8, 0, TWO_PI);
-    ctx.stroke();
-    
-    // Draw crosshair
-    ctx.strokeStyle = `rgba(100, 255, 100, ${pulse})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(wp.x - 12, wp.y);
-    ctx.lineTo(wp.x - 4, wp.y);
-    ctx.moveTo(wp.x + 4, wp.y);
-    ctx.lineTo(wp.x + 12, wp.y);
-    ctx.moveTo(wp.x, wp.y - 12);
-    ctx.lineTo(wp.x, wp.y - 4);
-    ctx.moveTo(wp.x, wp.y + 4);
-    ctx.lineTo(wp.x, wp.y + 12);
-    ctx.stroke();
-    
-    ctx.restore();
-  }
+  drawWaypointMarker() { kufDrawWaypointMarker.call(this); }
 
   /**
    * Draw lines from units to their individual waypoints to show queued movement.
    */
-  drawUnitWaypointLines() {
-    const ctx = this.ctx;
-    ctx.save();
-    
-    // Get the units that should have waypoint lines
-    const unitsToShow = this.selectionMode === 'specific' ? this.selectedUnits : this.marines;
-    
-    unitsToShow.forEach((marine) => {
-      // Only draw lines for units that have a waypoint set
-      if (!marine.waypoint) {
-        return;
-      }
-      
-      const dx = marine.waypoint.x - marine.x;
-      const dy = marine.waypoint.y - marine.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Only draw lines if the unit is not already at the waypoint
-      if (distance > 5) {
-        ctx.strokeStyle = 'rgba(100, 255, 100, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(marine.x, marine.y);
-        ctx.lineTo(marine.waypoint.x, marine.waypoint.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    });
-    
-    ctx.restore();
-  }
+  drawUnitWaypointLines() { kufDrawUnitWaypointLines.call(this); }
 }

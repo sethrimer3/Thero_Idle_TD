@@ -31,6 +31,7 @@ const DEFAULT_LAMED_SETTINGS = Object.freeze({
   sunSplashes: true,
   shootingStarTrails: true,
   spawnFlashes: true,
+  backgroundStars: true,
   // Default star render cap aligns with the new minimum slider value.
   starRenderCap: LAMED_STAR_RENDER_MIN,
   renderSizeLevel: 0, // Fixed to Small
@@ -83,6 +84,7 @@ let sunDetailToggle = null;
 let sunSplashesToggle = null;
 let shootingStarTrailsToggle = null;
 let spawnFlashesToggle = null;
+let bgStarsToggle = null;
 // Slider controls for choosing how many stars render in the Lamed spire.
 let starRenderSlider = null;
 let starRenderValueLabel = null;
@@ -201,6 +203,9 @@ function applySettingsToSimulation() {
   // Track whether spawn flashes should render; the simulation checks this per-spawn.
   simulation.showSpawnFlashes = lamedSettings.spawnFlashes;
 
+  // Enable or disable the parallax background starfield.
+  simulation.showBackgroundStars = lamedSettings.backgroundStars;
+
   // Update the star render cap so density reflects the player's slider choice.
   if (typeof simulation.setStarRenderCap === 'function') {
     simulation.setStarRenderCap(lamedSettings.starRenderCap);
@@ -310,6 +315,11 @@ function syncAllToggles() {
     spawnFlashesToggle,
     document.getElementById('lamed-flashes-toggle-state'),
     lamedSettings.spawnFlashes,
+  );
+  syncToggleState(
+    bgStarsToggle,
+    document.getElementById('lamed-bg-stars-toggle-state'),
+    lamedSettings.backgroundStars,
   );
   // Keep the star density slider synced with the saved setting.
   syncStarRenderSlider();
@@ -483,6 +493,7 @@ export function bindLamedSpireOptions() {
   sunSplashesToggle = document.getElementById('lamed-splashes-toggle');
   shootingStarTrailsToggle = document.getElementById('lamed-shooting-trails-toggle');
   spawnFlashesToggle = document.getElementById('lamed-flashes-toggle');
+  bgStarsToggle = document.getElementById('lamed-bg-stars-toggle');
   // Capture slider elements for star density control.
   starRenderSlider = document.getElementById('lamed-star-render-slider');
   starRenderValueLabel = document.getElementById('lamed-star-render-value');
@@ -545,6 +556,12 @@ export function bindLamedSpireOptions() {
     });
   }
 
+  if (bgStarsToggle) {
+    bgStarsToggle.addEventListener('change', (event) => {
+      applySetting('backgroundStars', event.target.checked);
+      syncToggleState(bgStarsToggle, document.getElementById('lamed-bg-stars-toggle-state'), lamedSettings.backgroundStars);
+    });
+  }
   if (starRenderSlider) {
     starRenderSlider.addEventListener('input', (event) => {
       // Clamp the slider value before persisting to avoid invalid ranges.

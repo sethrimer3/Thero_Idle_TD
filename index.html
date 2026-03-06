@@ -47,7 +47,7 @@
         <!-- Allow the logo animation to run even when low graphics mode disables other animations. -->
         <img
           class="startup-overlay__logo"
-          src="./assets/sprites/gravy_thyme_logo.png"
+          src="./assets/sprites/logo/gravy_thyme_logo.png"
           alt="Thero Idle sigil"
           data-startup-logo
           data-allow-animation
@@ -495,6 +495,89 @@
                     Slots · 2
                   </button>
                   <button class="action-button ghost playfield-settings-close" type="button">Close</button>
+                  <!-- Developer-only: render layer toggles for debugging (hidden when dev mode is off) -->
+                  <div id="playfield-dev-layers-section" hidden aria-hidden="true">
+                    <div class="settings-toggle settings-divider-label" aria-hidden="true">
+                      <span class="settings-toggle-title" style="opacity:0.6;font-size:0.78em;letter-spacing:0.06em;">DEV LAYERS</span>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-background-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Background</span>
+                        <span class="settings-toggle-description">Sketches, floaters, crystal mosaic.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-background-toggle">
+                        <input type="checkbox" id="dev-layer-background-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-background-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-track-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Track</span>
+                        <span class="settings-toggle-description">Path, arc light, nodes, and developer crystals.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-track-toggle">
+                        <input type="checkbox" id="dev-layer-track-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-track-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-sunlight-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Sunlight</span>
+                        <span class="settings-toggle-description">Mind Gate warm glow and tower shadows.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-sunlight-toggle">
+                        <input type="checkbox" id="dev-layer-sunlight-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-sunlight-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-towers-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Towers</span>
+                        <span class="settings-toggle-description">Tower sprites, auras, delta command preview, and placement.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-towers-toggle">
+                        <input type="checkbox" id="dev-layer-towers-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-towers-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-enemies-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Enemies</span>
+                        <span class="settings-toggle-description">Enemy sprites, mote gems, and death particles.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-enemies-toggle">
+                        <input type="checkbox" id="dev-layer-enemies-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-enemies-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-projectiles-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">Projectiles</span>
+                        <span class="settings-toggle-description">Projectiles and burst effects.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-projectiles-toggle">
+                        <input type="checkbox" id="dev-layer-projectiles-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-projectiles-state">On</span>
+                      </label>
+                    </div>
+                    <div class="settings-toggle" id="dev-layer-ui-overlay-row">
+                      <div class="settings-toggle-text">
+                        <span class="settings-toggle-title">UI Overlay</span>
+                        <span class="settings-toggle-description">Damage numbers, feedback, wave tallies, tower menu.</span>
+                      </div>
+                      <label class="settings-toggle-control" for="dev-layer-ui-overlay-toggle">
+                        <input type="checkbox" id="dev-layer-ui-overlay-toggle" class="settings-toggle-input" role="switch" checked />
+                        <span class="settings-toggle-slider" aria-hidden="true"></span>
+                        <span class="settings-toggle-state" id="dev-layer-ui-overlay-state">On</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
               <!-- Combat stats panel sits below the battlefield so gameplay remains interactive. -->
@@ -2070,9 +2153,9 @@
                           aria-labelledby="powder-render-overlap-title"
                           aria-describedby="powder-render-overlap-description"
                         >
-                          <option value="0">Small</option>
-                          <option value="1" selected>Medium</option>
-                          <option value="2">Large</option>
+                          <option value="0" selected>Small</option>
+                          <option value="1" data-developer-only-render-size-option>Medium</option>
+                          <option value="2" data-developer-only-render-size-option>Large</option>
                         </select>
                       </label>
                     </div>
@@ -2885,6 +2968,28 @@
                           <span class="settings-toggle-state" id="lamed-flashes-toggle-state">On</span>
                         </label>
                       </div>
+                      <div class="settings-toggle" id="lamed-bg-stars-toggle-row">
+                        <div class="settings-toggle-text">
+                          <span class="settings-toggle-title" id="lamed-bg-stars-title">Background Stars</span>
+                          <span class="settings-toggle-description" id="lamed-bg-stars-description"
+                            >Parallax starfield backdrop with cinematic depth layers.</span
+                          >
+                        </div>
+                        <label class="settings-toggle-control" for="lamed-bg-stars-toggle">
+                          <input
+                            type="checkbox"
+                            id="lamed-bg-stars-toggle"
+                            class="settings-toggle-input"
+                            role="switch"
+                            aria-labelledby="lamed-bg-stars-title"
+                            aria-describedby="lamed-bg-stars-description"
+                            aria-checked="true"
+                            checked
+                          />
+                          <span class="settings-toggle-slider" aria-hidden="true"></span>
+                          <span class="settings-toggle-state" id="lamed-bg-stars-toggle-state">On</span>
+                        </label>
+                      </div>
 
                       <button class="action-button ghost spire-options-close" type="button">Close</button>
                     </div>
@@ -3617,15 +3722,9 @@
               <span class="shin-phoneme-empty">No graphemes collected</span>
             </div>
             <div class="shin-grapheme-upgrades">
-              <button id="shin-grapheme-unlock-btn" class="shin-weapon-action">
-                Unlock Next Grapheme: <span id="shin-grapheme-unlock-cost">250</span> ℸ
+              <button id="shin-grapheme-unlock-btn" class="shin-weapon-action" disabled>
+                Next grapheme unlocks every 10 waves (up to Wave 260)
               </button>
-              <div class="shin-drop-chance-upgrade">
-                <span>Drop Chance: <strong id="shin-drop-chance-display">1%</strong></span>
-                <button id="shin-drop-chance-upgrade-btn" class="shin-weapon-action">
-                  +1% Drop Chance: <span id="shin-drop-chance-cost">100</span> ℸ
-                </button>
-              </div>
             </div>
             <div class="shin-codex-button-wrapper">
               <button id="shin-grapheme-codex-btn" class="shin-weapon-action shin-codex-button">
@@ -5264,7 +5363,7 @@
         </button>
         <figure class="field-notes-figure">
           <img
-            src="./assets/sprites/glyph_book_glowing.png"
+            src="./assets/sprites/menu/glyph_book_glowing.png"
             alt="A glowing glyph codex radiates swirling sigils."
           />
           <figcaption>Glowing Glyph Codex</figcaption>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Shared palette, color conversion, and numeric normalization helpers for powder towers.
  *
  * Extracted from the massive powderTower module to keep visual math utilities
@@ -84,7 +84,7 @@ export function cloneMoteColor(color) {
  * @param {number} l Lightness 0-1.
  * @returns {{r:number,g:number,b:number}} Converted RGB payload.
  */
-function hslToRgbColor(h, s, l) {
+export function hslToRgbColor(h, s, l) {
   const hue = ((h % 360) + 360) % 360;
   const sat = clampUnitInterval(s);
   const light = clampUnitInterval(l);
@@ -418,3 +418,4 @@ function normalizePaletteColorStop(stop) {
     b: Math.max(0, Math.min(255, Math.round(color.b))),
   };
 }
+

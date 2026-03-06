@@ -8,6 +8,7 @@ import {
 
 import {
   drawCrystallineMosaic,
+  drawForegroundCrystallineMosaic,
   drawSketches,
   drawSketchLayerCache,
   drawFloaters,
@@ -50,6 +51,11 @@ import {
   drawMindGateSymbol,
   drawNodes,
 } from './layers/TrackRenderer.js';
+import {
+  drawMindGateSunlight,
+  drawSunlightShadows,
+  drawTowerSunShine,
+} from './layers/SunlightRenderer.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
 const TWO_PI = Math.PI * 2;
@@ -61,6 +67,48 @@ const GEM_MOTE_BASE_RATIO = 0.02;
 const VIEWPORT_CULL_MARGIN = 100;
 // Entity culling radii
 const MOTE_GEM_CULL_RADIUS = 50;
+
+// ─── Developer layer visibility flags ────────────────────────────────────────
+// These flags control which render layers are drawn when developer mode is active.
+// They are not persisted to storage and reset to true each session.
+const devLayerFlags = {
+  background: true,
+  track: true,
+  sunlight: true,
+  towers: true,
+  enemies: true,
+  projectiles: true,
+  uiOverlay: true,
+};
+
+/**
+ * Set a developer layer visibility flag and trigger a redraw callback if provided.
+ * @param {string} layer - Key of devLayerFlags
+ * @param {boolean} visible - New visibility state
+ */
+export function setDevLayerVisible(layer, visible) {
+  if (Object.prototype.hasOwnProperty.call(devLayerFlags, layer)) {
+    devLayerFlags[layer] = Boolean(visible);
+  }
+}
+
+/**
+ * Get the current visibility state for a developer layer.
+ * @param {string} layer - Key of devLayerFlags
+ * @returns {boolean}
+ */
+export function getDevLayerVisible(layer) {
+  return Object.prototype.hasOwnProperty.call(devLayerFlags, layer) ? devLayerFlags[layer] !== false : true;
+}
+
+/**
+ * Reset all developer layer flags to visible (called when developer mode is disabled).
+ */
+export function resetDevLayerFlags() {
+  Object.keys(devLayerFlags).forEach((key) => {
+    devLayerFlags[key] = true;
+  });
+}
 
 /**
  * Calculate the visible viewport bounds in world coordinates.
@@ -141,7 +189,9 @@ function applyCanvasShadow(ctx, color, blur) {
   if (!ctx) {
     return;
   }
-  if (this.isLowGraphicsMode()) {
+  // Disable shadows during active zoom gestures or in low graphics mode to keep
+  // frame rate smooth while the player is pinching or scrolling to zoom.
+  if (this.isLowGraphicsMode() || this._zoomingActive) {
     ctx.shadowColor = 'rgba(0, 0, 0, 0)';
     ctx.shadowBlur = 0;
     return;
@@ -183,39 +233,63 @@ function draw() {
     timestamp: getNowTimestamp(),
   };
 
-  this.drawCrystallineMosaic();
-  // Draw cached sketch layer when available to minimize per-frame raster work.
-  const sketchLayerDrawn = drawSketchLayerCache.call(this);
-  if (!sketchLayerDrawn) {
-    this.drawSketches();
+  // Background layer: crystal mosaic, sketches, and floaters.
+  if (devLayerFlags.background) {
+    this.drawCrystallineMosaic();
+    // Draw cached sketch layer when available to minimize per-frame raster work.
+    const sketchLayerDrawn = drawSketchLayerCache.call(this);
+    if (!sketchLayerDrawn) {
+      this.drawSketches();
+    }
+    this.drawFloaters();
   }
-  this.drawFloaters();
   // Draw cached path layer when available so zooming only scales a bitmap.
-  const pathLayerDrawn = drawPathLayerCache.call(this);
-  if (!pathLayerDrawn) {
-    this.drawPath();
+  if (devLayerFlags.track) {
+    const pathLayerDrawn = drawPathLayerCache.call(this);
+    if (!pathLayerDrawn) {
+      this.drawPath();
+    }
+    this.drawArcLight();
+    this.drawDeveloperCrystals();
+    this.drawNodes();
   }
-  this.drawDeltaCommandPreview();
-  this.drawMoteGems();
-  this.drawArcLight();
-  this.drawDeveloperCrystals();
-  this.drawNodes();
+  if (devLayerFlags.sunlight) {
+    this.drawMindGateSunlight();
+    this.drawSunlightShadows();
+  }
   this.drawDeveloperPathMarkers();
-  this.drawPlacementPreview();
-  this.drawTowers();
-  this.drawInfinityAuras();
-  this.drawDeltaSoldiers();
-  this.drawOmicronUnits();
-  this.drawEnemies();
-  this.drawEnemyDeathParticles();
-  this.drawSwarmClouds();
-  this.drawDamageNumbers();
-  this.drawFloatingFeedback();
-  this.drawWaveTallies();
-  this.drawChiLightTrails();
-  this.drawChiThralls();
-  this.drawProjectiles();
-  this.drawTowerMenu();
+  if (devLayerFlags.towers) {
+    // drawDeltaCommandPreview renders the placement indicator for delta soldiers (tower-owned).
+    this.drawDeltaCommandPreview();
+    this.drawPlacementPreview();
+    this.drawTowers();
+    this.drawTowerSunShine();
+    this.drawInfinityAuras();
+    this.drawDeltaSoldiers();
+    this.drawOmicronUnits();
+  }
+  if (devLayerFlags.enemies) {
+    // Mote gems are collectible world entities that share the enemy render pass.
+    this.drawMoteGems();
+    this.drawEnemies();
+    this.drawEnemyDeathParticles();
+    this.drawSwarmClouds();
+  }
+  if (devLayerFlags.projectiles) {
+    this.drawProjectiles();
+  }
+  // Foreground shards render on top of all game elements for a parallax depth effect.
+  if (devLayerFlags.background) {
+    this.drawForegroundCrystallineMosaic();
+  }
+  if (devLayerFlags.uiOverlay) {
+    this.drawDamageNumbers();
+    this.drawFloatingFeedback();
+    this.drawWaveTallies();
+    this.drawChiLightTrails();
+    this.drawChiThralls();
+    this.drawTowerMenu();
+  }
   this.updateEnemyTooltipPosition();
   
   // Clear frame cache after rendering
@@ -573,6 +647,7 @@ export {
   drawConnectionEffects,
   draw,
   drawCrystallineMosaic,
+  drawForegroundCrystallineMosaic,
   drawSketches,
   drawFloaters,
   drawMoteGems,
@@ -582,6 +657,9 @@ export {
   drawEnemyGateSymbol,
   drawMindGateSymbol,
   drawNodes,
+  drawMindGateSunlight,
+  drawSunlightShadows,
+  drawTowerSunShine,
   drawChiThralls,
   drawChiLightTrails,
   drawDeveloperPathMarkers,
