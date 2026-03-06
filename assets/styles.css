@@ -7748,15 +7748,20 @@ body.playfield-fullscreen .playfield canvas {
   display: block;
 }
 
+/* Outline Aleph wall glyph sprites with a thick white stroke so gold symbols stay readable on dark backdrops. */
+.powder-glyph-sprite--aleph,
+.powder-glyph-sprite--digit {
+  filter:
+    drop-shadow(1.35px 0 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(-1.35px 0 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 1.35px 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 -1.35px 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 0 1.25px rgba(255, 255, 255, 0.95));
+}
+
 /* Shrink the right-hand Aleph level digits to 40% so the primary glyph remains visually dominant. */
 .powder-glyph-sprite--digit {
   height: clamp(0.88rem, 1.84vw, 1.34rem);
-  /* Layer tiny black shadows around each gold number to emulate a crisp outline without repaint-heavy scripts. */
-  filter:
-    drop-shadow(0.6px 0 0 rgba(0, 0, 0, 0.95))
-    drop-shadow(-0.6px 0 0 rgba(0, 0, 0, 0.95))
-    drop-shadow(0 0.6px 0 rgba(0, 0, 0, 0.95))
-    drop-shadow(0 -0.6px 0 rgba(0, 0, 0, 0.95));
 }
 
 .powder-glyph-sprite--aleph {
