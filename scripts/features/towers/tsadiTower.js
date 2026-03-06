@@ -33,6 +33,7 @@ import {
 import { TWO_PI, HALF_PI, getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
 import { renderTsadiSimulation, renderTsadiBindingAgents, brightenColor as tsadiBrightenColor } from './tsadiTowerRenderer.js';
 import {
+  updateTsadiBackgroundMolecules as tsadiPhysicsUpdateBackgroundMolecules,
   updateTsadiParticles as tsadiPhysicsUpdateParticles,
   applyTsadiRepellingForces as tsadiPhysicsApplyRepellingForces,
   handleTsadiCollisions as tsadiPhysicsHandleCollisions,
@@ -137,6 +138,12 @@ export class ParticleFusionSimulation {
 
     // Store active force links so the renderer can visualize attractive/repulsive pairs.
     this.forceLinks = [];
+    // Layered background molecules for parallax depth ambience in the Tsadi spire.
+    this.backgroundMolecules = [];
+    this.backgroundMoleculeWaves = [];
+    this.backgroundMoleculeLayerCount = 8;
+    this.backgroundMoleculesPerLayer = 9;
+    this.backgroundMoleculeIdCounter = 0;
 
     // Binding agent placement and molecule tracking.
     this.bindingAgents = []; // { id, x, y, vx, vy, connections: [{ particleId, tier, bondLength }], activeMolecules: string[] }
@@ -285,6 +292,9 @@ export class ParticleFusionSimulation {
       this.scatterParticlesRandomly();
       this.pendingScatterFromCollapse = false;
     }
+
+    // Re-seed ambience molecules whenever the viewport size changes.
+    this.initializeBackgroundMolecules();
   }
 
   /**
@@ -321,6 +331,56 @@ export class ParticleFusionSimulation {
       // Assign a new random position while preserving the particle's existing velocity.
       particle.x = margin + Math.random() * spawnableWidth;
       particle.y = margin + Math.random() * spawnableHeight;
+    }
+  }
+
+  /**
+   * Create layered parallax molecules for the Tsadi background ambience.
+   * Near layers move faster and sharper, while far layers stay softer and slower.
+   */
+  initializeBackgroundMolecules() {
+    if (!Number.isFinite(this.width) || this.width <= 0 || !Number.isFinite(this.height) || this.height <= 0) {
+      return;
+    }
+
+    const desiredCount = this.backgroundMoleculeLayerCount * this.backgroundMoleculesPerLayer;
+    if (this.backgroundMolecules.length !== desiredCount) {
+      this.backgroundMolecules = [];
+      this.backgroundMoleculeWaves = [];
+
+      for (let layer = 0; layer < this.backgroundMoleculeLayerCount; layer++) {
+        const depth = (layer + 1) / this.backgroundMoleculeLayerCount;
+        const minSpeed = 8 + depth * 22;
+        const maxSpeed = minSpeed + 16 + depth * 16;
+        const baseRadius = 2.2 + depth * 2.6;
+        const blur = 5.8 - depth * 5.1;
+
+        for (let i = 0; i < this.backgroundMoleculesPerLayer; i++) {
+          const angle = Math.random() * TWO_PI;
+          const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
+          const radiusJitter = 0.8 + Math.random() * 0.45;
+
+          this.backgroundMolecules.push({
+            id: `bg-molecule-${this.backgroundMoleculeIdCounter++}`,
+            layer,
+            depth,
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            minSpeed,
+            maxSpeed,
+            radius: baseRadius * radiusJitter,
+            blur,
+            bondedTo: null,
+          });
+        }
+      }
+    }
+
+    for (const molecule of this.backgroundMolecules) {
+      molecule.x = Math.max(molecule.radius, Math.min(this.width - molecule.radius, molecule.x));
+      molecule.y = Math.max(molecule.radius, Math.min(this.height - molecule.radius, molecule.y));
     }
   }
   
@@ -639,6 +699,11 @@ export class ParticleFusionSimulation {
     }
   }
   
+  /**
+   * Update ambient parallax molecules behind the main Tsadi simulation.
+   */
+  updateBackgroundMolecules(dt) { return tsadiPhysicsUpdateBackgroundMolecules.call(this, dt); }
+
   /**
    * Update physics for all particles
    */

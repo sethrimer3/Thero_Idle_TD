@@ -16,6 +16,165 @@ import {
   Quadtree,
 } from './tsadiTowerData.js';
 
+const BACKGROUND_MOLECULE_DECELERATION = 0.985;
+const BACKGROUND_MOLECULE_WAVE_FADE = 2.8;
+const BACKGROUND_MOLECULE_WAVE_EXPANSION = 22;
+const BACKGROUND_MOLECULE_MIN_SPEED_EPSILON = 0.001;
+const BACKGROUND_MOLECULE_MIN_DISTANCE = 0.001;
+const BACKGROUND_MOLECULE_COLLISION_IMPULSE = 6;
+
+function getBackgroundBounceAngle(hitLeft, hitRight, hitTop, hitBottom) {
+  const quarterTurn = Math.PI / 4;
+  if (hitLeft) {
+    return (Math.random() - 0.5) * (Math.PI - quarterTurn);
+  }
+  if (hitRight) {
+    return Math.PI + (Math.random() - 0.5) * (Math.PI - quarterTurn);
+  }
+  if (hitTop) {
+    return (Math.PI / 2) + (Math.random() - 0.5) * (Math.PI - quarterTurn);
+  }
+  if (hitBottom) {
+    return -(Math.PI / 2) + (Math.random() - 0.5) * (Math.PI - quarterTurn);
+  }
+  return Math.random() * Math.PI * 2;
+}
+
+function breakBackgroundBond(simulation, molecule, wallX, wallY) {
+  if (!molecule?.bondedTo) {
+    return;
+  }
+
+  const partner = simulation.backgroundMolecules.find((candidate) => candidate.id === molecule.bondedTo);
+  if (partner) {
+    partner.bondedTo = null;
+  }
+  molecule.bondedTo = null;
+
+  simulation.backgroundMoleculeWaves.push({
+    x: wallX,
+    y: wallY,
+    layer: molecule.layer,
+    blur: molecule.blur,
+    radius: molecule.radius * 0.8,
+    maxRadius: molecule.radius * 4.5,
+    alpha: 0.45,
+    lineWidth: Math.max(0.6, molecule.radius * 0.25),
+  });
+}
+
+/**
+ * Update layered ambient molecules rendered behind the Tsadi fusion arena.
+ * Called via updateTsadiBackgroundMolecules.call(this, dt).
+ */
+export function updateTsadiBackgroundMolecules(dt) {
+  if (!Array.isArray(this.backgroundMolecules) || this.backgroundMolecules.length === 0) {
+    return;
+  }
+
+  const decay = Math.pow(BACKGROUND_MOLECULE_DECELERATION, dt * 60);
+  const moleculeCount = this.backgroundMolecules.length;
+  const moleculeIds = new Set(this.backgroundMolecules.map((molecule) => molecule.id));
+
+  for (let i = 0; i < moleculeCount; i++) {
+    const molecule = this.backgroundMolecules[i];
+    if (molecule.bondedTo && !moleculeIds.has(molecule.bondedTo)) {
+      molecule.bondedTo = null;
+    }
+    molecule.x += molecule.vx * dt;
+    molecule.y += molecule.vy * dt;
+
+    let hitLeft = false;
+    let hitRight = false;
+    let hitTop = false;
+    let hitBottom = false;
+
+    if (molecule.x - molecule.radius < 0) {
+      molecule.x = molecule.radius;
+      hitLeft = true;
+    } else if (molecule.x + molecule.radius > this.width) {
+      molecule.x = this.width - molecule.radius;
+      hitRight = true;
+    }
+
+    if (molecule.y - molecule.radius < 0) {
+      molecule.y = molecule.radius;
+      hitTop = true;
+    } else if (molecule.y + molecule.radius > this.height) {
+      molecule.y = this.height - molecule.radius;
+      hitBottom = true;
+    }
+
+    const hitWall = hitLeft || hitRight || hitTop || hitBottom;
+    if (hitWall) {
+      const bounceAngle = getBackgroundBounceAngle(hitLeft, hitRight, hitTop, hitBottom);
+      const speed =
+        molecule.minSpeed + Math.random() * Math.max(0, molecule.maxSpeed - molecule.minSpeed);
+      molecule.vx = Math.cos(bounceAngle) * speed;
+      molecule.vy = Math.sin(bounceAngle) * speed;
+      breakBackgroundBond(this, molecule, molecule.x, molecule.y);
+      continue;
+    }
+
+    molecule.vx *= decay;
+    molecule.vy *= decay;
+    const speed = Math.sqrt(molecule.vx * molecule.vx + molecule.vy * molecule.vy);
+
+    if (speed < molecule.minSpeed) {
+      const fallbackAngle =
+        speed > BACKGROUND_MOLECULE_MIN_SPEED_EPSILON
+          ? Math.atan2(molecule.vy, molecule.vx)
+          : Math.random() * Math.PI * 2;
+      molecule.vx = Math.cos(fallbackAngle) * molecule.minSpeed;
+      molecule.vy = Math.sin(fallbackAngle) * molecule.minSpeed;
+    }
+  }
+
+  for (let i = 0; i < moleculeCount; i++) {
+    const moleculeA = this.backgroundMolecules[i];
+    for (let j = i + 1; j < moleculeCount; j++) {
+      const moleculeB = this.backgroundMolecules[j];
+      if (moleculeA.layer !== moleculeB.layer) continue;
+
+      const dx = moleculeB.x - moleculeA.x;
+      const dy = moleculeB.y - moleculeA.y;
+      const minDist = moleculeA.radius + moleculeB.radius;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > minDist * minDist) continue;
+
+      if (!moleculeA.bondedTo && !moleculeB.bondedTo) {
+        moleculeA.bondedTo = moleculeB.id;
+        moleculeB.bondedTo = moleculeA.id;
+      }
+
+      const rawDist = Math.sqrt(distSq);
+      const dist = rawDist > BACKGROUND_MOLECULE_MIN_DISTANCE ? rawDist : BACKGROUND_MOLECULE_MIN_DISTANCE;
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const overlap = minDist - dist;
+      const separation = overlap * 0.5;
+      moleculeA.x -= nx * separation;
+      moleculeA.y -= ny * separation;
+      moleculeB.x += nx * separation;
+      moleculeB.y += ny * separation;
+
+      moleculeA.vx -= nx * BACKGROUND_MOLECULE_COLLISION_IMPULSE;
+      moleculeA.vy -= ny * BACKGROUND_MOLECULE_COLLISION_IMPULSE;
+      moleculeB.vx += nx * BACKGROUND_MOLECULE_COLLISION_IMPULSE;
+      moleculeB.vy += ny * BACKGROUND_MOLECULE_COLLISION_IMPULSE;
+    }
+  }
+
+  for (let i = this.backgroundMoleculeWaves.length - 1; i >= 0; i--) {
+    const wave = this.backgroundMoleculeWaves[i];
+    wave.alpha -= dt * BACKGROUND_MOLECULE_WAVE_FADE;
+    wave.radius += dt * BACKGROUND_MOLECULE_WAVE_EXPANSION;
+    if (wave.alpha <= 0 || wave.radius >= wave.maxRadius) {
+      this.backgroundMoleculeWaves.splice(i, 1);
+    }
+  }
+}
+
 /**
  * Update physics for all particles.
  * Called via updateTsadiParticles.call(this, deltaTime).
@@ -26,6 +185,9 @@ export function updateTsadiParticles(deltaTime) {
   const canvasHeight = this.height;
   const bindingRadius = this.getBindingAgentRadius();
   const bindingRepellingForce = this.baseRepellingForce * 0.5; // Keep anchors gentle but interactive.
+
+  // Ambient background molecules always update so the viewport feels alive.
+  this.updateBackgroundMolecules(dt);
 
   // Treat binding agents as first-class physics bodies so they collide and share forces with particles.
   const physicsBodies = [...this.particles];
