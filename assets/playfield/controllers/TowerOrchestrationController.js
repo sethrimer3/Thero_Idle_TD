@@ -264,6 +264,12 @@ export function createTowerOrchestrationController(config) {
       connectionParticles: [],
       costHistory: [],
       costHistoryInitialized: true,
+      // Capture placement time so tower ring sprites can stage their reveal animation immediately.
+      placedAtMs: (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now(),
+      // Seed alternating ring rotation with a stable per-tower phase offset.
+      ringRotationPhase: (towerIdCounter % 12) * (Math.PI / 6),
     };
 
     playfield.applyTowerBehaviorDefaults(tower);

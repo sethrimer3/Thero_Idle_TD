@@ -55,6 +55,38 @@ const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
 const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
 // Duration of the initial ramp-up phase for glyph flash effects (milliseconds).
 const GLYPH_FLASH_RAMP_MS = 120;
+// Blurred tower ring sprites are rendered from largest (index 1) to smallest (index 5).
+const TOWER_RING_SPRITE_PATHS = [
+  './assets/sprites/towers/towerRing/ring_blur (1).png',
+  './assets/sprites/towers/towerRing/ring_blur (2).png',
+  './assets/sprites/towers/towerRing/ring_blur (3).png',
+  './assets/sprites/towers/towerRing/ring_blur (4).png',
+  './assets/sprites/towers/towerRing/ring_blur (5).png',
+];
+// Ring radius multipliers keep each sprite wrapped around the tower body from outermost to innermost.
+const TOWER_RING_RADIUS_MULTIPLIERS = [3.15, 2.75, 2.35, 1.95, 1.6];
+// Alternating rotation directions produce the requested CW/CCW/CW/CCW/CW motion pattern.
+const TOWER_RING_DIRECTIONS = [1, -1, 1, -1, 1];
+// Smaller rings rotate slightly faster to create a layered orbital effect.
+const TOWER_RING_BASE_SPEEDS = [0.24, 0.28, 0.32, 0.36, 0.4];
+// Sequential ring reveal timings (milliseconds) for fast one-by-one fade-ins.
+const TOWER_RING_FADE_DELAY_MS = 65;
+const TOWER_RING_FADE_DURATION_MS = 120;
+
+// Cache tower ring Image objects so rendering can reuse decoded sprites every frame.
+let cachedTowerRingSprites = null;
+
+function getTowerRingSprites() {
+  if (cachedTowerRingSprites) {
+    return cachedTowerRingSprites;
+  }
+  cachedTowerRingSprites = TOWER_RING_SPRITE_PATHS.map((path) => {
+    const image = new Image();
+    image.src = path;
+    return image;
+  });
+  return cachedTowerRingSprites;
+}
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -186,6 +218,53 @@ export function drawTowerPressGlow(playfield, tower, bodyRadius, intensity, visu
   ctx.fillStyle = symbolColor;
   ctx.fillText(glyph || '?', tower.x, tower.y);
   ctx.restore();
+}
+
+// Draw animated sprite rings around each tower with sequential fade-in and alternating rotation.
+export function drawTowerRings(ctx, tower, bodyRadius) {
+  if (!ctx || !tower || !Number.isFinite(bodyRadius)) {
+    return;
+  }
+
+  // Persist per-tower placement timestamp so ring reveal starts the moment a tower is anchored.
+  const placedAtMs = Number.isFinite(tower.placedAtMs) ? tower.placedAtMs : getNowTimestamp();
+  tower.placedAtMs = placedAtMs;
+  // Persist a deterministic phase offset so neighboring towers do not rotate perfectly in sync.
+  if (!Number.isFinite(tower.ringRotationPhase)) {
+    const idLength = typeof tower.id === 'string' ? tower.id.length : 1;
+    tower.ringRotationPhase = (idLength % 12) * (PI / 6);
+  }
+
+  const elapsedMs = Math.max(0, getNowTimestamp() - placedAtMs);
+  const sprites = getTowerRingSprites();
+
+  sprites.forEach((sprite, index) => {
+    if (!sprite || !sprite.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+      return;
+    }
+
+    // Fade each ring in sequence from largest to smallest with a compact reveal interval.
+    const ringStartMs = index * TOWER_RING_FADE_DELAY_MS;
+    const fadeProgress = clamp((elapsedMs - ringStartMs) / TOWER_RING_FADE_DURATION_MS, 0, 1);
+    if (fadeProgress <= 0) {
+      return;
+    }
+
+    const targetRadius = bodyRadius * TOWER_RING_RADIUS_MULTIPLIERS[index];
+    const spriteScale = (targetRadius * 2) / sprite.naturalWidth;
+    const drawWidth = sprite.naturalWidth * spriteScale;
+    const drawHeight = sprite.naturalHeight * spriteScale;
+    const direction = TOWER_RING_DIRECTIONS[index] || 1;
+    const speed = TOWER_RING_BASE_SPEEDS[index] || TOWER_RING_BASE_SPEEDS[TOWER_RING_BASE_SPEEDS.length - 1];
+    const rotation = tower.ringRotationPhase + direction * speed * (elapsedMs / 1000);
+
+    ctx.save();
+    ctx.globalAlpha = smoothstep(fadeProgress);
+    ctx.translate(tower.x, tower.y);
+    ctx.rotate(rotation);
+    ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    ctx.restore();
+  });
 }
 
 // ─── Placement Preview ────────────────────────────────────────────────────────
@@ -622,6 +701,8 @@ export function drawTowers() {
     } else {
       this.clearCanvasShadow(ctx);
     }
+
+    drawTowerRings(ctx, tower, bodyRadius);
 
     ctx.beginPath();
     ctx.fillStyle = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
