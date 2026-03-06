@@ -298,9 +298,9 @@ export function drawSunlightShadows() {
   if (!this.ctx) {
     return;
   }
-  if (this.isLowGraphicsMode?.()) {
-    return;
-  }
+  // Keep cast shadows visible in low graphics mode so placed entities still convey depth.
+  // We scale alpha down later instead of disabling the entire shadow pass.
+  const lowGraphicsEnabled = this.isLowGraphicsMode?.();
 
   const gate = resolveMindGatePosition.call(this);
   if (!gate) {
@@ -350,7 +350,9 @@ export function drawSunlightShadows() {
       const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
       const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
 
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, TOWER_SHADOW_NEAR_ALPHA);
+      // Low-graphics mode keeps the same geometry but tones down opacity to limit overdraw.
+      const towerNearAlpha = lowGraphicsEnabled ? TOWER_SHADOW_NEAR_ALPHA * 0.7 : TOWER_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, towerNearAlpha);
     });
   }
 
@@ -397,7 +399,9 @@ export function drawSunlightShadows() {
       const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
       const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
 
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, ENEMY_SHADOW_NEAR_ALPHA);
+      // Enemy shadow alpha follows the same low-graphics reduction rule as tower shadows.
+      const enemyNearAlpha = lowGraphicsEnabled ? ENEMY_SHADOW_NEAR_ALPHA * 0.7 : ENEMY_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, enemyNearAlpha);
     });
   }
 
@@ -429,7 +433,9 @@ export function drawSunlightShadows() {
       const offsetY = dy * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
 
       ctx.beginPath();
-      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${GEM_SHADOW_ALPHA})`;
+      // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
+      const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
+      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
       ctx.arc(gem.x + offsetX, gem.y + offsetY, gemRadius * GEM_SHADOW_RADIUS_FACTOR, 0, TWO_PI);
       ctx.fill();
     });
@@ -511,4 +517,3 @@ export function drawTowerSunShine() {
 
   ctx.restore();
 }
-
