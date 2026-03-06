@@ -1389,6 +1389,49 @@ body.playfield-fullscreen .playfield canvas {
   touch-action: none;
 }
 
+/* Per-chapter battlefield themes let each chapter carry a distinct ambient color identity. */
+.playfield[data-chapter-theme='prologue'] {
+  background: radial-gradient(circle at 30% 70%, rgba(170, 170, 170, 0.06), transparent 62%),
+    radial-gradient(circle at 70% 25%, rgba(110, 110, 120, 0.08), transparent 66%),
+    rgba(18, 18, 20, 0.94);
+}
+
+/* Chapter 1 intentionally preserves the existing blue baseline mood. */
+.playfield[data-chapter-theme='chapter-1'] {
+  background: radial-gradient(circle at 30% 70%, rgba(139, 247, 255, 0.1), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(255, 125, 235, 0.12), transparent 65%),
+    rgba(5, 6, 12, 0.9);
+}
+
+/* Chapters 2 and 3 share a deep violet atmosphere to signal the same narrative arc. */
+.playfield[data-chapter-theme='chapter-2'],
+.playfield[data-chapter-theme='chapter-3'] {
+  background: radial-gradient(circle at 30% 70%, rgba(157, 109, 255, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(98, 58, 162, 0.16), transparent 65%),
+    rgba(26, 14, 40, 0.92);
+}
+
+/* Chapter 4 shifts to dark orange to foreshadow the later high-pressure encounters. */
+.playfield[data-chapter-theme='chapter-4'] {
+  background: radial-gradient(circle at 30% 70%, rgba(255, 165, 84, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(210, 104, 42, 0.14), transparent 65%),
+    rgba(40, 18, 8, 0.94);
+}
+
+/* Chapter 5 moves toward dark red to communicate escalating danger. */
+.playfield[data-chapter-theme='chapter-5'] {
+  background: radial-gradient(circle at 30% 70%, rgba(255, 112, 112, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(168, 48, 48, 0.14), transparent 65%),
+    rgba(36, 8, 10, 0.95);
+}
+
+/* Chapter 6 closes with an almost void-like black field for the final chapter tone. */
+.playfield[data-chapter-theme='chapter-6'] {
+  background: radial-gradient(circle at 30% 70%, rgba(66, 66, 80, 0.08), transparent 62%),
+    radial-gradient(circle at 70% 25%, rgba(36, 24, 56, 0.09), transparent 66%),
+    rgba(2, 2, 4, 0.97);
+}
+
 .playfield.playfield--developer-editing::after {
   content: '';
   position: absolute;

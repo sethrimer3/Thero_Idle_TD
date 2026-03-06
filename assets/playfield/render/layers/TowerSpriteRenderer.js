@@ -691,6 +691,23 @@ export function drawTowers() {
     }
 
     ctx.save();
+    // Add a soft golden bloom beneath every tower body so placement reads as gently empowered.
+    const goldenGlowGradient = ctx.createRadialGradient(
+      tower.x,
+      tower.y,
+      bodyRadius * 0.35,
+      tower.x,
+      tower.y,
+      bodyRadius * 1.9,
+    );
+    goldenGlowGradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
+    goldenGlowGradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
+    goldenGlowGradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
+    ctx.fillStyle = goldenGlowGradient;
+    ctx.beginPath();
+    ctx.arc(tower.x, tower.y, bodyRadius * 1.9, 0, TWO_PI);
+    ctx.fill();
+
     const outerShadow = visuals.outerShadow;
     if (outerShadow?.color) {
       this.applyCanvasShadow(
@@ -699,7 +716,8 @@ export function drawTowers() {
         Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18,
       );
     } else {
-      this.clearCanvasShadow(ctx);
+      // Fall back to a warm halo when a tower visual preset doesn't define a dedicated outer shadow.
+      this.applyCanvasShadow(ctx, 'rgba(255, 208, 128, 0.34)', Math.max(12, bodyRadius * 1.05));
     }
 
     drawTowerRings(ctx, tower, bodyRadius);
