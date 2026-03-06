@@ -32,6 +32,9 @@ const LAYER_CONFIGS = [
   { count: 440,  parallaxFactor: 0.38, sizeMinPx: 1.2, sizeMaxPx: 2.9 },
 ];
 
+// Tripled twinkle oscillation amplitude so Lamed Spire stars pulse more visibly against the dark backdrop.
+const STAR_TWINKLE_AMPLITUDE = 0.09;
+
 /**
  * Sample a palette index from the reworked parallax palette using weighted distribution.
  * @param {number} r - A random value in [0, 1).
@@ -226,7 +229,7 @@ export class LamedStarfieldRenderer {
           continue;
         }
 
-        const flicker = 1 + 0.03 * Math.sin(star.phase + nowSeconds * Math.PI * 2 * star.flickerHz);
+        const flicker = 1 + STAR_TWINKLE_AMPLITUDE * Math.sin(star.phase + nowSeconds * Math.PI * 2 * star.flickerHz);
         const alpha = star.brightness * flicker * depthAlpha;
         const renderedSizePx = star.sizePx * depthSizeMultiplier * starSizeScale;
 
