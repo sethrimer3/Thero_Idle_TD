@@ -3,6 +3,24 @@
 import { TIER_DIAMETER_PERCENTAGES } from './lamedTowerData.js';
 import { clamp } from './shared/TowerUtils.js';
 
+// Trail gradient palette tuned for a warm comet look from bright pale-orange head to a transparent dark-red tail.
+const STAR_TRAIL_GRADIENT_STOPS = Object.freeze([
+  { offset: 0, r: 255, g: 224, b: 170, alpha: 1.0 },
+  { offset: 0.42, r: 255, g: 150, b: 65, alpha: 0.95 },
+  { offset: 0.76, r: 139, g: 36, b: 32, alpha: 0.68 },
+  { offset: 1, r: 139, g: 36, b: 32, alpha: 0 },
+]);
+
+// Build a directional linear gradient so each trail segment flows from bright leading edge into a transparent tail.
+function createStarTrailSegmentGradient(ctx, headX, headY, tailX, tailY, alphaScale = 1) {
+  const segmentGradient = ctx.createLinearGradient(headX, headY, tailX, tailY);
+  for (const stop of STAR_TRAIL_GRADIENT_STOPS) {
+    const scaledAlpha = clamp(stop.alpha * alphaScale, 0, 1);
+    segmentGradient.addColorStop(stop.offset, `rgba(${stop.r}, ${stop.g}, ${stop.b}, ${scaledAlpha})`);
+  }
+  return segmentGradient;
+}
+
 /**
  * Render geyser particles with additive blending for luminous bursts.
  * Called with GravitySimulation instance as `this`.
@@ -329,13 +347,16 @@ export function renderLamedSimulation() {
         for (let i = 1; i < shard.trail.length; i++) {
           const prev = shard.trail[i - 1];
           const curr = shard.trail[i];
-          const progress = i * trailLengthInv; // Normalize segment position so the head stays brightest.
-          const fadeAlpha = Math.max(0, curr.alpha * (1 - progress * 0.5)); // Keep more opacity near the leading edge of the streak.
-          const brightness = 0.7 + (1 - progress) * 0.3; // Boost color intensity at the head for a radiant taper.
-          const boostedR = Math.min(255, Math.round(shard.color.r * brightness));
-          const boostedG = Math.min(255, Math.round(shard.color.g * brightness));
-          const boostedB = Math.min(255, Math.round(shard.color.b * brightness));
-          ctx.strokeStyle = `rgba(${boostedR}, ${boostedG}, ${boostedB}, ${fadeAlpha})`;
+          const progress = i * trailLengthInv; // Normalize segment position so tail segments can fade more aggressively.
+          const fadeAlpha = Math.max(0, curr.alpha * (0.45 + progress * 0.55)); // Keep the head luminous while softly tapering the tail.
+          ctx.strokeStyle = createStarTrailSegmentGradient(
+            ctx,
+            curr.x * invDpr,
+            curr.y * invDpr,
+            prev.x * invDpr,
+            prev.y * invDpr,
+            fadeAlpha,
+          );
           ctx.beginPath();
           ctx.moveTo(prev.x * invDpr, prev.y * invDpr);
           ctx.lineTo(curr.x * invDpr, curr.y * invDpr);
@@ -371,19 +392,7 @@ export function renderLamedSimulation() {
       }
     }
 
-    // Draw orbiting stars with trails
-    // Optimization: Pre-fetch palette colors outside the loop if available
-    let slowColor, fastColor;
-    if (this.samplePaletteGradient) {
-      slowColor = this.samplePaletteGradient(0);
-      fastColor = this.samplePaletteGradient(1);
-    } else {
-      slowColor = { r: 100, g: 150, b: 255 }; // Blueish
-      fastColor = { r: 255, g: 200, b: 100 }; // Yellowish
-    }
-    const colorDiffR = fastColor.r - slowColor.r;
-    const colorDiffG = fastColor.g - slowColor.g;
-    const colorDiffB = fastColor.b - slowColor.b;
+    // Draw orbiting stars with trails.
 
     for (const star of this.stars) {
       // Draw trail with color gradient from palette
@@ -402,20 +411,19 @@ export function renderLamedSimulation() {
         } else {
           ctx.lineWidth = 1.5;
 
-          // Optimization: Use pre-calculated color differences
+          // Render a directional warm gradient so each orbiting trail flows from bright head to transparent crimson tail.
           for (let i = 1; i < star.trail.length; i++) {
             const prev = star.trail[i - 1];
             const curr = star.trail[i];
-
-            // Color based on speed (slow = lower palette color, fast = upper palette color)
-            const normalizedSpeed = Math.min(1, curr.speed / 200);
-
-            const r = Math.floor(slowColor.r + colorDiffR * normalizedSpeed);
-            const g = Math.floor(slowColor.g + colorDiffG * normalizedSpeed);
-            const b = Math.floor(slowColor.b + colorDiffB * normalizedSpeed);
-
-            const alpha = curr.alpha * 0.5;
-            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            const alpha = curr.alpha * 0.6;
+            ctx.strokeStyle = createStarTrailSegmentGradient(
+              ctx,
+              curr.x * invDpr,
+              curr.y * invDpr,
+              prev.x * invDpr,
+              prev.y * invDpr,
+              alpha,
+            );
 
             ctx.beginPath();
             ctx.moveTo(prev.x * invDpr, prev.y * invDpr);
