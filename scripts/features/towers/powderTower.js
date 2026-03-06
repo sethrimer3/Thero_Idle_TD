@@ -1839,22 +1839,27 @@ export class PowderSimulation {
       const interiorStrength = interiorInRange
         ? Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2))
         : 0;
-      // Extend the wave downward so the response reaches the bottom of the currently visible mote pile.
-      const visibleDepth = Math.max(1, (this.rows || 1) - wave.y);
+      // Propagate the touchdown response as a traveling downward front so the pile does not flash all at once.
       const downwardDistance = y - wave.y;
-      const depthRatio = clampUnitInterval(downwardDistance / visibleDepth);
-      const horizontalSpread = Math.max(bandWidth * 2.4, frontRadius * 0.45 + bandWidth);
+      // Keep the vertical lane narrow enough to read as a directed wave instead of a full-screen bloom.
+      const horizontalSpread = Math.max(bandWidth * 1.9, bandWidth + frontRadius * 0.2);
       const horizontalDistance = Math.abs(x - wave.x);
       // Bound the downward tail horizontally to preserve a localized touchdown lane.
       const horizontalInRange = horizontalDistance <= horizontalSpread + boundedTailRange;
       const horizontalStrength = horizontalInRange
         ? Math.exp(-Math.pow(horizontalDistance / Math.max(0.001, horizontalSpread), 2))
         : 0;
-      const downwardTailStrength = downwardDistance >= 0
-        ? horizontalStrength * (1 - depthRatio * 0.68)
+      // Track how far the downward wavefront has travelled so lower motes light only when the front reaches them.
+      const downwardDistanceFromFront = Math.abs(downwardDistance - frontRadius);
+      const downwardFrontStrength = Math.exp(-Math.pow(
+        downwardDistanceFromFront / Math.max(0.001, bandWidth * 1.05),
+        2,
+      ));
+      const downwardTailStrength = downwardDistance >= 0 && downwardDistance <= frontRadius + bandWidth * 2
+        ? horizontalStrength * downwardFrontStrength
         : 0;
       const fadeStrength = 1 - ageRatio;
-      const blendedStrength = frontStrength * 0.6 + interiorStrength * 0.22 + downwardTailStrength * tailStrength;
+      const blendedStrength = frontStrength * 0.58 + interiorStrength * 0.12 + downwardTailStrength * tailStrength;
       intensity = Math.max(intensity, blendedStrength * fadeStrength);
     }
     // Clamp to [0,1] so downstream color blending remains stable when multiple waves overlap.
@@ -2498,5 +2503,4 @@ export class PowderSimulation {
     window.removeEventListener('resize', this.handleResize);
   }
 }
-
 
