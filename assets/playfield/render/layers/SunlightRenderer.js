@@ -141,10 +141,9 @@ function resolveSunlightRadius() {
   const w = this.renderWidth || 0;
   const h = this.renderHeight || 0;
   const larger = Math.max(w, h) || 1;
-  const viewScale = Math.max(0.1, this.viewScale || 1);
-  // Convert the desired screen-space sunlight radius into world units so the
-  // glow/shadow coverage remains consistent when players zoom in and out.
-  return (larger * SUNLIGHT_RADIUS_FACTOR) / viewScale;
+  // Return a screen-space radius so the sprite cache remains stable across zoom
+  // levels and the glow covers a consistent screen fraction at any zoom.
+  return larger * SUNLIGHT_RADIUS_FACTOR;
 }
 
 /**
@@ -265,23 +264,28 @@ export function drawMindGateSunlight() {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
-  if (sunlightRadius <= 0) {
+  const screenRadius = resolveSunlightRadius.call(this);
+  if (screenRadius <= 0) {
     return;
   }
   const ctx = this.ctx;
-  const sunlightSprite = resolveSunlightSprite.call(this, sunlightRadius);
+  // Sprite is built at screen-pixel resolution so the cache is stable across zoom.
+  const sunlightSprite = resolveSunlightSprite.call(this, screenRadius);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   if (sunlightSprite?.canvas) {
-    // Draw from cached sprite to keep zoom transitions smooth.
+    // Convert sprite's screen-pixel size to world-coordinate size so the
+    // zoom transform applied by the render pipeline scales it back to the
+    // intended screen coverage – preserving a constant glow footprint at any zoom.
+    const drawSize = sunlightSprite.size / viewScale;
     ctx.drawImage(
       sunlightSprite.canvas,
-      gate.x - sunlightSprite.size * HALF,
-      gate.y - sunlightSprite.size * HALF,
-      sunlightSprite.size,
-      sunlightSprite.size,
+      gate.x - drawSize * HALF,
+      gate.y - drawSize * HALF,
+      drawSize,
+      drawSize,
     );
   }
 
@@ -307,13 +311,17 @@ export function drawSunlightShadows() {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
+  // Convert screen-space radius to world-space for distance checks so the same
+  // towers/enemies remain lit regardless of zoom level.
+  const screenRadius = resolveSunlightRadius.call(this);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
+  const sunlightRadius = screenRadius / viewScale;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
 
   ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalCompositeOperation = 'source-over';
 
   // ── Tower shadows ──────────────────────────────────────────────────────────
   if (Array.isArray(this.towers)) {
@@ -462,7 +470,11 @@ export function drawTowerSunShine() {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
+  // Convert screen-space radius to world-space for distance checks so the same
+  // towers remain lit regardless of zoom level.
+  const screenRadius = resolveSunlightRadius.call(this);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
+  const sunlightRadius = screenRadius / viewScale;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
