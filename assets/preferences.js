@@ -858,35 +858,6 @@ export function setGraphicsModeContext({ getPowderSimulation, getPlayfield } = {
   }
 }
 
-function prefersLowGraphicsByDefault() {
-  if (typeof window !== 'undefined') {
-    try {
-      const matcher = typeof window.matchMedia === 'function' ? window.matchMedia.bind(window) : null;
-      const coarsePointer = matcher ? matcher('(pointer: coarse)').matches : false;
-      const hoverNone = matcher ? matcher('(hover: none)').matches : false;
-      const width = Number.isFinite(window.innerWidth) ? window.innerWidth : null;
-      const smallViewport = width !== null && width <= 900;
-      if ((coarsePointer && hoverNone) || (coarsePointer && smallViewport)) {
-        return true;
-      }
-      if (width !== null && width <= 768) {
-        return true;
-      }
-    } catch (error) {
-      console.warn('Graphics mode heuristic failed; falling back to user agent detection.', error);
-    }
-  }
-
-  if (typeof navigator !== 'undefined') {
-    const userAgent = navigator.userAgent || '';
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 export function applyGraphicsMode(mode, { persist = true } = {}) {
   const normalized = mode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
   activeGraphicsMode = normalized;
@@ -980,7 +951,8 @@ export function bindGraphicsModeToggle() {
 export function initializeGraphicsMode() {
   const stored = readStorage(GRAPHICS_MODE_STORAGE_KEY);
   const normalized = stored === GRAPHICS_MODES.LOW || stored === GRAPHICS_MODES.HIGH ? stored : null;
-  const fallback = prefersLowGraphicsByDefault() ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
+  // Default brand-new installs to high fidelity so visuals match the intended presentation out of the box.
+  const fallback = GRAPHICS_MODES.HIGH;
   applyGraphicsMode(normalized || fallback, { persist: !normalized });
 }
 
