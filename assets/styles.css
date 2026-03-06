@@ -7629,14 +7629,16 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .powder-wall-right::before {
-  right: 0;
-  left: auto;
+  /* Pin the texture to the inner edge so any width overflow extends outward, not into the mote mound. */
+  left: 0;
+  right: auto;
   background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_right.png');
 }
 
 .powder-wall-right::after {
-  right: 0;
-  left: auto;
+  /* Match the texture anchor to keep the right-wall shading flush with the same inner seam. */
+  left: 0;
+  right: auto;
 }
 
 .fluid-wall-left::before {
