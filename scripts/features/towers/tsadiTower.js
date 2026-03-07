@@ -77,6 +77,8 @@ import {
 const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/particle.png', import.meta.url).href;
 // Sprite asset for Waals binding agents to match the new Tsadi spire art drop.
 const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/waalsParticle.png', import.meta.url).href;
+// New Tsadi spire painted background art used behind all particles.
+const TSADI_BACKGROUND_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/tsadi_background_5.png', import.meta.url).href;
 
 /**
  * ParticleFusionSimulation for the Tsadi Spire.
@@ -199,6 +201,10 @@ export class ParticleFusionSimulation {
     this.particleSprite = null;
     // Track readiness for the Tsadi particle sprite overlay.
     this.particleSpriteReady = false;
+    // Layered scenic background sprite placed beneath Tsadi particles.
+    this.backgroundSprite = null;
+    // Track readiness for the scenic Tsadi background sprite.
+    this.backgroundSpriteReady = false;
     // Optional Waals binding agent sprite overlay.
     this.bindingAgentSprite = null;
     // Track readiness for the Waals binding agent sprite overlay.
@@ -212,6 +218,13 @@ export class ParticleFusionSimulation {
         this.particleSpriteReady = true;
       });
       this.particleSprite.src = TSADI_PARTICLE_SPRITE_URL;
+      // Prepare the Tsadi scenic background art.
+      this.backgroundSprite = new Image();
+      this.backgroundSprite.addEventListener('load', () => {
+        // Flag the scenic Tsadi background as ready for render.
+        this.backgroundSpriteReady = true;
+      });
+      this.backgroundSprite.src = TSADI_BACKGROUND_SPRITE_URL;
       // Prepare the Waals binding agent sprite overlay.
       this.bindingAgentSprite = new Image();
       this.bindingAgentSprite.addEventListener('load', () => {
