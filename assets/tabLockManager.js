@@ -19,7 +19,8 @@ function setTabButtonState(tabButton, { unlocked, lockedLabel = 'Locked' }) {
   }
 
   const icon = tabButton.querySelector('.tab-icon');
-  if (icon && !tabButton.dataset.unlockedIcon) {
+  const shouldPreserveIcon = tabButton.dataset.preserveIcon === 'true';
+  if (icon && !tabButton.dataset.unlockedIcon && !shouldPreserveIcon) {
     // Capture the original icon once so we can restore it when unlocked
     tabButton.dataset.unlockedIcon = icon.textContent?.trim() || '';
   }
@@ -27,7 +28,7 @@ function setTabButtonState(tabButton, { unlocked, lockedLabel = 'Locked' }) {
     tabButton.dataset.unlockedAriaLabel = tabButton.getAttribute('aria-label') || '';
   }
 
-  if (icon) {
+  if (icon && !shouldPreserveIcon) {
     icon.textContent = unlocked ? tabButton.dataset.unlockedIcon : '?';
   }
 

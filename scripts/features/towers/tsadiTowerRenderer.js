@@ -15,6 +15,14 @@ export function renderTsadiSimulation() {
   // Clear with dark background
   ctx.fillStyle = this.backgroundColor;
   ctx.fillRect(0, 0, this.width, this.height);
+
+  // Draw the uploaded Tsadi spire background art before simulation overlays.
+  if (this.backgroundSpriteReady && this.backgroundSprite) {
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(this.backgroundSprite, 0, 0, this.width, this.height);
+    ctx.restore();
+  }
   
   // Draw permanent glowing Tsadi glyphs in background
   for (const glyph of this.permanentGlyphs) {

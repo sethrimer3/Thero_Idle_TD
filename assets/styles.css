@@ -10793,6 +10793,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   text-transform: none;
 }
 
+
+/* Stage tab icon uses the uploaded 15-frame sprite sequence and swaps per-frame via CSS custom property. */
+.tab-icon--stage {
+  --stage-tab-frame-url: url('./sprites/menu/StageIconAnimation/StageIconAnimation (1).png');
+  width: 1.55rem;
+  height: 1.55rem;
+  background-image: var(--stage-tab-frame-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Keep stacked spire icon sizing rules from overriding the dedicated stage art dimensions. */
+.tab-button--stacked .tab-icon--stage {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
 /* Glowing tab supplements now sit beneath the tab label for immediate readability. */
 .tab-icon-badge {
   display: inline-flex;
