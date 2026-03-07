@@ -93,6 +93,7 @@ export function createPowderDisplaySystem({
     stage: null,
     altRenderToggle: null,
     altRender: null,
+    tierGoldenAleph: null,
   };
 
   function setAltRenderVisibility(isVisible) {
@@ -249,6 +250,7 @@ export function createPowderDisplaySystem({
     powderElements.crystalButton = document.getElementById('powder-crystal-button');
     powderElements.altRenderToggle = document.getElementById('powder-alt-render-toggle');
     powderElements.altRender = document.getElementById('powder-alt-render');
+    powderElements.tierGoldenAleph = document.getElementById('powder-tier-golden-aleph');
 
     const glyphColumnNodes = document.querySelectorAll('[data-powder-glyph-column]');
     powderElements.wallGlyphColumns = Array.from(glyphColumnNodes);

@@ -179,6 +179,8 @@ export class PowderSimulation {
       : null;
 
     this.spawnTimer = 0;
+    this.spawnEnabled = options.spawnEnabled !== false;
+    this.floorDrainEnabled = options.floorDrainEnabled === true;
     this.lastFrame = 0;
     this.loopHandle = null;
     this.running = false;
@@ -527,6 +529,26 @@ export class PowderSimulation {
     return applyWallGapTarget(this, options);
   }
 
+  setSpawnEnabled(enabled, options = {}) {
+    this.spawnEnabled = Boolean(enabled);
+    if (!this.spawnEnabled) {
+      this.spawnTimer = 0;
+      this.idleDropAccumulator = 0;
+      if (options.clearPendingDrops) {
+        this.pendingDrops = [];
+      }
+    }
+    return this.spawnEnabled;
+  }
+
+  setFloorDrainEnabled(enabled) {
+    this.floorDrainEnabled = Boolean(enabled);
+    if (this.floorDrainEnabled) {
+      this.stabilized = false;
+    }
+    return this.floorDrainEnabled;
+  }
+
   handleFrame(timestamp) {
     if (!this.running) {
       return;
@@ -546,13 +568,22 @@ export class PowderSimulation {
     }
 
     this.updateStars(delta);
-    this.convertIdleBank(delta);
-    this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
+    if (this.floorDrainEnabled) {
+      this.stabilized = false;
+    }
 
-    const spawnBudget = Math.max(1, Math.ceil(delta / 12));
-    const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
-    const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
-    this.spawnPendingDrops(remainingBudget);
+    if (this.spawnEnabled) {
+      this.convertIdleBank(delta);
+      this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
+
+      const spawnBudget = Math.max(1, Math.ceil(delta / 12));
+      const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
+      const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
+      this.spawnPendingDrops(remainingBudget);
+    } else {
+      this.spawnTimer = 0;
+      this.idleDropAccumulator = 0;
+    }
 
     const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));
     for (let i = 0; i < iterations; i += 1) {

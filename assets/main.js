@@ -2902,6 +2902,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyMindGatePaletteToDom(powderState.motePalette);
         powderState.fluidIdleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'fluid';
+        setAlephTierTransitionVisualState('idle');
         powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
           skipRebuild: true,
         });
@@ -2963,6 +2964,21 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         applyMindGatePaletteToDom(powderState.motePalette);
         powderState.idleDrainRate = powderSimulation.idleDrainRate;
         powderState.simulationMode = 'sand';
+        if (powderState.alephTierTransition?.active) {
+          setAlephTierTransitionSpawnState({
+            spawnEnabled: false,
+            floorDrainEnabled: true,
+            clearPendingDrops: true,
+          });
+          setAlephTierTransitionVisualState(powderState.alephTierTransition.stage || 'walls-exiting');
+        } else {
+          setAlephTierTransitionSpawnState({
+            spawnEnabled: true,
+            floorDrainEnabled: false,
+            clearPendingDrops: false,
+          });
+          setAlephTierTransitionVisualState('idle');
+        }
         powderSimulation.setWallGapTarget(powderState.wallGapTarget || powderConfig.wallBaseGapMotes, {
           skipRebuild: true,
         });
@@ -2981,8 +2997,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
       refreshPowderWallDecorations();
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
-      updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
-      syncAlephTierVisualProfile(resolveAlephTierProgress(powderState.wallGlyphsLit || 0));
+      const tierVisualGlyphs = getTierVisualGlyphCount(powderState.wallGlyphsLit || 0);
+      updatePowderWallGapFromGlyphs(tierVisualGlyphs);
+      syncAlephTierVisualProfile(resolveAlephTierProgress(tierVisualGlyphs));
       updateMoteStatsDisplays();
       const fluidStatus =
         fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
@@ -3217,6 +3234,211 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
     // 1 next-tier mote represents 100 current-tier motes, so higher tiers run at baseRate / 100^(tier - 1).
     return normalizedBaseRate / 100 ** Math.max(0, normalizedTier - 1);
+  }
+
+  const ALEPH_TIER_WALL_EXIT_MS = 850;
+  const ALEPH_TIER_COLLECT_MS = 550;
+  const ALEPH_TIER_WALL_ENTER_MS = 720;
+
+  function getTierAdvanceCount() {
+    if (Number.isFinite(powderConfig.alephTierAdvanceCount) && powderConfig.alephTierAdvanceCount > 0) {
+      return Math.max(1, Math.floor(powderConfig.alephTierAdvanceCount));
+    }
+    return 30;
+  }
+
+  function clearAlephTierTransitionTimers() {
+    const transition = powderState.alephTierTransition;
+    if (!transition || !Array.isArray(transition.timers)) {
+      return;
+    }
+    transition.timers.forEach((timerId) => {
+      clearTimeout(timerId);
+    });
+    transition.timers.length = 0;
+  }
+
+  function setAlephTierTransitionVisualState(state = 'idle') {
+    if (!powderElements?.basin) {
+      return;
+    }
+    powderElements.basin.classList.toggle('powder-basin--tier-transition-out', state === 'walls-exiting');
+    powderElements.basin.classList.toggle('powder-basin--tier-transition-in', state === 'walls-entering');
+    powderElements.basin.classList.toggle('powder-basin--tier-aleph-visible', state === 'awaiting-collect');
+    if (powderElements.tierGoldenAleph) {
+      powderElements.tierGoldenAleph.hidden = state !== 'awaiting-collect';
+      if (state !== 'collecting') {
+        powderElements.tierGoldenAleph.classList.remove('powder-tier-golden-aleph--collecting');
+      }
+    }
+  }
+
+  function setAlephTierTransitionSpawnState({ spawnEnabled, floorDrainEnabled, clearPendingDrops = false }) {
+    const simulation = sandSimulation;
+    if (!simulation) {
+      return;
+    }
+    if (typeof simulation.setSpawnEnabled === 'function') {
+      simulation.setSpawnEnabled(spawnEnabled, { clearPendingDrops });
+    }
+    if (typeof simulation.setFloorDrainEnabled === 'function') {
+      simulation.setFloorDrainEnabled(floorDrainEnabled);
+    }
+    if (!floorDrainEnabled) {
+      simulation.stabilized = true;
+    }
+  }
+
+  function getTierVisualGlyphCount(glyphsLit) {
+    const transition = powderState.alephTierTransition;
+    if (
+      transition?.active &&
+      transition.stage !== 'idle' &&
+      Number.isFinite(transition.lockedGlyphsLit) &&
+      transition.lockedGlyphsLit >= 0
+    ) {
+      return Math.max(0, Math.floor(transition.lockedGlyphsLit));
+    }
+    return Math.max(0, Math.floor(Number.isFinite(glyphsLit) ? glyphsLit : 0));
+  }
+
+  function completeAlephTierTransition() {
+    const transition = powderState.alephTierTransition;
+    if (!transition) {
+      return;
+    }
+    clearAlephTierTransitionTimers();
+    transition.active = false;
+    transition.stage = 'idle';
+    transition.lockedGlyphsLit = null;
+    transition.triggerGlyphCount = 0;
+    setAlephTierTransitionVisualState('idle');
+    setAlephTierTransitionSpawnState({
+      spawnEnabled: true,
+      floorDrainEnabled: false,
+      clearPendingDrops: false,
+    });
+  }
+
+  function beginAlephTierTransition(glyphsLit) {
+    const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, Math.floor(glyphsLit)) : 0;
+    const tierAdvanceCount = getTierAdvanceCount();
+    const sourceTier = Number.isFinite(powderState.alephWallTier)
+      ? Math.max(1, Math.floor(powderState.alephWallTier))
+      : 1;
+    const targetTier = Math.min(
+      Math.max(sourceTier + 1, sourceTier),
+      Number.isFinite(powderConfig.alephWallTierMax) ? Math.max(1, Math.floor(powderConfig.alephWallTierMax)) : sourceTier + 1,
+    );
+    const transition = powderState.alephTierTransition;
+    transition.active = true;
+    transition.stage = 'walls-exiting';
+    transition.triggerGlyphCount = normalizedGlyphs;
+    transition.lockedGlyphsLit = Math.max(0, normalizedGlyphs - 1);
+    transition.sourceTier = sourceTier;
+    transition.targetTier = targetTier;
+    clearAlephTierTransitionTimers();
+
+    setAlephTierTransitionSpawnState({
+      spawnEnabled: false,
+      floorDrainEnabled: true,
+      clearPendingDrops: true,
+    });
+    setAlephTierTransitionVisualState('walls-exiting');
+
+    const revealTimer = setTimeout(() => {
+      if (!powderState.alephTierTransition?.active) {
+        return;
+      }
+      powderState.alephTierTransition.stage = 'awaiting-collect';
+      setAlephTierTransitionVisualState('awaiting-collect');
+      if (powderElements?.tierGoldenAleph) {
+        powderElements.tierGoldenAleph.hidden = false;
+      }
+    }, ALEPH_TIER_WALL_EXIT_MS);
+    transition.timers.push(revealTimer);
+    powderState.alephTierTransitionCheckpoint = Math.max(
+      powderState.alephTierTransitionCheckpoint || 0,
+      normalizedGlyphs,
+      tierAdvanceCount,
+    );
+  }
+
+  function collectGoldenAlephTierGlyph() {
+    const transition = powderState.alephTierTransition;
+    if (!transition?.active || transition.stage !== 'awaiting-collect') {
+      return;
+    }
+    transition.stage = 'collecting';
+    if (powderElements?.tierGoldenAleph) {
+      powderElements.tierGoldenAleph.classList.add('powder-tier-golden-aleph--collecting');
+    }
+
+    const collectTimer = setTimeout(() => {
+      if (!powderState.alephTierTransition?.active) {
+        return;
+      }
+      const nextGlyphs = Math.max(
+        transition.triggerGlyphCount,
+        Number.isFinite(powderState.wallGlyphsLit) ? powderState.wallGlyphsLit : transition.triggerGlyphCount,
+      );
+      transition.stage = 'walls-entering';
+      transition.lockedGlyphsLit = nextGlyphs;
+      setAlephTierTransitionVisualState('walls-entering');
+      syncAlephTierVisualProfile(resolveAlephTierProgress(nextGlyphs));
+
+      const enterTimer = setTimeout(() => {
+        completeAlephTierTransition();
+      }, ALEPH_TIER_WALL_ENTER_MS);
+      transition.timers.push(enterTimer);
+    }, ALEPH_TIER_COLLECT_MS);
+    transition.timers.push(collectTimer);
+  }
+
+  function maybeStartAlephTierTransition(glyphsLit, tierProgress) {
+    if (powderState.simulationMode !== 'sand') {
+      return;
+    }
+    if (!sandSimulation || powderSimulation !== sandSimulation) {
+      return;
+    }
+    const transition = powderState.alephTierTransition;
+    if (!transition || transition.active) {
+      return;
+    }
+    const tierAdvanceCount = getTierAdvanceCount();
+    const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, Math.floor(glyphsLit)) : 0;
+    const previousGlyphsLit = Number.isFinite(powderState.wallGlyphsLit) ? Math.max(0, powderState.wallGlyphsLit) : 0;
+    if (normalizedGlyphs <= previousGlyphsLit) {
+      return;
+    }
+    if (normalizedGlyphs <= 0 || normalizedGlyphs % tierAdvanceCount !== 0) {
+      return;
+    }
+    if (normalizedGlyphs <= (powderState.alephTierTransitionCheckpoint || 0)) {
+      return;
+    }
+    const maxTier = Number.isFinite(powderConfig.alephWallTierMax)
+      ? Math.max(1, Math.floor(powderConfig.alephWallTierMax))
+      : 15;
+    const resolvedTier = Number.isFinite(tierProgress?.tier) ? Math.max(1, Math.floor(tierProgress.tier)) : 1;
+    if (resolvedTier > maxTier) {
+      return;
+    }
+    beginAlephTierTransition(normalizedGlyphs);
+  }
+
+  function bindAlephTierTransitionControls() {
+    if (!powderElements?.tierGoldenAleph || powderElements.tierGoldenAleph.dataset.boundTierTransition === 'true') {
+      return;
+    }
+    powderElements.tierGoldenAleph.dataset.boundTierTransition = 'true';
+    powderElements.tierGoldenAleph.addEventListener('click', (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      collectGoldenAlephTierGlyph();
+    });
   }
 
   function syncAlephTierVisualProfile(tierProgress) {
@@ -3881,8 +4103,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     // Restore wall gap from saved glyph number to ensure wall width matches saved progress
     if (Number.isFinite(powderState.wallGlyphsLit)) {
-      updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit);
-      syncAlephTierVisualProfile(resolveAlephTierProgress(powderState.wallGlyphsLit));
+      const tierVisualGlyphs = getTierVisualGlyphCount(powderState.wallGlyphsLit);
+      updatePowderWallGapFromGlyphs(tierVisualGlyphs);
+      syncAlephTierVisualProfile(resolveAlephTierProgress(tierVisualGlyphs));
     }
     // Writing back the hydrated state keeps restored motes available for the next session.
     schedulePowderBasinSave();
@@ -4023,6 +4246,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
   function getCurrentMoteDispenseRate() {
     if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleDrainRate)) {
+      if (sandSimulation.spawnEnabled === false) {
+        return 0;
+      }
       const idleRate = Math.max(0, sandSimulation.idleDrainRate);
       powderState.idleDrainRate = idleRate;
 
@@ -6155,7 +6381,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (glyphMetrics) {
       const { glyphsLit, highestRaw, progressFraction } = glyphMetrics;
       const tierProgress = resolveAlephTierProgress(glyphsLit);
-      syncAlephTierVisualProfile(tierProgress);
+      maybeStartAlephTierTransition(glyphsLit, tierProgress);
+      const tierVisualGlyphsLit = getTierVisualGlyphCount(glyphsLit);
+      const visualTierProgress = resolveAlephTierProgress(tierVisualGlyphsLit);
+      const transitionActive = Boolean(powderState.alephTierTransition?.active);
+      syncAlephTierVisualProfile(visualTierProgress);
       // Award glyph currency the moment a new Aleph threshold is illuminated.
       const previousAwarded = Number.isFinite(powderState.glyphsAwarded)
         ? Math.max(0, powderState.glyphsAwarded)
@@ -6169,20 +6399,26 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       } else if (!Number.isFinite(powderState.glyphsAwarded) || powderState.glyphsAwarded < glyphsLit) {
         powderState.glyphsAwarded = Math.max(previousAwarded, glyphsLit);
       }
-      updatePowderWallGapFromGlyphs(glyphsLit);
+      updatePowderWallGapFromGlyphs(tierVisualGlyphsLit);
       if (powderElements.leftWall) {
         powderElements.leftWall.classList.toggle('wall-awake', highestRaw > 0);
       }
       if (powderElements.rightWall) {
         powderElements.rightWall.classList.toggle(
           'wall-awake',
-          glyphsLit > 0 || progressFraction >= 0.6,
+          tierVisualGlyphsLit > 0 || progressFraction >= 0.6,
         );
       }
 
       if (glyphsLit !== powderState.wallGlyphsLit) {
         powderState.wallGlyphsLit = glyphsLit;
         notifyPowderSigils(glyphsLit);
+      }
+      if (!transitionActive) {
+        powderState.alephTierTransitionCheckpoint = Math.max(
+          powderState.alephTierTransitionCheckpoint || 0,
+          glyphsLit,
+        );
       }
     }
 
@@ -7174,6 +7410,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     bindStatusElements();
     bindPowderControls();
+    bindAlephTierTransitionControls();
     bindFluidControls();
     bindAchievementsTerrariumControls(); // Bind achievements terrarium elements
     

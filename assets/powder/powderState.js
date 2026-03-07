@@ -65,6 +65,17 @@ export function createPowderStateContext() {
     // Track whether initial page load restoration has been completed (once per session)
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
+    // Stage the tier finale sequence so wall movement and mote spawning stay synchronized.
+    alephTierTransition: {
+      active: false,
+      stage: 'idle',
+      triggerGlyphCount: 0,
+      lockedGlyphsLit: null,
+      sourceTier: 1,
+      targetTier: 1,
+      timers: [],
+    },
+    alephTierTransitionCheckpoint: 0,
     // Track Bet terrarium fractal leveling progress.
     betTerrarium: {
       levelingMode: false,
