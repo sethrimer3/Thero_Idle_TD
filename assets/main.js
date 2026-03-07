@@ -4023,9 +4023,28 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
   function getCurrentMoteDispenseRate() {
     if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleDrainRate)) {
-      const rate = Math.max(0, sandSimulation.idleDrainRate);
-      powderState.idleDrainRate = rate;
-      return rate;
+      const idleRate = Math.max(0, sandSimulation.idleDrainRate);
+      powderState.idleDrainRate = idleRate;
+
+      // Include ambient fall cadence so the HUD matches the visible mote stream, not just bank conversion throughput.
+      let ambientRate = 0;
+      const ambientCanFlow =
+        Number.isFinite(sandSimulation.idleBank) &&
+        sandSimulation.idleBank > 1e-6 &&
+        Number.isFinite(sandSimulation.flowOffset) &&
+        sandSimulation.flowOffset > 0 &&
+        idleRate > 0;
+      if (ambientCanFlow) {
+        const interval =
+          typeof sandSimulation.getSpawnInterval === 'function'
+            ? sandSimulation.getSpawnInterval()
+            : sandSimulation.baseSpawnInterval;
+        if (Number.isFinite(interval) && interval > 0) {
+          ambientRate = 1000 / Math.max(16, interval);
+        }
+      }
+
+      return idleRate + ambientRate;
     }
     return Math.max(0, powderState.idleDrainRate || 0);
   }
