@@ -1797,7 +1797,7 @@ export class PowderSimulation {
       return;
     }
     const frameDelta = Number.isFinite(delta) && delta > 0 ? delta : 16;
-    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const lifetime = this.getTouchdownWaveLifetimeMs();
     const activeWaves = [];
     for (const wave of this.touchdownWaves) {
       wave.ageMs += frameDelta;
@@ -1812,7 +1812,7 @@ export class PowderSimulation {
     if (!this.touchdownWaves.length) {
       return 0;
     }
-    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const lifetime = this.getTouchdownWaveLifetimeMs();
     const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
     // Keep gaussian blending but clip influence to local neighborhoods so base brightness does not tint the whole pile.
@@ -1864,6 +1864,16 @@ export class PowderSimulation {
     }
     // Clamp to [0,1] so downstream color blending remains stable when multiple waves overlap.
     return clampUnitInterval(intensity);
+  }
+
+  getTouchdownWaveLifetimeMs() {
+    const configuredLifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const rows = Math.max(1, this.rows || 0);
+    const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    const traversalLifetime = (rows + bandWidth * 2) / speedCellsPerMs;
+    // Keep waves alive long enough for the front to traverse the full mote pile before fading.
+    return Math.max(configuredLifetime, traversalLifetime);
   }
 
   // Compact autosave helpers and compact-aware exportState/importState
@@ -2503,4 +2513,3 @@ export class PowderSimulation {
     window.removeEventListener('resize', this.handleResize);
   }
 }
-

@@ -3168,6 +3168,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
   const POWDER_WALL_TEXTURE_ASPECT = 800 / 300; // Preserve the native 1.5:4 wall sprite ratio (300px × 800px).
   const POWDER_WALL_TEXTURE_FALLBACK_PX = 192; // Fallback repeat distance when wall sizing has not been measured yet.
+  const ALEPH_RIGHT_WALL_SPRITE_OFFSET_PX = 20; // Shift the right Aleph wall sprite outward so it no longer overlaps the mote pile.
 
   /**
    * Resolve the repeating wall texture height so the masonry tiles retain their native aspect ratio.
@@ -5881,6 +5882,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     if (fluidElements.rightWall) {
       fluidElements.rightWall.style.transform = '';
+      fluidElements.rightWall.style.setProperty(
+        '--powder-right-wall-sprite-offset-x',
+        `${ALEPH_RIGHT_WALL_SPRITE_OFFSET_PX}px`,
+      );
       fluidElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
@@ -6003,6 +6008,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     if (powderElements.rightWall) {
       powderElements.rightWall.style.transform = '';
+      powderElements.rightWall.style.setProperty(
+        '--powder-right-wall-sprite-offset-x',
+        `${ALEPH_RIGHT_WALL_SPRITE_OFFSET_PX}px`,
+      );
       powderElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
