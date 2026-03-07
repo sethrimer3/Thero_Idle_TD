@@ -1813,7 +1813,7 @@ export class PowderSimulation {
       return 0;
     }
     const lifetime = this.getTouchdownWaveLifetimeMs();
-    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const speedCellsPerMs = this.getTouchdownWaveSpeedCellsPerMs();
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
     // Keep gaussian blending but clip influence to local neighborhoods so base brightness does not tint the whole pile.
     const boundedFrontRange = Math.max(0.5, bandWidth * 2.75);
@@ -1866,9 +1866,19 @@ export class PowderSimulation {
     return clampUnitInterval(intensity);
   }
 
+  getTouchdownWaveSpeedCellsPerMs() {
+    return Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+  }
+
+  /**
+   * Resolve the active touchdown-wave lifetime so the crest can traverse the full visible stack.
+   * Uses whichever is larger between the configured lifetime and the rows/speed traversal duration.
+   *
+   * @returns {number} Wave lifetime in milliseconds.
+   */
   getTouchdownWaveLifetimeMs() {
     const configuredLifetime = Math.max(200, this.touchdownWaveLifetimeMs);
-    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const speedCellsPerMs = this.getTouchdownWaveSpeedCellsPerMs();
     const rows = Math.max(1, this.rows || 0);
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
     const traversalLifetime = (rows + bandWidth * 2) / speedCellsPerMs;
