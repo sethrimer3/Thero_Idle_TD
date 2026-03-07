@@ -24,6 +24,8 @@ export function createPowderViewportController({
   schedulePowderBasinSave,
   isDeveloperModeActive,
 }) {
+  const ALEPH_UNDERSCORE_VARIANT_MIN_TIER = 4;
+  const ALEPH_UNDERSCORE_VARIANT_MAX_TIER = 10;
   let powderWallMetrics = null;
   let fluidWallMetrics = null;
 
@@ -66,12 +68,23 @@ export function createPowderViewportController({
     };
   }
 
+  /**
+   * Resolve Aleph wall sprite naming variants.
+   * Tiers 4-10 use `tier_#` filenames while other tiers use `tier#`.
+   */
   function resolveAlephWallSpritePath(side, tier) {
     const normalizedSide = side === 'right' ? 'right' : 'left';
     const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
-    const useUnderscoreVariant = normalizedTier >= 4 && normalizedTier <= 10;
+    // Tier 4-10 sprites are authored with `tier_#` naming while other tiers use `tier#`.
+    const useUnderscoreVariant =
+      normalizedTier >= ALEPH_UNDERSCORE_VARIANT_MIN_TIER &&
+      normalizedTier <= ALEPH_UNDERSCORE_VARIANT_MAX_TIER;
     const tierToken = useUnderscoreVariant ? `tier_${normalizedTier}` : `tier${normalizedTier}`;
     return `assets/sprites/spires/alephSpire/wall_${normalizedSide}_${tierToken}.png`;
+  }
+
+  function getNormalizedAlephWallTier() {
+    return Number.isFinite(powderState.alephWallTier) ? Math.max(1, Math.floor(powderState.alephWallTier)) : 1;
   }
 
   function getElementsForSimulation(simulation) {
@@ -176,7 +189,7 @@ export function createPowderViewportController({
       activeElements.leftWall.style.width = `${contentWidth.toFixed(1)}px`;
       activeElements.leftWall.style.setProperty('--powder-wall-visual-width', `${leftWidth.toFixed(1)}px`);
       if (!isFluidActive) {
-        const tier = Number.isFinite(powderState.alephWallTier) ? Math.max(1, Math.floor(powderState.alephWallTier)) : 1;
+        const tier = getNormalizedAlephWallTier();
         activeElements.leftWall.style.setProperty(
           '--powder-wall-left-image',
           `url('${resolveAlephWallSpritePath('left', tier)}')`,
@@ -188,7 +201,7 @@ export function createPowderViewportController({
       activeElements.rightWall.style.width = `${contentWidth.toFixed(1)}px`;
       activeElements.rightWall.style.setProperty('--powder-wall-visual-width', `${rightWidth.toFixed(1)}px`);
       if (!isFluidActive) {
-        const tier = Number.isFinite(powderState.alephWallTier) ? Math.max(1, Math.floor(powderState.alephWallTier)) : 1;
+        const tier = getNormalizedAlephWallTier();
         activeElements.rightWall.style.setProperty(
           '--powder-wall-right-image',
           `url('${resolveAlephWallSpritePath('right', tier)}')`,

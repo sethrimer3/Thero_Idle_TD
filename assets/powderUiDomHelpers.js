@@ -46,7 +46,7 @@ export function createPowderUiDomHelpers(options = {}) {
   /**
    * Render one Aleph wall glyph from the dedicated golden Aleph and golden digit sprites.
    * @param {HTMLElement} glyphElement - Glyph container anchored to the wall.
-   * @param {number} index - Glyph index rendered as ℵ + decimal digits.
+   * @param {number} index - Glyph index rendered as ℵ + decimal digits (supports cyclic tier-local indices).
    */
   function renderPowderGlyphSprite(glyphElement, index) {
     if (!glyphElement || typeof document === 'undefined') {
@@ -399,6 +399,7 @@ export function createPowderUiDomHelpers(options = {}) {
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
+          // Cycle displayed Aleph digits every tier so each tier restarts at ℵ0 through ℵ(n-1).
           renderPowderGlyphSprite(glyph, index % tierAdvanceAlephCount);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;

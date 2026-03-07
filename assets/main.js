@@ -3176,6 +3176,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const POWDER_WALL_TEXTURE_ASPECT = 800 / 300; // Preserve the native 1.5:4 wall sprite ratio (300px × 800px).
   const POWDER_WALL_TEXTURE_FALLBACK_PX = 192; // Fallback repeat distance when wall sizing has not been measured yet.
   const ALEPH_RIGHT_WALL_SPRITE_OFFSET_PX = 3; // Shift the right Aleph wall sprite outward so it no longer overlaps the mote pile.
+  // Stub palette progression for Aleph wall tiers so each tier's motes are visually distinct.
   const ALEPH_TIER_STUB_COLORS = [
     '#f4d06f',
     '#ff8a80',
@@ -3214,6 +3215,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   function resolveAlephTierRate(baseRate, tier) {
     const normalizedBaseRate = Number.isFinite(baseRate) ? Math.max(0, baseRate) : 0;
     const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
+    // 1 next-tier mote represents 100 current-tier motes, so higher tiers run at baseRate / 100^(tier - 1).
     return normalizedBaseRate / 100 ** Math.max(0, normalizedTier - 1);
   }
 
