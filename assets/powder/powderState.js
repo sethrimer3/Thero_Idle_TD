@@ -8,7 +8,7 @@ import { DEFAULT_MOTE_PALETTE, mergeMotePalette } from '../../scripts/features/t
 export function createPowderStateContext() {
   const powderConfig = {
     sandOffsetInactive: 0,
-    sandOffsetActive: 1.1,
+    sandOffsetActive: 1,
     duneHeightBase: 1,
     duneHeightMax: 6,
     thetaBase: 1.3,
@@ -32,7 +32,7 @@ export function createPowderStateContext() {
     fluidGlyphsLit: 0,
     fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
     idleMoteBank: 0,
-    idleDrainRate: 0,
+    idleDrainRate: 1,
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
     fluidIdleDrainRate: 0,
