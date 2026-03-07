@@ -40,6 +40,40 @@ export function createPowderViewportController({
     return false;
   };
 
+  function resolveAlephTierProgress(glyphCount) {
+    const normalizedGlyphs = Number.isFinite(glyphCount) ? Math.max(0, Math.floor(glyphCount)) : 0;
+    const tierAdvanceCount = Number.isFinite(powderConfig.alephTierAdvanceCount) && powderConfig.alephTierAdvanceCount > 0
+      ? Math.max(1, Math.floor(powderConfig.alephTierAdvanceCount))
+      : 30;
+    const minTier = Number.isFinite(powderConfig.alephWallTierMin)
+      ? Math.max(1, Math.floor(powderConfig.alephWallTierMin))
+      : 1;
+    const maxTier = Number.isFinite(powderConfig.alephWallTierMax)
+      ? Math.max(minTier, Math.floor(powderConfig.alephWallTierMax))
+      : 15;
+    const computedTier = minTier + Math.floor(normalizedGlyphs / tierAdvanceCount);
+    const tier = Math.max(minTier, Math.min(maxTier, computedTier));
+    const alephInTier = normalizedGlyphs % tierAdvanceCount;
+    const alephToNextTier = Math.max(0, tierAdvanceCount - alephInTier);
+    const wallGapTarget = powderConfig.wallBaseGapMotes + alephInTier * powderConfig.wallGapPerGlyph;
+
+    return {
+      tier,
+      tierAdvanceCount,
+      alephInTier,
+      alephToNextTier,
+      wallGapTarget: Math.min(wallGapTarget, powderConfig.wallMaxGapMotes),
+    };
+  }
+
+  function resolveAlephWallSpritePath(side, tier) {
+    const normalizedSide = side === 'right' ? 'right' : 'left';
+    const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
+    const useUnderscoreVariant = normalizedTier >= 4 && normalizedTier <= 10;
+    const tierToken = useUnderscoreVariant ? `tier_${normalizedTier}` : `tier${normalizedTier}`;
+    return `assets/sprites/spires/alephSpire/wall_${normalizedSide}_${tierToken}.png`;
+  }
+
   function getElementsForSimulation(simulation) {
     const fluidSimulation = typeof getFluidSimulation === 'function' ? getFluidSimulation() : null;
     if (simulation && fluidSimulation && simulation === fluidSimulation) {
@@ -141,11 +175,25 @@ export function createPowderViewportController({
       const contentWidth = resolveContentWidth(activeElements.leftWall, leftWidth);
       activeElements.leftWall.style.width = `${contentWidth.toFixed(1)}px`;
       activeElements.leftWall.style.setProperty('--powder-wall-visual-width', `${leftWidth.toFixed(1)}px`);
+      if (!isFluidActive) {
+        const tier = Number.isFinite(powderState.alephWallTier) ? Math.max(1, Math.floor(powderState.alephWallTier)) : 1;
+        activeElements.leftWall.style.setProperty(
+          '--powder-wall-left-image',
+          `url('${resolveAlephWallSpritePath('left', tier)}')`,
+        );
+      }
     }
     if (activeElements?.rightWall) {
       const contentWidth = resolveContentWidth(activeElements.rightWall, rightWidth);
       activeElements.rightWall.style.width = `${contentWidth.toFixed(1)}px`;
       activeElements.rightWall.style.setProperty('--powder-wall-visual-width', `${rightWidth.toFixed(1)}px`);
+      if (!isFluidActive) {
+        const tier = Number.isFinite(powderState.alephWallTier) ? Math.max(1, Math.floor(powderState.alephWallTier)) : 1;
+        activeElements.rightWall.style.setProperty(
+          '--powder-wall-right-image',
+          `url('${resolveAlephWallSpritePath('right', tier)}')`,
+        );
+      }
     }
     if (activeElements?.leftHitbox) {
       activeElements.leftHitbox.style.width = `${leftWidth.toFixed(1)}px`;
@@ -160,10 +208,12 @@ export function createPowderViewportController({
     if (inactiveElements?.leftWall) {
       inactiveElements.leftWall.style.removeProperty('width');
       inactiveElements.leftWall.style.removeProperty('--powder-wall-visual-width');
+      inactiveElements.leftWall.style.removeProperty('--powder-wall-left-image');
     }
     if (inactiveElements?.rightWall) {
       inactiveElements.rightWall.style.removeProperty('width');
       inactiveElements.rightWall.style.removeProperty('--powder-wall-visual-width');
+      inactiveElements.rightWall.style.removeProperty('--powder-wall-right-image');
     }
     if (inactiveElements?.leftHitbox) {
       inactiveElements.leftHitbox.style.removeProperty('width');
@@ -224,9 +274,10 @@ export function createPowderViewportController({
   }
 
   function updatePowderWallGapFromGlyphs(glyphCount) {
-    const normalized = Number.isFinite(glyphCount) ? Math.max(0, glyphCount) : 0;
-    const rawTarget = powderConfig.wallBaseGapMotes + normalized * powderConfig.wallGapPerGlyph;
-    const target = Math.min(rawTarget, powderConfig.wallMaxGapMotes);
+    const tierProgress = resolveAlephTierProgress(glyphCount);
+    powderState.alephWallTier = tierProgress.tier;
+    powderState.alephTierAlephValue = tierProgress.alephInTier;
+    const target = tierProgress.wallGapTarget;
     powderState.wallGapTarget = target;
     const simulation = typeof getActiveSimulation === 'function' ? getActiveSimulation() : null;
     if (!simulation) {
@@ -560,6 +611,7 @@ export function createPowderViewportController({
     handlePowderViewTransformChange,
     handlePowderWallMetricsChange,
     updatePowderWallGapFromGlyphs,
+    resolveAlephTierProgress,
     initializePowderViewInteraction,
   };
 }
