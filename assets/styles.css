@@ -7663,7 +7663,7 @@ body.playfield-fullscreen .playfield canvas {
 .powder-wall-left::before {
   right: 0;
   left: auto;
-  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_left.png');
+  background-image: var(--powder-wall-left-image, url('./sprites/spires/alephSpire/aleph_spire_wall_left.png'));
 }
 
 .powder-wall-left::after {
@@ -7676,7 +7676,7 @@ body.playfield-fullscreen .playfield canvas {
   left: 0;
   right: auto;
   transform: translateX(var(--powder-right-wall-sprite-offset-x, 0px));
-  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_right.png');
+  background-image: var(--powder-wall-right-image, url('./sprites/spires/alephSpire/aleph_spire_wall_right.png'));
 }
 
 .powder-wall-right::after {

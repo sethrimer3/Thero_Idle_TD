@@ -201,6 +201,7 @@ import {
   POWDER_CELL_SIZE_PX,
   PowderSimulation,
   mergeMotePalette,
+  parseCssColor,
 } from '../scripts/features/towers/powderTower.js';
 // Fluid tower shallow-water simulation extracted into a dedicated module.
 import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
@@ -2323,6 +2324,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     handlePowderViewTransformChange,
     handlePowderWallMetricsChange,
     updatePowderWallGapFromGlyphs,
+    resolveAlephTierProgress,
     initializePowderViewInteraction,
   } = createPowderViewportController({
     getActiveSimulation: () => powderSimulation,
@@ -2930,8 +2932,11 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
             wallGapCells: powderConfig.wallBaseGapMotes,
             gapWidthRatio: powderConfig.wallGapViewportRatio,
             maxDuneGain: powderConfig.simulatedDuneGainMax,
-            idleDrainRate: powderState.idleDrainRate,
-            motePalette: powderState.motePalette,
+            idleDrainRate: resolveAlephTierRate(
+              powderState.alephBaseIdleDrainRate ?? powderState.idleDrainRate,
+              powderState.alephWallTier,
+            ),
+            motePalette: resolveAlephTierStubPalette(powderState.alephWallTier),
             onIdleBankChange: (value) => handlePowderIdleBankChange(value, 'sand'),
             onHeightChange: (info) => handlePowderHeightChange(info, 'sand'),
             onWallMetricsChange: (metrics) => handlePowderWallMetricsChange(metrics, 'sand'),
@@ -2951,6 +2956,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         powderSimulation = sandSimulation;
         const baseProfile = powderSimulation.getDefaultProfile();
         powderSimulation.applyProfile(baseProfile || undefined);
+        syncAlephTierVisualProfile(resolveAlephTierProgress(powderState.wallGlyphsLit || 0));
         powderSimulation.setFlowOffset(powderState.sandOffset);
         powderState.motePalette = powderSimulation.getEffectiveMotePalette();
         // Sync the emblem glow when returning to the sand simulation baseline palette.
@@ -2976,6 +2982,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       refreshPowderWallDecorations();
       handlePowderHeightChange(powderSimulation ? powderSimulation.getStatus() : undefined);
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit || 0);
+      syncAlephTierVisualProfile(resolveAlephTierProgress(powderState.wallGlyphsLit || 0));
       updateMoteStatsDisplays();
       const fluidStatus =
         fluidSimulationInstance && typeof fluidSimulationInstance.getStatus === 'function'
@@ -3169,6 +3176,79 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const POWDER_WALL_TEXTURE_ASPECT = 800 / 300; // Preserve the native 1.5:4 wall sprite ratio (300px × 800px).
   const POWDER_WALL_TEXTURE_FALLBACK_PX = 192; // Fallback repeat distance when wall sizing has not been measured yet.
   const ALEPH_RIGHT_WALL_SPRITE_OFFSET_PX = 3; // Shift the right Aleph wall sprite outward so it no longer overlaps the mote pile.
+  // Stub palette progression for Aleph wall tiers so each tier's motes are visually distinct.
+  const ALEPH_TIER_STUB_COLORS = [
+    '#f4d06f',
+    '#ff8a80',
+    '#80d8ff',
+    '#ccff90',
+    '#b388ff',
+    '#ffab91',
+    '#84ffff',
+    '#ffd180',
+    '#a7ffeb',
+    '#ea80fc',
+    '#ffff8d',
+    '#80cbc4',
+    '#ef9a9a',
+    '#9fa8da',
+    '#c5e1a5',
+  ];
+
+  function resolveAlephTierStubPalette(tier) {
+    const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
+    const stubColor = ALEPH_TIER_STUB_COLORS[(normalizedTier - 1) % ALEPH_TIER_STUB_COLORS.length];
+    const rgb = parseCssColor(stubColor) || { r: 247, g: 213, b: 101 };
+    return {
+      stops: [
+        { ...rgb },
+        { ...rgb },
+        { ...rgb },
+      ],
+      restAlpha: 0.92,
+      freefallAlpha: 0.68,
+      backgroundTop: '#000000',
+      backgroundBottom: '#000000',
+    };
+  }
+
+  function resolveAlephTierRate(baseRate, tier) {
+    const normalizedBaseRate = Number.isFinite(baseRate) ? Math.max(0, baseRate) : 0;
+    const normalizedTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
+    // 1 next-tier mote represents 100 current-tier motes, so higher tiers run at baseRate / 100^(tier - 1).
+    return normalizedBaseRate / 100 ** Math.max(0, normalizedTier - 1);
+  }
+
+  function syncAlephTierVisualProfile(tierProgress) {
+    if (!tierProgress || typeof tierProgress !== 'object') {
+      return;
+    }
+    const tier = Number.isFinite(tierProgress.tier) ? Math.max(1, Math.floor(tierProgress.tier)) : 1;
+    powderState.alephWallTier = tier;
+    powderState.alephTierAlephValue = Number.isFinite(tierProgress.alephInTier)
+      ? Math.max(0, Math.floor(tierProgress.alephInTier))
+      : 0;
+
+    const currentRate = Number.isFinite(powderState.idleDrainRate) ? Math.max(0, powderState.idleDrainRate) : 0;
+    if (!Number.isFinite(powderState.alephBaseIdleDrainRate) || powderState.alephBaseIdleDrainRate <= 0) {
+      powderState.alephBaseIdleDrainRate = currentRate;
+    }
+    const effectiveRate = resolveAlephTierRate(powderState.alephBaseIdleDrainRate, tier);
+    powderState.idleDrainRate = effectiveRate;
+    const tierPalette = resolveAlephTierStubPalette(tier);
+    powderState.motePalette = mergeMotePalette(tierPalette);
+    const sandIsActive = powderSimulation === sandSimulation || powderState.simulationMode === 'sand';
+    if (sandIsActive) {
+      applyMindGatePaletteToDom(powderState.motePalette);
+    }
+
+    if (sandSimulation && Number.isFinite(effectiveRate)) {
+      sandSimulation.idleDrainRate = effectiveRate;
+      if (typeof sandSimulation.setMotePalette === 'function') {
+        sandSimulation.setMotePalette(tierPalette);
+      }
+    }
+  }
 
   /**
    * Resolve the repeating wall texture height so the masonry tiles retain their native aspect ratio.
@@ -3802,6 +3882,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Restore wall gap from saved glyph number to ensure wall width matches saved progress
     if (Number.isFinite(powderState.wallGlyphsLit)) {
       updatePowderWallGapFromGlyphs(powderState.wallGlyphsLit);
+      syncAlephTierVisualProfile(resolveAlephTierProgress(powderState.wallGlyphsLit));
     }
     // Writing back the hydrated state keeps restored motes available for the next session.
     schedulePowderBasinSave();
@@ -6023,6 +6104,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       cellSize,
       highestNormalized: highestNormalizedRaw,
       totalNormalized,
+      tierAdvanceAlephCount: powderConfig.alephTierAdvanceCount,
+      minAlephWallTier: powderConfig.alephWallTierMin,
+      maxAlephWallTier: powderConfig.alephWallTierMax,
     });
 
     if (powderElements.nextGlyphProgress) {
@@ -6031,8 +6115,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         // Show progress climbing toward the next glyph instead of counting down from 100%.
         const progressPercent = formatDecimal(clampedProgress * 100, 1);
         const remainingHeight = formatDecimal(Math.max(0, glyphMetrics.remainingToNext), 2);
-        const nextLabel = formatAlephLabel(Math.max(0, glyphMetrics.nextIndex));
-        powderElements.nextGlyphProgress.textContent = `${progressPercent}% to ${nextLabel} · Δh ${remainingHeight}`;
+        const tier = Number.isFinite(glyphMetrics.tier) ? Math.max(1, Math.floor(glyphMetrics.tier)) : 1;
+        const alephInTier = Number.isFinite(glyphMetrics.alephInTier) ? Math.max(0, Math.floor(glyphMetrics.alephInTier)) : 0;
+        const tierAdvance = Number.isFinite(glyphMetrics.tierAdvanceAlephCount)
+          ? Math.max(1, Math.floor(glyphMetrics.tierAdvanceAlephCount))
+          : 30;
+        powderElements.nextGlyphProgress.textContent = `Tier ${tier} · ℵ ${alephInTier}/${tierAdvance} · ${progressPercent}% to next glyph · Δh ${remainingHeight}`;
       } else {
         powderElements.nextGlyphProgress.textContent = '—';
       }
@@ -6040,6 +6128,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
     if (glyphMetrics) {
       const { glyphsLit, highestRaw, progressFraction } = glyphMetrics;
+      const tierProgress = resolveAlephTierProgress(glyphsLit);
+      syncAlephTierVisualProfile(tierProgress);
       // Award glyph currency the moment a new Aleph threshold is illuminated.
       const previousAwarded = Number.isFinite(powderState.glyphsAwarded)
         ? Math.max(0, powderState.glyphsAwarded)
