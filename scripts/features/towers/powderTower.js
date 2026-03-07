@@ -545,6 +545,8 @@ export class PowderSimulation {
     this.floorDrainEnabled = Boolean(enabled);
     if (this.floorDrainEnabled) {
       this.stabilized = false;
+    } else {
+      this.stabilized = true;
     }
     return this.floorDrainEnabled;
   }
@@ -568,10 +570,6 @@ export class PowderSimulation {
     }
 
     this.updateStars(delta);
-    if (this.floorDrainEnabled) {
-      this.stabilized = false;
-    }
-
     if (this.spawnEnabled) {
       this.convertIdleBank(delta);
       this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
@@ -580,9 +578,6 @@ export class PowderSimulation {
       const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
       const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
       this.spawnPendingDrops(remainingBudget);
-    } else {
-      this.spawnTimer = 0;
-      this.idleDropAccumulator = 0;
     }
 
     const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));

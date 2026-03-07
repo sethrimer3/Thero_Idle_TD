@@ -3284,9 +3284,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     if (typeof simulation.setFloorDrainEnabled === 'function') {
       simulation.setFloorDrainEnabled(floorDrainEnabled);
     }
-    if (!floorDrainEnabled) {
-      simulation.stabilized = true;
-    }
   }
 
   function getTierVisualGlyphCount(glyphsLit) {
@@ -3327,7 +3324,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       ? Math.max(1, Math.floor(powderState.alephWallTier))
       : 1;
     const targetTier = Math.min(
-      Math.max(sourceTier + 1, sourceTier),
+      sourceTier + 1,
       Number.isFinite(powderConfig.alephWallTierMax) ? Math.max(1, Math.floor(powderConfig.alephWallTierMax)) : sourceTier + 1,
     );
     const transition = powderState.alephTierTransition;
@@ -3352,9 +3349,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       }
       powderState.alephTierTransition.stage = 'awaiting-collect';
       setAlephTierTransitionVisualState('awaiting-collect');
-      if (powderElements?.tierGoldenAleph) {
-        powderElements.tierGoldenAleph.hidden = false;
-      }
     }, ALEPH_TIER_WALL_EXIT_MS);
     transition.timers.push(revealTimer);
     powderState.alephTierTransitionCheckpoint = Math.max(
@@ -3408,13 +3402,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }
     const tierAdvanceCount = getTierAdvanceCount();
     const normalizedGlyphs = Number.isFinite(glyphsLit) ? Math.max(0, Math.floor(glyphsLit)) : 0;
-    const previousGlyphsLit = Number.isFinite(powderState.wallGlyphsLit) ? Math.max(0, powderState.wallGlyphsLit) : 0;
+    const previousGlyphsLit = Number.isFinite(powderState.wallGlyphsLit)
+      ? Math.max(0, Math.floor(powderState.wallGlyphsLit))
+      : 0;
     if (normalizedGlyphs <= previousGlyphsLit) {
       return;
     }
     if (normalizedGlyphs <= 0 || normalizedGlyphs % tierAdvanceCount !== 0) {
       return;
     }
+    // Skip milestones that were already processed so each tier-finale sequence runs only once per threshold.
     if (normalizedGlyphs <= (powderState.alephTierTransitionCheckpoint || 0)) {
       return;
     }
