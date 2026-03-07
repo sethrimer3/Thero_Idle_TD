@@ -358,12 +358,8 @@ export function createPowderUiDomHelpers(options = {}) {
     const maxAlephWallTier = Number.isFinite(info.maxAlephWallTier) && info.maxAlephWallTier > 0
       ? Math.max(minAlephWallTier, Math.floor(info.maxAlephWallTier))
       : 15;
-    // Scale Aleph spacing with wall width so each horizontal mote lane costs 100 vertical motes per glyph.
-    const wallGapMotes = Number.isFinite(info.wallGapMotes) && info.wallGapMotes > 0
-      ? Math.max(1, info.wallGapMotes)
-      : 1;
-    // Convert the 100-motes-per-lane rule into normalized basin units used by glyph projection.
-    const glyphSpacingRows = wallGapMotes * 100;
+    // Keep Aleph milestones on a fixed 100-mote vertical cadence so wall-width changes never shift threshold spacing.
+    const glyphSpacingRows = 100;
     const GLYPH_SPACING_NORMALIZED = glyphSpacingRows / Math.max(1, rows);
     const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
     const safeRows = Math.max(1, rows);
@@ -434,6 +430,8 @@ export function createPowderUiDomHelpers(options = {}) {
     const span = Math.max(GLYPH_SPACING_NORMALIZED, nextThreshold - previousThreshold);
     const progressFraction = clampUnitInterval((highestNormalized - previousThreshold) / span);
     const remainingToNext = Math.max(0, nextThreshold - highestNormalized);
+    // Convert normalized remaining height into mote-height so Δh readouts are always in gameplay units.
+    const remainingToNextMotes = remainingToNext * safeRows;
     const alephInTier = glyphsLit % tierAdvanceAlephCount;
     const tier = Math.max(
       minAlephWallTier,
@@ -459,6 +457,7 @@ export function createPowderUiDomHelpers(options = {}) {
       glyphsLit,
       progressFraction,
       remainingToNext,
+      remainingToNextMotes,
       tier,
       alephInTier,
       tierAdvanceAlephCount,

@@ -6118,7 +6118,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const clampedProgress = Math.min(1, Math.max(0, glyphMetrics.progressFraction));
         // Show progress climbing toward the next glyph instead of counting down from 100%.
         const progressPercent = formatDecimal(clampedProgress * 100, 1);
-        const remainingHeight = formatDecimal(Math.max(0, glyphMetrics.remainingToNext), 2);
+        const remainingHeightMotes = Number.isFinite(glyphMetrics.remainingToNextMotes)
+          ? Math.max(0, glyphMetrics.remainingToNextMotes)
+          : Math.max(0, glyphMetrics.remainingToNext);
+        const remainingHeight = formatDecimal(remainingHeightMotes, 2);
         const tier = Number.isFinite(glyphMetrics.tier) ? Math.max(1, Math.floor(glyphMetrics.tier)) : 1;
         const alephInTier = Number.isFinite(glyphMetrics.alephInTier) ? Math.max(0, Math.floor(glyphMetrics.alephInTier)) : 0;
         const tierAdvance = Number.isFinite(glyphMetrics.tierAdvanceAlephCount)
