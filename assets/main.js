@@ -6104,6 +6104,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       cellSize,
       highestNormalized: highestNormalizedRaw,
       totalNormalized,
+      // Tie vertical Aleph spacing to the live wall gap so each lane costs 100 motes of ascent.
+      wallGapMotes: Number.isFinite(powderState.wallGapTarget)
+        ? Math.max(1, powderState.wallGapTarget)
+        : Math.max(1, powderConfig.wallBaseGapMotes),
       tierAdvanceAlephCount: powderConfig.alephTierAdvanceCount,
       minAlephWallTier: powderConfig.alephWallTierMin,
       maxAlephWallTier: powderConfig.alephWallTierMax,

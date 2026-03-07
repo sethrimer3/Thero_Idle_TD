@@ -358,7 +358,13 @@ export function createPowderUiDomHelpers(options = {}) {
     const maxAlephWallTier = Number.isFinite(info.maxAlephWallTier) && info.maxAlephWallTier > 0
       ? Math.max(minAlephWallTier, Math.floor(info.maxAlephWallTier))
       : 15;
-    const GLYPH_SPACING_NORMALIZED = 0.5;
+    // Scale Aleph spacing with wall width so each horizontal mote lane costs 100 vertical motes per glyph.
+    const wallGapMotes = Number.isFinite(info.wallGapMotes) && info.wallGapMotes > 0
+      ? Math.max(1, info.wallGapMotes)
+      : 1;
+    // Convert the 100-motes-per-lane rule into normalized basin units used by glyph projection.
+    const glyphSpacingRows = wallGapMotes * 100;
+    const GLYPH_SPACING_NORMALIZED = glyphSpacingRows / Math.max(1, rows);
     const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
     const safeRows = Math.max(1, rows);
     const basinHeight = safeRows * cellSize;
