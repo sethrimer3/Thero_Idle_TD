@@ -61,6 +61,8 @@ body *::-webkit-scrollbar {
 /* Signal draggable surfaces and suppress text selection while panning. */
 [data-drag-scroll] {
   cursor: var(--cursor-grab);
+  /* Force drag-scroll containers to own touch gestures so child controls cannot block scroll starts. */
+  touch-action: none;
 }
 
 /* Lock text selection during an active drag-scroll gesture. */

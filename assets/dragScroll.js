@@ -38,9 +38,6 @@ function attachDragScroll(element) {
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
-    if (event.pointerType === 'touch') {
-      return;
-    }
     if (!isScrollable(element)) {
       return;
     }
@@ -79,6 +76,7 @@ function attachDragScroll(element) {
       }
     }
 
+    // Prevent native viewport scrolling so touch drags consistently map onto the target scroller.
     event.preventDefault();
     // Translate pointer movement into scroll offsets for both axes.
     element.scrollLeft = state.startScrollLeft - deltaX;
@@ -123,11 +121,12 @@ function attachDragScroll(element) {
 
   // Flag the element in the DOM so CSS can provide drag affordances.
   element.setAttribute('data-drag-scroll', 'true');
-  element.addEventListener('pointerdown', handlePointerDown);
-  element.addEventListener('pointermove', handlePointerMove);
-  element.addEventListener('pointerup', finishPointer);
-  element.addEventListener('pointercancel', finishPointer);
-  element.addEventListener('lostpointercapture', finishPointer);
+  // Capture-phase listeners ensure nested children cannot swallow drag initiation on mobile.
+  element.addEventListener('pointerdown', handlePointerDown, { capture: true });
+  element.addEventListener('pointermove', handlePointerMove, { capture: true });
+  element.addEventListener('pointerup', finishPointer, { capture: true });
+  element.addEventListener('pointercancel', finishPointer, { capture: true });
+  element.addEventListener('lostpointercapture', finishPointer, { capture: true });
   element.addEventListener('click', handleClick, true);
 }
 
