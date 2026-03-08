@@ -426,39 +426,20 @@ async function applyPaletteToTowerIconElement(element, tower) {
   element.dataset.towerId = tower.id || element.dataset.towerId || '';
 
   if (tower.icon) {
-    // Mind Gate tower icon should always use original colors, never palette-recolored
-    const isMindGate = tower.id === 'mind-gate';
-    
-    if (isMindGate) {
-      // Load SVG without palette coloring for Mind Gate
-      try {
-        let svgText = svgContentCache.get(tower.icon);
-        
-        if (!svgText) {
-          const response = await fetch(tower.icon);
-          if (response.ok) {
-            svgText = await response.text();
-            svgContentCache.set(tower.icon, svgText);
-          }
-        }
-        
-        if (svgText) {
-          const parser = new DOMParser();
-          const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
-          const svgElement = svgDoc.querySelector('svg');
-          
-          if (svgElement) {
-            // Clear existing content
-            element.innerHTML = '';
-            // Make SVG fill the container
-            svgElement.setAttribute('width', '100%');
-            svgElement.setAttribute('height', '100%');
-            element.appendChild(svgElement);
-          }
-        }
-      } catch (error) {
-        console.warn(`Error loading Mind Gate icon: ${tower.icon}`, error);
-      }
+    // Gate tower icons are PNGs — render them with an img element, no palette coloring.
+    const isGateTower = tower.id === 'mind-gate' || tower.id === 'shadow-gate';
+    const isPng = typeof tower.icon === 'string' && tower.icon.toLowerCase().endsWith('.png');
+
+    if (isGateTower || isPng) {
+      // Use a plain img element so the original sprite colors are preserved.
+      element.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = tower.icon;
+      img.alt = '';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      element.appendChild(img);
     } else {
       // Load and inject colored SVG for all other towers
       const palette = resolveTowerIconPalette(tower);
