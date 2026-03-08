@@ -24,6 +24,49 @@ enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
 enemyGateSprite.decoding = 'async';
 enemyGateSprite.loading = 'eager';
 
+// Shadow Gate background layers animate as alternating clockwise/counter-clockwise rings.
+const SHADOW_GATE_BACKGROUND_LAYERS = [
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(1).png', speed: 0, direction: 1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(2).png', speed: 0.1, direction: 1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(3).png', speed: 0.1, direction: -1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(4).png', speed: 0.2, direction: 1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(5).png', speed: 0.2, direction: -1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(6).png', speed: 0.3, direction: 1 },
+  { url: 'assets/sprites/gates%26track/enemyGate/gateBackground/ShadowGateBackgroundLayer%20(7).png', speed: 0.3, direction: -1 },
+].map((entry) => {
+  // Preload each ring sprite once so per-frame rendering only performs blits.
+  const image = new Image();
+  image.src = entry.url;
+  image.decoding = 'async';
+  image.loading = 'eager';
+  return {
+    ...entry,
+    image,
+  };
+});
+
+// Mind Gate background layers spin in alternating directions with progressively faster outer rings.
+const MIND_GATE_BACKGROUND_LAYERS = [
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(1).png', speed: 0.1, direction: 1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(2).png', speed: 0.1, direction: -1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(3).png', speed: 0.2, direction: 1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(4).png', speed: 0.2, direction: -1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(5).png', speed: 0.3, direction: 1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(6).png', speed: 0.3, direction: -1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(7).png', speed: 0.4, direction: 1 },
+  { url: 'assets/sprites/gates%26track/mindGate/gateBackground/MindGateBackgroundLayer%20(8).png', speed: 0.4, direction: -1 },
+].map((entry) => {
+  // Preload each ring sprite once so per-frame rendering only performs blits.
+  const image = new Image();
+  image.src = entry.url;
+  image.decoding = 'async';
+  image.loading = 'eager';
+  return {
+    ...entry,
+    image,
+  };
+});
+
 const TRACK_GATE_SIZE_SCALE = 0.5;
 // Scale the enemy gate glyph up so the spawn marker remains legible at a glance.
 const ENEMY_GATE_SYMBOL_SCALE = 2;
@@ -31,6 +74,8 @@ const ENEMY_GATE_SYMBOL_SCALE = 2;
 const MIND_GATE_GLOW_RADIUS_SCALE = 0.72;
 // Add a subtle inversion halo to the enemy gate so it feels like a dark void in the field.
 const ENEMY_GATE_ANTIGLOW_RADIUS_SCALE = 0.68;
+// Reduce the visible Shadow Gate symbol footprint by 50% while keeping its aura readable.
+const SHADOW_GATE_SYMBOL_SIZE_MULTIPLIER = 0.5;
 // Reuse the same warm palette that powers the luminous arc tracer.
 const TRACK_TRACER_PRIMARY_COLOR = { r: 255, g: 180, b: 105 };
 const TRACK_TRACER_HALO_COLOR = { r: 255, g: 228, b: 180 };
@@ -85,6 +130,25 @@ const ENEMY_GATE_GRADIENT_STOPS = [
   { stop: 0.55, color: [56, 20, 98] },
   { stop: 1, color: [214, 184, 255] },
 ];
+
+// Draw layered gate background sprites with independent angular velocities.
+function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9) {
+  if (!ctx || !Array.isArray(layers) || !layers.length || !Number.isFinite(baseDrawSize) || baseDrawSize <= 0) {
+    return;
+  }
+  layers.forEach((layer) => {
+    const sprite = layer?.image;
+    if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+      return;
+    }
+    const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
+    ctx.save();
+    ctx.rotate(rotation);
+    ctx.globalAlpha = globalAlpha;
+    ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
+    ctx.restore();
+  });
+}
 
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
 function getPathLayerCacheKey(width, height, paletteStops, trackMode) {
@@ -691,6 +755,7 @@ function drawEnemyGateSymbol(ctx, position) {
   const baseRadius = dimension ? dimension * 0.028 : 0;
   const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
+  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
 
   ctx.save();
   const anchorX = Math.round(position.x);
@@ -715,15 +780,17 @@ function drawEnemyGateSymbol(ctx, position) {
   ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
   ctx.fill();
 
+  // Render uploaded shadow background rings behind particles and the main symbol.
+  drawGateBackgroundLayers(ctx, SHADOW_GATE_BACKGROUND_LAYERS, radius * 2.2, currentTime, 0.78);
+
   // Draw dark violet particles swirling counter-clockwise behind the gate symbol.
   if (!this.isLowGraphicsMode?.()) {
-    const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
     drawEnemyGateParticles.call(this, ctx, radius, currentTime);
   }
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
   if (spriteReady) {
-    const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
+    const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE * SHADOW_GATE_SYMBOL_SIZE_MULTIPLIER;
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.drawImage(enemyGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
@@ -751,6 +818,7 @@ function drawMindGateSymbol(ctx, position) {
   const baseRadius = dimension ? dimension * 0.035 : 0;
   const baseSize = Math.max(14, Math.min(24, baseRadius || 18));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
+  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
 
   ctx.save();
   ctx.translate(position.x, position.y);
@@ -763,6 +831,9 @@ function drawMindGateSymbol(ctx, position) {
   ctx.beginPath();
   ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
   ctx.fill();
+
+  // Render uploaded mind background rings behind the wave and core symbol.
+  drawGateBackgroundLayers(ctx, MIND_GATE_BACKGROUND_LAYERS, radius * 2.55, currentTime, 0.82);
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
   ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
@@ -781,7 +852,6 @@ function drawMindGateSymbol(ctx, position) {
   const healthPercentage = maxIntegrity > 0 ? gateIntegrity / maxIntegrity : 1;
 
   // Use performance timestamp if available to ensure consistent animation timing.
-  const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
   const waveOffset = currentTime * CONSCIOUSNESS_WAVE_SPEED;
 
   // Draw consciousness wave through the gate.
