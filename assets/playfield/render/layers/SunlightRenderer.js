@@ -28,7 +28,7 @@ const VIEWPORT_CULL_MARGIN = 100;
 
 // Sunlight radius is a fraction of the larger playfield dimension so the effect
 // scales sensibly on both portrait (mobile) and landscape (desktop) orientations.
-const SUNLIGHT_RADIUS_FACTOR = 0.25;
+const SUNLIGHT_RADIUS_FACTOR = 0.5;
 
 // Bloom overlay covers a smaller central region for a brighter warm core.
 const BLOOM_RADIUS_FACTOR = 0.55;
@@ -141,7 +141,66 @@ function resolveSunlightRadius() {
   const w = this.renderWidth || 0;
   const h = this.renderHeight || 0;
   const larger = Math.max(w, h) || 1;
+  // Return a screen-space radius so the sprite cache remains stable across zoom
+  // levels and the glow covers a consistent screen fraction at any zoom.
   return larger * SUNLIGHT_RADIUS_FACTOR;
+}
+
+/**
+ * Build/reuse a cached offscreen sprite for the two-layer sunlight glow.
+ * This removes per-frame gradient construction during zoom gestures.
+ */
+function resolveSunlightSprite(radius) {
+  if (!Number.isFinite(radius) || radius <= 0 || typeof document === 'undefined') {
+    return null;
+  }
+
+  const cacheRadius = Math.max(1, Math.round(radius));
+  const existing = this._sunlightSpriteCache;
+  if (existing?.radius === cacheRadius && existing?.canvas) {
+    return existing;
+  }
+
+  // Keep a small resolution floor so tiny radii remain smooth after scaling.
+  const size = Math.max(32, Math.ceil(cacheRadius * 2));
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+
+  const center = size * HALF;
+  const baseGradient = ctx.createRadialGradient(center, center, 0, center, center, cacheRadius);
+  baseGradient.addColorStop(0, 'rgba(255, 248, 220, 0.35)');
+  baseGradient.addColorStop(0.18, 'rgba(255, 192, 96, 0.28)');
+  baseGradient.addColorStop(0.42, 'rgba(255, 166, 70, 0.16)');
+  baseGradient.addColorStop(1, 'rgba(255, 140, 56, 0)');
+  ctx.globalCompositeOperation = 'screen';
+  ctx.beginPath();
+  ctx.arc(center, center, cacheRadius, 0, TWO_PI);
+  ctx.fillStyle = baseGradient;
+  ctx.fill();
+
+  // Render the bloom into the same sprite so drawMindGateSunlight only blits once.
+  const bloomRadius = cacheRadius * BLOOM_RADIUS_FACTOR;
+  const bloomGradient = ctx.createRadialGradient(center, center, 0, center, center, bloomRadius);
+  bloomGradient.addColorStop(0, 'rgba(255, 232, 178, 0.68)');
+  bloomGradient.addColorStop(0.16, 'rgba(255, 190, 104, 0.44)');
+  bloomGradient.addColorStop(0.38, 'rgba(255, 146, 74, 0.24)');
+  bloomGradient.addColorStop(1, 'rgba(255, 120, 45, 0)');
+  ctx.beginPath();
+  ctx.arc(center, center, bloomRadius, 0, TWO_PI);
+  ctx.fillStyle = bloomGradient;
+  ctx.fill();
+
+  this._sunlightSpriteCache = {
+    radius: cacheRadius,
+    canvas,
+    size,
+  };
+  return this._sunlightSpriteCache;
 }
 
 /**
@@ -199,46 +258,36 @@ export function drawMindGateSunlight() {
   if (!this.ctx) {
     return;
   }
-  // Skip while zooming to keep frame rate smooth.
-  if (this._zoomingActive) {
-    return;
-  }
 
   const gate = resolveMindGatePosition.call(this);
   if (!gate) {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
+  const screenRadius = resolveSunlightRadius.call(this);
+  if (screenRadius <= 0) {
+    return;
+  }
   const ctx = this.ctx;
+  // Sprite is built at screen-pixel resolution so the cache is stable across zoom.
+  const sunlightSprite = resolveSunlightSprite.call(this, screenRadius);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
 
   ctx.save();
-
-  // Base warm glow layer
-  const baseGradient = ctx.createRadialGradient(gate.x, gate.y, 0, gate.x, gate.y, sunlightRadius);
-  baseGradient.addColorStop(0, 'rgba(255, 248, 220, 0.35)');
-  baseGradient.addColorStop(0.18, 'rgba(255, 192, 96, 0.28)');
-  baseGradient.addColorStop(0.42, 'rgba(255, 166, 70, 0.16)');
-  baseGradient.addColorStop(1, 'rgba(255, 140, 56, 0)');
-
   ctx.globalCompositeOperation = 'screen';
-  ctx.beginPath();
-  ctx.arc(gate.x, gate.y, sunlightRadius, 0, TWO_PI);
-  ctx.fillStyle = baseGradient;
-  ctx.fill();
-
-  // Bright bloom layer centered on the gate for a warm core glow
-  const bloomRadius = sunlightRadius * BLOOM_RADIUS_FACTOR;
-  const bloomGradient = ctx.createRadialGradient(gate.x, gate.y, 0, gate.x, gate.y, bloomRadius);
-  bloomGradient.addColorStop(0, 'rgba(255, 232, 178, 0.68)');
-  bloomGradient.addColorStop(0.16, 'rgba(255, 190, 104, 0.44)');
-  bloomGradient.addColorStop(0.38, 'rgba(255, 146, 74, 0.24)');
-  bloomGradient.addColorStop(1, 'rgba(255, 120, 45, 0)');
-
-  ctx.beginPath();
-  ctx.arc(gate.x, gate.y, bloomRadius, 0, TWO_PI);
-  ctx.fillStyle = bloomGradient;
-  ctx.fill();
+  if (sunlightSprite?.canvas) {
+    // Convert sprite's screen-pixel size to world-coordinate size so the
+    // zoom transform applied by the render pipeline scales it back to the
+    // intended screen coverage – preserving a constant glow footprint at any zoom.
+    const drawSize = sunlightSprite.size / viewScale;
+    ctx.drawImage(
+      sunlightSprite.canvas,
+      gate.x - drawSize * HALF,
+      gate.y - drawSize * HALF,
+      drawSize,
+      drawSize,
+    );
+  }
 
   ctx.restore();
 }
@@ -253,22 +302,26 @@ export function drawSunlightShadows() {
   if (!this.ctx) {
     return;
   }
-  if (this.isLowGraphicsMode?.() || this._zoomingActive) {
-    return;
-  }
+  // Keep cast shadows visible in low graphics mode so placed entities still convey depth.
+  // We scale alpha down later instead of disabling the entire shadow pass.
+  const lowGraphicsEnabled = this.isLowGraphicsMode?.();
 
   const gate = resolveMindGatePosition.call(this);
   if (!gate) {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
+  // Convert screen-space radius to world-space for distance checks so the same
+  // towers/enemies remain lit regardless of zoom level.
+  const screenRadius = resolveSunlightRadius.call(this);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
+  const sunlightRadius = screenRadius / viewScale;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
 
   ctx.save();
-  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalCompositeOperation = 'source-over';
 
   // ── Tower shadows ──────────────────────────────────────────────────────────
   if (Array.isArray(this.towers)) {
@@ -305,7 +358,9 @@ export function drawSunlightShadows() {
       const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
       const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
 
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, TOWER_SHADOW_NEAR_ALPHA);
+      // Low-graphics mode keeps the same geometry but tones down opacity to limit overdraw.
+      const towerNearAlpha = lowGraphicsEnabled ? TOWER_SHADOW_NEAR_ALPHA * 0.7 : TOWER_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, towerNearAlpha);
     });
   }
 
@@ -352,7 +407,9 @@ export function drawSunlightShadows() {
       const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
       const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
 
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, ENEMY_SHADOW_NEAR_ALPHA);
+      // Enemy shadow alpha follows the same low-graphics reduction rule as tower shadows.
+      const enemyNearAlpha = lowGraphicsEnabled ? ENEMY_SHADOW_NEAR_ALPHA * 0.7 : ENEMY_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, enemyNearAlpha);
     });
   }
 
@@ -384,7 +441,9 @@ export function drawSunlightShadows() {
       const offsetY = dy * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
 
       ctx.beginPath();
-      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${GEM_SHADOW_ALPHA})`;
+      // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
+      const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
+      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
       ctx.arc(gem.x + offsetX, gem.y + offsetY, gemRadius * GEM_SHADOW_RADIUS_FACTOR, 0, TWO_PI);
       ctx.fill();
     });
@@ -411,7 +470,11 @@ export function drawTowerSunShine() {
     return;
   }
 
-  const sunlightRadius = resolveSunlightRadius.call(this);
+  // Convert screen-space radius to world-space for distance checks so the same
+  // towers remain lit regardless of zoom level.
+  const screenRadius = resolveSunlightRadius.call(this);
+  const viewScale = Math.max(0.1, this.viewScale || 1);
+  const sunlightRadius = screenRadius / viewScale;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
@@ -466,5 +529,3 @@ export function drawTowerSunShine() {
 
   ctx.restore();
 }
-
-

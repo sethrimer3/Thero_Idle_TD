@@ -1389,6 +1389,49 @@ body.playfield-fullscreen .playfield canvas {
   touch-action: none;
 }
 
+/* Per-chapter battlefield themes let each chapter carry a distinct ambient color identity. */
+.playfield[data-chapter-theme='prologue'] {
+  background: radial-gradient(circle at 30% 70%, rgba(170, 170, 170, 0.06), transparent 62%),
+    radial-gradient(circle at 70% 25%, rgba(110, 110, 120, 0.08), transparent 66%),
+    rgba(18, 18, 20, 0.94);
+}
+
+/* Chapter 1 intentionally preserves the existing blue baseline mood. */
+.playfield[data-chapter-theme='chapter-1'] {
+  background: radial-gradient(circle at 30% 70%, rgba(139, 247, 255, 0.1), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(255, 125, 235, 0.12), transparent 65%),
+    rgba(5, 6, 12, 0.9);
+}
+
+/* Chapters 2 and 3 share a deep violet atmosphere to signal the same narrative arc. */
+.playfield[data-chapter-theme='chapter-2'],
+.playfield[data-chapter-theme='chapter-3'] {
+  background: radial-gradient(circle at 30% 70%, rgba(157, 109, 255, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(98, 58, 162, 0.16), transparent 65%),
+    rgba(26, 14, 40, 0.92);
+}
+
+/* Chapter 4 shifts to dark orange to foreshadow the later high-pressure encounters. */
+.playfield[data-chapter-theme='chapter-4'] {
+  background: radial-gradient(circle at 30% 70%, rgba(255, 165, 84, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(210, 104, 42, 0.14), transparent 65%),
+    rgba(40, 18, 8, 0.94);
+}
+
+/* Chapter 5 moves toward dark red to communicate escalating danger. */
+.playfield[data-chapter-theme='chapter-5'] {
+  background: radial-gradient(circle at 30% 70%, rgba(255, 112, 112, 0.12), transparent 60%),
+    radial-gradient(circle at 70% 25%, rgba(168, 48, 48, 0.14), transparent 65%),
+    rgba(36, 8, 10, 0.95);
+}
+
+/* Chapter 6 closes with an almost void-like black field for the final chapter tone. */
+.playfield[data-chapter-theme='chapter-6'] {
+  background: radial-gradient(circle at 30% 70%, rgba(66, 66, 80, 0.08), transparent 62%),
+    radial-gradient(circle at 70% 25%, rgba(36, 24, 56, 0.09), transparent 66%),
+    rgba(2, 2, 4, 0.97);
+}
+
 .playfield.playfield--developer-editing::after {
   content: '';
   position: absolute;
@@ -3935,6 +3978,8 @@ body.playfield-fullscreen .playfield canvas {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.78rem;
+  line-height: 1.3;
+  min-height: 40px;
   padding: 10px 18px;
   border-radius: 999px;
   border: 1px solid transparent;
@@ -5145,6 +5190,8 @@ body.playfield-fullscreen .playfield canvas {
 
 .visual-settings-menu .action-button {
   width: 100%;
+  /* Add vertical room so uppercase serif labels do not clip in narrow/mobile layouts. */
+  min-height: 42px;
 }
 
 /* Palette preview line mirrors the active projectile gradient. */
@@ -7564,8 +7611,8 @@ body.playfield-fullscreen .playfield canvas {
   background-repeat: repeat-y;
   background-size: 100% var(--powder-wall-tile-height);
   background-position: center var(--powder-wall-shift);
-  /* Desaturate Aleph wall sprites so their masonry keeps the monochrome look without blue edge outlines. */
-  filter: grayscale(1) drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
+  /* Keep only the depth shadow so Aleph wall sprites render in their full native color. */
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
   z-index: -2;
 }
 
@@ -7580,10 +7627,12 @@ body.playfield-fullscreen .playfield canvas {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(120, 190, 255, 0.22), rgba(120, 190, 255, 0.04));
-  border: 1px dashed rgba(120, 190, 255, 0.45);
+  /* Keep dev hitbox nodes inert so their old blue dotted guides never appear over wall art. */
+  background: transparent;
+  border: 0;
   pointer-events: none;
   opacity: 0;
+  display: none;
   transition: opacity 0.3s ease;
   z-index: 2;
 }
@@ -7614,7 +7663,7 @@ body.playfield-fullscreen .playfield canvas {
 .powder-wall-left::before {
   right: 0;
   left: auto;
-  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_left.png');
+  background-image: var(--powder-wall-left-image, url('./sprites/spires/alephSpire/aleph_spire_wall_left.png'));
 }
 
 .powder-wall-left::after {
@@ -7623,14 +7672,18 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .powder-wall-right::before {
+  /* Pin the texture to the inner edge so any width overflow extends outward, not into the mote mound. */
   left: 0;
   right: auto;
-  background-image: url('./sprites/spires/alephSpire/aleph_spire_wall_right.png');
+  transform: translateX(var(--powder-right-wall-sprite-offset-x, 0px));
+  background-image: var(--powder-wall-right-image, url('./sprites/spires/alephSpire/aleph_spire_wall_right.png'));
 }
 
 .powder-wall-right::after {
+  /* Match the texture anchor to keep the right-wall shading flush with the same inner seam. */
   left: 0;
   right: auto;
+  transform: translateX(var(--powder-right-wall-sprite-offset-x, 0px));
 }
 
 .fluid-wall-left::before {
@@ -7660,6 +7713,89 @@ body.playfield-fullscreen .playfield canvas {
 .powder-wall.wall-awake {
   box-shadow: inset 0 0 0 1px rgba(255, 228, 120, 0.35), 0 0 18px rgba(255, 228, 120, 0.28);
   filter: saturate(1.2);
+}
+
+/* Slide walls completely off-screen while the tier-finale Aleph appears. */
+.powder-basin--tier-transition-out .powder-wall-left {
+  transform: translateX(-125%);
+}
+
+.powder-basin--tier-transition-out .powder-wall-right {
+  transform: translateX(125%);
+}
+
+/* Keep walls off-screen until the next-tier transition animates them back in. */
+.powder-basin--tier-transition-in .powder-wall-left {
+  transform: translateX(-125%);
+  animation: powder-wall-slide-in-left 0.72s ease-out forwards;
+}
+
+.powder-basin--tier-transition-in .powder-wall-right {
+  transform: translateX(125%);
+  animation: powder-wall-slide-in-right 0.72s ease-out forwards;
+}
+
+.powder-tier-golden-aleph {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.75);
+  width: clamp(56px, 16vw, 88px);
+  aspect-ratio: 1 / 1;
+  border: 0;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 224, 130, 0.22), rgba(255, 224, 130, 0));
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 0.5s ease, transform 0.5s ease, filter 0.4s ease;
+}
+
+.powder-tier-golden-aleph__sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.9))
+    drop-shadow(0 0 12px rgba(255, 208, 102, 0.6));
+}
+
+.powder-basin--tier-aleph-visible .powder-tier-golden-aleph {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.powder-tier-golden-aleph--collecting {
+  animation: powder-tier-golden-aleph-collect 0.55s ease forwards;
+}
+
+@keyframes powder-wall-slide-in-left {
+  from { transform: translateX(-125%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes powder-wall-slide-in-right {
+  from { transform: translateX(125%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes powder-tier-golden-aleph-collect {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    filter: saturate(1);
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1.16);
+    opacity: 1;
+    filter: saturate(1.35);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.12);
+    opacity: 0;
+    filter: saturate(1.7);
+  }
 }
 
 .powder-glyph-column {
@@ -7695,6 +7831,22 @@ body.playfield-fullscreen .playfield canvas {
   height: clamp(2.2rem, 4.6vw, 3.35rem);
   object-fit: contain;
   display: block;
+}
+
+/* Outline Aleph wall glyph sprites with a thick white stroke so gold symbols stay readable on dark backdrops. */
+.powder-glyph-sprite--aleph,
+.powder-glyph-sprite--digit {
+  filter:
+    drop-shadow(1.35px 0 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(-1.35px 0 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 1.35px 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 -1.35px 0 rgba(255, 255, 255, 0.98))
+    drop-shadow(0 0 1.25px rgba(255, 255, 255, 0.95));
+}
+
+/* Shrink the right-hand Aleph level digits to 40% so the primary glyph remains visually dominant. */
+.powder-glyph-sprite--digit {
+  height: clamp(0.88rem, 1.84vw, 1.34rem);
 }
 
 .powder-glyph-sprite--aleph {
@@ -10724,6 +10876,24 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   text-transform: none;
 }
 
+
+/* Stage tab icon uses the uploaded 15-frame sprite sequence and swaps per-frame via CSS custom property. */
+.tab-icon--stage {
+  --stage-tab-frame-url: url('./sprites/menu/StageIconAnimation/StageIconAnimation (1).png');
+  width: 1.55rem;
+  height: 1.55rem;
+  background-image: var(--stage-tab-frame-url);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Keep stacked spire icon sizing rules from overriding the dedicated stage art dimensions. */
+.tab-button--stacked .tab-icon--stage {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
 /* Glowing tab supplements now sit beneath the tab label for immediate readability. */
 .tab-icon-badge {
   display: inline-flex;
@@ -11882,6 +12052,8 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
 .lamed-spire-options-menu .action-button,
 .spire-options-menu .action-button {
   width: 100%;
+  /* Keep options buttons tall enough for the decorative typeface used across codex menus. */
+  min-height: 42px;
 }
 
 .lamed-spire-options-menu .settings-toggle,
@@ -16066,4 +16238,3 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   margin-top: calc(-1 * var(--shin-size-top, 0px));
 }
 */
-

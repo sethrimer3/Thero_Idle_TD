@@ -32,6 +32,9 @@ const LAYER_CONFIGS = [
   { count: 440,  parallaxFactor: 0.38, sizeMinPx: 1.2, sizeMaxPx: 2.9 },
 ];
 
+// Tripled twinkle oscillation amplitude so Lamed Spire stars pulse more visibly against the dark backdrop.
+const STAR_TWINKLE_AMPLITUDE = 0.09;
+
 /**
  * Sample a palette index from the reworked parallax palette using weighted distribution.
  * @param {number} r - A random value in [0, 1).
@@ -176,8 +179,10 @@ export class LamedStarfieldRenderer {
    * @param {number} [starSizeScale=1] - Global size multiplier for all stars.
    *   Pass a value > 1 to make stars appear large (early-game, proto-star),
    *   and < 1 to shrink them to specks (late-game, black hole).
+   * @param {number} [zoomOutScale=1] - Camera zoom-out multiplier for the star map.
+   *   Values > 1 pull stars toward the center while revealing more stars from the edges.
    */
-  draw(ctx, screenWidth, screenHeight, graphicsQuality, starSizeScale = 1) {
+  draw(ctx, screenWidth, screenHeight, graphicsQuality, starSizeScale = 1, zoomOutScale = 1) {
     const nowSeconds = performance.now() * 0.001;
 
     // Ambient sinusoidal orbit camera — provides visible parallax without user input.
@@ -186,8 +191,13 @@ export class LamedStarfieldRenderer {
 
     const centerX = screenWidth * 0.5;
     const centerY = screenHeight * 0.5;
-    const wrapSpanX = centerX * 2 + STAR_WRAP_SIZE;
-    const wrapSpanY = centerY * 2 + STAR_WRAP_SIZE;
+    // Clamp zoom-out to keep the world-to-screen projection stable at every tier.
+    const safeZoomOutScale = Math.max(1, zoomOutScale);
+    // Convert world offsets to screen offsets so larger zoom values reveal more of the star map.
+    const worldToScreenScale = 1 / safeZoomOutScale;
+    // Expand world wrap spans as we zoom out so seamless tiling still covers the enlarged view volume.
+    const wrapSpanX = (centerX * 2) / worldToScreenScale + STAR_WRAP_SIZE;
+    const wrapSpanY = (centerY * 2) / worldToScreenScale + STAR_WRAP_SIZE;
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -201,12 +211,15 @@ export class LamedStarfieldRenderer {
       const haloAlphaMultiplier = 0.56 + depthScale * 0.44;
 
       for (const star of layer.stars) {
-        const screenX = centerX + (star.x - parallaxX);
-        const screenY = centerY + (star.y - parallaxY);
+        // Evaluate wrapping in world-space before projection to preserve seamless tiling while zooming.
+        const worldX = star.x - parallaxX;
+        const worldY = star.y - parallaxY;
 
         // Wrap coordinates into the visible range to tile the star field seamlessly.
-        const wrappedX = ((screenX + centerX) % wrapSpanX) - centerX;
-        const wrappedY = ((screenY + centerY) % wrapSpanY) - centerY;
+        const wrappedWorldX = ((worldX + wrapSpanX * 0.5) % wrapSpanX) - wrapSpanX * 0.5;
+        const wrappedWorldY = ((worldY + wrapSpanY * 0.5) % wrapSpanY) - wrapSpanY * 0.5;
+        const wrappedX = centerX + wrappedWorldX * worldToScreenScale;
+        const wrappedY = centerY + wrappedWorldY * worldToScreenScale;
 
         // Skip stars entirely outside the canvas + halo margin.
         if (
@@ -216,7 +229,7 @@ export class LamedStarfieldRenderer {
           continue;
         }
 
-        const flicker = 1 + 0.03 * Math.sin(star.phase + nowSeconds * Math.PI * 2 * star.flickerHz);
+        const flicker = 1 + STAR_TWINKLE_AMPLITUDE * Math.sin(star.phase + nowSeconds * Math.PI * 2 * star.flickerHz);
         const alpha = star.brightness * flicker * depthAlpha;
         const renderedSizePx = star.sizePx * depthSizeMultiplier * starSizeScale;
 

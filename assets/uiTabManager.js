@@ -19,6 +19,99 @@ let onTowerTabActivated = null;
 let playTabSelectSfx = null;
 let shortcutsBound = false;
 
+
+// Stage tab hover animation frames (1-15) supplied by the uploaded stage icon art.
+const STAGE_TAB_ICON_TOTAL_FRAMES = 15;
+const STAGE_TAB_ICON_FRAME_DURATION_MS = 45;
+const STAGE_TAB_ICON_FRAME_URLS = Array.from({ length: STAGE_TAB_ICON_TOTAL_FRAMES }, (_, index) =>
+  new URL(`./sprites/menu/StageIconAnimation/StageIconAnimation (${index + 1}).png`, import.meta.url).href,
+);
+
+// Persist stage icon animation state so hover-in and hover-out can reverse smoothly.
+const stageTabAnimationState = {
+  element: null,
+  currentFrame: 1,
+  targetFrame: 1,
+  rafHandle: 0,
+  lastTick: 0,
+};
+
+// Update the stage tab icon to the requested frame while keeping CSS in sync.
+function renderStageTabFrame(frame) {
+  const iconElement = stageTabAnimationState.element;
+  if (!iconElement) {
+    return;
+  }
+  const clampedFrame = Math.max(1, Math.min(STAGE_TAB_ICON_TOTAL_FRAMES, Math.round(frame)));
+  stageTabAnimationState.currentFrame = clampedFrame;
+  iconElement.style.setProperty('--stage-tab-frame-url', `url("${STAGE_TAB_ICON_FRAME_URLS[clampedFrame - 1]}")`);
+  iconElement.dataset.stageFrame = String(clampedFrame);
+}
+
+// Advance toward the target frame one step at a time for reversible hover animation.
+function stepStageTabIconAnimation(timestamp) {
+  if (!stageTabAnimationState.element) {
+    stageTabAnimationState.rafHandle = 0;
+    return;
+  }
+
+  if (!stageTabAnimationState.lastTick) {
+    stageTabAnimationState.lastTick = timestamp;
+  }
+
+  const elapsed = timestamp - stageTabAnimationState.lastTick;
+  if (elapsed >= STAGE_TAB_ICON_FRAME_DURATION_MS) {
+    stageTabAnimationState.lastTick = timestamp;
+    const direction = Math.sign(stageTabAnimationState.targetFrame - stageTabAnimationState.currentFrame);
+    if (direction !== 0) {
+      renderStageTabFrame(stageTabAnimationState.currentFrame + direction);
+    }
+  }
+
+  if (stageTabAnimationState.currentFrame !== stageTabAnimationState.targetFrame) {
+    stageTabAnimationState.rafHandle = window.requestAnimationFrame(stepStageTabIconAnimation);
+  } else {
+    stageTabAnimationState.rafHandle = 0;
+    stageTabAnimationState.lastTick = 0;
+  }
+}
+
+// Set a new animation target for stage tab hover and launch the animator if idle.
+function setStageTabAnimationTarget(targetFrame) {
+  stageTabAnimationState.targetFrame = Math.max(1, Math.min(STAGE_TAB_ICON_TOTAL_FRAMES, Math.round(targetFrame)));
+  if (stageTabAnimationState.rafHandle) {
+    return;
+  }
+  stageTabAnimationState.rafHandle = window.requestAnimationFrame(stepStageTabIconAnimation);
+}
+
+// Wire stage tab pointer/focus handlers so the icon animates in and out on hover.
+function initializeStageTabIconAnimation() {
+  const stageTab = document.getElementById('tab-tower');
+  const stageIcon = stageTab?.querySelector('.tab-icon--stage');
+  if (!stageTab || !stageIcon) {
+    return;
+  }
+
+  stageTabAnimationState.element = stageIcon;
+  renderStageTabFrame(1);
+
+  stageTab.addEventListener('mouseenter', () => {
+    setStageTabAnimationTarget(STAGE_TAB_ICON_TOTAL_FRAMES);
+  });
+  stageTab.addEventListener('mouseleave', () => {
+    setStageTabAnimationTarget(1);
+  });
+
+  // Mirror hover behavior for keyboard users by animating while the tab has focus.
+  stageTab.addEventListener('focus', () => {
+    setStageTabAnimationTarget(STAGE_TAB_ICON_TOTAL_FRAMES);
+  });
+  stageTab.addEventListener('blur', () => {
+    setStageTabAnimationTarget(1);
+  });
+}
+
 // Stores provided callbacks used to keep external systems in sync with tab state.
 export function configureTabManager({
   getOverlayActiveState,
@@ -318,4 +411,5 @@ export function initializeTabs() {
   }
 
   bindKeyboardNavigation();
+  initializeStageTabIconAnimation();
 }

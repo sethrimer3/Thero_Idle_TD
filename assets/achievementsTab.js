@@ -5,6 +5,14 @@ import { GEM_DEFINITIONS } from './enemies.js';
 // Achievements tab logic extracted from the main script to keep state and rendering scoped here.
 
 const ACHIEVEMENT_REWARD_FLUX = 1;
+// Base achievement doubling factor (2^n) used for standard mote-fall reward scaling.
+const ACHIEVEMENT_DEFAULT_MOTE_FALL_MULTIPLIER = 2;
+const DEFAULT_MOTE_FALL_REWARD_DEFINITION = Object.freeze({
+  moteFallMultiplier: ACHIEVEMENT_DEFAULT_MOTE_FALL_MULTIPLIER,
+});
+const PROLOGUE_CHAPTER_ACHIEVEMENT_ID = 'prologue-complete';
+const MERGED_PROLOGUE_LEVEL_IDS = new Set(['Prologue - 1', 'Prologue - 2', 'Prologue - 3']);
+const PROLOGUE_CHAPTER_LEVEL_IDS = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
 const ACHIEVEMENT_REVEAL_TIMEOUT_MS = 420; // Fallback delay before forcing the overlay text to appear.
 const ACHIEVEMENT_DISMISS_TIMEOUT_MS = 520; // Ensures the overlay always resets even if transitions are interrupted.
 const SECRET_PLACEHOLDER_TEXT = '???'; // Placeholder for locked secret achievements
@@ -31,7 +39,7 @@ const achievementElements = new Map();
 let achievementDefinitions = [];
 let achievementsByCategory = new Map();
 let achievementGridEl = null;
-let achievementPowderRate = 0;
+let achievementPowderRate = 1; // Baseline Aleph mote fall rate starts at 1 mote/min before achievements.
 let context = null;
 let overlayElements = null; // Stores the lazily created overlay nodes for cinematic reveals.
 let overlayState = null; // Tracks the currently animating achievement so it can return home.
@@ -349,7 +357,7 @@ function describeLevelAchievementProgress(levelId, shortLabel, longLabel) {
   const { levelState } = getContext();
   const state = levelState.get(levelId) || {};
   if (state.completed) {
-    return 'Victory sealed · +1 Motes/min secured.';
+    return 'Victory sealed · Mote fall bonus secured.';
   }
 
   const bestWave = Number.isFinite(state.bestWave) ? state.bestWave : 0;
@@ -360,11 +368,39 @@ function describeLevelAchievementProgress(levelId, shortLabel, longLabel) {
   return `Locked — Seal ${label} to unlock.`;
 }
 
+// Resolve per-achievement Aleph mote fall bonus values with defaults for legacy definitions.
+function getAchievementMoteFallBonus(definition) {
+  // Additive chapter rewards intentionally override multipliers so the prologue exception stays unique.
+  if (Number.isFinite(definition?.moteFallAdditive)) {
+    return {
+      multiplier: 1,
+      additive: Math.max(0, definition.moteFallAdditive),
+    };
+  }
+  const multiplier = Number.isFinite(definition?.moteFallMultiplier)
+    ? Math.max(1, definition.moteFallMultiplier)
+    : ACHIEVEMENT_DEFAULT_MOTE_FALL_MULTIPLIER;
+  return { multiplier, additive: 0 };
+}
+
+// Format reward text so all achievement surfaces describe the same mote-fall behavior.
+function formatAchievementMoteFallReward(definition) {
+  const bonus = getAchievementMoteFallBonus(definition);
+  if (bonus.additive > 0) {
+    return `+${formatGameNumber(bonus.additive)} Aleph mote fall rate`;
+  }
+  return `×${formatGameNumber(bonus.multiplier)} Aleph mote fall rate`;
+}
+
 // Builds an achievement definition for a single level entry.
 function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
   const { levelConfigs, isLevelCompleted, THERO_SYMBOL: theroSymbol } = getContext();
   const levelConfig = levelConfigs.get(levelId);
   if (!levelConfig || levelConfig.developerOnly) {
+    return null;
+  }
+  // Merge the first three prologue level achievements into the chapter completion achievement.
+  if (MERGED_PROLOGUE_LEVEL_IDS.has(levelId)) {
     return null;
   }
 
@@ -381,12 +417,6 @@ function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
   }
   if (Number.isFinite(levelConfig.rewardFlux)) {
     rewardSegments.push(`Victory awards +${formatGameNumber(levelConfig.rewardFlux)} Motes.`);
-  }
-  if (Number.isFinite(levelConfig.rewardScore)) {
-    rewardSegments.push(`Score bonus ${formatGameNumber(levelConfig.rewardScore)} Σ.`);
-  }
-  if (Number.isFinite(levelConfig.rewardEnergy)) {
-    rewardSegments.push(`Energy bonus +${formatGameNumber(levelConfig.rewardEnergy)} TD.`);
   }
 
   const rewardSummary = rewardSegments.join(' ');
@@ -412,7 +442,7 @@ function createLevelAchievementDefinition(levelId, ordinal, metadataMap) {
     subtitle: shortLabel,
     icon,
     rewardFlux,
-    description: `${baseDescription} Unlocking adds +${rewardFlux} Motes/min to idle reserves.`.trim(),
+    description: `${baseDescription} Unlocking grants ${formatAchievementMoteFallReward(DEFAULT_MOTE_FALL_REWARD_DEFINITION)}.`.trim(),
     condition: () => isLevelCompleted(levelId),
     progress: () => describeLevelAchievementProgress(levelId, shortLabel, displayName),
   };
@@ -452,7 +482,7 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     subtitle: 'Novice',
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX,
-    description: `Earn your first ${spireName} glyph. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX} Motes/min to idle reserves.`,
+    description: `Earn your first ${spireName} glyph. Unlocking grants ${formatAchievementMoteFallReward(DEFAULT_MOTE_FALL_REWARD_DEFINITION)}.`,
     condition: () => getSpireGlyphCount(spireId) >= 1,
     progress: () => {
       const glyphs = getSpireGlyphCount(spireId);
@@ -479,7 +509,7 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     subtitle: 'Intermediate',
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX * 2,
-    description: `Earn 10 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 2} Motes/min to idle reserves.`,
+    description: `Earn 10 ${spireName} glyphs. Unlocking grants ${formatAchievementMoteFallReward(DEFAULT_MOTE_FALL_REWARD_DEFINITION)}.`,
     condition: () => getSpireGlyphCount(spireId) >= 10,
     progress: () => {
       const glyphs = getSpireGlyphCount(spireId);
@@ -506,7 +536,7 @@ function generateSpireAchievements(spireId, spireName, spireIcon) {
     subtitle: 'Advanced',
     icon: spireIcon,
     rewardFlux: ACHIEVEMENT_REWARD_FLUX * 5,
-    description: `Earn 100 ${spireName} glyphs. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 5} Motes/min to idle reserves.`,
+    description: `Earn 100 ${spireName} glyphs. Unlocking grants ${formatAchievementMoteFallReward(DEFAULT_MOTE_FALL_REWARD_DEFINITION)}.`,
     condition: () => getSpireGlyphCount(spireId) >= 100,
     progress: () => {
       const glyphs = getSpireGlyphCount(spireId);
@@ -563,7 +593,7 @@ function generateSecretAchievements() {
       subtitle: gem.name,
       icon: '?',
       rewardFlux: ACHIEVEMENT_REWARD_FLUX * (index + 1),
-      description: `Obtain a ${gem.name} gem. ${hint} Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * (index + 1)} Motes/min to idle reserves.`,
+      description: `Obtain a ${gem.name} gem. ${hint} Unlocking grants ${formatAchievementMoteFallReward(DEFAULT_MOTE_FALL_REWARD_DEFINITION)}.`,
       condition: () => {
         const { moteGemInventory } = getContext();
         if (!moteGemInventory) {
@@ -591,23 +621,23 @@ function generateStoryAchievements() {
   const { isLevelCompleted } = getContext();
   const achievements = [];
   
-  // Prologue completion achievement - unlocks the moon in achievements terrarium
+  // Prologue chapter completion achievement - unlocks the moon in achievements terrarium
   achievements.push({
-    id: 'prologue-complete',
+    id: PROLOGUE_CHAPTER_ACHIEVEMENT_ID,
     categoryId: 'campaign-story',
-    title: 'Scholar Awakened',
-    subtitle: 'Complete the Prologue',
+    title: 'Prologue Sealed',
+    subtitle: 'Finish the Prologue Chapter',
     icon: '🌙',
     rewardFlux: ACHIEVEMENT_REWARD_FLUX * 2,
-    description: `Complete all prologue levels to awaken as a scholar. The moon appears in your achievements terrarium. Unlocking adds +${ACHIEVEMENT_REWARD_FLUX * 2} Motes/min to idle reserves.`,
+    moteFallAdditive: 1,
+    description:
+      'Complete the full prologue chapter to awaken as a scholar. The moon appears in your achievements terrarium. Unlocking grants +1 Aleph mote fall rate.',
     condition: () => {
-      const prologueLevels = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
-      return prologueLevels.every(levelId => isLevelCompleted(levelId));
+      return PROLOGUE_CHAPTER_LEVEL_IDS.every(levelId => isLevelCompleted(levelId));
     },
     progress: () => {
-      const prologueLevels = ['Prologue - 1', 'Prologue - 2', 'Prologue - 3', 'Prologue - Story'];
-      const completed = prologueLevels.filter(levelId => isLevelCompleted(levelId)).length;
-      const total = prologueLevels.length;
+      const completed = PROLOGUE_CHAPTER_LEVEL_IDS.filter(levelId => isLevelCompleted(levelId)).length;
+      const total = PROLOGUE_CHAPTER_LEVEL_IDS.length;
       return completed >= total ? 'Unlocked — The moon illuminates your path.' : `Locked — Complete ${completed}/${total} prologue levels.`;
     },
     terrariumReward: {
@@ -766,13 +796,20 @@ function calculateCategoryBonuses(categoryAchievements) {
     const state = achievementState.get(def.id);
     return state?.earned && state?.claimed;
   });
-  const totalFlux = claimed.reduce((sum, def) => sum + (def.rewardFlux || ACHIEVEMENT_REWARD_FLUX), 0);
-  return { count: claimed.length, totalFlux };
+  const totalMoteFallAdditive = claimed.reduce((sum, def) => {
+    const bonus = getAchievementMoteFallBonus(def);
+    return sum + bonus.additive;
+  }, 0);
+  const doublingCount = claimed.reduce((sum, def) => {
+    const bonus = getAchievementMoteFallBonus(def);
+    return sum + (bonus.multiplier > 1 ? 1 : 0);
+  }, 0);
+  return { count: claimed.length, totalMoteFallAdditive, doublingCount };
 }
 
 // Render bonuses summary for a category
 function renderBonusSummary(categoryAchievements) {
-  const { count, totalFlux } = calculateCategoryBonuses(categoryAchievements);
+  const { count, totalMoteFallAdditive, doublingCount } = calculateCategoryBonuses(categoryAchievements);
   if (count === 0) {
     return null;
   }
@@ -782,7 +819,8 @@ function renderBonusSummary(categoryAchievements) {
   summary.innerHTML = `
     <p class="achievement-category-bonuses__title">Bonuses Earned:</p>
     <ul class="achievement-category-bonuses__list">
-      <li>+${formatGameNumber(totalFlux)} Motes/min idle</li>
+      <li>${formatGameNumber(doublingCount)} mote-rate doublers claimed</li>
+      <li>+${formatGameNumber(totalMoteFallAdditive)} Aleph mote fall rate</li>
     </ul>
   `;
   return summary;
@@ -1138,8 +1176,7 @@ function presentAchievementCinematic(id) {
   // Hide the status line when achievement is claimed, keep only the reward line
   overlayEls.status.hidden = !statusText || isClaimed;
 
-  const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
-  overlayEls.reward.textContent = `Reward · +${formatGameNumber(rewardFlux)} Motes/min idle.`;
+  overlayEls.reward.textContent = `Reward · ${formatAchievementMoteFallReward(definition)}.`;
 
   overlayEls.content.classList.remove('text-visible');
   overlayEls.hint.hidden = false;
@@ -1268,8 +1305,7 @@ function updateAchievementStatus(definition, element, state) {
     }
     
     if (status) {
-      const rewardFlux = definition.rewardFlux || ACHIEVEMENT_REWARD_FLUX;
-      status.textContent = `Claimed · +${rewardFlux} Motes/min secured.`;
+      status.textContent = `Claimed · ${formatAchievementMoteFallReward(definition)} secured.`;
     }
     if (container && status) {
       container.setAttribute('aria-label', `${definition.title} achievement. ${status.textContent} Activate to view details.`);
@@ -1462,8 +1498,7 @@ function claimAchievement(definition) {
   
   // Build list of rewards to display
   const rewards = [];
-  const rewardFlux = Number.isFinite(definition.rewardFlux) ? definition.rewardFlux : ACHIEVEMENT_REWARD_FLUX;
-  rewards.push(`+${formatGameNumber(rewardFlux)} Motes/min`);
+  rewards.push(formatAchievementMoteFallReward(definition));
   
   // Add terrarium reward descriptions
   if (definition.terrariumReward) {
@@ -1609,7 +1644,20 @@ export function notifyAchievementsTabVisibilityChange(visible) {
 
 // Recomputes the idle powder reward provided by unlocked achievements.
 export function refreshAchievementPowderRate() {
-  achievementPowderRate = getUnlockedAchievementCount() * ACHIEVEMENT_REWARD_FLUX;
+  const claimedDefinitions = achievementDefinitions.filter((definition) => {
+    const state = achievementState.get(definition.id);
+    return state?.earned && state?.claimed;
+  });
+  const totalAdditive = claimedDefinitions.reduce((sum, definition) => {
+    const bonus = getAchievementMoteFallBonus(definition);
+    return sum + bonus.additive;
+  }, 0);
+  const totalMultipliers = claimedDefinitions.reduce((sum, definition) => {
+    const bonus = getAchievementMoteFallBonus(definition);
+    return sum + (bonus.multiplier > 1 ? 1 : 0);
+  }, 0);
+  // Apply additive bonuses before doublers so the prologue +1 scales with later achievement doublers.
+  achievementPowderRate = (1 + totalAdditive) * ACHIEVEMENT_DEFAULT_MOTE_FALL_MULTIPLIER ** totalMultipliers;
   return achievementPowderRate;
 }
 

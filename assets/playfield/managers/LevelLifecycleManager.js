@@ -35,6 +35,43 @@ export function createLevelLifecycleManager(config) {
 
   const playfield = config.playfield;
 
+  // Map level id prefixes to chapter-specific battlefield backdrop themes.
+  function resolvePlayfieldChapterTheme(levelId) {
+    if (typeof levelId !== 'string' || !levelId.trim()) {
+      return 'default';
+    }
+    if (levelId.startsWith('Prologue -')) {
+      return 'prologue';
+    }
+    if (levelId.startsWith('1 -')) {
+      return 'chapter-1';
+    }
+    if (levelId.startsWith('2 -')) {
+      return 'chapter-2';
+    }
+    if (levelId.startsWith('3 -')) {
+      return 'chapter-3';
+    }
+    if (levelId.startsWith('4 -')) {
+      return 'chapter-4';
+    }
+    if (levelId.startsWith('5 -')) {
+      return 'chapter-5';
+    }
+    if (levelId.startsWith('6 -')) {
+      return 'chapter-6';
+    }
+    return 'default';
+  }
+
+  // Persist the current chapter theme on the playfield container so CSS can style per-chapter backgrounds.
+  function applyPlayfieldChapterTheme(levelId) {
+    if (!playfield.container || !playfield.container.dataset) {
+      return;
+    }
+    playfield.container.dataset.chapterTheme = resolvePlayfieldChapterTheme(levelId);
+  }
+
   /**
    * Enter a level, initializing all necessary state and managers.
    * 
@@ -54,6 +91,7 @@ export function createLevelLifecycleManager(config) {
 
     // Handle preview-only mode with no level config
     if (playfield.previewOnly && !isInteractive) {
+      applyPlayfieldChapterTheme(levelId);
       playfield.levelActive = false;
       playfield.levelConfig = null;
       playfield.combatActive = false;
@@ -70,6 +108,7 @@ export function createLevelLifecycleManager(config) {
 
     // Handle non-interactive mode (no config)
     if (!isInteractive) {
+      applyPlayfieldChapterTheme(levelId);
       playfield.levelActive = false;
       playfield.levelConfig = null;
       
@@ -179,6 +218,7 @@ export function createLevelLifecycleManager(config) {
 
     playfield.levelActive = true;
     playfield.levelConfig = clonedConfig;
+    applyPlayfieldChapterTheme(clonedConfig.id);
     
     // Initialize combat state manager with level configuration
     playfield.combatStateManager = createCombatStateManager({
@@ -315,6 +355,7 @@ export function createLevelLifecycleManager(config) {
   function leaveLevel() {
     // Handle preview-only mode
     if (playfield.previewOnly) {
+      applyPlayfieldChapterTheme(null);
       playfield.levelActive = false;
       playfield.levelConfig = null;
       
@@ -365,6 +406,7 @@ export function createLevelLifecycleManager(config) {
     // Clean up interactive level
     playfield.levelActive = false;
     playfield.levelConfig = null;
+    applyPlayfieldChapterTheme(null);
     
     // Reset combat state manager
     if (playfield.combatStateManager) {

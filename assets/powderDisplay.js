@@ -17,6 +17,7 @@ export function createPowderDisplaySystem({
   notifyPowderSigils,
   updateStatusDisplays,
   getUnlockedAchievementCount,
+  getAchievementPowderRate,
   getCurrentIdleMoteBank,
   getCurrentMoteDispenseRate,
   THERO_SYMBOL,
@@ -92,6 +93,7 @@ export function createPowderDisplaySystem({
     stage: null,
     altRenderToggle: null,
     altRender: null,
+    tierGoldenAleph: null,
   };
 
   function setAltRenderVisibility(isVisible) {
@@ -164,11 +166,14 @@ export function createPowderDisplaySystem({
   function updateMoteStatsDisplays() {
     if (powderElements.idleMultiplier) {
       const achievements = getUnlockedAchievementCount();
-      // Keep the HUD aligned with the offline formula: 1 mote/minute doubled per achievement.
-      const rate = 2 ** Math.max(0, Math.floor(achievements));
+      // Keep the HUD aligned with the offline formula: most achievements double mote fall rate, with additive exceptions.
+      // Guard the callback so older callers that omit this dependency still fall back to legacy behavior.
+      const rate = typeof getAchievementPowderRate === 'function'
+        ? Math.max(0, getAchievementPowderRate())
+        : 2 ** Math.max(0, Math.floor(achievements));
       const achievementLabel = achievements === 1 ? 'achievement' : 'achievements';
       const rateLabel = rate === 1 ? 'Mote/min' : 'Motes/min';
-      powderElements.idleMultiplier.textContent = `${formatWholeNumber(achievements)} ${achievementLabel} · +${formatGameNumber(
+      powderElements.idleMultiplier.textContent = `${formatWholeNumber(achievements)} ${achievementLabel} · ${formatGameNumber(
         rate,
       )} ${rateLabel}`;
     }
@@ -245,6 +250,7 @@ export function createPowderDisplaySystem({
     powderElements.crystalButton = document.getElementById('powder-crystal-button');
     powderElements.altRenderToggle = document.getElementById('powder-alt-render-toggle');
     powderElements.altRender = document.getElementById('powder-alt-render');
+    powderElements.tierGoldenAleph = document.getElementById('powder-tier-golden-aleph');
 
     const glyphColumnNodes = document.querySelectorAll('[data-powder-glyph-column]');
     powderElements.wallGlyphColumns = Array.from(glyphColumnNodes);
@@ -533,8 +539,11 @@ export function createPowderDisplaySystem({
 
     const minutes = Math.max(0, elapsedMs / 60000);
     const achievementsUnlocked = Math.max(0, Math.floor(getUnlockedAchievementCount()));
-    // The Aleph baseline starts at 1 mote/minute and doubles once per unlocked achievement.
-    const alephRatePerMinute = 2 ** achievementsUnlocked;
+    // The Aleph baseline starts at 1 mote/minute and applies achievement-defined bonuses.
+    // Guard the callback so the idle summary can still run with legacy callers during rollout.
+    const alephRatePerMinute = typeof getAchievementPowderRate === 'function'
+      ? Math.max(0, getAchievementPowderRate())
+      : 2 ** achievementsUnlocked;
     const alephTotal = minutes * alephRatePerMinute;
     const betUnlocked = Boolean(powderState.fluidUnlocked);
     // Every downstream spire inherits 1/100 of the prior spire's idle rate.

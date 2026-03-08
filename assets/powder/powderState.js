@@ -8,7 +8,7 @@ import { DEFAULT_MOTE_PALETTE, mergeMotePalette } from '../../scripts/features/t
 export function createPowderStateContext() {
   const powderConfig = {
     sandOffsetInactive: 0,
-    sandOffsetActive: 1.1,
+    sandOffsetActive: 1,
     duneHeightBase: 1,
     duneHeightMax: 6,
     thetaBase: 1.3,
@@ -17,6 +17,9 @@ export function createPowderStateContext() {
     wallBaseGapMotes: 5, // Start with walls 5 motes apart
     wallGapPerGlyph: 1, // Walls expand by 1 mote per glyph
     wallMaxGapMotes: 75, // Maximum wall gap of 75 motes
+    alephTierAdvanceCount: 30, // Advance Aleph wall tier every 30 glyph thresholds.
+    alephWallTierMin: 1, // Tier 0 sprites exist but the live spire starts at tier 1.
+    alephWallTierMax: 15, // Highest Aleph wall sprite tier currently available.
     wallGapViewportRatio: 0.15, // Narrow the tower walls so the visible mote lane is roughly one-fifth of the previous span.
     fluidUnlockSigils: 0, // Sigil rungs no longer gate the Bet Spire Terrarium while glyph costs handle the unlock.
     fluidUnlockGlyphCost: 0, // Aleph glyph tithe required to unlock the Bet Spire Terrarium (temporarily waived).
@@ -28,11 +31,14 @@ export function createPowderStateContext() {
     charges: 0,
     simulatedDuneGain: 0,
     wallGlyphsLit: 0,
+    alephWallTier: 1,
+    alephTierAlephValue: 0,
     glyphsAwarded: 0, // Highest Aleph index already translated into glyph currency.
     fluidGlyphsLit: 0,
     fluidGlyphsAwarded: 0, // Highest Bet index already translated into Bet glyph currency.
     idleMoteBank: 0,
-    idleDrainRate: 0,
+    idleDrainRate: 1,
+    alephBaseIdleDrainRate: 1,
     pendingMoteDrops: [],
     idleBankHydrated: false, // Tracks whether the active simulation already holds the saved idle motes.
     fluidIdleDrainRate: 0,
@@ -59,6 +65,17 @@ export function createPowderStateContext() {
     // Track whether initial page load restoration has been completed (once per session)
     initialLoadRestored: false,
     fluidInitialLoadRestored: false,
+    // Stage the tier finale sequence so wall movement and mote spawning stay synchronized.
+    alephTierTransition: {
+      active: false,
+      stage: 'idle',
+      triggerGlyphCount: 0,
+      lockedGlyphsLit: null,
+      sourceTier: 1,
+      targetTier: 1,
+      timers: [],
+    },
+    alephTierTransitionCheckpoint: 0,
     // Track Bet terrarium fractal leveling progress.
     betTerrarium: {
       levelingMode: false,

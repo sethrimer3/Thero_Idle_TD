@@ -21,7 +21,15 @@ function preloadImage(src) {
       return;
     }
     const image = new Image();
-    image.onload = () => resolve();
+    // Ask browsers that support it to decode before resolve so first paint avoids decode stalls.
+    image.decoding = 'async';
+    image.onload = () => {
+      if (typeof image.decode === 'function') {
+        image.decode().catch(() => {}).finally(() => resolve());
+        return;
+      }
+      resolve();
+    };
     image.onerror = () => resolve();
     image.src = src;
     if (image.complete) {
@@ -196,7 +204,11 @@ export function createLevelStoryScreen({
 
   async function preloadStories() {
     try {
-      await loadStoryData();
+      await Promise.all([
+        // Warm both blackboard textures during story data preload so lower-end devices avoid first-open decode hitching.
+        ensureStoryBackgroundReady(),
+        loadStoryData(),
+      ]);
     } catch (error) {
       console.warn('Story preload failed', error);
     }

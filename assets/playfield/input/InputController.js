@@ -30,11 +30,25 @@ function attachCanvasInteractions() {
   }
   // Capture wheel gestures at the document level to prevent page scroll while zooming the playfield.
   this.wheelBlockHandler = (event) => {
-    if (!this.container || !this.container.contains(event.target)) {
+    if (!this.container) {
+      return;
+    }
+    const containerRect = this.container.getBoundingClientRect();
+    // Treat wheel events as playfield zoom gestures whenever the cursor is physically over the playfield bounds.
+    const isCursorWithinPlayfieldBounds = event.clientX >= containerRect.left
+      && event.clientX <= containerRect.right
+      && event.clientY >= containerRect.top
+      && event.clientY <= containerRect.bottom;
+    const isTargetWithinPlayfield = this.container.contains(event.target);
+    if (!isTargetWithinPlayfield && !isCursorWithinPlayfieldBounds) {
       return;
     }
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
+    }
+    // Stop propagation so parent scrolling containers never consume zoom wheel input from the playfield.
+    if (typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
     }
   };
   if (typeof document !== 'undefined') {
@@ -709,6 +723,10 @@ function handleCanvasWheel(event) {
   // Always prevent default wheel behavior to avoid scrolling the tab when zooming the playfield
   if (typeof event.preventDefault === 'function') {
     event.preventDefault();
+  }
+  // Stop bubbling so global wheel listeners cannot translate playfield zoom gestures into page scroll.
+  if (typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
   }
   
   if (!this.levelActive || !this.levelConfig) {

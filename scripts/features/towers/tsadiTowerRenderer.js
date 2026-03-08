@@ -15,6 +15,14 @@ export function renderTsadiSimulation() {
   // Clear with dark background
   ctx.fillStyle = this.backgroundColor;
   ctx.fillRect(0, 0, this.width, this.height);
+
+  // Draw the uploaded Tsadi spire background art before simulation overlays.
+  if (this.backgroundSpriteReady && this.backgroundSprite) {
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    ctx.drawImage(this.backgroundSprite, 0, 0, this.width, this.height);
+    ctx.restore();
+  }
   
   // Draw permanent glowing Tsadi glyphs in background
   for (const glyph of this.permanentGlyphs) {
@@ -24,6 +32,8 @@ export function renderTsadiSimulation() {
     ctx.textBaseline = 'middle';
     ctx.fillText('צ', glyph.x, glyph.y);
   }
+
+  renderBackgroundMolecules(ctx, this);
   
   // Draw spawn effects
   if (this.visualSettings.renderSpawnEffects) {
@@ -334,6 +344,89 @@ export function renderTsadiSimulation() {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.fillText(particle.label, particle.x, particle.y);
     }
+  }
+}
+
+function renderBackgroundMolecules(ctx, simulation) {
+  if (!Array.isArray(simulation.backgroundMolecules) || simulation.backgroundMolecules.length === 0) {
+    return;
+  }
+
+  const centerX = simulation.width * 0.5;
+  const centerY = simulation.height * 0.5;
+  const moleculeMap = new Map(simulation.backgroundMolecules.map((molecule) => [molecule.id, molecule]));
+  const renderedBonds = new Set();
+
+  // Render from farthest to nearest so sharper foreground layers feel closer.
+  for (let layer = 0; layer < simulation.backgroundMoleculeLayerCount; layer++) {
+    const layerMolecules = simulation.backgroundMolecules.filter((molecule) => molecule.layer === layer);
+    if (layerMolecules.length === 0) continue;
+
+    for (const molecule of layerMolecules) {
+      const parallaxScale = 0.82 + molecule.depth * 0.18;
+      const drawX = centerX + (molecule.x - centerX) * parallaxScale;
+      const drawY = centerY + (molecule.y - centerY) * parallaxScale;
+
+      if (molecule.bondedTo) {
+        const partner = moleculeMap.get(molecule.bondedTo);
+        if (partner && partner.layer === molecule.layer) {
+          const bondKey = molecule.id < partner.id ? `${molecule.id}-${partner.id}` : `${partner.id}-${molecule.id}`;
+          if (!renderedBonds.has(bondKey)) {
+            renderedBonds.add(bondKey);
+            const partnerScale = 0.82 + partner.depth * 0.18;
+            const partnerX = centerX + (partner.x - centerX) * partnerScale;
+            const partnerY = centerY + (partner.y - centerY) * partnerScale;
+
+            ctx.save();
+            ctx.shadowBlur = molecule.blur;
+            ctx.shadowColor = `rgba(170, 215, 255, ${0.2 + molecule.depth * 0.28})`;
+            ctx.strokeStyle = `rgba(165, 210, 255, ${0.16 + molecule.depth * 0.3})`;
+            ctx.lineWidth = Math.max(0.7, molecule.radius * 0.18);
+            ctx.beginPath();
+            ctx.moveTo(drawX, drawY);
+            ctx.lineTo(partnerX, partnerY);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      const glowRadius = molecule.radius * 2.5;
+      const glow = ctx.createRadialGradient(drawX, drawY, molecule.radius * 0.2, drawX, drawY, glowRadius);
+      glow.addColorStop(0, `rgba(220, 240, 255, ${0.22 + molecule.depth * 0.25})`);
+      glow.addColorStop(1, 'rgba(220, 240, 255, 0)');
+
+      ctx.save();
+      ctx.shadowBlur = molecule.blur;
+      ctx.shadowColor = `rgba(205, 235, 255, ${0.16 + molecule.depth * 0.22})`;
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, glowRadius, 0, TWO_PI);
+      ctx.fill();
+
+      ctx.fillStyle = `rgba(215, 235, 255, ${0.2 + molecule.depth * 0.42})`;
+      ctx.beginPath();
+      ctx.arc(drawX, drawY, molecule.radius, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  for (const wave of simulation.backgroundMoleculeWaves) {
+    const depth = (wave.layer + 1) / simulation.backgroundMoleculeLayerCount;
+    const parallaxScale = 0.82 + depth * 0.18;
+    const drawX = centerX + (wave.x - centerX) * parallaxScale;
+    const drawY = centerY + (wave.y - centerY) * parallaxScale;
+
+    ctx.save();
+    ctx.shadowBlur = wave.blur;
+    ctx.shadowColor = `rgba(190, 220, 255, ${wave.alpha * 0.7})`;
+    ctx.strokeStyle = `rgba(200, 230, 255, ${wave.alpha})`;
+    ctx.lineWidth = wave.lineWidth;
+    ctx.beginPath();
+    ctx.arc(drawX, drawY, wave.radius, 0, TWO_PI);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

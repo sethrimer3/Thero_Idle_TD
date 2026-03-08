@@ -179,6 +179,8 @@ export class PowderSimulation {
       : null;
 
     this.spawnTimer = 0;
+    this.spawnEnabled = options.spawnEnabled !== false;
+    this.floorDrainEnabled = options.floorDrainEnabled === true;
     this.lastFrame = 0;
     this.loopHandle = null;
     this.running = false;
@@ -527,6 +529,28 @@ export class PowderSimulation {
     return applyWallGapTarget(this, options);
   }
 
+  setSpawnEnabled(enabled, options = {}) {
+    this.spawnEnabled = Boolean(enabled);
+    if (!this.spawnEnabled) {
+      this.spawnTimer = 0;
+      this.idleDropAccumulator = 0;
+      if (options.clearPendingDrops) {
+        this.pendingDrops = [];
+      }
+    }
+    return this.spawnEnabled;
+  }
+
+  setFloorDrainEnabled(enabled) {
+    this.floorDrainEnabled = Boolean(enabled);
+    if (this.floorDrainEnabled) {
+      this.stabilized = false;
+    } else {
+      this.stabilized = true;
+    }
+    return this.floorDrainEnabled;
+  }
+
   handleFrame(timestamp) {
     if (!this.running) {
       return;
@@ -546,13 +570,15 @@ export class PowderSimulation {
     }
 
     this.updateStars(delta);
-    this.convertIdleBank(delta);
-    this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
+    if (this.spawnEnabled) {
+      this.convertIdleBank(delta);
+      this.advanceSpawnTimer(delta); // Continuously queue natural mote drops so the basin never starves between enemy events.
 
-    const spawnBudget = Math.max(1, Math.ceil(delta / 12));
-    const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
-    const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
-    this.spawnPendingDrops(remainingBudget);
+      const spawnBudget = Math.max(1, Math.ceil(delta / 12));
+      const idleReleased = this.releaseIdleDrops(delta, spawnBudget); // Emit idle conversions using the earned rate budget.
+      const remainingBudget = Math.max(0, spawnBudget - idleReleased); // Preserve headroom for combat or ambient drops.
+      this.spawnPendingDrops(remainingBudget);
+    }
 
     const iterations = Math.max(1, Math.min(4, Math.round(delta / 16)));
     for (let i = 0; i < iterations; i += 1) {
@@ -1797,7 +1823,7 @@ export class PowderSimulation {
       return;
     }
     const frameDelta = Number.isFinite(delta) && delta > 0 ? delta : 16;
-    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const lifetime = this.getTouchdownWaveLifetimeMs();
     const activeWaves = [];
     for (const wave of this.touchdownWaves) {
       wave.ageMs += frameDelta;
@@ -1812,8 +1838,8 @@ export class PowderSimulation {
     if (!this.touchdownWaves.length) {
       return 0;
     }
-    const lifetime = Math.max(200, this.touchdownWaveLifetimeMs);
-    const speedCellsPerMs = Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+    const lifetime = this.getTouchdownWaveLifetimeMs();
+    const speedCellsPerMs = this.getTouchdownWaveSpeedCellsPerMs();
     const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
     // Keep gaussian blending but clip influence to local neighborhoods so base brightness does not tint the whole pile.
     const boundedFrontRange = Math.max(0.5, bandWidth * 2.75);
@@ -1839,26 +1865,51 @@ export class PowderSimulation {
       const interiorStrength = interiorInRange
         ? Math.exp(-Math.pow(distance / Math.max(0.001, interiorRadius), 2))
         : 0;
-      // Extend the wave downward so the response reaches the bottom of the currently visible mote pile.
-      const visibleDepth = Math.max(1, (this.rows || 1) - wave.y);
+      // Propagate the touchdown response as a traveling downward front so the pile does not flash all at once.
       const downwardDistance = y - wave.y;
-      const depthRatio = clampUnitInterval(downwardDistance / visibleDepth);
-      const horizontalSpread = Math.max(bandWidth * 2.4, frontRadius * 0.45 + bandWidth);
+      // Keep the vertical lane narrow enough to read as a directed wave instead of a full-screen bloom.
+      const horizontalSpread = Math.max(bandWidth * 1.9, bandWidth + frontRadius * 0.2);
       const horizontalDistance = Math.abs(x - wave.x);
       // Bound the downward tail horizontally to preserve a localized touchdown lane.
       const horizontalInRange = horizontalDistance <= horizontalSpread + boundedTailRange;
       const horizontalStrength = horizontalInRange
         ? Math.exp(-Math.pow(horizontalDistance / Math.max(0.001, horizontalSpread), 2))
         : 0;
-      const downwardTailStrength = downwardDistance >= 0
-        ? horizontalStrength * (1 - depthRatio * 0.68)
+      // Track how far the downward wavefront has travelled so lower motes light only when the front reaches them.
+      const downwardDistanceFromFront = Math.abs(downwardDistance - frontRadius);
+      const downwardFrontStrength = Math.exp(-Math.pow(
+        downwardDistanceFromFront / Math.max(0.001, bandWidth * 1.05),
+        2,
+      ));
+      const downwardTailStrength = downwardDistance >= 0 && downwardDistance <= frontRadius + bandWidth * 2
+        ? horizontalStrength * downwardFrontStrength
         : 0;
       const fadeStrength = 1 - ageRatio;
-      const blendedStrength = frontStrength * 0.6 + interiorStrength * 0.22 + downwardTailStrength * tailStrength;
+      const blendedStrength = frontStrength * 0.58 + interiorStrength * 0.12 + downwardTailStrength * tailStrength;
       intensity = Math.max(intensity, blendedStrength * fadeStrength);
     }
     // Clamp to [0,1] so downstream color blending remains stable when multiple waves overlap.
     return clampUnitInterval(intensity);
+  }
+
+  getTouchdownWaveSpeedCellsPerMs() {
+    return Math.max(1, this.touchdownWaveSpeedCells) / 1000;
+  }
+
+  /**
+   * Resolve the active touchdown-wave lifetime so the crest can traverse the full visible stack.
+   * Uses whichever is larger between the configured lifetime and the rows/speed traversal duration.
+   *
+   * @returns {number} Wave lifetime in milliseconds.
+   */
+  getTouchdownWaveLifetimeMs() {
+    const configuredLifetime = Math.max(200, this.touchdownWaveLifetimeMs);
+    const speedCellsPerMs = this.getTouchdownWaveSpeedCellsPerMs();
+    const rows = Math.max(1, this.rows || 0);
+    const bandWidth = Math.max(0.35, this.touchdownWaveBandCells);
+    const traversalLifetime = (rows + bandWidth * 2) / speedCellsPerMs;
+    // Keep waves alive long enough for the front to traverse the full mote pile before fading.
+    return Math.max(configuredLifetime, traversalLifetime);
   }
 
   // Compact autosave helpers and compact-aware exportState/importState
@@ -2498,5 +2549,3 @@ export class PowderSimulation {
     window.removeEventListener('resize', this.handleResize);
   }
 }
-
-

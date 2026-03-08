@@ -46,7 +46,7 @@ export function createPowderUiDomHelpers(options = {}) {
   /**
    * Render one Aleph wall glyph from the dedicated golden Aleph and golden digit sprites.
    * @param {HTMLElement} glyphElement - Glyph container anchored to the wall.
-   * @param {number} index - Glyph index rendered as ℵ + decimal digits.
+   * @param {number} index - Glyph index rendered as ℵ + decimal digits (supports cyclic tier-local indices).
    */
   function renderPowderGlyphSprite(glyphElement, index) {
     if (!glyphElement || typeof document === 'undefined') {
@@ -349,7 +349,18 @@ export function createPowderUiDomHelpers(options = {}) {
     const highestRawInput = Number.isFinite(info.highestNormalized) ? info.highestNormalized : 0;
     const totalRawInput = Number.isFinite(info.totalNormalized) ? info.totalNormalized : highestRawInput;
     const highestNormalized = Math.max(0, highestRawInput, totalRawInput);
-    const GLYPH_SPACING_NORMALIZED = 0.5;
+    const tierAdvanceAlephCount = Number.isFinite(info.tierAdvanceAlephCount) && info.tierAdvanceAlephCount > 0
+      ? Math.max(1, Math.floor(info.tierAdvanceAlephCount))
+      : 30;
+    const minAlephWallTier = Number.isFinite(info.minAlephWallTier) && info.minAlephWallTier > 0
+      ? Math.max(1, Math.floor(info.minAlephWallTier))
+      : 1;
+    const maxAlephWallTier = Number.isFinite(info.maxAlephWallTier) && info.maxAlephWallTier > 0
+      ? Math.max(minAlephWallTier, Math.floor(info.maxAlephWallTier))
+      : 15;
+    // Keep Aleph milestones on a fixed 100-mote vertical cadence so wall-width changes never shift threshold spacing.
+    const glyphSpacingRows = 100;
+    const GLYPH_SPACING_NORMALIZED = glyphSpacingRows / Math.max(1, rows);
     const GLYPH_BASE_NORMALIZED = GLYPH_SPACING_NORMALIZED;
     const safeRows = Math.max(1, rows);
     const basinHeight = safeRows * cellSize;
@@ -390,7 +401,8 @@ export function createPowderUiDomHelpers(options = {}) {
             column.element.appendChild(glyph);
             column.glyphs.set(index, glyph);
           }
-          renderPowderGlyphSprite(glyph, index);
+          // Cycle displayed Aleph digits every tier so each tier restarts at ℵ0 through ℵ(n-1).
+          renderPowderGlyphSprite(glyph, index % tierAdvanceAlephCount);
           const glyphNormalized = glyphHeightForIndex(index);
           const relativeRows = glyphNormalized * safeRows - scrollOffset;
           const topPx = basinHeight - relativeRows * cellSize;
@@ -418,6 +430,14 @@ export function createPowderUiDomHelpers(options = {}) {
     const span = Math.max(GLYPH_SPACING_NORMALIZED, nextThreshold - previousThreshold);
     const progressFraction = clampUnitInterval((highestNormalized - previousThreshold) / span);
     const remainingToNext = Math.max(0, nextThreshold - highestNormalized);
+    // Convert normalized remaining height into mote-height so Δh readouts are always in gameplay units.
+    const remainingToNextMotes = remainingToNext * safeRows;
+    const alephInTier = glyphsLit % tierAdvanceAlephCount;
+    const tier = Math.max(
+      minAlephWallTier,
+      Math.min(maxAlephWallTier, minAlephWallTier + Math.floor(glyphsLit / tierAdvanceAlephCount)),
+    );
+    const remainingAlephToNextTier = Math.max(0, tierAdvanceAlephCount - alephInTier);
 
     if (powderGlyphColumns.length) {
       powderGlyphColumns.forEach((column) => {
@@ -437,6 +457,11 @@ export function createPowderUiDomHelpers(options = {}) {
       glyphsLit,
       progressFraction,
       remainingToNext,
+      remainingToNextMotes,
+      tier,
+      alephInTier,
+      tierAdvanceAlephCount,
+      remainingAlephToNextTier,
     };
   }
 
