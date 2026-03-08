@@ -11,13 +11,14 @@ const HALF_PI = Math.PI / 2;
 const HALF = 0.5;
 
 // Gate sprite assets loaded eagerly so they are ready before first render.
-const MIND_GATE_SPRITE_URL = 'assets/images/tower-mind-gate.svg';
+// Using PNG symbol sprites uploaded to the gates&track sprite folder.
+const MIND_GATE_SPRITE_URL = 'assets/sprites/gates%26track/mindGate/mindGateSymbol.png';
 const mindGateSprite = new Image();
 mindGateSprite.src = MIND_GATE_SPRITE_URL;
 mindGateSprite.decoding = 'async';
 mindGateSprite.loading = 'eager';
 
-const ENEMY_GATE_SPRITE_URL = 'assets/images/enemy-gate.svg';
+const ENEMY_GATE_SPRITE_URL = 'assets/sprites/gates%26track/enemyGate/enemyGateSymbol.png';
 const enemyGateSprite = new Image();
 enemyGateSprite.src = ENEMY_GATE_SPRITE_URL;
 enemyGateSprite.decoding = 'async';
@@ -53,6 +54,29 @@ const CONSCIOUSNESS_WAVE_LAYER2_ALPHA = 0.5; // Opacity of second layer
 const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for second layer
 const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
 const CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
+
+// Mind Gate swirling particle configuration — warm colors orbiting clockwise.
+const MIND_GATE_PARTICLE_COUNT = 14;
+const MIND_GATE_PARTICLE_COLORS = [
+  [255, 215, 0],   // gold
+  [255, 165, 0],   // amber
+  [255, 248, 220], // cream
+  [255, 182, 120], // warm peach
+  [255, 140, 60],  // deep amber
+  [255, 230, 150], // light gold
+  [255, 100, 80],  // warm coral
+];
+// Enemy Gate swirling particle configuration — dark violet colors orbiting counter-clockwise.
+const ENEMY_GATE_PARTICLE_COUNT = 14;
+const ENEMY_GATE_PARTICLE_COLORS = [
+  [100, 0, 180],  // violet
+  [60, 0, 120],   // deep violet
+  [80, 0, 140],   // purple-violet
+  [40, 0, 80],    // near-black violet
+  [120, 0, 200],  // bright violet
+  [20, 0, 50],    // almost black
+  [90, 10, 160],  // mid violet
+];
 
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
 function getPathLayerCacheKey(width, height, paletteStops, trackMode) {
@@ -478,6 +502,59 @@ function drawArcLight() {
   ctx.restore();
 }
 
+// Draw warm particles swirling clockwise around the Mind Gate — beautiful orbiting motes of gold and amber.
+function drawMindGateParticles(ctx, radius, currentTime) {
+  for (let i = 0; i < MIND_GATE_PARTICLE_COUNT; i++) {
+    const offset = (i / MIND_GATE_PARTICLE_COUNT) * TWO_PI;
+    // Stagger orbital radii across three rings for depth.
+    const ring = i % 3;
+    const orbitalRadius = radius * (0.62 + ring * 0.22);
+    // Each particle has a slightly different speed so they drift past each other.
+    const speed = 0.45 + (i % 4) * 0.12;
+    // Clockwise = positive angle increase over time.
+    const angle = offset + currentTime * speed;
+    const x = Math.cos(angle) * orbitalRadius;
+    const y = Math.sin(angle) * orbitalRadius;
+    const [r, g, b] = MIND_GATE_PARTICLE_COLORS[i % MIND_GATE_PARTICLE_COLORS.length];
+    // Gently pulse alpha so particles breathe as they orbit.
+    const alpha = 0.55 + 0.35 * Math.sin(currentTime * 1.8 + offset);
+    const size = Math.max(1, 1.8 + Math.sin(currentTime * 2.5 + offset) * 0.9);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, TWO_PI);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha * 0.75})`;
+    ctx.shadowBlur = size * 4;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Draw dark violet particles swirling counter-clockwise behind the Enemy Gate — ominous void motes.
+function drawEnemyGateParticles(ctx, radius, currentTime) {
+  for (let i = 0; i < ENEMY_GATE_PARTICLE_COUNT; i++) {
+    const offset = (i / ENEMY_GATE_PARTICLE_COUNT) * TWO_PI;
+    const ring = i % 3;
+    const orbitalRadius = radius * (0.55 + ring * 0.25);
+    const speed = 0.38 + (i % 4) * 0.1;
+    // Counter-clockwise = negative angle (subtract time * speed).
+    const angle = offset - currentTime * speed;
+    const x = Math.cos(angle) * orbitalRadius;
+    const y = Math.sin(angle) * orbitalRadius;
+    const [r, g, b] = ENEMY_GATE_PARTICLE_COLORS[i % ENEMY_GATE_PARTICLE_COLORS.length];
+    const alpha = 0.5 + 0.3 * Math.sin(currentTime * 1.5 + offset);
+    const size = Math.max(1, 1.6 + Math.sin(currentTime * 2.1 + offset) * 0.8);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, TWO_PI);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha * 0.9})`;
+    ctx.shadowBlur = size * 5;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 function drawEnemyGateSymbol(ctx, position) {
   if (!ctx || !position) {
     return;
@@ -510,6 +587,12 @@ function drawEnemyGateSymbol(ctx, position) {
   ctx.beginPath();
   ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
   ctx.fill();
+
+  // Draw dark violet particles swirling counter-clockwise behind the gate symbol.
+  if (!this.isLowGraphicsMode?.()) {
+    const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+    drawEnemyGateParticles(ctx, radius, currentTime);
+  }
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
   if (spriteReady) {
@@ -640,6 +723,11 @@ function drawMindGateSymbol(ctx, position) {
   ctx.restore();
 
   ctx.restore();
+
+  // Draw warm particles swirling clockwise behind the gate symbol.
+  if (!this.isLowGraphicsMode?.()) {
+    drawMindGateParticles(ctx, radius, currentTime);
+  }
 
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
   if (spriteReady) {
