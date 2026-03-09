@@ -86,6 +86,7 @@ import {
   areWaveDamageTalliesEnabled,
   areTrackTracersEnabled,
   getActiveGraphicsMode,
+  getPreferredGraphicsMode,
   bindTrackRenderModeButton,
   initializeTrackRenderMode,
   initializeLoadoutSlotPreference,
@@ -3768,7 +3769,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     statKeys: Object.keys(gameStats),
     getPreferenceSnapshot: () => ({
       notation: getGameNumberNotation(),
-      graphics: getActiveGraphicsMode(),
+      // Persist the explicit user preference instead of temporary auto-performance overrides.
+      graphics: getPreferredGraphicsMode(),
       glyphEquations: areGlyphEquationsVisible() ? '1' : '0',
       damageNumbers: areDamageNumbersEnabled() ? '1' : '0',
       waveKillTallies: areWaveKillTalliesEnabled() ? '1' : '0',
