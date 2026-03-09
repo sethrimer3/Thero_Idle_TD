@@ -13,7 +13,7 @@ scroll.
 ## Investigation Summary
 
 ### Symptoms
-| Behaviour | Works? |
+| Behavior | Works? |
 |---|---|
 | Scroll by touching the panel padding / edges | ✅ Yes |
 | Scroll by touching child elements (buttons, cards, text) | ❌ No |
@@ -23,7 +23,7 @@ scroll.
 
 The scrolling failure on Android is caused by **multiple interacting factors**,
 not a single bug. Each factor alone might not block scrolling, but together they
-create a cascade that prevents the browser's compositor from recognising a
+create a cascade that prevents the browser's compositor from recognizing a
 vertical scroll gesture when the touch originates on a child element.
 
 #### Factor 1 – `dragScroll.js` captures touch pointers
@@ -34,7 +34,7 @@ starts inside these containers, the handler:
 
 1. Calls `element.setPointerCapture(event.pointerId)` — which redirects **all**
    subsequent pointer events to that element, preventing the browser from
-   recognising the gesture as a native scroll.
+   recognizing the gesture as a native scroll.
 2. Calls `event.preventDefault()` inside `handlePointerMove` — which explicitly
    tells the browser not to perform its default scroll action.
 
@@ -151,7 +151,7 @@ the problem element and check:
 
 Search the codebase for `setPointerCapture`. Any call on a touch pointer inside
 a `.panel` will hijack all subsequent pointer events and prevent the browser
-from recognising a scroll gesture. Ensure all `setPointerCapture` calls either:
+from recognizing a scroll gesture. Ensure all `setPointerCapture` calls either:
 - Are gated behind `event.pointerType !== 'touch'`, or
 - Only apply to elements with `touch-action: none` (canvases, maps).
 

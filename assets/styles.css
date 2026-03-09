@@ -58,11 +58,11 @@ body *::-webkit-scrollbar {
   height: 0;
 }
 
-/* Signal draggable surfaces and suppress text selection while panning. */
+/* Signal draggable surfaces and suppress text selection while panning.
+   No touch-action override here — touch pointers are skipped in dragScroll.js
+   so native scroll is preserved.  Mouse/pen panning is handled by JS. */
 [data-drag-scroll] {
   cursor: var(--cursor-grab);
-  /* Touch pointers rely on native scroll (drag-scroll.js skips them), so only
-     suppress browser gestures for mouse/pen pointers via the JS handler. */
 }
 
 /* Lock text selection during an active drag-scroll gesture. */
