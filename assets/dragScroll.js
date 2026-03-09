@@ -35,6 +35,10 @@ function attachDragScroll(element) {
     if (!element) {
       return;
     }
+    // Let native touch scrolling handle touch pointers; only use drag-scroll for mouse.
+    if (event.pointerType === 'touch') {
+      return;
+    }
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
