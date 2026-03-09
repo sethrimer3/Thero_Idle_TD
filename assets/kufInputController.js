@@ -108,6 +108,9 @@ export function handleMouseDown(e) {
 }
 
 export function handleMouseMove(e) {
+  if ((e.buttons & 1) !== 1) {
+    return;
+  }
   const elapsed = performance.now() - this.dragStartTime;
   const rect = this.canvas.getBoundingClientRect();
   const canvasX = e.clientX - rect.left;
