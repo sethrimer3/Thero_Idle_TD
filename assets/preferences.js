@@ -103,6 +103,8 @@ let trackRenderPreviewTracer = null;
 let desktopCursorMediaQuery = null;
 let desktopCursorActive = false;
 let activeGraphicsMode = GRAPHICS_MODES.HIGH;
+// Remember the player's explicit graphics preference so temporary auto-performance downgrades do not overwrite it.
+let preferredGraphicsMode = GRAPHICS_MODES.HIGH;
 let activeTrackRenderMode = TRACK_RENDER_MODES.GRADIENT;
 const LOADOUT_TOGGLE_SIDES = Object.freeze({
   LEFT: 'left',
@@ -861,6 +863,10 @@ export function setGraphicsModeContext({ getPowderSimulation, getPlayfield } = {
 export function applyGraphicsMode(mode, { persist = true } = {}) {
   const normalized = mode === GRAPHICS_MODES.LOW ? GRAPHICS_MODES.LOW : GRAPHICS_MODES.HIGH;
   activeGraphicsMode = normalized;
+  // Only mutate the preferred mode when this call is intended to persist the player's explicit choice.
+  if (persist) {
+    preferredGraphicsMode = normalized;
+  }
 
   const body = typeof document !== 'undefined' ? document.body : null;
   if (body) {
@@ -893,6 +899,10 @@ export function isLowGraphicsModeActive() {
 
 export function getActiveGraphicsMode() {
   return activeGraphicsMode;
+}
+
+export function getPreferredGraphicsMode() {
+  return preferredGraphicsMode;
 }
 
 export function toggleGraphicsMode() {
@@ -953,6 +963,8 @@ export function initializeGraphicsMode() {
   const normalized = stored === GRAPHICS_MODES.LOW || stored === GRAPHICS_MODES.HIGH ? stored : null;
   // Default brand-new installs to high fidelity so visuals match the intended presentation out of the box.
   const fallback = GRAPHICS_MODES.HIGH;
+  // Seed the preferred mode first so autosave snapshots always reflect the player's durable choice.
+  preferredGraphicsMode = normalized || fallback;
   applyGraphicsMode(normalized || fallback, { persist: !normalized });
 }
 
