@@ -21,14 +21,9 @@ function attachCanvasInteractions() {
   this.canvas.addEventListener('pointerup', this.pointerUpHandler);
   this.canvas.addEventListener('pointercancel', this.pointerUpHandler);
   this.canvas.addEventListener('lostpointercapture', this.pointerUpHandler);
-  // Block page scrolling while the pointer is over the playfield container or canvas.
-  if (this.container) {
-    this.container.addEventListener('wheel', this.wheelHandler, { passive: false, capture: true });
-  }
-  if (this.canvas) {
-    this.canvas.addEventListener('wheel', this.wheelHandler, { passive: false });
-  }
-  // Capture wheel gestures at the document level to prevent page scroll while zooming the playfield.
+  // Intercept wheel gestures at the document level to both prevent page scroll and perform zoom.
+  // Using document capture ensures we block scroll on any ancestor container and handle the
+  // zoom directly, since stopPropagation would otherwise prevent canvas listeners from firing.
   this.wheelBlockHandler = (event) => {
     if (!this.container) {
       return;
@@ -50,6 +45,8 @@ function attachCanvasInteractions() {
     if (typeof event.stopPropagation === 'function') {
       event.stopPropagation();
     }
+    // Perform the zoom directly since stopPropagation prevents the canvas listener from firing.
+    this.handleCanvasWheel(event);
   };
   if (typeof document !== 'undefined') {
     document.addEventListener('wheel', this.wheelBlockHandler, { passive: false, capture: true });
