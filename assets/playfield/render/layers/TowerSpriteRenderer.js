@@ -76,6 +76,57 @@ const TOWER_RING_FADE_DURATION_MS = 120;
 // Cache tower ring Image objects so rendering can reuse decoded sprites every frame.
 let cachedTowerRingSprites = null;
 
+// Cache pre-rendered golden bloom glow circles keyed by rounded body radius.
+// The bloom appearance never changes between frames for a given body radius, so
+// we pay the radial gradient setup cost once and reuse a fast drawImage call
+// every frame instead of calling createRadialGradient() per-tower per-frame.
+const goldenBloomSpriteCache = new Map();
+const GOLDEN_BLOOM_CACHE_MAX = 8; // Body radius varies little in one session; a small cap is sufficient.
+
+/**
+ * Return (or create and cache) an offscreen canvas with the golden bloom
+ * gradient pre-rendered for the given tower body radius.
+ */
+function getOrCreateGoldenBloomSprite(bodyRadius) {
+  const key = Math.round(bodyRadius);
+  if (goldenBloomSpriteCache.has(key)) {
+    return goldenBloomSpriteCache.get(key);
+  }
+  const outerRadius = bodyRadius * 1.9;
+  const innerRadius = bodyRadius * 0.35;
+  const size = Math.ceil(outerRadius * 2) + 4; // 2 px padding each side
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const gradient = offCtx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+  gradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
+  gradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
+  gradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
+  offCtx.fillStyle = gradient;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, outerRadius, 0, TWO_PI);
+  offCtx.fill();
+  // Evict the oldest entry when the cache reaches its cap.
+  // Map preserves insertion order in JavaScript, so keys().next().value is the oldest key.
+  if (goldenBloomSpriteCache.size >= GOLDEN_BLOOM_CACHE_MAX) {
+    goldenBloomSpriteCache.delete(goldenBloomSpriteCache.keys().next().value);
+  }
+  goldenBloomSpriteCache.set(key, canvas);
+  return canvas;
+}
+
 function getTowerRingSprites() {
   if (cachedTowerRingSprites) {
     return cachedTowerRingSprites;
@@ -238,6 +289,11 @@ export function drawTowerRings(ctx, tower, bodyRadius) {
   const elapsedMs = Math.max(0, getNowTimestamp() - placedAtMs);
   const sprites = getTowerRingSprites();
 
+  // One save/translate pair wraps all five rings so each ring only needs
+  // rotate/draw/rotate-undo rather than a full save/restore per sprite.
+  // ctx.restore() at the end undoes the translate and resets globalAlpha.
+  ctx.save();
+  ctx.translate(tower.x, tower.y);
   sprites.forEach((sprite, index) => {
     if (!sprite || !sprite.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
       return;
@@ -258,13 +314,15 @@ export function drawTowerRings(ctx, tower, bodyRadius) {
     const speed = TOWER_RING_BASE_SPEEDS[index] || TOWER_RING_BASE_SPEEDS[TOWER_RING_BASE_SPEEDS.length - 1];
     const rotation = tower.ringRotationPhase + direction * speed * (elapsedMs / 1000);
 
-    ctx.save();
     ctx.globalAlpha = smoothstep(fadeProgress);
-    ctx.translate(tower.x, tower.y);
     ctx.rotate(rotation);
     ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
-    ctx.restore();
+    // Undo this ring's rotation so the next ring starts from the tower-centre
+    // orientation rather than accumulating offsets.
+    ctx.rotate(-rotation);
   });
+  // Restores the translate and global alpha set before the loop.
+  ctx.restore();
 }
 
 // ─── Placement Preview ────────────────────────────────────────────────────────
@@ -691,22 +749,30 @@ export function drawTowers() {
     }
 
     ctx.save();
-    // Add a soft golden bloom beneath every tower body so placement reads as gently empowered.
-    const goldenGlowGradient = ctx.createRadialGradient(
-      tower.x,
-      tower.y,
-      bodyRadius * 0.35,
-      tower.x,
-      tower.y,
-      bodyRadius * 1.9,
-    );
-    goldenGlowGradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
-    goldenGlowGradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
-    goldenGlowGradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
-    ctx.fillStyle = goldenGlowGradient;
-    ctx.beginPath();
-    ctx.arc(tower.x, tower.y, bodyRadius * 1.9, 0, TWO_PI);
-    ctx.fill();
+    // Blit the pre-rendered golden bloom glow to avoid a per-tower per-frame
+    // createRadialGradient() call; the appearance is static for a given body radius.
+    const bloomSprite = getOrCreateGoldenBloomSprite(bodyRadius);
+    if (bloomSprite) {
+      const bloomHalfSize = bloomSprite.width * 0.5;
+      ctx.drawImage(bloomSprite, tower.x - bloomHalfSize, tower.y - bloomHalfSize, bloomSprite.width, bloomSprite.height);
+    } else {
+      // Fallback: draw the gradient inline when offscreen canvas is unavailable.
+      const goldenGlowGradient = ctx.createRadialGradient(
+        tower.x,
+        tower.y,
+        bodyRadius * 0.35,
+        tower.x,
+        tower.y,
+        bodyRadius * 1.9,
+      );
+      goldenGlowGradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
+      goldenGlowGradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
+      goldenGlowGradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
+      ctx.fillStyle = goldenGlowGradient;
+      ctx.beginPath();
+      ctx.arc(tower.x, tower.y, bodyRadius * 1.9, 0, TWO_PI);
+      ctx.fill();
+    }
 
     const outerShadow = visuals.outerShadow;
     if (outerShadow?.color) {
