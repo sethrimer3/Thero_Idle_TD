@@ -10,7 +10,7 @@ const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const HALF = 0.5;
 // Treat high-DPI playfields as an effects budget signal because every glow/blit costs more fill-rate.
-const HIGH_DPI_EFFECT_PIXEL_RATIO = 1.75;
+const HIGH_DPI_EFFECT_PIXEL_RATIO = 1.5;
 // Apply a stronger reduction on very dense displays where layered particles become especially expensive.
 const ULTRA_DPI_EFFECT_PIXEL_RATIO = 2.5;
 
@@ -92,15 +92,15 @@ const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
 // Preserve a readable wave silhouette in low graphics mode with half the original point count.
 const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE = 0.5;
 // Retain more of the original curve on high-DPI displays because the gate is still shown at full size.
-const CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE = 0.7;
+const CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE = 0.6;
 // Trim the wave more aggressively on ultra-dense displays where overdraw costs climb fastest.
-const CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE = 0.6;
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE = 0.5;
 // Never reduce the wave below this floor in low graphics mode so it still reads as a sine band.
 const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS = 32;
 // Keep a slightly higher floor for high-DPI displays to avoid a visibly polygonal gate wave.
-const CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS = 48;
+const CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS = 40;
 // Allow the strongest high-DPI reduction while preserving the gate's overall light signature.
-const CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS = 40;
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS = 32;
 const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
 const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
 const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
@@ -139,9 +139,9 @@ const GATE_PARTICLE_COLOR_BUCKETS = 8;
 // Pre-calculated max index for color bucket mapping used in both cache build and per-frame draw.
 const GATE_PARTICLE_MAX_COLOR_INDEX = GATE_PARTICLE_COLOR_BUCKETS - 1;
 // Reduce the gate particle budget on dense displays while preserving a readable halo.
-const GATE_PARTICLE_HIGH_DPI_COUNT = 12;
+const GATE_PARTICLE_HIGH_DPI_COUNT = 9;
 // Trim even more particles on very dense displays to curb per-frame sprite blits.
-const GATE_PARTICLE_ULTRA_DPI_COUNT = 10;
+const GATE_PARTICLE_ULTRA_DPI_COUNT = 7;
 // Define the warm distance gradient for Mind Gate particles (center -> outer ring).
 const MIND_GATE_GRADIENT_STOPS = [
   { stop: 0, color: [140, 72, 16] },
@@ -202,11 +202,11 @@ function getTrackEffectDetailProfile() {
     highDpiEffectsEnabled,
     ultraDpiEffectsEnabled,
     // Dense displays and low-graphics mode both benefit from drawing fewer rotating backdrop layers.
-    backgroundLayerStride: lowGraphicsEnabled || highDpiEffectsEnabled ? 2 : 1,
+    backgroundLayerStride: lowGraphicsEnabled || ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
     // River particles are pure eye candy, so halve their draw density when fill-rate is under pressure.
-    pathParticleStride: lowGraphicsEnabled || highDpiEffectsEnabled ? 2 : 1,
+    pathParticleStride: lowGraphicsEnabled || ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
     // Keep tracer sparks a bit denser than the base river, but still skip half on dense displays.
-    tracerParticleStride: highDpiEffectsEnabled ? 2 : 1,
+    tracerParticleStride: ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
     // Reduce gate particle simulation count only when the screen density itself makes blits costlier.
     gateParticleCount: ultraDpiEffectsEnabled
       ? GATE_PARTICLE_ULTRA_DPI_COUNT

@@ -29,6 +29,20 @@ const VIEWPORT_CULL_MARGIN = 100;
 // Sunlight radius is a fraction of the larger playfield dimension so the effect
 // scales sensibly on both portrait (mobile) and landscape (desktop) orientations.
 const SUNLIGHT_RADIUS_FACTOR = 0.5;
+// Start shrinking the screen-space glow footprint earlier on dense displays because the same bloom covers more real pixels.
+const HIGH_DPI_SUNLIGHT_PIXEL_RATIO = 1.5;
+// Apply the strongest sunlight reduction on very dense displays to limit the largest full-screen blend.
+const ULTRA_DPI_SUNLIGHT_PIXEL_RATIO = 2.5;
+// Keep most of the glow on moderately dense displays while trimming some expensive overdraw.
+const HIGH_DPI_SUNLIGHT_RADIUS_SCALE = 0.88;
+// Compress the glow more aggressively on ultra-dense displays where the bloom is the most expensive decorative blend.
+const ULTRA_DPI_SUNLIGHT_RADIUS_SCALE = 0.74;
+// Tighten the glow further in low graphics mode so weaker devices spend less time filling the warm bloom.
+const LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE = 0.7;
+// Slightly dim the sunlight overlay when density-based reductions are active so the smaller sprite still reads naturally.
+const HIGH_DPI_SUNLIGHT_ALPHA = 0.9;
+const ULTRA_DPI_SUNLIGHT_ALPHA = 0.8;
+const LOW_GRAPHICS_SUNLIGHT_ALPHA = 0.72;
 
 // Bloom overlay covers a smaller central region for a brighter warm core.
 const BLOOM_RADIUS_FACTOR = 0.55;
@@ -141,9 +155,47 @@ function resolveSunlightRadius() {
   const w = this.renderWidth || 0;
   const h = this.renderHeight || 0;
   const larger = Math.max(w, h) || 1;
+  const detailProfile = getSunlightDetailProfile.call(this);
   // Return a screen-space radius so the sprite cache remains stable across zoom
   // levels and the glow covers a consistent screen fraction at any zoom.
-  return larger * SUNLIGHT_RADIUS_FACTOR;
+  return larger * SUNLIGHT_RADIUS_FACTOR * detailProfile.radiusScale;
+}
+
+/**
+ * Cache a simple detail profile for the Mind Gate sunlight so dense displays and
+ * low graphics mode can share the same overdraw reductions for the glow sprite.
+ */
+function getSunlightDetailProfile() {
+  const cachedProfile = this?._frameCache?.sunlightDetailProfile;
+  if (cachedProfile && typeof cachedProfile === 'object') {
+    return cachedProfile;
+  }
+  const pixelRatio = Math.max(1, this?.pixelRatio || 1);
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
+  const ultraDpiEnabled = pixelRatio >= ULTRA_DPI_SUNLIGHT_PIXEL_RATIO;
+  const highDpiEnabled = pixelRatio >= HIGH_DPI_SUNLIGHT_PIXEL_RATIO;
+  const radiusScale = lowGraphicsEnabled
+    ? LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE
+    : ultraDpiEnabled
+      ? ULTRA_DPI_SUNLIGHT_RADIUS_SCALE
+      : highDpiEnabled
+        ? HIGH_DPI_SUNLIGHT_RADIUS_SCALE
+        : 1;
+  const alpha = lowGraphicsEnabled
+    ? LOW_GRAPHICS_SUNLIGHT_ALPHA
+    : ultraDpiEnabled
+      ? ULTRA_DPI_SUNLIGHT_ALPHA
+      : highDpiEnabled
+        ? HIGH_DPI_SUNLIGHT_ALPHA
+        : 1;
+  const profile = {
+    radiusScale,
+    alpha,
+  };
+  if (this?._frameCache) {
+    this._frameCache.sunlightDetailProfile = profile;
+  }
+  return profile;
 }
 
 /**
@@ -272,9 +324,11 @@ export function drawMindGateSunlight() {
   // Sprite is built at screen-pixel resolution so the cache is stable across zoom.
   const sunlightSprite = resolveSunlightSprite.call(this, screenRadius);
   const viewScale = Math.max(0.1, this.viewScale || 1);
+  const detailProfile = getSunlightDetailProfile.call(this);
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = detailProfile.alpha;
   if (sunlightSprite?.canvas) {
     // Convert sprite's screen-pixel size to world-coordinate size so the
     // zoom transform applied by the render pipeline scales it back to the
