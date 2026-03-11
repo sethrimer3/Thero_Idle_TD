@@ -177,6 +177,25 @@ const ENEMY_GATE_GRADIENT_STOPS = [
 // Reuse one canonical warm hue for the Mind Gate wave and its cached gradient.
 const MIND_GATE_WAVE_COLOR = { r: 255, g: 120, b: 0 };
 
+// Cadence at which gate background layer composites are re-rendered to the offscreen cache.
+// At 30 fps the fastest ring (0.3 rad/s) shifts by only ~0.5° per bucket — imperceptible at any scale.
+const GATE_LAYERS_CACHE_FPS = 30;
+// Keep the composite cache bounded; two gates × a couple of resize variants stays ≤4 entries.
+const GATE_LAYERS_COMPOSITE_CACHE_MAX = 4;
+// Pre-composited gate background layer frames keyed by "{layerCount}:{roundedSize}:{stride}:{timeBucket}".
+// Reduces N per-layer save/rotate/drawImage/restore calls to a single drawImage blit on cache hits.
+const gateLayersCompositeCache = new Map();
+
+// Pre-rendered gradient fills for the enemy gate symbol (anti-glow void + cyan aura), keyed by rounded radius.
+// Eliminates two createRadialGradient() calls per frame for the enemy gate anchor.
+const enemyGateGradientCache = new Map();
+const ENEMY_GATE_GRADIENT_CACHE_MAX = 3;
+
+// Pre-rendered glow gradient fill for the mind gate symbol, keyed by rounded radius.
+// Eliminates one createRadialGradient() call per frame for the mind gate anchor.
+const mindGateGradientCache = new Map();
+const MIND_GATE_GRADIENT_CACHE_MAX = 3;
+
 /**
  * Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
  * @this {{
@@ -245,24 +264,84 @@ function getTrackEffectDetailProfile() {
 }
 
 // Draw layered gate background sprites with independent angular velocities.
+// Pre-composes all layers into a time-bucketed offscreen canvas so each frame only costs one drawImage blit.
+// The cache key encodes the layer set, draw size, stride, and a ~33 ms time bucket so the composite is
+// rebuilt at ≈30 fps while almost every frame reuses the cached bitmap.
 function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9, layerStride = 1) {
   if (!ctx || !Array.isArray(layers) || !layers.length || !Number.isFinite(baseDrawSize) || baseDrawSize <= 0) {
     return;
   }
   const stride = Math.max(1, layerStride);
-  for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
-    const layer = layers[layerIndex];
-    const sprite = layer?.image;
-    if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
-      continue;
+  const roundedSize = Math.ceil(baseDrawSize);
+  const timeBucket = Math.floor(currentTime * GATE_LAYERS_CACHE_FPS);
+  // Use layer count as a cheap identity tag (7 = shadow gate, 8 = mind gate).
+  const cacheKey = `${layers.length}:${roundedSize}:${stride}:${timeBucket}`;
+
+  let entry = gateLayersCompositeCache.get(cacheKey);
+  if (!entry) {
+    // Evict any stale entry for the same (gate, size, stride) combination before writing a new one.
+    const stalePrefix = `${layers.length}:${roundedSize}:${stride}:`;
+    for (const existingKey of gateLayersCompositeCache.keys()) {
+      if (existingKey.startsWith(stalePrefix)) {
+        gateLayersCompositeCache.delete(existingKey);
+        break;
+      }
     }
-    const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
-    ctx.save();
-    ctx.rotate(rotation);
-    ctx.globalAlpha = globalAlpha;
-    ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
-    ctx.restore();
+    // Cap total cache entries in case multiple sizes are active during a resize transition.
+    if (gateLayersCompositeCache.size >= GATE_LAYERS_COMPOSITE_CACHE_MAX) {
+      gateLayersCompositeCache.delete(gateLayersCompositeCache.keys().next().value);
+    }
+
+    // Build the offscreen composite for this time bucket.
+    const canvasSize = roundedSize + 4;
+    const halfSize = canvasSize * HALF;
+    const offscreen = typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(canvasSize, canvasSize)
+      : (() => { const c = document.createElement('canvas'); c.width = canvasSize; c.height = canvasSize; return c; })();
+    const offCtx = offscreen?.getContext('2d');
+    if (!offCtx) {
+      // Fallback: draw directly with a single outer save/restore and per-layer state isolation.
+      ctx.save();
+      ctx.globalAlpha = globalAlpha;
+      for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+        const layer = layers[layerIndex];
+        const sprite = layer?.image;
+        if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+          continue;
+        }
+        const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
+        ctx.restore();
+      }
+      ctx.restore();
+      return;
+    }
+
+    // Composite all layers into the offscreen canvas centered at (halfSize, halfSize).
+    offCtx.translate(halfSize, halfSize);
+    for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+      const layer = layers[layerIndex];
+      const sprite = layer?.image;
+      if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+        continue;
+      }
+      const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
+      offCtx.save();
+      offCtx.rotate(rotation);
+      offCtx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
+      offCtx.restore();
+    }
+    entry = { canvas: offscreen, halfSize };
+    gateLayersCompositeCache.set(cacheKey, entry);
   }
+
+  // Blit the pre-composited layers with a single drawImage call.
+  ctx.save();
+  ctx.globalAlpha = globalAlpha;
+  ctx.drawImage(entry.canvas, -entry.halfSize, -entry.halfSize, entry.canvas.width, entry.canvas.height);
+  ctx.restore();
 }
 
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
@@ -992,6 +1071,49 @@ function drawEnemyGateParticles(ctx, radius, currentTime) {
   drawGateParticleField.call(this, ctx, radius, currentTime, '_enemyGateParticleSystem', ENEMY_GATE_GRADIENT_STOPS, -1);
 }
 
+// Build and cache a pre-rendered OffscreenCanvas containing both the anti-glow dark void and the cyan
+// aura gradient fills for the enemy gate symbol.  Keyed by rounded radius so it is rebuilt only on resize.
+function getOrCreateEnemyGateGradientSprite(radius) {
+  const key = Math.round(radius);
+  const cached = enemyGateGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (enemyGateGradientCache.size >= ENEMY_GATE_GRADIENT_CACHE_MAX) {
+    enemyGateGradientCache.delete(enemyGateGradientCache.keys().next().value);
+  }
+  const outerRadius = radius * Math.max(ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 1.1);
+  const size = Math.ceil(outerRadius * 2) + 4;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  // Anti-glow dark void fill.
+  const glowGrad = offCtx.createRadialGradient(cx, cx, radius * 0.18, cx, cx, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
+  glowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
+  glowGrad.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
+  glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  offCtx.fillStyle = glowGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
+  offCtx.fill();
+  // Cyan aura fill.
+  const auraGrad = offCtx.createRadialGradient(cx, cx, radius * 0.2, cx, cx, radius * 1.2);
+  auraGrad.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
+  auraGrad.addColorStop(1, 'rgba(15, 27, 63, 0)');
+  offCtx.fillStyle = auraGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * 1.1, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  enemyGateGradientCache.set(key, entry);
+  return entry;
+}
+
 function drawEnemyGateSymbol(ctx, position) {
   if (!ctx || !position) {
     return;
@@ -1010,22 +1132,27 @@ function drawEnemyGateSymbol(ctx, position) {
   // Snap to whole pixels so the enlarged gate stays centered on the path anchor.
   ctx.translate(anchorX, anchorY);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
-  glow.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
-  glow.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
-  ctx.fill();
-
-  const antiGlow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
-  antiGlow.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
-  antiGlow.addColorStop(1, 'rgba(15, 27, 63, 0)');
-  ctx.fillStyle = antiGlow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
-  ctx.fill();
+  // Blit pre-rendered anti-glow void and cyan aura gradients; falls back to inline draw when unavailable.
+  const enemyGateBg = getOrCreateEnemyGateGradientSprite(radius);
+  if (enemyGateBg) {
+    ctx.drawImage(enemyGateBg.canvas, -enemyGateBg.halfSize, -enemyGateBg.halfSize, enemyGateBg.canvas.width, enemyGateBg.canvas.height);
+  } else {
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
+    glow.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
+    glow.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
+    ctx.fill();
+    const antiGlow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
+    antiGlow.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
+    antiGlow.addColorStop(1, 'rgba(15, 27, 63, 0)');
+    ctx.fillStyle = antiGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
+    ctx.fill();
+  }
 
   // Render uploaded shadow background rings behind particles and the main symbol.
   drawGateBackgroundLayers(
@@ -1065,6 +1192,40 @@ function drawEnemyGateSymbol(ctx, position) {
   ctx.restore();
 }
 
+// Build and cache a pre-rendered OffscreenCanvas containing the warm glow gradient fill for the mind gate
+// symbol.  Keyed by rounded radius so it is rebuilt only on resize.
+function getOrCreateMindGateGradientSprite(radius) {
+  const key = Math.round(radius);
+  const cached = mindGateGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (mindGateGradientCache.size >= MIND_GATE_GRADIENT_CACHE_MAX) {
+    mindGateGradientCache.delete(mindGateGradientCache.keys().next().value);
+  }
+  const outerRadius = radius * MIND_GATE_GLOW_RADIUS_SCALE;
+  const size = Math.ceil(outerRadius * 2) + 4;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const glowGrad = offCtx.createRadialGradient(cx, cx, radius * 0.18, cx, cx, radius * MIND_GATE_GLOW_RADIUS_SCALE);
+  glowGrad.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
+  glowGrad.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
+  glowGrad.addColorStop(1, 'rgba(139, 247, 255, 0)');
+  offCtx.fillStyle = glowGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  mindGateGradientCache.set(key, entry);
+  return entry;
+}
+
 function drawMindGateSymbol(ctx, position) {
   if (!ctx || !position) {
     return;
@@ -1080,14 +1241,20 @@ function drawMindGateSymbol(ctx, position) {
   ctx.save();
   ctx.translate(position.x, position.y);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE);
-  glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
-  glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
-  glow.addColorStop(1, 'rgba(139, 247, 255, 0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
-  ctx.fill();
+  // Blit the pre-rendered warm glow gradient from the offscreen sprite cache; falls back to inline draw.
+  const mindGateBg = getOrCreateMindGateGradientSprite(radius);
+  if (mindGateBg) {
+    ctx.drawImage(mindGateBg.canvas, -mindGateBg.halfSize, -mindGateBg.halfSize, mindGateBg.canvas.width, mindGateBg.canvas.height);
+  } else {
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE);
+    glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
+    glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
+    glow.addColorStop(1, 'rgba(139, 247, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
+    ctx.fill();
+  }
 
   // Render uploaded mind background rings behind the wave and core symbol.
   drawGateBackgroundLayers(
@@ -1123,6 +1290,9 @@ function drawMindGateSymbol(ctx, position) {
   const waveHeight = radius * CONSCIOUSNESS_WAVE_HEIGHT_SCALE * healthPercentage;
 
   ctx.save();
+  // Clear any shadow inherited from the outer save block so the wave glow pass uses wider strokes instead.
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0)';
   ctx.beginPath();
 
   // Generate sine wave with varying amplitudes for each peak.
@@ -1165,16 +1335,26 @@ function drawMindGateSymbol(ctx, position) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Add glow effect to the wave.
-  ctx.shadowColor = `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha})`;
-  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE;
+  // Glow pass: a wider semi-transparent stroke on the same path approximates the luminous halo that was
+  // previously drawn via ctx.shadowBlur, at a lower GPU cost.
+  ctx.save();
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE);
+  ctx.globalAlpha = waveAlpha * 0.30;
+  ctx.stroke();
+  ctx.restore();
+  // Normal stroke.
   ctx.stroke();
 
   // Draw second layer for enhanced visibility with explicit alpha management.
   ctx.save();
   ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
   ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
-  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE;
+  // Glow pass for second layer.
+  ctx.save();
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE);
+  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA * 0.25;
+  ctx.stroke();
+  ctx.restore();
   ctx.stroke();
   ctx.restore();
 
