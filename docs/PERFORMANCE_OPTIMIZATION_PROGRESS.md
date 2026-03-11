@@ -29,7 +29,7 @@ When working on performance tasks in this repository:
 ### Medium-impact rendering work
 
 - [ ] Reduce excessive `ctx.save()` / `ctx.restore()` usage in hot render paths
-- [ ] Cache or rate-limit sunlight shadow quads so towers and enemies are not reprocessed every frame
+- [x] Cache or rate-limit sunlight shadow quads so towers and enemies are not reprocessed every frame
 - [ ] Pool or pre-render enemy swirl particle rings to reduce per-enemy particle draw cost
 
 ### Lower-impact but still valuable work
@@ -46,6 +46,11 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 595**
+  - **Files:** `assets/playfield/render/layers/SunlightRenderer.js`
+  - **Change:** Cached the decorative sunlight shadow pass into an offscreen viewport layer that refreshes at a modest cadence instead of rebuilding all tower/enemy/gem shadow geometry every frame.
+  - **Validation:** Re-ran syntax checks and browser-based playfield validation after the renderer change.
 
 - **Build 594**
   - **Files:** `assets/playfield.js`
