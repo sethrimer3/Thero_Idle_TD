@@ -89,6 +89,18 @@ const CONSCIOUSNESS_WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
 const CONSCIOUSNESS_WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
 const CONSCIOUSNESS_WAVE_PEAKS = 3; // Number of complete sine waves
 const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
+// Preserve a readable wave silhouette in low graphics mode with half the original point count.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE = 0.5;
+// Retain more of the original curve on high-DPI displays because the gate is still shown at full size.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE = 0.7;
+// Trim the wave more aggressively on ultra-dense displays where overdraw costs climb fastest.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE = 0.6;
+// Never reduce the wave below this floor in low graphics mode so it still reads as a sine band.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS = 32;
+// Keep a slightly higher floor for high-DPI displays to avoid a visibly polygonal gate wave.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS = 48;
+// Allow the strongest high-DPI reduction while preserving the gate's overall light signature.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS = 40;
 const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
 const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
 const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
@@ -143,16 +155,49 @@ const ENEMY_GATE_GRADIENT_STOPS = [
   { stop: 1, color: [214, 184, 255] },
 ];
 
-// Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
+/**
+ * Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
+ * @this {{
+ *   _frameCache?: { trackEffectDetailProfile?: object },
+ *   pixelRatio?: number,
+ *   isLowGraphicsMode?: () => boolean
+ * }}
+ * @returns {{
+ *   highDpiEffectsEnabled: boolean,
+ *   ultraDpiEffectsEnabled: boolean,
+ *   backgroundLayerStride: number,
+ *   pathParticleStride: number,
+ *   tracerParticleStride: number,
+ *   gateParticleCount: number,
+ *   wavePointCount: number
+ * }}
+ */
 function getTrackEffectDetailProfile() {
   const cachedProfile = this?._frameCache?.trackEffectDetailProfile;
-  if (cachedProfile) {
+  if (cachedProfile && typeof cachedProfile === 'object') {
     return cachedProfile;
   }
   const pixelRatio = Math.max(1, this?.pixelRatio || 1);
   const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
   const highDpiEffectsEnabled = pixelRatio >= HIGH_DPI_EFFECT_PIXEL_RATIO;
   const ultraDpiEffectsEnabled = pixelRatio >= ULTRA_DPI_EFFECT_PIXEL_RATIO;
+  let wavePointCount = CONSCIOUSNESS_WAVE_POINTS;
+  if (lowGraphicsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE),
+    );
+  } else if (ultraDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE),
+    );
+  } else if (highDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE),
+    );
+  }
   const profile = {
     highDpiEffectsEnabled,
     ultraDpiEffectsEnabled,
@@ -169,13 +214,7 @@ function getTrackEffectDetailProfile() {
         ? GATE_PARTICLE_HIGH_DPI_COUNT
         : GATE_PARTICLE_COUNT,
     // Use fewer line segments for the Mind Gate wave on dense displays where sub-pixel detail is hard to perceive.
-    wavePointCount: lowGraphicsEnabled
-      ? Math.max(32, Math.round(CONSCIOUSNESS_WAVE_POINTS * 0.5))
-      : ultraDpiEffectsEnabled
-        ? Math.max(40, Math.round(CONSCIOUSNESS_WAVE_POINTS * 0.6))
-        : highDpiEffectsEnabled
-          ? Math.max(48, Math.round(CONSCIOUSNESS_WAVE_POINTS * 0.7))
-          : CONSCIOUSNESS_WAVE_POINTS,
+    wavePointCount,
   };
   if (this?._frameCache) {
     this._frameCache.trackEffectDetailProfile = profile;
@@ -188,8 +227,9 @@ function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, global
   if (!ctx || !Array.isArray(layers) || !layers.length || !Number.isFinite(baseDrawSize) || baseDrawSize <= 0) {
     return;
   }
-  for (let index = 0; index < layers.length; index += Math.max(1, layerStride)) {
-    const layer = layers[index];
+  const stride = Math.max(1, layerStride);
+  for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+    const layer = layers[layerIndex];
     const sprite = layer?.image;
     if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
       continue;
@@ -521,8 +561,8 @@ function drawTrackParticleRiver() {
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  for (let index = 0; index < particles.length; index += effectDetailProfile.pathParticleStride) {
-    const particle = particles[index];
+  for (let particleIndex = 0; particleIndex < particles.length; particleIndex += effectDetailProfile.pathParticleStride) {
+    const particle = particles[particleIndex];
     if (!particle || !Number.isFinite(particle.progress)) {
       continue;
     }
@@ -555,8 +595,8 @@ function drawTrackParticleRiver() {
     this.trackRiverTracerParticles.length
   ) {
     const tracerRadius = Math.max(1.2, laneRadius * 0.45);
-    for (let index = 0; index < this.trackRiverTracerParticles.length; index += effectDetailProfile.tracerParticleStride) {
-      const particle = this.trackRiverTracerParticles[index];
+    for (let tracerIndex = 0; tracerIndex < this.trackRiverTracerParticles.length; tracerIndex += effectDetailProfile.tracerParticleStride) {
+      const particle = this.trackRiverTracerParticles[tracerIndex];
       if (!particle || !Number.isFinite(particle.progress)) {
         continue;
       }
@@ -699,11 +739,11 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
   }
   const spriteCache = this[spriteCacheKey];
   const targetParticleCount = getTrackEffectDetailProfile.call(this).gateParticleCount;
-  if (!this[systemKey]?.particles?.length || this[systemKey].particles.length !== targetParticleCount) {
+  if (!this[systemKey]?.particles || this[systemKey].targetParticleCount !== targetParticleCount) {
     const maxRadius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     const particles = [];
-    for (let index = 0; index < targetParticleCount; index += 1) {
-      const distance = maxRadius * Math.sqrt((index + 0.5) / targetParticleCount);
+    for (let particleIndex = 0; particleIndex < targetParticleCount; particleIndex += 1) {
+      const distance = maxRadius * Math.sqrt((particleIndex + 0.5) / targetParticleCount);
       const angle = Math.random() * TWO_PI;
       const tangentX = -Math.sin(angle) * swirlDirection;
       const tangentY = Math.cos(angle) * swirlDirection;
@@ -715,7 +755,7 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
         vy: tangentY * baseSpeed,
         noisePhase: Math.random() * TWO_PI,
         noiseSpeed: 0.55 + Math.random() * 1.35,
-        sizeIndex: index % spriteCache.length,
+        sizeIndex: particleIndex % spriteCache.length,
       });
     }
     this[systemKey] = {
@@ -724,10 +764,12 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
       radius: maxRadius,
       swirlDirection,
       spriteCache,
+      targetParticleCount,
     };
   } else {
     this[systemKey].radius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     this[systemKey].swirlDirection = swirlDirection;
+    this[systemKey].targetParticleCount = targetParticleCount;
   }
   return this[systemKey];
 }
