@@ -16,6 +16,9 @@ let lastPublishTimestamp = 0;
 let latestSnapshot = null;
 let pendingEvents = [];
 
+// Auto-graphics switching is opt-in; disabled by default so players are not surprised by quality changes.
+let autoGraphicsEnabled = false;
+
 const autoGraphicsConfig = {
   applyGraphicsMode: null,
   getActiveGraphicsMode: null,
@@ -60,6 +63,10 @@ function recordPerformanceEvent(message) {
 }
 
 function evaluateAutoGraphics(snapshot) {
+  // Auto-graphics switching is opt-in; skip entirely when disabled.
+  if (!autoGraphicsEnabled) {
+    return;
+  }
   const applyGraphicsMode = autoGraphicsConfig.applyGraphicsMode;
   const isLowGraphicsModeActive = autoGraphicsConfig.isLowGraphicsModeActive;
   const getActiveGraphicsMode = autoGraphicsConfig.getActiveGraphicsMode;
@@ -226,6 +233,29 @@ export function configurePerformanceMonitor(options = {}) {
     typeof getActiveGraphicsMode === 'function' ? getActiveGraphicsMode : null;
   autoGraphicsConfig.isLowGraphicsModeActive =
     typeof isLowGraphicsModeActive === 'function' ? isLowGraphicsModeActive : null;
+  if (typeof options.autoGraphicsEnabled === 'boolean') {
+    setAutoGraphicsEnabled(options.autoGraphicsEnabled);
+  }
+}
+
+/**
+ * Enable or disable the automatic graphics-quality switching system.
+ * Disabling immediately resets any in-progress auto-low state.
+ * @param {boolean} enabled
+ */
+export function setAutoGraphicsEnabled(enabled) {
+  autoGraphicsEnabled = Boolean(enabled);
+  if (!autoGraphicsEnabled) {
+    resetAutoGraphicsState();
+  }
+}
+
+/**
+ * Reports whether the automatic graphics-quality switching system is active.
+ * @returns {boolean}
+ */
+export function isAutoGraphicsEnabled() {
+  return autoGraphicsEnabled;
 }
 
 export function beginPerformanceFrame() {
