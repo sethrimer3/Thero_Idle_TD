@@ -504,49 +504,52 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
   const colorByPoint = tunnelCache?.colorByPoint;
 
   // Draw path segments with varying opacity
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let layer = 0; layer < 2; layer += 1) {
     const isBase = layer === 0;
     const lineWidth = isBase ? baseLineWidth : highlightLineWidth;
     const alphaMultiplier = isBase ? baseAlpha : highlightAlpha;
-    
+    ctx.lineWidth = lineWidth;
+    if (!isBase) {
+      this.clearCanvasShadow(ctx);
+    }
+
     for (let i = 0; i < points.length - 1; i += 1) {
       const point = points[i];
       const nextPoint = points[i + 1];
-      
+
       // Calculate opacity for this segment
       const startOpacity = opacityByPoint ? opacityByPoint[i] : 1;
       const endOpacity = opacityByPoint ? opacityByPoint[i + 1] : 1;
       const segmentOpacity = (startOpacity + endOpacity) * HALF;
-      
+
       // Skip fully transparent segments
       if (segmentOpacity <= 0.01) {
         continue;
       }
-      
+
       // Sample color based on position along path using cached values when available.
       const color = colorByPoint ? colorByPoint[i] : samplePaletteGradient(i / (points.length - 1));
       const alpha = alphaMultiplier * segmentOpacity;
-      
-      ctx.save();
+
       ctx.beginPath();
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = lineWidth;
-      
       if (isBase) {
+        ctx.globalAlpha = 1;
         const shadowColor = colorToRgbaString(color, (trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2) * segmentOpacity);
         this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
       } else {
         ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 * segmentOpacity : segmentOpacity;
       }
-      
+
       ctx.moveTo(point.x, point.y);
       ctx.lineTo(nextPoint.x, nextPoint.y);
       ctx.strokeStyle = colorToRgbaString(color, alpha);
       ctx.stroke();
-      ctx.restore();
     }
   }
+  ctx.restore();
 }
 
 function drawTrackParticleRiver() {
