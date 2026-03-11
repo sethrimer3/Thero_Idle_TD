@@ -82,10 +82,15 @@ export function drawCrystallineMosaic() {
 
   // Current camera centre for parallax calculation
   const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
+  // Pass frame timing and pixel density so the mosaic can reuse raster caches safely.
+  const renderState = {
+    pixelRatio: Math.max(1, this.pixelRatio || 1),
+    timestamp: this._frameCache?.timestamp || 0,
+  };
 
   // Render only the background layer; foreground layer is drawn after projectiles.
   const ctx = this.ctx;
-  mosaicManager.renderBackground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
+  mosaicManager.renderBackground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState);
 }
 
 /**
@@ -122,9 +127,14 @@ export function drawForegroundCrystallineMosaic() {
   const pathPoints = this.pathPoints || [];
   const pathVersion = this.levelConfig?.id || null;
   const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
+  // Reuse the same render-state metadata for the foreground cache path.
+  const renderState = {
+    pixelRatio: Math.max(1, this.pixelRatio || 1),
+    timestamp: this._frameCache?.timestamp || 0,
+  };
 
   const ctx = this.ctx;
-  mosaicManager.renderForeground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
+  mosaicManager.renderForeground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState);
 }
 
 // ─── Level Sketch Layer ───────────────────────────────────────────────────────
