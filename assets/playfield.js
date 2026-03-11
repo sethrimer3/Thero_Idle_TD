@@ -43,7 +43,7 @@ import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter } from './preferences.js';
+import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter, areBackgroundParticlesEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
@@ -3794,6 +3794,10 @@ export class SimplePlayfield {
 
   updateTrackRiverParticles(delta) {
     if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
+      return;
+    }
+    // Track river particles are purely decorative; skip updates when ambient particles are disabled.
+    if (!areBackgroundParticlesEnabled()) {
       return;
     }
 

@@ -21,13 +21,15 @@ When working on performance tasks in this repository:
 
 ### High-impact rendering work
 
-- [ ] Pervasive `ctx.shadowBlur` replacement with cached glow sprites/offscreen bloom assets
+- [x] Pervasive `ctx.shadowBlur` replacement with cached glow sprites/offscreen bloom assets
   - Mind Gate consciousness wave `shadowBlur` replaced with wider-stroke halo pass
   - Gamma star beam `shadowBlur=8` (beam stroke) replaced with wide semi-transparent stroke; `shadowBlur=12` (tip dot) replaced with pre-rendered radial-gradient glow sprite
-  - Remaining: low-graphics gate halo (`TrackRenderer`), any others
+  - Low-graphics gate halo (`drawGateLowGraphicsHalo` in `TrackRenderer`) — `shadowBlur` replaced with double-stroke glow pass (wide semi-transparent stroke + main stroke)
 - [x] Cache or pre-render per-frame `createRadialGradient` / `createLinearGradient` hot paths
   - Tower golden bloom gradient now cached; enemy gate (anti-glow + cyan aura) and mind gate (warm glow) gradients now cached via offscreen sprites keyed by rounded radius
-  - Other hot-path gradients (omega waves, eta lasers) remain
+  - Omega wave radial gradient (hardcoded amber colors) now cached per rounded radius in `omegaWaveGradientCache`; renders via `drawImage` instead of `createRadialGradient` each frame
+  - Standard beam `createLinearGradient` eliminated — both endpoints share the same palette color so the gradient collapsed to a solid stroke at the midpoint alpha (0.75)
+  - Remaining: eta laser `createLinearGradient` (continuous per-projectile fade with variable length and alpha — harder to cache)
 - [x] Composite the crystalline mosaic through offscreen layer caches instead of redrawing every visible cell every frame
 - [x] Reduce the Shadow Gate's 7 rotating sprite layers to a cheaper composite path
   - Applied the same time-bucketed offscreen composite approach to both Shadow Gate (7 layers) and Mind Gate (8 layers) via the shared `drawGateBackgroundLayers` function
@@ -42,7 +44,7 @@ When working on performance tasks in this repository:
 
 - [x] Throttle HUD/progress DOM updates in the hot loop to approximately 15 FPS
 - [x] Only update/draw background swimmers while visible and active
-- [ ] Reduce broad hot-loop costs in `playfield.js` (for example, skip logic for off-screen content or other oversized update responsibilities)
+- [x] Reduce broad hot-loop costs in `playfield.js` — skip `updateTrackRiverParticles` when ambient particles are disabled (same guard pattern as `BackgroundSwimmerSystem`)
 
 ## Source Findings To Keep In Mind
 
@@ -52,6 +54,15 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 601**
+  - **Files:** `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/ProjectileRenderer.js`, `assets/playfield.js`
+  - **Change:** Four distinct optimizations:
+    1. **Low-graphics gate halo shadowBlur removal** — `drawGateLowGraphicsHalo` in `TrackRenderer.js` no longer sets `ctx.shadowColor` / `ctx.shadowBlur`. Instead the function traces the ellipse path once and strokes it twice: a wide semi-transparent glow pass followed by the narrow main stroke. Same double-stroke technique used for the consciousness wave and gamma star beam.
+    2. **Omega wave gradient cache** — `ProjectileRenderer.js` now pre-renders the omega wave radial gradient (hardcoded amber colors) to a module-level `omegaWaveGradientCache` keyed by rounded radius. Each active omega wave now calls `drawImage` instead of `createRadialGradient` every frame.
+    3. **Standard beam gradient elimination** — The `createLinearGradient` for standard α/β/γ/ε/ι/ξ beams was replaced with a solid stroke. Both color-stop colors resolved to the same palette RGB (since `projectile.color` is a valid object) and the alpha values differed by only ~6% (0.72 vs 0.78), so the gradient was invisible in practice. A single `colorToRgbaString(beamEnd, 0.75)` stroke gives identical results with zero gradient allocation.
+    4. **Track river particle skip** — `updateTrackRiverParticles` now returns immediately when `areBackgroundParticlesEnabled()` is false, matching the existing guard in `BackgroundSwimmerSystem`. Purely decorative particles are not worth updating when the user has disabled ambient particles.
+  - **Validation:** Syntax-checked all modified files; browser load sanity check performed after the changes.
 
 - **Build 600**
   - **Files:** `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/ProjectileRenderer.js`

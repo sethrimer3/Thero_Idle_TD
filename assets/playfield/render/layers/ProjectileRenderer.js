@@ -103,6 +103,43 @@ function getOrCreateGammaStarGlowSprite(color) {
   return entry;
 }
 
+// Pre-rendered omega wave radial gradient sprites, keyed by rounded radius.
+// Eliminates one createRadialGradient() call per active omega wave per frame.
+// Colors are hardcoded (rgba(255,228,120,...)) so only the radius bucket determines the cache key.
+const omegaWaveGradientCache = new Map();
+const OMEGA_WAVE_GRADIENT_CACHE_MAX = 8;
+
+// Return a cached OffscreenCanvas filled with the standard omega wave radial gradient.
+function getOrCreateOmegaWaveSprite(radius) {
+  const key = Math.round(radius);
+  const cached = omegaWaveGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (omegaWaveGradientCache.size >= OMEGA_WAVE_GRADIENT_CACHE_MAX) {
+    omegaWaveGradientCache.delete(omegaWaveGradientCache.keys().next().value);
+  }
+  const size = key * 2 + 2;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const grad = offCtx.createRadialGradient(cx, cx, 0, cx, cx, key);
+  grad.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
+  grad.addColorStop(1, 'rgba(255, 228, 120, 0)');
+  offCtx.fillStyle = grad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, key, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  omegaWaveGradientCache.set(key, entry);
+  return entry;
+}
+
 // ─── Local utility helpers ────────────────────────────────────────────────────
 
 function clamp(value, min, max) {
@@ -339,14 +376,20 @@ export function drawProjectiles() {
       const radius = Number.isFinite(projectile.parameters?.radius)
         ? projectile.parameters.radius
         : 40;
-      const gradient = ctx.createRadialGradient(position.x, position.y, 0, position.x, position.y, radius);
-      gradient.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
-      gradient.addColorStop(1, 'rgba(255, 228, 120, 0)');
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(position.x, position.y, radius, 0, TWO_PI);
-      ctx.fill();
+      // Blit a pre-rendered OffscreenCanvas instead of recreating the radial gradient every frame.
+      const omegaSprite = getOrCreateOmegaWaveSprite(radius);
+      if (omegaSprite) {
+        ctx.drawImage(omegaSprite.canvas, position.x - omegaSprite.halfSize, position.y - omegaSprite.halfSize, omegaSprite.canvas.width, omegaSprite.canvas.height);
+      } else {
+        // Fallback: rebuild the gradient when sprite creation failed.
+        const gradient = ctx.createRadialGradient(position.x, position.y, 0, position.x, position.y, radius);
+        gradient.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 228, 120, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, radius, 0, TWO_PI);
+        ctx.fill();
+      }
       return;
     }
 
@@ -526,12 +569,12 @@ export function drawProjectiles() {
       return;
     }
 
-    const beamStart = normalizeProjectileColor(projectile.color, 0);
+    // When projectile.color is a valid RGB object, normalizeProjectileColor returns the palette color
+    // regardless of the second parameter, so the gradient collapsed to a uniform color with varying
+    // alpha (0.72→0.78).  A single stroke at the midpoint alpha (0.75) eliminates the gradient
+    // with no visual difference.
     const beamEnd = normalizeProjectileColor(projectile.color, 1);
-    const beamGradient = ctx.createLinearGradient(source.x, source.y, targetPosition.x, targetPosition.y);
-    beamGradient.addColorStop(0, colorToRgbaString(beamStart, 0.72));
-    beamGradient.addColorStop(1, colorToRgbaString(beamEnd, 0.78));
-    ctx.strokeStyle = beamGradient;
+    ctx.strokeStyle = colorToRgbaString(beamEnd, 0.75);
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(source.x, source.y);
