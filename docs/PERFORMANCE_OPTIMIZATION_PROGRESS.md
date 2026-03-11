@@ -47,6 +47,11 @@ When working on performance tasks in this repository:
 
 ## Implementation Log
 
+- **Build 594**
+  - **Files:** `assets/playfield.js`
+  - **Change:** Preserved fractional HUD throttle remainder so the reduced-frequency HUD refresh cadence does not drift during long sessions.
+  - **Validation:** Re-ran syntax checks and a browser load sanity check after the follow-up fix.
+
 - **Build 593**
   - **Files:** `assets/playfield/render/CrystallineMosaic.js`, `assets/playfield/render/layers/BackgroundRenderer.js`, `assets/playfield.js`
   - **Change:** Added offscreen cache reuse for crystalline mosaic background/foreground layers and throttled hot-loop HUD/progress updates to ~15 FPS while preserving immediate event-driven HUD refreshes elsewhere.

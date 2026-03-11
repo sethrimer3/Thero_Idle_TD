@@ -3990,7 +3990,7 @@ export class SimplePlayfield {
     try {
       this.hudUpdateAccumulator += delta;
       if (this.hudUpdateAccumulator >= HUD_UPDATE_INTERVAL_SECONDS) {
-        this.hudUpdateAccumulator = 0;
+        this.hudUpdateAccumulator %= HUD_UPDATE_INTERVAL_SECONDS;
         this.updateProgress();
         this.updateHud();
       }
