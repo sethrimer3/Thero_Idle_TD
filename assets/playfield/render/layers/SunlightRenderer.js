@@ -289,9 +289,6 @@ function resolveMindGatePosition() {
  */
 function getSunlightShadowCacheKey(viewBounds, pixelRatio, timestamp, gate, lowGraphicsEnabled) {
   const animationBucket = Math.floor(timestamp / SUNLIGHT_SHADOW_CACHE_INTERVAL_MS);
-  const towers = Array.isArray(this.towers) ? this.towers.length : 0;
-  const enemies = Array.isArray(this.enemies) ? this.enemies.length : 0;
-  const gems = Array.isArray(moteGemState.active) ? moteGemState.active.length : 0;
   const scale = Math.max(0.1, this.viewScale || 1);
   return [
     `t${animationBucket}`,
@@ -300,7 +297,6 @@ function getSunlightShadowCacheKey(viewBounds, pixelRatio, timestamp, gate, lowG
     `vb${Math.round(viewBounds.minX)}:${Math.round(viewBounds.minY)}:${Math.round(viewBounds.maxX)}:${Math.round(viewBounds.maxY)}`,
     `g${Math.round(gate.x)}:${Math.round(gate.y)}`,
     `s${Math.round(scale * 1000)}`,
-    `n${towers}:${enemies}:${gems}`,
   ].join('|');
 }
 

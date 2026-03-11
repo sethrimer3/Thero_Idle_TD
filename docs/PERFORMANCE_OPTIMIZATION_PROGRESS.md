@@ -47,6 +47,11 @@ When working on performance tasks in this repository:
 
 ## Implementation Log
 
+- **Build 596**
+  - **Files:** `assets/playfield/render/layers/SunlightRenderer.js`
+  - **Change:** Removed entity-count invalidation from the sunlight shadow cache key so the decorative shadow layer can actually reuse cached frames during combat.
+  - **Validation:** Re-ran syntax checks and a browser load sanity check after addressing code review feedback.
+
 - **Build 595**
   - **Files:** `assets/playfield/render/layers/SunlightRenderer.js`
   - **Change:** Cached the decorative sunlight shadow pass into an offscreen viewport layer that refreshes at a modest cadence instead of rebuilding all tower/enemy/gem shadow geometry every frame.
