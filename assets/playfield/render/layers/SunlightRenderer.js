@@ -164,28 +164,37 @@ function resolveSunlightRadius() {
 /**
  * Cache a simple detail profile for the Mind Gate sunlight so dense displays and
  * low graphics mode can share the same overdraw reductions for the glow sprite.
+ *
+ * @returns {{ radiusScale: number, alpha: number }}
  */
 function getSunlightDetailProfile() {
   const cachedProfile = this?._frameCache?.sunlightDetailProfile;
-  if (cachedProfile && typeof cachedProfile === 'object') {
+  if (cachedProfile) {
     return cachedProfile;
   }
   const pixelRatio = Math.max(1, this?.pixelRatio || 1);
   const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
   const ultraDpiEnabled = pixelRatio >= ULTRA_DPI_SUNLIGHT_PIXEL_RATIO;
   const highDpiEnabled = pixelRatio >= HIGH_DPI_SUNLIGHT_PIXEL_RATIO;
-  const radiusScale = lowGraphicsEnabled
-    ? LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE
+  const detailTier = lowGraphicsEnabled
+    ? 'low'
     : ultraDpiEnabled
-      ? ULTRA_DPI_SUNLIGHT_RADIUS_SCALE
+      ? 'ultra'
       : highDpiEnabled
+        ? 'high'
+        : 'default';
+  const radiusScale = detailTier === 'low'
+    ? LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE
+    : detailTier === 'ultra'
+      ? ULTRA_DPI_SUNLIGHT_RADIUS_SCALE
+      : detailTier === 'high'
         ? HIGH_DPI_SUNLIGHT_RADIUS_SCALE
         : 1;
-  const alpha = lowGraphicsEnabled
+  const alpha = detailTier === 'low'
     ? LOW_GRAPHICS_SUNLIGHT_ALPHA
-    : ultraDpiEnabled
+    : detailTier === 'ultra'
       ? ULTRA_DPI_SUNLIGHT_ALPHA
-      : highDpiEnabled
+      : detailTier === 'high'
         ? HIGH_DPI_SUNLIGHT_ALPHA
         : 1;
   const profile = {

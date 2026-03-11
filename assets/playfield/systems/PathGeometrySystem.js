@@ -235,9 +235,10 @@ export function initializeTrackRiverParticles() {
   );
   const minimumParticleCount = lowGraphicsEnabled || pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
     ? 20
-    : lowGraphicsEnabled || isHighDpi
+    : isHighDpi
       ? 24
       : 36;
+  // Keep the river visibly active while scaling the spawn ceiling down as pixel density or low-graphics mode increases.
   const maximumParticleCount = lowGraphicsEnabled
     ? 96
     : pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
