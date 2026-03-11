@@ -212,6 +212,8 @@ import {
 
 // Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
 const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
+// Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
+const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -490,6 +492,8 @@ export class SimplePlayfield {
       draw: () => this.draw(),
       shouldAnimate: () => this.shouldAnimate,
     });
+    // Force the first hot-loop HUD refresh immediately, then throttle subsequent DOM writes.
+    this.hudUpdateAccumulator = HUD_UPDATE_INTERVAL_SECONDS;
 
     this.resizeObserver = null;
     this.resizeHandler = () => this.syncCanvasSize();
@@ -3984,8 +3988,12 @@ export class SimplePlayfield {
     // Track HUD refresh costs while combat is active.
     const finishHudSegment = beginPerformanceSegment('update:hud');
     try {
-      this.updateProgress();
-      this.updateHud();
+      this.hudUpdateAccumulator += delta;
+      if (this.hudUpdateAccumulator >= HUD_UPDATE_INTERVAL_SECONDS) {
+        this.hudUpdateAccumulator %= HUD_UPDATE_INTERVAL_SECONDS;
+        this.updateProgress();
+        this.updateHud();
+      }
     } finally {
       finishHudSegment();
     }

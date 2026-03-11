@@ -21,6 +21,7 @@ import { getCrystallineMosaicManager } from '../CrystallineMosaic.js';
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
 const HALF = 0.5;
+const SWIMMER_VIEWPORT_MARGIN = 12;
 
 // Small sketch sprites loaded once at module initialisation for background decoration.
 // Each sprite has a 10% chance of appearing per level at a random position and rotation.
@@ -82,10 +83,15 @@ export function drawCrystallineMosaic() {
 
   // Current camera centre for parallax calculation
   const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
+  // Pass frame timing and pixel density so the mosaic can reuse raster caches safely.
+  const renderState = {
+    pixelRatio: Math.max(1, this.pixelRatio || 1),
+    timestamp: this._frameCache?.timestamp || 0,
+  };
 
   // Render only the background layer; foreground layer is drawn after projectiles.
   const ctx = this.ctx;
-  mosaicManager.renderBackground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
+  mosaicManager.renderBackground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState);
 }
 
 /**
@@ -122,9 +128,14 @@ export function drawForegroundCrystallineMosaic() {
   const pathPoints = this.pathPoints || [];
   const pathVersion = this.levelConfig?.id || null;
   const viewCenter = this.getViewCenter ? this.getViewCenter() : null;
+  // Reuse the same render-state metadata for the foreground cache path.
+  const renderState = {
+    pixelRatio: Math.max(1, this.pixelRatio || 1),
+    timestamp: this._frameCache?.timestamp || 0,
+  };
 
   const ctx = this.ctx;
-  mosaicManager.renderForeground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter);
+  mosaicManager.renderForeground(ctx, viewportBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState);
 }
 
 // ─── Level Sketch Layer ───────────────────────────────────────────────────────
@@ -363,6 +374,7 @@ export function drawFloaters() {
   }
   const minDimension = this._frameCache?.minDimension || (Math.min(width, height) || 1);
   const connectionWidth = Math.max(0.6, minDimension * 0.0014);
+  const viewportBounds = this._frameCache?.viewportBounds || null;
 
   const ctx = this.ctx;
   ctx.save();
@@ -376,10 +388,24 @@ export function drawFloaters() {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     swimmers.forEach((swimmer) => {
+      if (swimmer?.isViewportActive === false) {
+        return;
+      }
       const flicker =
         Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
       const size =
         baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
+      if (
+        viewportBounds &&
+        (
+          swimmer.x + size + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minX ||
+          swimmer.x - size - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxX ||
+          swimmer.y + size + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minY ||
+          swimmer.y - size - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxY
+        )
+      ) {
+        return;
+      }
       ctx.beginPath();
       ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
       ctx.arc(swimmer.x, swimmer.y, size, 0, TWO_PI);
