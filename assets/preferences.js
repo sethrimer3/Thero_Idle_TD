@@ -23,7 +23,9 @@ import {
   PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY,
   PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY,
   PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY,
+  AUTO_GRAPHICS_TOGGLE_STORAGE_KEY,
 } from './autoSave.js';
+import { setAutoGraphicsEnabled } from './performanceMonitor.js';
 
 const TOWER_LOADOUT_TOGGLE_SIDE_STORAGE_KEY = 'towerLoadoutToggleSide';
 // Persist the preferred location for spire option buttons.
@@ -1251,7 +1253,80 @@ export function areBackgroundParticlesEnabled() {
   return backgroundParticlesEnabled;
 }
 
-// Playfield Track Type Button
+// Toggle state for the automatic graphics switching system.
+let autoGraphicsEnabled = false;
+let autoGraphicsToggleInput = null;
+let autoGraphicsToggleStateLabel = null;
+
+/**
+ * Synchronize the auto-graphics toggle control with the in-memory state.
+ */
+function updateAutoGraphicsToggleUi() {
+  if (autoGraphicsToggleInput) {
+    autoGraphicsToggleInput.checked = autoGraphicsEnabled;
+    autoGraphicsToggleInput.setAttribute('aria-checked', autoGraphicsEnabled ? 'true' : 'false');
+    const controlShell = autoGraphicsToggleInput.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', autoGraphicsEnabled);
+    }
+  }
+  if (autoGraphicsToggleStateLabel) {
+    autoGraphicsToggleStateLabel.textContent = autoGraphicsEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the auto-graphics switching preference.
+ * @param {boolean} preference - Truthy/falsy value indicating whether auto-switching should be enabled.
+ * @param {Object} options
+ * @param {boolean} options.persist - Whether to write the value to storage.
+ * @returns {boolean} The normalised boolean that was applied.
+ */
+export function applyAutoGraphicsPreference(preference, { persist = true } = {}) {
+  const enabled = Boolean(preference);
+  autoGraphicsEnabled = enabled;
+  updateAutoGraphicsToggleUi();
+  setAutoGraphicsEnabled(enabled);
+  if (persist) {
+    writeStorage(AUTO_GRAPHICS_TOGGLE_STORAGE_KEY, autoGraphicsEnabled ? '1' : '0');
+  }
+  return autoGraphicsEnabled;
+}
+
+/**
+ * Bind the settings toggle that controls automatic graphics-quality switching.
+ */
+export function bindAutoGraphicsToggle() {
+  autoGraphicsToggleInput = document.getElementById('auto-graphics-toggle');
+  autoGraphicsToggleStateLabel = document.getElementById('auto-graphics-toggle-state');
+  if (!autoGraphicsToggleInput) {
+    return;
+  }
+  autoGraphicsToggleInput.addEventListener('change', (event) => {
+    applyAutoGraphicsPreference(event?.target?.checked);
+  });
+  updateAutoGraphicsToggleUi();
+}
+
+/**
+ * Initialize the auto-graphics preference from storage.
+ * Defaults to disabled so players must explicitly opt in.
+ */
+export function initializeAutoGraphicsPreference() {
+  const stored = readStorage(AUTO_GRAPHICS_TOGGLE_STORAGE_KEY);
+  const normalized = stored === '1' || stored === 'true';
+  return applyAutoGraphicsPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether the automatic graphics-quality switching system is enabled.
+ * @returns {boolean}
+ */
+export function isAutoGraphicsSwitchingEnabled() {
+  return autoGraphicsEnabled;
+}
+
+
 let playfieldTrackTypeButton = null;
 
 /**

@@ -109,6 +109,8 @@ import {
   initializeTowerLoadoutToggleSidePreference,
   bindSpireOptionsPlacementButton,
   initializeSpireOptionsPlacementPreference,
+  bindAutoGraphicsToggle,
+  initializeAutoGraphicsPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { setDevLayerVisible, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
@@ -6545,6 +6547,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeTrackRenderMode();
     initializeFrameRateLimitPreference();
     initializeFpsCounterPreference();
+    initializeAutoGraphicsPreference();
     bindGraphicsModeToggle();
     bindVisualSettingsMenu();
     bindColorSchemeButton();
@@ -6560,6 +6563,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     bindWaveDamageTallyToggle();
     bindFrameRateLimitSlider();
     bindFpsCounterToggle();
+    bindAutoGraphicsToggle();
 
     // Bind playfield visual settings
     bindEnemyParticlesToggle();
