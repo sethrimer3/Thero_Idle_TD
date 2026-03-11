@@ -9,6 +9,10 @@ import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const HALF = 0.5;
+// Treat high-DPI playfields as an effects budget signal because every glow/blit costs more fill-rate.
+const HIGH_DPI_EFFECT_PIXEL_RATIO = 1.75;
+// Apply a stronger reduction on very dense displays where layered particles become especially expensive.
+const ULTRA_DPI_EFFECT_PIXEL_RATIO = 2.5;
 
 // Gate sprite assets loaded eagerly so they are ready before first render.
 // Using PNG symbol sprites uploaded to the gates&track sprite folder.
@@ -85,6 +89,18 @@ const CONSCIOUSNESS_WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
 const CONSCIOUSNESS_WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
 const CONSCIOUSNESS_WAVE_PEAKS = 3; // Number of complete sine waves
 const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
+// Preserve a readable wave silhouette in low graphics mode with half the original point count.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE = 0.5;
+// Retain more of the original curve on high-DPI displays because the gate is still shown at full size.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE = 0.7;
+// Trim the wave more aggressively on ultra-dense displays where overdraw costs climb fastest.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE = 0.6;
+// Never reduce the wave below this floor in low graphics mode so it still reads as a sine band.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS = 32;
+// Keep a slightly higher floor for high-DPI displays to avoid a visibly polygonal gate wave.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS = 48;
+// Allow the strongest high-DPI reduction while preserving the gate's overall light signature.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS = 40;
 const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
 const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
 const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
@@ -122,6 +138,10 @@ const GATE_PARTICLE_SIZE_VARIANTS = [3, 4.5, 6];
 const GATE_PARTICLE_COLOR_BUCKETS = 8;
 // Pre-calculated max index for color bucket mapping used in both cache build and per-frame draw.
 const GATE_PARTICLE_MAX_COLOR_INDEX = GATE_PARTICLE_COLOR_BUCKETS - 1;
+// Reduce the gate particle budget on dense displays while preserving a readable halo.
+const GATE_PARTICLE_HIGH_DPI_COUNT = 12;
+// Trim even more particles on very dense displays to curb per-frame sprite blits.
+const GATE_PARTICLE_ULTRA_DPI_COUNT = 10;
 // Define the warm distance gradient for Mind Gate particles (center -> outer ring).
 const MIND_GATE_GRADIENT_STOPS = [
   { stop: 0, color: [140, 72, 16] },
@@ -135,15 +155,84 @@ const ENEMY_GATE_GRADIENT_STOPS = [
   { stop: 1, color: [214, 184, 255] },
 ];
 
+/**
+ * Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
+ * @this {{
+ *   _frameCache?: { trackEffectDetailProfile?: object },
+ *   pixelRatio?: number,
+ *   isLowGraphicsMode?: () => boolean
+ * }}
+ * @returns {{
+ *   highDpiEffectsEnabled: boolean,
+ *   ultraDpiEffectsEnabled: boolean,
+ *   backgroundLayerStride: number,
+ *   pathParticleStride: number,
+ *   tracerParticleStride: number,
+ *   gateParticleCount: number,
+ *   wavePointCount: number
+ * }}
+ */
+function getTrackEffectDetailProfile() {
+  const cachedProfile = this?._frameCache?.trackEffectDetailProfile;
+  if (cachedProfile && typeof cachedProfile === 'object') {
+    return cachedProfile;
+  }
+  const pixelRatio = Math.max(1, this?.pixelRatio || 1);
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
+  const highDpiEffectsEnabled = pixelRatio >= HIGH_DPI_EFFECT_PIXEL_RATIO;
+  const ultraDpiEffectsEnabled = pixelRatio >= ULTRA_DPI_EFFECT_PIXEL_RATIO;
+  let wavePointCount = CONSCIOUSNESS_WAVE_POINTS;
+  if (lowGraphicsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE),
+    );
+  } else if (ultraDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE),
+    );
+  } else if (highDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE),
+    );
+  }
+  const profile = {
+    highDpiEffectsEnabled,
+    ultraDpiEffectsEnabled,
+    // Dense displays and low-graphics mode both benefit from drawing fewer rotating backdrop layers.
+    backgroundLayerStride: lowGraphicsEnabled || highDpiEffectsEnabled ? 2 : 1,
+    // River particles are pure eye candy, so halve their draw density when fill-rate is under pressure.
+    pathParticleStride: lowGraphicsEnabled || highDpiEffectsEnabled ? 2 : 1,
+    // Keep tracer sparks a bit denser than the base river, but still skip half on dense displays.
+    tracerParticleStride: highDpiEffectsEnabled ? 2 : 1,
+    // Reduce gate particle simulation count only when the screen density itself makes blits costlier.
+    gateParticleCount: ultraDpiEffectsEnabled
+      ? GATE_PARTICLE_ULTRA_DPI_COUNT
+      : highDpiEffectsEnabled
+        ? GATE_PARTICLE_HIGH_DPI_COUNT
+        : GATE_PARTICLE_COUNT,
+    // Use fewer line segments for the Mind Gate wave on dense displays where sub-pixel detail is hard to perceive.
+    wavePointCount,
+  };
+  if (this?._frameCache) {
+    this._frameCache.trackEffectDetailProfile = profile;
+  }
+  return profile;
+}
+
 // Draw layered gate background sprites with independent angular velocities.
-function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9) {
+function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9, layerStride = 1) {
   if (!ctx || !Array.isArray(layers) || !layers.length || !Number.isFinite(baseDrawSize) || baseDrawSize <= 0) {
     return;
   }
-  layers.forEach((layer) => {
+  const stride = Math.max(1, layerStride);
+  for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+    const layer = layers[layerIndex];
     const sprite = layer?.image;
     if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
-      return;
+      continue;
     }
     const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
     ctx.save();
@@ -151,7 +240,7 @@ function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, global
     ctx.globalAlpha = globalAlpha;
     ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
     ctx.restore();
-  });
+  }
 }
 
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
@@ -467,17 +556,19 @@ function drawTrackParticleRiver() {
   const ctx = this.ctx;
   const particles = this.trackRiverParticles;
   const lowGraphicsEnabled = this.isLowGraphicsMode?.();
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  particles.forEach((particle) => {
+  for (let particleIndex = 0; particleIndex < particles.length; particleIndex += effectDetailProfile.pathParticleStride) {
+    const particle = particles[particleIndex];
     if (!particle || !Number.isFinite(particle.progress)) {
-      return;
+      continue;
     }
     const position = this.getPositionAlongPath(particle.progress);
     if (!position) {
-      return;
+      continue;
     }
     const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
     const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
@@ -493,7 +584,7 @@ function drawTrackParticleRiver() {
     ctx.beginPath();
     ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, TWO_PI);
     ctx.fill();
-  });
+  }
 
   // Overlay the luminous tracer sparks whenever the preference is enabled.
   if (
@@ -504,13 +595,14 @@ function drawTrackParticleRiver() {
     this.trackRiverTracerParticles.length
   ) {
     const tracerRadius = Math.max(1.2, laneRadius * 0.45);
-    this.trackRiverTracerParticles.forEach((particle) => {
+    for (let tracerIndex = 0; tracerIndex < this.trackRiverTracerParticles.length; tracerIndex += effectDetailProfile.tracerParticleStride) {
+      const particle = this.trackRiverTracerParticles[tracerIndex];
       if (!particle || !Number.isFinite(particle.progress)) {
-        return;
+        continue;
       }
       const position = this.getPositionAlongPath(particle.progress);
       if (!position) {
-        return;
+        continue;
       }
       const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
       const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
@@ -539,7 +631,7 @@ function drawTrackParticleRiver() {
         Math.min(1, glowAlpha + 0.25),
       );
       ctx.stroke();
-    });
+    }
   }
   ctx.restore();
 }
@@ -646,11 +738,12 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
     this[spriteCacheKey] = buildGateParticleSpriteCache(gradientStops);
   }
   const spriteCache = this[spriteCacheKey];
-  if (!this[systemKey]?.particles?.length) {
+  const targetParticleCount = getTrackEffectDetailProfile.call(this).gateParticleCount;
+  if (!this[systemKey]?.particles || this[systemKey].targetParticleCount !== targetParticleCount) {
     const maxRadius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     const particles = [];
-    for (let index = 0; index < GATE_PARTICLE_COUNT; index += 1) {
-      const distance = maxRadius * Math.sqrt((index + 0.5) / GATE_PARTICLE_COUNT);
+    for (let particleIndex = 0; particleIndex < targetParticleCount; particleIndex += 1) {
+      const distance = maxRadius * Math.sqrt((particleIndex + 0.5) / targetParticleCount);
       const angle = Math.random() * TWO_PI;
       const tangentX = -Math.sin(angle) * swirlDirection;
       const tangentY = Math.cos(angle) * swirlDirection;
@@ -662,7 +755,7 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
         vy: tangentY * baseSpeed,
         noisePhase: Math.random() * TWO_PI,
         noiseSpeed: 0.55 + Math.random() * 1.35,
-        sizeIndex: index % spriteCache.length,
+        sizeIndex: particleIndex % spriteCache.length,
       });
     }
     this[systemKey] = {
@@ -671,10 +764,12 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradien
       radius: maxRadius,
       swirlDirection,
       spriteCache,
+      targetParticleCount,
     };
   } else {
     this[systemKey].radius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     this[systemKey].swirlDirection = swirlDirection;
+    this[systemKey].targetParticleCount = targetParticleCount;
   }
   return this[systemKey];
 }
@@ -772,6 +867,7 @@ function drawEnemyGateSymbol(ctx, position) {
   const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
   const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
 
   ctx.save();
   const anchorX = Math.round(position.x);
@@ -797,7 +893,14 @@ function drawEnemyGateSymbol(ctx, position) {
   ctx.fill();
 
   // Render uploaded shadow background rings behind particles and the main symbol.
-  drawGateBackgroundLayers(ctx, SHADOW_GATE_BACKGROUND_LAYERS, radius * 2.2, currentTime, 0.78);
+  drawGateBackgroundLayers(
+    ctx,
+    SHADOW_GATE_BACKGROUND_LAYERS,
+    radius * 2.2,
+    currentTime,
+    0.78,
+    effectDetailProfile.backgroundLayerStride,
+  );
 
   // Draw dark violet particles swirling counter-clockwise behind the gate symbol.
   if (!this.isLowGraphicsMode?.()) {
@@ -835,6 +938,7 @@ function drawMindGateSymbol(ctx, position) {
   const baseSize = Math.max(14, Math.min(24, baseRadius || 18));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
   const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
 
   ctx.save();
   ctx.translate(position.x, position.y);
@@ -849,7 +953,14 @@ function drawMindGateSymbol(ctx, position) {
   ctx.fill();
 
   // Render uploaded mind background rings behind the wave and core symbol.
-  drawGateBackgroundLayers(ctx, MIND_GATE_BACKGROUND_LAYERS, radius * 2.55, currentTime, 0.82);
+  drawGateBackgroundLayers(
+    ctx,
+    MIND_GATE_BACKGROUND_LAYERS,
+    radius * 2.55,
+    currentTime,
+    0.82,
+    effectDetailProfile.backgroundLayerStride,
+  );
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
   ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
@@ -878,15 +989,16 @@ function drawMindGateSymbol(ctx, position) {
   ctx.beginPath();
 
   // Generate sine wave with varying amplitudes for each peak.
-  for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
-    const x = -waveWidth * HALF + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
-    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
+  const wavePointCount = Math.max(2, effectDetailProfile.wavePointCount);
+  for (let i = 0; i <= wavePointCount; i++) {
+    const x = -waveWidth * HALF + (i / wavePointCount) * waveWidth;
+    const normalizedX = (i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
 
     // Base sine wave.
     let y = Math.sin(normalizedX + waveOffset) * waveHeight;
 
     // Add amplitude variation per peak to create dynamic effect.
-    const peakIndex = Math.floor((i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS);
+    const peakIndex = Math.floor((i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS);
     const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (TWO_PI);
     const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
     y *= peakAmplitudeMod;
