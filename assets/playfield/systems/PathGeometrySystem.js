@@ -211,12 +211,16 @@ export function initializeTrackRiverParticles() {
 
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const lowGraphicsEnabled = this.isLowGraphicsMode();
-  const performanceScale = lowGraphicsEnabled ? 0.6 : 1;
-  // Reduce the river spawn budget on low fidelity so the tracer math stays lightweight on busy boards.
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const highDpiPerformanceScale = pixelRatio >= 2.5 ? 0.6 : pixelRatio >= 1.75 ? 0.8 : 1;
+  const performanceScale = (lowGraphicsEnabled ? 0.6 : 1) * highDpiPerformanceScale;
+  // Reduce the river spawn budget on low fidelity and high-DPI displays so the tracer math stays lightweight.
   const baseCount = Math.round(
     (this.pathLength / Math.max(28, minDimension * 0.35)) * performanceScale,
   );
-  const particleCount = Math.max(36, Math.min(lowGraphicsEnabled ? 120 : 160, baseCount));
+  const minimumParticleCount = lowGraphicsEnabled || highDpiPerformanceScale < 1 ? 28 : 36;
+  const maximumParticleCount = lowGraphicsEnabled ? 120 : highDpiPerformanceScale < 1 ? 128 : 160;
+  const particleCount = Math.max(minimumParticleCount, Math.min(maximumParticleCount, baseCount));
   const createParticle = () => ({
     progress: Math.random(),
     speed: 0.045 + Math.random() * 0.05,
@@ -242,7 +246,7 @@ export function initializeTrackRiverParticles() {
   });
 
   this.trackRiverParticles = Array.from({ length: particleCount }, createParticle);
-  const tracerCount = lowGraphicsEnabled ? 0 : Math.max(10, Math.round(particleCount * 0.25));
+  const tracerCount = lowGraphicsEnabled ? 0 : Math.max(8, Math.round(particleCount * 0.25));
   // Suppress tracer particles entirely in low graphics mode to eliminate the heaviest draw calls.
   this.trackRiverTracerParticles = lowGraphicsEnabled
     ? []
