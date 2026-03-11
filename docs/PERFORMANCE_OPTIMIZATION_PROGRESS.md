@@ -23,12 +23,13 @@ When working on performance tasks in this repository:
 
 - [ ] Pervasive `ctx.shadowBlur` replacement with cached glow sprites/offscreen bloom assets
 - [ ] Cache or pre-render per-frame `createRadialGradient` / `createLinearGradient` hot paths
+  - Tower golden bloom gradient now cached; other hot-path gradients (omega waves, eta lasers, gamma star beams) remain
 - [x] Composite the crystalline mosaic through offscreen layer caches instead of redrawing every visible cell every frame
 - [ ] Reduce the Shadow Gate's 7 rotating sprite layers to a cheaper composite path
 
 ### Medium-impact rendering work
 
-- [ ] Reduce excessive `ctx.save()` / `ctx.restore()` usage in hot render paths
+- [x] Reduce excessive `ctx.save()` / `ctx.restore()` usage in hot render paths
 - [x] Cache or rate-limit sunlight shadow quads so towers and enemies are not reprocessed every frame
 - [x] Pool or pre-render enemy swirl particle rings to reduce per-enemy particle draw cost
 
@@ -46,6 +47,11 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 599**
+  - **Files:** `assets/playfield/render/layers/TowerSpriteRenderer.js`
+  - **Change:** Added module-level `goldenBloomSpriteCache` that pre-renders the tower golden bloom radial gradient to an OffscreenCanvas once per unique body radius, replacing a `createRadialGradient()` call on every tower every frame with a `drawImage()` from the cache. Also refactored `drawTowerRings` to wrap all five ring draws in a single outer `ctx.save()/ctx.restore()` pair (with manual per-ring `ctx.rotate(-rotation)` undo) instead of one save/restore per ring, reducing ring context state operations from 5×N to 1×N per frame.
+  - **Validation:** Syntax-checked the file; browser load sanity check performed after the changes.
 
 - **Build 598**
   - **Files:** `assets/playfield/render/layers/EnemyRenderer.js`
