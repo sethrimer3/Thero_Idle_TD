@@ -1,8 +1,51 @@
 // Background swimmer particle system extracted from SimplePlayfield for modular ambient animation.
 // Manages small swimming particles that drift with path current and avoid towers/projectiles.
 
-// Pre-calculated constant for performance
+import { areBackgroundParticlesEnabled } from '../../preferences.js';
+
+// Pre-calculated constants for performance
 const TWO_PI = Math.PI * 2;
+const HALF = 0.5;
+
+/**
+ * Resolve an expanded viewport bounds object so decorative swimmers only spend CPU
+ * when they are close enough to matter on the current camera view.
+ *
+ * @param {number} width - Current render width
+ * @param {number} height - Current render height
+ * @param {number} margin - World-space margin added beyond the visible viewport
+ * @returns {{minX:number,maxX:number,minY:number,maxY:number}}
+ */
+function resolveSwimmerActiveBounds(width, height, margin) {
+  const center = this.getViewCenter ? this.getViewCenter() : { x: width * HALF, y: height * HALF };
+  const scale = Math.max(this.viewScale || 1, 0.0001);
+  const halfWidth = (width / scale) * HALF + margin;
+  const halfHeight = (height / scale) * HALF + margin;
+  return {
+    minX: center.x - halfWidth,
+    maxX: center.x + halfWidth,
+    minY: center.y - halfHeight,
+    maxY: center.y + halfHeight,
+  };
+}
+
+/**
+ * Test whether a swimmer is within the expanded active viewport bounds.
+ *
+ * @param {Object} swimmer - Background swimmer state
+ * @param {{minX:number,maxX:number,minY:number,maxY:number}} bounds
+ * @returns {boolean}
+ */
+function isSwimmerInBounds(swimmer, bounds) {
+  return Boolean(
+    swimmer &&
+    bounds &&
+    swimmer.x >= bounds.minX &&
+    swimmer.x <= bounds.maxX &&
+    swimmer.y >= bounds.minY &&
+    swimmer.y <= bounds.maxY
+  );
+}
 
 /**
  * Compute the number of background swimmers based on viewport dimensions.
@@ -64,6 +107,15 @@ function updateBackgroundSwimmers(delta) {
   if (!Array.isArray(this.backgroundSwimmers) || !this.backgroundSwimmers.length || !this.levelConfig) {
     return;
   }
+  // Skip all decorative swimmer work when ambient particles are disabled.
+  if (!areBackgroundParticlesEnabled()) {
+    this.backgroundSwimmers.forEach((swimmer) => {
+      if (swimmer) {
+        swimmer.isViewportActive = false;
+      }
+    });
+    return;
+  }
 
   const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
@@ -80,8 +132,28 @@ function updateBackgroundSwimmers(delta) {
   const towerInfluence = minDimension * 0.24;
   const projectileInfluence = minDimension * 0.16;
   const currentWidth = minDimension * 0.18;
+  const activityMargin = Math.max(24, currentWidth);
   const damping = dt > 0 ? Math.exp(-dt * 0.8) : 1;
   const blend = dt > 0 ? 1 - Math.exp(-dt * 4.5) : 1;
+  const activeBounds = resolveSwimmerActiveBounds.call(this, width, height, activityMargin);
+  const activeSwimmers = [];
+
+  this.backgroundSwimmers.forEach((swimmer) => {
+    if (!swimmer) {
+      return;
+    }
+    swimmer.isViewportActive = isSwimmerInBounds(swimmer, activeBounds);
+    // Off-screen decorative swimmers can pause their heavier behavior work until they matter visually again.
+    if (!swimmer.isViewportActive) {
+      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
+      swimmer.flicker += dt * 1.2;
+      return;
+    }
+    activeSwimmers.push(swimmer);
+  });
+  if (!activeSwimmers.length) {
+    return;
+  }
 
   const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
   const projectilePositions = this.projectiles
@@ -105,7 +177,7 @@ function updateBackgroundSwimmers(delta) {
     })
     .filter(Boolean);
 
-  this.backgroundSwimmers.forEach((swimmer) => {
+  activeSwimmers.forEach((swimmer) => {
     // Keep the motion lively by applying a small random wander every frame.
     swimmer.ax = (Math.random() - 0.5) * wanderStrength;
     swimmer.ay = (Math.random() - 0.5) * wanderStrength;

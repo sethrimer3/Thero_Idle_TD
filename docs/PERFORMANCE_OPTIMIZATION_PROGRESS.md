@@ -35,7 +35,7 @@ When working on performance tasks in this repository:
 ### Lower-impact but still valuable work
 
 - [x] Throttle HUD/progress DOM updates in the hot loop to approximately 15 FPS
-- [ ] Only update/draw background swimmers while visible and active
+- [x] Only update/draw background swimmers while visible and active
 - [ ] Reduce broad hot-loop costs in `playfield.js` (for example, skip logic for off-screen content or other oversized update responsibilities)
 
 ## Source Findings To Keep In Mind
@@ -46,6 +46,11 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 597**
+  - **Files:** `assets/playfield/systems/BackgroundSwimmerSystem.js`, `assets/playfield/render/layers/BackgroundRenderer.js`
+  - **Change:** Skipped background swimmer updates when ambient particles are disabled, limited heavy swimmer behavior work to the active viewport region, and culled swimmer draws to visible swimmers only.
+  - **Validation:** Re-ran targeted syntax checks and browser-based playfield validation after the swimmer culling changes.
 
 - **Build 596**
   - **Files:** `assets/playfield/render/layers/SunlightRenderer.js`
