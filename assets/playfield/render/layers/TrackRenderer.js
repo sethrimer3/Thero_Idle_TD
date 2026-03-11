@@ -130,6 +130,9 @@ const GATE_PARTICLE_CENTER_PULL = 52;
 const GATE_PARTICLE_NOISE_FORCE = 18;
 // Keep long frame hitches from exploding velocities when tabs regain focus.
 const GATE_PARTICLE_MAX_DT = 0.05;
+// Keep baked particle opacity consistent across the precomputed radial color buckets.
+const GATE_PARTICLE_MIN_ALPHA = 0.38;
+const GATE_PARTICLE_ALPHA_RANGE = 0.5;
 // Simulate gate particles every other frame and reuse the last position on in-between draws.
 const GATE_PARTICLE_SIMULATION_STRIDE = 2;
 // Render each cached blurred particle with a tighter shared base sprite size to reduce blit bandwidth.
@@ -148,6 +151,8 @@ const GATE_PARTICLE_NOISE_LUT_MASK = GATE_PARTICLE_NOISE_LUT_SIZE - 1;
 const GATE_PARTICLE_NOISE_LUT_SCALE = GATE_PARTICLE_NOISE_LUT_SIZE / TWO_PI;
 const GATE_PARTICLE_SIN_LUT = new Float32Array(GATE_PARTICLE_NOISE_LUT_SIZE);
 const GATE_PARTICLE_COS_LUT = new Float32Array(GATE_PARTICLE_NOISE_LUT_SIZE);
+// Guard against divide-by-near-zero when re-scaling almost-stationary particles back to the minimum speed.
+const GATE_PARTICLE_SPEED_EPSILON = 1e-6;
 for (let lutIndex = 0; lutIndex < GATE_PARTICLE_NOISE_LUT_SIZE; lutIndex += 1) {
   const angle = (lutIndex / GATE_PARTICLE_NOISE_LUT_SIZE) * TWO_PI;
   GATE_PARTICLE_SIN_LUT[lutIndex] = Math.sin(angle);
@@ -169,6 +174,8 @@ const ENEMY_GATE_GRADIENT_STOPS = [
   { stop: 0.55, color: [56, 20, 98] },
   { stop: 1, color: [214, 184, 255] },
 ];
+// Reuse one canonical warm hue for the Mind Gate wave and its cached gradient.
+const MIND_GATE_WAVE_COLOR = { r: 255, g: 120, b: 0 };
 
 /**
  * Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
@@ -712,33 +719,52 @@ function sampleGateParticleGradient(stops, normalizedDistance) {
   return stops[stops.length - 1].color;
 }
 
-// Quantize an angle into the precomputed gate particle lookup table for cheap orbital noise.
+/**
+ * Quantize a radian angle into the precomputed gate particle lookup table.
+ * @param {number} angle
+ * @returns {number}
+ */
 function getGateParticleNoiseLutIndex(angle) {
   return Math.floor(angle * GATE_PARTICLE_NOISE_LUT_SCALE) & GATE_PARTICLE_NOISE_LUT_MASK;
 }
 
-// Cache the wave gradient by width and alpha so repeated gate frames reuse the same canvas gradient setup.
-function getMindGateWaveGradient(ctx, waveWidth, waveAlpha) {
-  if (!this._waveGradientCache) {
-    this._waveGradientCache = new Map();
+/**
+ * Cache the wave gradient by width and alpha so repeated gate frames reuse the same canvas gradient setup.
+ * @param {{ _waveGradientCache?: Map<string, CanvasGradient> }} cacheOwner
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} waveWidth
+ * @param {number} waveAlpha
+ * @returns {CanvasGradient}
+ */
+function getMindGateWaveGradient(cacheOwner, ctx, waveWidth, waveAlpha) {
+  if (!cacheOwner._waveGradientCache) {
+    cacheOwner._waveGradientCache = new Map();
   }
   const cacheKey = `${waveWidth.toFixed(3)}:${waveAlpha.toFixed(3)}`;
-  const cachedGradient = this._waveGradientCache.get(cacheKey);
+  const cachedGradient = cacheOwner._waveGradientCache.get(cacheKey);
   if (cachedGradient) {
     return cachedGradient;
   }
-  const waveColor = { r: 255, g: 120, b: 0 };
   const gradient = ctx.createLinearGradient(-waveWidth * HALF, 0, waveWidth * HALF, 0);
-  gradient.addColorStop(0, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
-  gradient.addColorStop(0.2, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
-  gradient.addColorStop(0.5, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`);
-  gradient.addColorStop(0.8, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
-  gradient.addColorStop(1, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
-  this._waveGradientCache.set(cacheKey, gradient);
+  gradient.addColorStop(0, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, 0)`);
+  gradient.addColorStop(0.2, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha * 0.7})`);
+  gradient.addColorStop(0.5, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha})`);
+  gradient.addColorStop(0.8, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha * 0.7})`);
+  gradient.addColorStop(1, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, 0)`);
+  cacheOwner._waveGradientCache.set(cacheKey, gradient);
   return gradient;
 }
 
-// Draw a low-cost rotating halo when particle simulation is disabled by low graphics mode.
+/**
+ * Draw a low-cost rotating halo when particle simulation is disabled by low graphics mode.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} radius
+ * @param {number} currentTime
+ * @param {{ r: number, g: number, b: number }} color
+ * @param {number} rotationSpeed
+ * @param {number} [sizeScale=1]
+ * @returns {void}
+ */
 function drawGateLowGraphicsHalo(ctx, radius, currentTime, color, rotationSpeed, sizeScale = 1) {
   if (!ctx) {
     return;
@@ -764,7 +790,7 @@ function buildGateParticleSpriteCache(gradientStops) {
     const colorVariants = [];
     for (let bucket = 0; bucket < GATE_PARTICLE_COLOR_BUCKETS; bucket += 1) {
       const normalizedDistance = bucket / Math.max(1, GATE_PARTICLE_MAX_COLOR_INDEX);
-      const bakedAlpha = 0.38 + normalizedDistance * 0.5;
+      const bakedAlpha = GATE_PARTICLE_MIN_ALPHA + normalizedDistance * GATE_PARTICLE_ALPHA_RANGE;
       const [r, g, b] = sampleGateParticleGradient(gradientStops, normalizedDistance);
       const canvas = document.createElement('canvas');
       canvas.width = GATE_PARTICLE_SPRITE_SIZE;
@@ -881,8 +907,9 @@ function updateGateParticleParticle(particle, dt, systemRadius, swirlDirection) 
   const minSpeedSq = GATE_PARTICLE_MIN_SPEED * GATE_PARTICLE_MIN_SPEED;
   const maxSpeedSq = GATE_PARTICLE_MAX_SPEED * GATE_PARTICLE_MAX_SPEED;
   if (speedSq < minSpeedSq) {
-    const speed = Math.sqrt(Math.max(speedSq, 1e-12));
-    const floorScale = GATE_PARTICLE_MIN_SPEED / Math.max(speed, 1e-6);
+    // Preserve a tiny floor so completely stalled particles can still be rescaled back to the minimum drift speed.
+    const speed = Math.sqrt(Math.max(speedSq, GATE_PARTICLE_SPEED_EPSILON));
+    const floorScale = GATE_PARTICLE_MIN_SPEED / speed;
     particle.vx *= floorScale;
     particle.vy *= floorScale;
   } else if (speedSq > maxSpeedSq) {
@@ -893,18 +920,21 @@ function updateGateParticleParticle(particle, dt, systemRadius, swirlDirection) 
   }
   particle.x += particle.vx * dt;
   particle.y += particle.vy * dt;
-  const updatedDistSq = particle.x * particle.x + particle.y * particle.y;
+  let updatedDistSq = particle.x * particle.x + particle.y * particle.y;
   const radiusSq = systemRadius * systemRadius;
+  let finalDistance;
   if (updatedDistSq > radiusSq) {
-    const updatedDistance = Math.sqrt(updatedDistSq);
-    const wrapScale = systemRadius / Math.max(updatedDistance, 1e-6);
+    finalDistance = Math.sqrt(updatedDistSq);
+    const wrapScale = systemRadius / Math.max(finalDistance, 1e-6);
     particle.x *= wrapScale;
     particle.y *= wrapScale;
     particle.vx *= 0.84;
     particle.vy *= 0.84;
+    updatedDistSq = radiusSq;
+    finalDistance = systemRadius;
   }
   particle.colorBucket = Math.round(
-    Math.max(0, Math.min(1, Math.sqrt(updatedDistSq) / Math.max(1e-6, systemRadius))) * GATE_PARTICLE_MAX_COLOR_INDEX,
+    Math.max(0, Math.min(1, (finalDistance ?? Math.sqrt(updatedDistSq)) / Math.max(1e-6, systemRadius))) * GATE_PARTICLE_MAX_COLOR_INDEX,
   );
 }
 
@@ -934,11 +964,7 @@ function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStop
     if (shouldSimulate) {
       updateGateParticleParticle(particle, simulationDt, system.radius, system.swirlDirection);
     }
-    const colorBucket = Number.isInteger(particle.colorBucket)
-      ? particle.colorBucket
-      : Math.round(
-        Math.max(0, Math.min(1, Math.hypot(particle.x, particle.y) / Math.max(1e-6, system.radius))) * GATE_PARTICLE_MAX_COLOR_INDEX,
-      );
+    const colorBucket = Math.max(0, Math.min(GATE_PARTICLE_MAX_COLOR_INDEX, particle.colorBucket));
     const sizeVariants = spriteCache[particle.sizeIndex % spriteCache.length];
     const sprite = sizeVariants?.[colorBucket];
     if (!sprite) {
@@ -1130,10 +1156,9 @@ function drawMindGateSymbol(ctx, position) {
 
   // Keep the consciousness wave in a deep orange with 50% transparency.
   const waveAlpha = 0.5 * healthPercentage;
-  const waveColor = { r: 255, g: 120, b: 0 };
 
   // Reuse cached gradients because the wave only varies by width and alpha over time.
-  const waveGradient = getMindGateWaveGradient.call(this, ctx, waveWidth, waveAlpha);
+  const waveGradient = getMindGateWaveGradient(this, ctx, waveWidth, waveAlpha);
 
   ctx.strokeStyle = waveGradient;
   ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
@@ -1141,7 +1166,7 @@ function drawMindGateSymbol(ctx, position) {
   ctx.lineJoin = 'round';
 
   // Add glow effect to the wave.
-  ctx.shadowColor = `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`;
+  ctx.shadowColor = `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha})`;
   ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE;
   ctx.stroke();
 
