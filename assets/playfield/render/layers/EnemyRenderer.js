@@ -75,6 +75,15 @@ const DEBUFF_ICON_COLORS = {
 const DEBUFF_BAR_BACKGROUND = 'rgba(6, 8, 14, 0.82)';
 const DEBUFF_BAR_STROKE = 'rgba(255, 255, 255, 0.16)';
 
+// ─── Swirl backdrop sprite cache ──────────────────────────────────────────────
+// Pre-rendered offscreen canvases for the swirl circle backdrop, keyed by
+// "{roundedRingRadius}:{invertedFlag}".  Created once per unique (radius,
+// inversion) pair and reused every frame, removing per-enemy per-frame
+// createRadialGradient() calls from the hot render path.
+const swirlBackdropCache = new Map();
+// Evict oldest entry once we exceed this limit so diverse-radius waves stay bounded.
+const SWIRL_BACKDROP_CACHE_MAX = 32;
+
 // ─── Utility constants (duplicated from CanvasRenderer for a self-contained module) ───
 const TWO_PI = Math.PI * 2;
 const PI = Math.PI;
@@ -552,13 +561,38 @@ function advanceEnemySwirlParticle(particle, metrics, now) {
   }
 }
 
-function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
-  if (!ctx || !metrics) {
-    return;
+/**
+ * Return a cached offscreen canvas containing the pre-rendered swirl backdrop
+ * circle for the given ring metrics.  Creates and caches the canvas on first
+ * use so the radial gradient is only constructed once per (radius, inversion)
+ * pair, not once per enemy per frame.
+ */
+function getOrCreateSwirlBackdropSprite(ringRadius, coreRadius, inversionActive) {
+  const key = `${Math.round(ringRadius)}:${inversionActive ? 1 : 0}`;
+  if (swirlBackdropCache.has(key)) {
+    return swirlBackdropCache.get(key);
   }
-  ctx.save();
-  const radius = metrics.ringRadius * 1.08;
-  const gradient = ctx.createRadialGradient(0, 0, Math.max(2, metrics.coreRadius * 0.25), 0, 0, radius);
+  const outerRadius = ringRadius * 1.08;
+  const innerRadius = Math.max(2, coreRadius * 0.25);
+  const size = Math.ceil(outerRadius * 2) + 4; // 2 px padding on each side
+  const cx = size * HALF;
+  const cy = size * HALF;
+  // Prefer OffscreenCanvas for off-main-thread compatibility; fall back to a
+  // regular canvas when running in environments that don't support it.
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const gradient = offCtx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
   if (inversionActive) {
     gradient.addColorStop(0, 'rgba(236, 244, 255, 0.55)');
     gradient.addColorStop(0.5, 'rgba(210, 228, 255, 0.18)');
@@ -568,11 +602,45 @@ function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
     gradient.addColorStop(0.45, 'rgba(10, 16, 34, 0.6)');
     gradient.addColorStop(1, 'rgba(2, 4, 10, 0.05)');
   }
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, TWO_PI);
-  ctx.fill();
-  ctx.restore();
+  offCtx.fillStyle = gradient;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, outerRadius, 0, TWO_PI);
+  offCtx.fill();
+  // Evict the oldest entry when the cache is full.
+  if (swirlBackdropCache.size >= SWIRL_BACKDROP_CACHE_MAX) {
+    swirlBackdropCache.delete(swirlBackdropCache.keys().next().value);
+  }
+  swirlBackdropCache.set(key, canvas);
+  return canvas;
+}
+
+function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
+  if (!ctx || !metrics) {
+    return;
+  }
+  const sprite = getOrCreateSwirlBackdropSprite(metrics.ringRadius, metrics.coreRadius, inversionActive);
+  if (!sprite) {
+    // Fallback: draw the gradient inline when offscreen canvas is unavailable.
+    const radius = metrics.ringRadius * 1.08;
+    const gradient = ctx.createRadialGradient(0, 0, Math.max(2, metrics.coreRadius * 0.25), 0, 0, radius);
+    if (inversionActive) {
+      gradient.addColorStop(0, 'rgba(236, 244, 255, 0.55)');
+      gradient.addColorStop(0.5, 'rgba(210, 228, 255, 0.18)');
+      gradient.addColorStop(1, 'rgba(236, 244, 255, 0.08)');
+    } else {
+      gradient.addColorStop(0, 'rgba(6, 10, 22, 0.85)');
+      gradient.addColorStop(0.45, 'rgba(10, 16, 34, 0.6)');
+      gradient.addColorStop(1, 'rgba(2, 4, 10, 0.05)');
+    }
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TWO_PI);
+    ctx.fill();
+    return;
+  }
+  // The cached canvas is square and centred on the enemy position.
+  const halfSize = sprite.width * HALF;
+  ctx.drawImage(sprite, -halfSize, -halfSize, sprite.width, sprite.height);
 }
 
 function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
@@ -608,6 +676,11 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
   const spriteReady = enemyParticleSprite?.complete && enemyParticleSprite.naturalWidth > 0;
   const alphaBase = inversionActive ? 0.55 : 0.85;
 
+  // Wrap the entire particle loop in one save/restore instead of one per
+  // particle.  For sprite particles we apply translate+rotate manually and
+  // undo them with the matching inverse operations so the base transform is
+  // recovered without touching the state stack on each iteration.
+  ctx.save();
   entry.particles.forEach((particle) => {
     advanceEnemySwirlParticle(particle, metrics, now);
     const radius = clamp(particle.currentRadius ?? metrics.ringRadius, 0, metrics.ringRadius);
@@ -619,8 +692,9 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
 
     // Render sprite if loaded, otherwise fall back to circles
     if (spriteReady) {
-      ctx.save();
-      ctx.translate(position.x, position.y);
+      const px = position.x;
+      const py = position.y;
+      ctx.translate(px, py);
 
       // Apply rotation
       const rotation = Number.isFinite(particle.rotation) ? particle.rotation : 0;
@@ -643,7 +717,12 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
         spriteSize
       );
 
-      ctx.restore();
+      // Undo the per-particle transforms so the next iteration starts from
+      // the same base transform without requiring another save/restore.
+      // Floating-point drift after N particles is ~1e-11 px — well below any
+      // visible threshold — so manual undo is safe here.
+      ctx.rotate(-rotation);
+      ctx.translate(-px, -py);
     } else {
       // Fallback to original circle rendering if sprite not loaded
       ctx.beginPath();
@@ -657,6 +736,7 @@ function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
       ctx.stroke();
     }
   });
+  ctx.restore();
 }
 
 function drawEnemyFallbackBody(ctx, metrics, inversionActive) {

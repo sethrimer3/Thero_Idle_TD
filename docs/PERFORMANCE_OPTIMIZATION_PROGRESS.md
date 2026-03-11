@@ -30,7 +30,7 @@ When working on performance tasks in this repository:
 
 - [ ] Reduce excessive `ctx.save()` / `ctx.restore()` usage in hot render paths
 - [x] Cache or rate-limit sunlight shadow quads so towers and enemies are not reprocessed every frame
-- [ ] Pool or pre-render enemy swirl particle rings to reduce per-enemy particle draw cost
+- [x] Pool or pre-render enemy swirl particle rings to reduce per-enemy particle draw cost
 
 ### Lower-impact but still valuable work
 
@@ -46,6 +46,11 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 598**
+  - **Files:** `assets/playfield/render/layers/EnemyRenderer.js`
+  - **Change:** Pre-rendered enemy swirl backdrop gradient to a module-level offscreen canvas cache keyed by `{roundedRingRadius}:{invertedFlag}`. Eliminated per-enemy per-frame `createRadialGradient()` calls; the gradient is now constructed once per unique (radius, inversion) pair. Also batched the per-particle `ctx.save()/ctx.restore()` in the swirl sprite loop into a single outer pair, replacing N state-stack allocations per enemy with manual per-particle translate/rotate undo transforms.
+  - **Validation:** Syntax-checked the file and performed a browser load sanity check after the changes.
 
 - **Build 597**
   - **Files:** `assets/playfield/systems/BackgroundSwimmerSystem.js`, `assets/playfield/render/layers/BackgroundRenderer.js`
