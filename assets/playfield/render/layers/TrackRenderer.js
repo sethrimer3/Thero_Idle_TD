@@ -116,8 +116,8 @@ const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for 
 const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
 const CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
 
-// Reduced from 30 → 18 particles per gate for a ~40% cut in per-frame work while keeping the visual halo.
-const GATE_PARTICLE_COUNT = 18;
+// Reduce the default gate halo budget further so baseline devices execute fewer per-frame particle updates.
+const GATE_PARTICLE_COUNT = 12;
 // Bound particle movement to a compact halo around each gate so the effect remains readable.
 const GATE_PARTICLE_MAX_RADIUS_SCALE = 1.16;
 // Ensure every particle keeps drifting even when center pull would otherwise stall it.
@@ -133,14 +133,14 @@ const GATE_PARTICLE_MAX_DT = 0.05;
 // Keep baked particle opacity consistent across the precomputed radial color buckets.
 const GATE_PARTICLE_MIN_ALPHA = 0.38;
 const GATE_PARTICLE_ALPHA_RANGE = 0.5;
-// Simulate gate particles every other frame and reuse the last position on in-between draws.
-const GATE_PARTICLE_SIMULATION_STRIDE = 2;
-// Render each cached blurred particle with a tighter shared base sprite size to reduce blit bandwidth.
-const GATE_PARTICLE_SPRITE_SIZE = 24;
-// Pre-render a small cache of particle radii so runtime draws only blit images.
-const GATE_PARTICLE_SIZE_VARIANTS = [3, 4.5, 6];
+// Simulate gate particles every third frame so update cost drops while draw interpolation still looks fluid.
+const GATE_PARTICLE_SIMULATION_STRIDE = 3;
+// Render each cached blurred particle with a smaller shared base sprite size to reduce texture bandwidth.
+const GATE_PARTICLE_SPRITE_SIZE = 20;
+// Trim size variants to keep cache memory and per-particle overdraw lower on all platforms.
+const GATE_PARTICLE_SIZE_VARIANTS = [2.8, 4.2];
 // Cache the largest particle blit size so offscreen buffers and clamps do not recalculate it every frame.
-const GATE_PARTICLE_MAX_DRAW_SIZE = Math.max(...GATE_PARTICLE_SIZE_VARIANTS) * 4.2;
+const GATE_PARTICLE_MAX_DRAW_SIZE = Math.max(...GATE_PARTICLE_SIZE_VARIANTS) * 3.8;
 // Number of pre-tinted color buckets baked into the sprite cache; eliminates per-particle source-atop tinting.
 const GATE_PARTICLE_COLOR_BUCKETS = 8;
 // Pre-calculated max index for color bucket mapping used in both cache build and per-frame draw.
@@ -159,9 +159,9 @@ for (let lutIndex = 0; lutIndex < GATE_PARTICLE_NOISE_LUT_SIZE; lutIndex += 1) {
   GATE_PARTICLE_COS_LUT[lutIndex] = Math.cos(angle);
 }
 // Reduce the gate particle budget on dense displays while preserving a readable halo.
-const GATE_PARTICLE_HIGH_DPI_COUNT = 9;
+const GATE_PARTICLE_HIGH_DPI_COUNT = 7;
 // Trim even more particles on very dense displays to curb per-frame sprite blits.
-const GATE_PARTICLE_ULTRA_DPI_COUNT = 7;
+const GATE_PARTICLE_ULTRA_DPI_COUNT = 5;
 // Define the warm distance gradient for Mind Gate particles (center -> outer ring).
 const MIND_GATE_GRADIENT_STOPS = [
   { stop: 0, color: [140, 72, 16] },
@@ -898,7 +898,8 @@ function buildGateParticleSpriteCache(gradientStops) {
       cacheCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.95)`;
       cacheCtx.fillRect(0, 0, GATE_PARTICLE_SPRITE_SIZE, GATE_PARTICLE_SPRITE_SIZE);
       cacheCtx.globalAlpha = 1;
-      colorVariants.push({ radius, canvas, drawSize: radius * 4.2 });
+      // Keep runtime blits compact so each particle sprite touches fewer pixels per frame.
+      colorVariants.push({ radius, canvas, drawSize: radius * 3.8 });
     }
     spriteCache.push(colorVariants);
   });
@@ -1024,6 +1025,8 @@ function updateGateParticleParticle(particle, dt, systemRadius, swirlDirection) 
 // Draw one gate particle field using pre-tinted sprites; composite operations are set once per gate draw.
 function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStops, swirlDirection) {
   const system = ensureGateParticleSystem.call(this, systemKey, radius, swirlDirection, gradientStops);
+  // In low graphics mode, fall back to normal alpha blending to avoid additive compositing overhead.
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
   const previousTime = Number.isFinite(system.lastTime) ? system.lastTime : currentTime;
   const dt = Math.max(0, Math.min(GATE_PARTICLE_MAX_DT, currentTime - previousTime));
   system.lastTime = currentTime;
@@ -1041,7 +1044,7 @@ function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStop
   particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
   // Composite particle sprites on the offscreen canvas, then blit the whole halo once onto the main surface.
   particleCtx.save();
-  particleCtx.globalCompositeOperation = 'lighter';
+  particleCtx.globalCompositeOperation = lowGraphicsEnabled ? 'source-over' : 'lighter';
   for (let index = 0; index < system.particles.length; index += 1) {
     const particle = system.particles[index];
     if (shouldSimulate) {
