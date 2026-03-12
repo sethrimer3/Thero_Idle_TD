@@ -103,6 +103,42 @@ function getOrCreateGammaStarGlowSprite(color) {
   return entry;
 }
 
+// Pre-rendered eta laser gradient sprites, keyed by rounded beam-color RGB string.
+// Each sprite is a 256×1 OffscreenCanvas encoding the normalized alpha falloff
+// (1.0 → 0.6 → 0) at full color, so the caller can apply ctx.globalAlpha for
+// per-frame alpha scaling and drawImage stretched to (length, lineWidth).
+// Eliminates one createLinearGradient() call per active eta laser per frame.
+const etaLaserGradientSpriteCache = new Map();
+const ETA_LASER_GRADIENT_SPRITE_WIDTH = 256;
+const ETA_LASER_GRADIENT_SPRITE_CACHE_MAX = 4;
+
+// Return a cached OffscreenCanvas strip encoding the normalized eta laser alpha falloff.
+function getOrCreateEtaLaserGradientSprite(color) {
+  const key = `${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)}`;
+  const cached = etaLaserGradientSpriteCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (etaLaserGradientSpriteCache.size >= ETA_LASER_GRADIENT_SPRITE_CACHE_MAX) {
+    etaLaserGradientSpriteCache.delete(etaLaserGradientSpriteCache.keys().next().value);
+  }
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(ETA_LASER_GRADIENT_SPRITE_WIDTH, 1)
+    : (() => { const c = document.createElement('canvas'); c.width = ETA_LASER_GRADIENT_SPRITE_WIDTH; c.height = 1; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const grad = offCtx.createLinearGradient(0, 0, ETA_LASER_GRADIENT_SPRITE_WIDTH, 0);
+  grad.addColorStop(0, colorToRgbaString(color, 1.0));
+  grad.addColorStop(0.6, colorToRgbaString(color, 0.6));
+  grad.addColorStop(1, colorToRgbaString(color, 0));
+  offCtx.fillStyle = grad;
+  offCtx.fillRect(0, 0, ETA_LASER_GRADIENT_SPRITE_WIDTH, 1);
+  etaLaserGradientSpriteCache.set(key, offscreen);
+  return offscreen;
+}
+
 // Pre-rendered omega wave radial gradient sprites, keyed by rounded radius.
 // Eliminates one createRadialGradient() call per active omega wave per frame.
 // Colors are hardcoded (rgba(255,228,120,...)) so only the radius bucket determines the cache key.
@@ -405,20 +441,29 @@ export function drawProjectiles() {
       }
       const width = Math.max(2, Number.isFinite(projectile.width) ? projectile.width : 8);
       const alpha = Number.isFinite(projectile.alpha) ? Math.max(0, Math.min(1, projectile.alpha)) : 1;
+      const beamColor = normalizeProjectileColor(projectile.color, 1);
       ctx.save();
       ctx.translate(origin.x, origin.y);
       ctx.rotate(angle);
-      const beamColor = normalizeProjectileColor(projectile.color, 1);
-      const gradient = ctx.createLinearGradient(0, 0, length, 0);
-      gradient.addColorStop(0, colorToRgbaString(beamColor, alpha));
-      gradient.addColorStop(0.6, colorToRgbaString(beamColor, alpha * 0.6));
-      gradient.addColorStop(1, colorToRgbaString(beamColor, 0));
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(length, 0);
-      ctx.stroke();
+      const laserSprite = getOrCreateEtaLaserGradientSprite(beamColor);
+      if (laserSprite) {
+        // Blit the pre-rendered normalized gradient strip scaled to (length × lineWidth).
+        // ctx.globalAlpha scales the pre-computed (1.0→0.6→0) profile by the per-frame alpha.
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(laserSprite, 0, -width * HALF, length, width);
+      } else {
+        // Fallback: create the gradient inline when sprite creation fails.
+        const gradient = ctx.createLinearGradient(0, 0, length, 0);
+        gradient.addColorStop(0, colorToRgbaString(beamColor, alpha));
+        gradient.addColorStop(0.6, colorToRgbaString(beamColor, alpha * 0.6));
+        gradient.addColorStop(1, colorToRgbaString(beamColor, 0));
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }
@@ -500,11 +545,11 @@ export function drawProjectiles() {
         return;
       }
 
-      // Draw the piercing beam from previous to current position
+      // Draw the piercing beam from previous to current position.
+      // Both gradient stops share the same color; alpha ranges 0.5→0.95, midpoint ≈ 0.72.
+      // Collapsing to a solid stroke (same approach used for standard α/β/γ beams) avoids
+      // one createLinearGradient() call per piercing beam per frame.
       const beamColor = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
-      const gradient = ctx.createLinearGradient(previousPosition.x, previousPosition.y, position.x, position.y);
-      gradient.addColorStop(0, colorToRgbaString(beamColor, 0.5));
-      gradient.addColorStop(1, colorToRgbaString(beamColor, 0.95));
 
       ctx.save();
       ctx.lineCap = 'round';
@@ -516,8 +561,8 @@ export function drawProjectiles() {
       ctx.strokeStyle = colorToRgbaString(beamColor, 0.12);
       ctx.lineWidth = 11;
       ctx.stroke();
-      // Main beam stroke (reuses the existing path — no extra beginPath needed).
-      ctx.strokeStyle = gradient;
+      // Main beam stroke with solid midpoint alpha — reuses the existing path.
+      ctx.strokeStyle = colorToRgbaString(beamColor, 0.72);
       ctx.lineWidth = 3;
       ctx.stroke();
       // Beam tip glow: blit a pre-rendered radial-gradient sprite instead of ctx.shadowBlur=12.
