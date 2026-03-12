@@ -1158,31 +1158,40 @@ function drawEnemyGateSymbol(ctx, position) {
     ctx.fill();
   }
 
+  // Let developer-mode layer toggles selectively disable individual Shadow Gate visuals for profiling.
+  const shadowGateBackgroundVisible = this.getDevLayerVisible?.('shadowGateBackground') !== false;
+  const shadowGateParticlesVisible = this.getDevLayerVisible?.('shadowGateParticles') !== false;
+  const shadowGateSymbolVisible = this.getDevLayerVisible?.('shadowGateSymbol') !== false;
+
   // Render uploaded shadow background rings behind particles and the main symbol.
-  drawGateBackgroundLayers(
-    ctx,
-    SHADOW_GATE_BACKGROUND_LAYERS,
-    radius * 2.2,
-    currentTime,
-    0.78,
-    effectDetailProfile.backgroundLayerStride,
-  );
+  if (shadowGateBackgroundVisible) {
+    drawGateBackgroundLayers(
+      ctx,
+      SHADOW_GATE_BACKGROUND_LAYERS,
+      radius * 2.2,
+      currentTime,
+      0.78,
+      effectDetailProfile.backgroundLayerStride,
+    );
+  }
 
   // Draw dark violet particles swirling counter-clockwise behind the gate symbol.
-  if (!this.isLowGraphicsMode?.()) {
-    drawEnemyGateParticles.call(this, ctx, radius, currentTime);
-  } else {
-    drawGateLowGraphicsHalo(ctx, radius * 0.9, currentTime, { r: 126, g: 208, b: 255 }, -0.8, 1.02);
+  if (shadowGateParticlesVisible) {
+    if (!this.isLowGraphicsMode?.()) {
+      drawEnemyGateParticles.call(this, ctx, radius, currentTime);
+    } else {
+      drawGateLowGraphicsHalo(ctx, radius * 0.9, currentTime, { r: 126, g: 208, b: 255 }, -0.8, 1.02);
+    }
   }
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
-  if (spriteReady) {
+  if (shadowGateSymbolVisible && spriteReady) {
     const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE * SHADOW_GATE_SYMBOL_SIZE_MULTIPLIER;
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.drawImage(enemyGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
     ctx.restore();
-  } else {
+  } else if (shadowGateSymbolVisible) {
     this.applyCanvasShadow(ctx, 'rgba(74, 240, 255, 0.6)', radius * 0.6);
     ctx.strokeStyle = 'rgba(202, 245, 255, 0.8)';
     ctx.lineWidth = Math.max(1.6, radius * 0.14);
@@ -1260,15 +1269,23 @@ function drawMindGateSymbol(ctx, position) {
     ctx.fill();
   }
 
+  // Let developer-mode layer toggles selectively disable individual Mind Gate visuals for profiling.
+  const mindGateBackgroundVisible = this.getDevLayerVisible?.('mindGateBackground') !== false;
+  const mindGateWaveVisible = this.getDevLayerVisible?.('mindGateWave') !== false;
+  const mindGateParticlesVisible = this.getDevLayerVisible?.('mindGateParticles') !== false;
+  const mindGateSymbolVisible = this.getDevLayerVisible?.('mindGateSymbol') !== false;
+
   // Render uploaded mind background rings behind the wave and core symbol.
-  drawGateBackgroundLayers(
-    ctx,
-    MIND_GATE_BACKGROUND_LAYERS,
-    radius * 2.55,
-    currentTime,
-    0.82,
-    effectDetailProfile.backgroundLayerStride,
-  );
+  if (mindGateBackgroundVisible) {
+    drawGateBackgroundLayers(
+      ctx,
+      MIND_GATE_BACKGROUND_LAYERS,
+      radius * 2.55,
+      currentTime,
+      0.82,
+      effectDetailProfile.backgroundLayerStride,
+    );
+  }
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
   ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
@@ -1293,92 +1310,96 @@ function drawMindGateSymbol(ctx, position) {
   const waveWidth = radius * CONSCIOUSNESS_WAVE_WIDTH_SCALE;
   const waveHeight = radius * CONSCIOUSNESS_WAVE_HEIGHT_SCALE * healthPercentage;
 
-  ctx.save();
-  // Clear any shadow inherited from the outer save block so the wave glow pass uses wider strokes instead.
-  ctx.shadowBlur = 0;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-  ctx.beginPath();
+  if (mindGateWaveVisible) {
+    ctx.save();
+    // Clear any shadow inherited from the outer save block so the wave glow pass uses wider strokes instead.
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+    ctx.beginPath();
 
-  // Generate sine wave with varying amplitudes for each peak.
-  const wavePointCount = Math.max(2, effectDetailProfile.wavePointCount);
-  for (let i = 0; i <= wavePointCount; i++) {
-    const x = -waveWidth * HALF + (i / wavePointCount) * waveWidth;
-    const normalizedX = (i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
+    // Generate sine wave with varying amplitudes for each peak.
+    const wavePointCount = Math.max(2, effectDetailProfile.wavePointCount);
+    for (let i = 0; i <= wavePointCount; i++) {
+      const x = -waveWidth * HALF + (i / wavePointCount) * waveWidth;
+      const normalizedX = (i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
 
-    // Base sine wave.
-    let y = Math.sin(normalizedX + waveOffset) * waveHeight;
+      // Base sine wave.
+      let y = Math.sin(normalizedX + waveOffset) * waveHeight;
 
-    // Add amplitude variation per peak to create dynamic effect.
-    const peakIndex = Math.floor((i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS);
-    const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (TWO_PI);
-    const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
-    y *= peakAmplitudeMod;
+      // Add amplitude variation per peak to create dynamic effect.
+      const peakIndex = Math.floor((i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS);
+      const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (TWO_PI);
+      const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
+      y *= peakAmplitudeMod;
 
-    // Add secondary harmonic for more organic feel.
-    y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * CONSCIOUSNESS_WAVE_HARMONIC_SCALE;
+      // Add secondary harmonic for more organic feel.
+      y += Math.sin(normalizedX * 2 + waveOffset * 1.5) * waveHeight * CONSCIOUSNESS_WAVE_HARMONIC_SCALE;
 
-    // Add subtle fluctuation to make it feel alive.
-    const fluctuation = Math.sin(currentTime * CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED + i * 0.1) * waveHeight * CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE;
-    y += fluctuation;
+      // Add subtle fluctuation to make it feel alive.
+      const fluctuation = Math.sin(currentTime * CONSCIOUSNESS_WAVE_FLUCTUATION_SPEED + i * 0.1) * waveHeight * CONSCIOUSNESS_WAVE_FLUCTUATION_SCALE;
+      y += fluctuation;
 
-    if (i === 0) {
-      ctx.moveTo(x, y);
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+
+    // Keep the consciousness wave in a deep orange with 50% transparency.
+    const waveAlpha = 0.5 * healthPercentage;
+
+    // Reuse cached gradients because the wave only varies by width and alpha over time.
+    const waveGradient = getMindGateWaveGradient(this, ctx, waveWidth, waveAlpha);
+
+    ctx.strokeStyle = waveGradient;
+    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Glow pass: a wider semi-transparent stroke on the same path approximates the luminous halo that was
+    // previously drawn via ctx.shadowBlur, at a lower GPU cost.
+    ctx.save();
+    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE);
+    ctx.globalAlpha = waveAlpha * 0.30;
+    ctx.stroke();
+    ctx.restore();
+    // Normal stroke.
+    ctx.stroke();
+
+    // Draw second layer for enhanced visibility with explicit alpha management.
+    ctx.save();
+    ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
+    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
+    // Glow pass for second layer.
+    ctx.save();
+    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE);
+    ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA * 0.25;
+    ctx.stroke();
+    ctx.restore();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // Draw warm particles swirling clockwise behind the gate symbol.
+  if (mindGateParticlesVisible) {
+    if (!this.isLowGraphicsMode?.()) {
+      drawMindGateParticles.call(this, ctx, radius, currentTime);
     } else {
-      ctx.lineTo(x, y);
+      drawGateLowGraphicsHalo(ctx, radius * 0.92, currentTime, { r: 255, g: 196, b: 92 }, 0.8, 1.08);
     }
   }
 
-  // Keep the consciousness wave in a deep orange with 50% transparency.
-  const waveAlpha = 0.5 * healthPercentage;
-
-  // Reuse cached gradients because the wave only varies by width and alpha over time.
-  const waveGradient = getMindGateWaveGradient(this, ctx, waveWidth, waveAlpha);
-
-  ctx.strokeStyle = waveGradient;
-  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  // Glow pass: a wider semi-transparent stroke on the same path approximates the luminous halo that was
-  // previously drawn via ctx.shadowBlur, at a lower GPU cost.
-  ctx.save();
-  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE);
-  ctx.globalAlpha = waveAlpha * 0.30;
-  ctx.stroke();
-  ctx.restore();
-  // Normal stroke.
-  ctx.stroke();
-
-  // Draw second layer for enhanced visibility with explicit alpha management.
-  ctx.save();
-  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
-  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
-  // Glow pass for second layer.
-  ctx.save();
-  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE);
-  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA * 0.25;
-  ctx.stroke();
-  ctx.restore();
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.restore();
-
-  // Draw warm particles swirling clockwise behind the gate symbol.
-  if (!this.isLowGraphicsMode?.()) {
-    drawMindGateParticles.call(this, ctx, radius, currentTime);
-  } else {
-    drawGateLowGraphicsHalo(ctx, radius * 0.92, currentTime, { r: 255, g: 196, b: 92 }, 0.8, 1.08);
-  }
-
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
-  if (spriteReady) {
+  if (mindGateSymbolVisible && spriteReady) {
     const spriteSize = Math.max(baseSize * 2.1, 46) * 2 * TRACK_GATE_SIZE_SCALE;
     ctx.save();
     ctx.globalAlpha = 0.96;
     ctx.drawImage(mindGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
     ctx.restore();
-  } else {
+  } else if (mindGateSymbolVisible) {
     this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';
     ctx.lineWidth = Math.max(1.4, radius * 0.12);
@@ -1400,31 +1421,34 @@ function drawMindGateSymbol(ctx, position) {
     ctx.stroke();
   }
 
-  const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
-  const gateExponent = this.calculateHealthExponent(gateExponentSource);
-  const palette =
-    typeof this.getEffectiveMotePalette === 'function'
-      ? this.getEffectiveMotePalette()
-      : null;
-  const paletteStops = resolvePaletteColorStops(palette);
-  const gradient = ctx.createLinearGradient(-radius, -radius, radius, radius);
-  if (Array.isArray(paletteStops) && paletteStops.length) {
-    const denominator = Math.max(1, paletteStops.length - 1);
-    paletteStops.forEach((stop, index) => {
-      const offset = Math.max(0, Math.min(1, index / denominator));
-      gradient.addColorStop(offset, colorToRgbaString(stop, 1));
-    });
+  // Keep the exponent overlay tied to symbol visibility so the text can be isolated with the same toggle.
+  if (mindGateSymbolVisible) {
+    const gateExponentSource = gateIntegrity > 0 ? gateIntegrity : maxIntegrity || 1;
+    const gateExponent = this.calculateHealthExponent(gateExponentSource);
+    const palette =
+      typeof this.getEffectiveMotePalette === 'function'
+        ? this.getEffectiveMotePalette()
+        : null;
+    const paletteStops = resolvePaletteColorStops(palette);
+    const gradient = ctx.createLinearGradient(-radius, -radius, radius, radius);
+    if (Array.isArray(paletteStops) && paletteStops.length) {
+      const denominator = Math.max(1, paletteStops.length - 1);
+      paletteStops.forEach((stop, index) => {
+        const offset = Math.max(0, Math.min(1, index / denominator));
+        gradient.addColorStop(offset, colorToRgbaString(stop, 1));
+      });
+    }
+    ctx.font = `${Math.round(Math.max(14, radius * 0.82))}px "Cormorant Garamond", serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = gradient;
+    const highlightColor = paletteStops[paletteStops.length - 1] || paletteStops[0];
+    this.applyCanvasShadow(ctx, colorToRgbaString(highlightColor, 0.85), Math.max(14, radius * 0.95));
+    const exponentOffset = radius * 0.78;
+    const exponentX = exponentOffset;
+    const exponentY = -exponentOffset * 0.88;
+    ctx.fillText(gateExponent.toFixed(1), exponentX, exponentY);
   }
-  ctx.font = `${Math.round(Math.max(14, radius * 0.82))}px "Cormorant Garamond", serif`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = gradient;
-  const highlightColor = paletteStops[paletteStops.length - 1] || paletteStops[0];
-  this.applyCanvasShadow(ctx, colorToRgbaString(highlightColor, 0.85), Math.max(14, radius * 0.95));
-  const exponentOffset = radius * 0.78;
-  const exponentX = exponentOffset;
-  const exponentY = -exponentOffset * 0.88;
-  ctx.fillText(gateExponent.toFixed(1), exponentX, exponentY);
 
   ctx.restore();
 }

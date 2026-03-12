@@ -5109,6 +5109,11 @@ export class SimplePlayfield {
     return CanvasRenderer.draw.call(this);
   }
 
+  // Expose renderer-layer visibility flags to extracted render modules bound to the playfield instance.
+  getDevLayerVisible(layer) {
+    return CanvasRenderer.getDevLayerVisible(layer);
+  }
+
   drawFloaters() {
     return CanvasRenderer.drawFloaters.call(this);
   }

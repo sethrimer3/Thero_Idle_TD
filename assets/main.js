@@ -773,6 +773,15 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   const devLayerToggleConfigs = [
     { id: 'dev-layer-background-toggle', stateId: 'dev-layer-background-state', layer: 'background' },
     { id: 'dev-layer-track-toggle', stateId: 'dev-layer-track-state', layer: 'track' },
+    // Gate-level debug toggles let developer mode isolate Mind Gate sub-effects independently of the whole track layer.
+    { id: 'dev-layer-mind-gate-background-toggle', stateId: 'dev-layer-mind-gate-background-state', layer: 'mindGateBackground' },
+    { id: 'dev-layer-mind-gate-wave-toggle', stateId: 'dev-layer-mind-gate-wave-state', layer: 'mindGateWave' },
+    { id: 'dev-layer-mind-gate-particles-toggle', stateId: 'dev-layer-mind-gate-particles-state', layer: 'mindGateParticles' },
+    { id: 'dev-layer-mind-gate-symbol-toggle', stateId: 'dev-layer-mind-gate-symbol-state', layer: 'mindGateSymbol' },
+    // Shadow Gate toggles mirror Mind Gate controls for one-to-one visual profiling.
+    { id: 'dev-layer-shadow-gate-background-toggle', stateId: 'dev-layer-shadow-gate-background-state', layer: 'shadowGateBackground' },
+    { id: 'dev-layer-shadow-gate-particles-toggle', stateId: 'dev-layer-shadow-gate-particles-state', layer: 'shadowGateParticles' },
+    { id: 'dev-layer-shadow-gate-symbol-toggle', stateId: 'dev-layer-shadow-gate-symbol-state', layer: 'shadowGateSymbol' },
     { id: 'dev-layer-sunlight-toggle', stateId: 'dev-layer-sunlight-state', layer: 'sunlight' },
     { id: 'dev-layer-towers-toggle', stateId: 'dev-layer-towers-state', layer: 'towers' },
     { id: 'dev-layer-enemies-toggle', stateId: 'dev-layer-enemies-state', layer: 'enemies' },
