@@ -665,6 +665,9 @@ function drawTrackParticleRiver() {
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
+  // Replace per-particle ctx.shadowBlur with a soft halo circle drawn at a larger
+  // radius.  The 'lighter' composite mode naturally produces a glow effect, so the
+  // shadow blur was producing redundant overdraw at massive per-particle cost.
   for (let particleIndex = 0; particleIndex < particles.length; particleIndex += effectDetailProfile.pathParticleStride) {
     const particle = particles[particleIndex];
     if (!particle || !Number.isFinite(particle.progress)) {
@@ -683,10 +686,17 @@ function drawTrackParticleRiver() {
     const alpha = 0.18 + pulse * 0.32;
     const offsetX = Math.cos(tangent + HALF_PI) * lateral;
     const offsetY = Math.sin(tangent + HALF_PI) * lateral;
-    ctx.fillStyle = colorToRgbaString(progressColor, alpha);
-    this.applyCanvasShadow(ctx, colorToRgbaString(progressColor, alpha * 0.65), radius * 3.2);
+    const px = position.x + offsetX;
+    const py = position.y + offsetY;
+    // Soft halo pass replaces the expensive per-particle shadowBlur.
+    ctx.fillStyle = colorToRgbaString(progressColor, alpha * 0.35);
     ctx.beginPath();
-    ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, TWO_PI);
+    ctx.arc(px, py, radius * 2.8, 0, TWO_PI);
+    ctx.fill();
+    // Main particle
+    ctx.fillStyle = colorToRgbaString(progressColor, alpha);
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, TWO_PI);
     ctx.fill();
   }
 
@@ -720,11 +730,13 @@ function drawTrackParticleRiver() {
       const x = position.x + offsetX;
       const y = position.y + offsetY;
 
-      this.applyCanvasShadow(
-        ctx,
-        colorToRgbaString(TRACK_TRACER_HALO_COLOR, haloAlpha),
-        radius * 3.6,
-      );
+      // Replace per-tracer shadowBlur with a soft halo pass.
+      // Soft halo pass
+      ctx.fillStyle = colorToRgbaString(TRACK_TRACER_HALO_COLOR, haloAlpha * 0.35);
+      ctx.beginPath();
+      ctx.arc(x, y, radius * 3.0, 0, TWO_PI);
+      ctx.fill();
+      // Main fill
       ctx.beginPath();
       ctx.fillStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
       ctx.arc(x, y, radius, 0, TWO_PI);
@@ -1290,11 +1302,14 @@ function drawMindGateSymbol(ctx, position) {
     );
   }
 
-  this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
-  ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
-  ctx.lineWidth = Math.max(2, radius * 0.12);
+  // Replace per-frame mind gate ring shadowBlur with a double-stroke glow pass.
   ctx.beginPath();
   ctx.arc(0, 0, radius * 0.88, 0, TWO_PI);
+  ctx.strokeStyle = 'rgba(255, 228, 120, 0.2)';
+  ctx.lineWidth = Math.max(2, radius * 0.12) + Math.max(4, radius * 0.5);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
+  ctx.lineWidth = Math.max(2, radius * 0.12);
   ctx.stroke();
 
   // Draw the consciousness wavelength - a sine wave that fluctuates through the gate.
@@ -1445,11 +1460,17 @@ function drawMindGateSymbol(ctx, position) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = gradient;
+    // Replace per-frame exponent shadowBlur with a glow stroke pass.
     const highlightColor = paletteStops[paletteStops.length - 1] || paletteStops[0];
-    this.applyCanvasShadow(ctx, colorToRgbaString(highlightColor, 0.85), Math.max(14, radius * 0.95));
+    const exponentGlowBlur = Math.max(14, radius * 0.95);
     const exponentOffset = radius * 0.78;
     const exponentX = exponentOffset;
     const exponentY = -exponentOffset * 0.88;
+    ctx.lineWidth = Math.max(4, exponentGlowBlur * 0.5);
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeStyle = colorToRgbaString(highlightColor, 0.85);
+    ctx.strokeText(gateExponent.toFixed(1), exponentX, exponentY);
     ctx.fillText(gateExponent.toFixed(1), exponentX, exponentY);
   }
 

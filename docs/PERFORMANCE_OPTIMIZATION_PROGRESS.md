@@ -25,6 +25,17 @@ When working on performance tasks in this repository:
   - Mind Gate consciousness wave `shadowBlur` replaced with wider-stroke halo pass
   - Gamma star beam `shadowBlur=8` (beam stroke) replaced with wide semi-transparent stroke; `shadowBlur=12` (tip dot) replaced with pre-rendered radial-gradient glow sprite
   - Low-graphics gate halo (`drawGateLowGraphicsHalo` in `TrackRenderer`) — `shadowBlur` replaced with double-stroke glow pass (wide semi-transparent stroke + main stroke)
+  - Tower body outer shadow `shadowBlur` — replaced with pre-rendered offscreen `towerBodySpriteCache` keyed by (radius, fill, stroke, shadowColor, blur); per-tower per-frame cost reduced from Gaussian blur to `drawImage` blit
+  - Tower ring shadow removed — `ctx.shadowBlur` was applied to pre-blurred ring PNG sprites redundantly; now cleared before ring drawing
+  - Tower symbol `shadowBlur` — replaced with lightweight `strokeText` glow pass across tower glyphs, glyph transitions, and press glow effects
+  - Tower chain ring `shadowBlur` — replaced with double-stroke glow pass
+  - Enemy symbol `shadowBlur` — replaced with `strokeText` glow pass for enemy glyph rendering
+  - Enemy rho sparkle `shadowBlur` — replaced with soft halo circle pass (larger radius, lower alpha)
+  - Track river particle `shadowBlur` (per-particle) — replaced with soft halo fill circles at 2.8× radius, eliminating ~50-100 Gaussian blur operations per frame
+  - Track tracer spark `shadowBlur` (per-spark) — replaced with soft halo fill circle at 3× radius
+  - Mind Gate outer ring `shadowBlur` — replaced with double-stroke glow pass
+  - Mind Gate exponent text `shadowBlur` — replaced with `strokeText` glow pass
+  - Wave tally text `shadowBlur` — replaced with `strokeText` glow pass
 - [x] Cache or pre-render per-frame `createRadialGradient` / `createLinearGradient` hot paths
   - Tower golden bloom gradient now cached; enemy gate (anti-glow + cyan aura) and mind gate (warm glow) gradients now cached via offscreen sprites keyed by rounded radius
   - Omega wave radial gradient (hardcoded amber colors) now cached per rounded radius in `omegaWaveGradientCache`; renders via `drawImage` instead of `createRadialGradient` each frame
@@ -37,7 +48,10 @@ When working on performance tasks in this repository:
 
 ### Medium-impact rendering work
 
+- [x] Viewport culling for tower rendering — skip off-screen towers before any expensive visual work (body sprite, rings, symbol glyph)
 - [x] Reduce excessive `ctx.save()` / `ctx.restore()` usage in hot render paths
+  - Tower glyph transition particles now use a single outer `save/restore` instead of one per particle
+  - Infinity aura lines consolidated from per-line `save/restore` to a single outer pair with pre-computed color string
 - [x] Cache or rate-limit sunlight shadow quads so towers and enemies are not reprocessed every frame
 - [x] Pool or pre-render enemy swirl particle rings to reduce per-enemy particle draw cost
 
@@ -49,12 +63,31 @@ When working on performance tasks in this repository:
 
 ## Source Findings To Keep In Mind
 
-- `ctx.shadowBlur` is currently the largest known Canvas 2D cost center across towers, particles, and enemy effects.
-- Per-frame gradient creation appears in tower blooms, alpha particles, swarm clouds, developer crystals, and connection motes.
+- `ctx.shadowBlur` was the largest known Canvas 2D cost center. As of Build 607, all per-entity per-frame shadow calls have been eliminated from the hot render path and replaced with either pre-rendered sprite caches or lightweight double-stroke/soft-halo glow passes.
+- Per-frame gradient creation appears in developer crystals and is a minor overhead; all game-facing gradients are now cached.
 - The crystalline mosaic is decorative, slow-moving, and was a strong candidate for raster caching because it renders in both background and foreground passes.
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
+- Remaining `applyCanvasShadow` calls are limited to: path layer cache builds (one-time), gate symbol fallbacks (only when sprite images haven't loaded), developer mode markers, and the tower body sprite cache fallback (only when OffscreenCanvas is unavailable).
 
 ## Implementation Log
+
+- **Build 607**
+  - **Files:** `assets/playfield/render/layers/TowerSpriteRenderer.js`, `assets/playfield/render/layers/EnemyRenderer.js`, `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/UIOverlayRenderer.js`, `assets/playfield.js`, `assets/buildInfo.js`
+  - **Change:** Major per-frame `ctx.shadowBlur` elimination pass reducing ~120-175 shadow operations per frame to near zero in the normal hot render path:
+    1. **Tower body sprite cache** — Pre-rendered tower body circles (fill + stroke + shadow) into `towerBodySpriteCache` (OffscreenCanvas, keyed by radius/fill/stroke/shadow/blur). Eliminates 2 shadowBlur calls per tower.
+    2. **Tower ring shadow removal** — Cleared shadow state before `drawTowerRings()` since ring sprites are already pre-blurred PNGs.
+    3. **Tower symbol glow pass** — Replaced `applyCanvasShadow` + `fillText` with a `strokeText` glow pass (wide semi-transparent stroke before fill) for tower glyphs, glyph transitions, and press glow effects.
+    4. **Tower chain ring glow pass** — Replaced shadowBlur with double-stroke pass (wide semi-transparent + narrow main).
+    5. **Enemy symbol glow pass** — Replaced per-enemy `applyCanvasShadow` for glyph text with `strokeText` glow pass.
+    6. **Rho sparkle ring glow** — Replaced per-enemy shadowBlur with larger soft halo circles (2.2× radius at 30% alpha).
+    7. **Track river particle glow** — Replaced per-particle `applyCanvasShadow` with soft halo fill circles (2.8× radius at 35% alpha). Eliminated ~50-100 Gaussian blur operations per frame.
+    8. **Track tracer spark glow** — Replaced per-spark shadowBlur with soft halo fill circles (3× radius).
+    9. **Mind Gate ring/exponent glow** — Replaced ring shadowBlur with double-stroke pass; exponent text shadowBlur with strokeText glow pass.
+    10. **Wave tally text glow** — Replaced per-tally shadowBlur with strokeText glow pass.
+    11. **Tower viewport culling** — Added `getViewportBounds`/`isInViewport` helpers to TowerSpriteRenderer; towers outside the visible viewport (with 100px margin) are skipped before any visual work.
+    12. **Glyph particle save/restore consolidation** — `drawTowerGlyphParticles` now uses a single outer `save/restore` pair instead of one per particle.
+    13. **Infinity aura save/restore consolidation** — `drawInfinityAuras` now uses a single `save/restore` pair and pre-computes color string once per infinity tower.
+  - **Validation:** Syntax-checked all modified files with `node -c`.
 
 - **Build 606**
   - **Files:** `assets/playfield/render/layers/ProjectileRenderer.js`

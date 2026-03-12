@@ -237,7 +237,7 @@ function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  this.applyCanvasShadow(ctx, RHO_SPARKLE_GLOW, Math.max(2, metrics.scale * 2));
+  // Replace per-enemy shadowBlur with slightly larger circles for a soft glow.
   for (let index = 0; index < sparkleCount; index += 1) {
     const angle =
       (index / sparkleCount) * TWO_PI + timeSeconds * 0.9 + (enemy.id || 0) * 0.07;
@@ -252,12 +252,17 @@ function drawRhoSparkleRing(ctx, enemy, metrics, timestamp) {
       Math.min(0.8, visibility * (0.65 + 0.35 * Math.sin(timeSeconds * 1.7 + index))),
     );
 
+    // Soft glow halo pass (replaces ctx.shadowBlur)
+    ctx.fillStyle = colorToRgbaString(RHO_SPARKLE_COLOR, alpha * 0.3);
+    ctx.beginPath();
+    ctx.arc(x, y, sparkleSize * 2.2, 0, TWO_PI);
+    ctx.fill();
+    // Main sparkle
     ctx.fillStyle = colorToRgbaString(RHO_SPARKLE_COLOR, alpha);
     ctx.beginPath();
     ctx.arc(x, y, sparkleSize, 0, TWO_PI);
     ctx.fill();
   }
-  this.clearCanvasShadow(ctx);
   ctx.restore();
 }
 
@@ -839,14 +844,22 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
   }
   const glyph = symbol || '?';
   const symbolFillStyle = 'rgba(255, 255, 255, 0.96)';
-  const glowColor = inversionActive ? 'rgba(24, 32, 48, 0.75)' : 'rgba(255, 255, 255, 0.65)';
-  this.applyCanvasShadow(ctx, glowColor, inversionActive ? 10 : 18);
-  ctx.fillStyle = symbolFillStyle;
+  // Replace per-enemy ctx.shadowBlur with a lightweight glow stroke pass.
+  const shadowsSuppressed = this.isLowGraphicsMode?.() || this._zoomingActive;
   ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  if (!shadowsSuppressed) {
+    const glowColor = inversionActive ? 'rgba(24, 32, 48, 0.75)' : 'rgba(255, 255, 255, 0.65)';
+    const glowBlur = inversionActive ? 10 : 18;
+    ctx.lineWidth = Math.max(4, glowBlur * 0.5);
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeStyle = glowColor;
+    ctx.strokeText(glyph, 0, 0);
+  }
+  ctx.fillStyle = symbolFillStyle;
   ctx.fillText(glyph, 0, 0);
-  this.clearCanvasShadow(ctx);
 
   const exponentFillStyle = inversionActive ? 'rgba(24, 34, 46, 0.9)' : this.resolveEnemyExponentColor(enemy);
   const exponentStrokeStyle = inversionActive ? 'rgba(236, 240, 248, 0.85)' : 'rgba(6, 8, 14, 0.85)';

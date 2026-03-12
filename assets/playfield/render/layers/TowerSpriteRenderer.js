@@ -46,6 +46,12 @@ import { drawPhiTower as drawPhiTowerHelper } from '../../../../scripts/features
 // Pre-calculated constants used across tower rendering functions
 const TWO_PI = Math.PI * 2;
 const PI = Math.PI;
+const HALF = 0.5;
+
+// Viewport culling margin: buffer zone beyond visible area to prevent pop-in.
+const VIEWPORT_CULL_MARGIN = 100;
+// Tower culling radius covers the body, rings, bloom glow, and range circle.
+const TOWER_CULL_RADIUS = 120;
 
 // Direction vectors for glyph promotion/demotion particle animations.
 const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
@@ -125,6 +131,93 @@ function getOrCreateGoldenBloomSprite(bodyRadius) {
   }
   goldenBloomSpriteCache.set(key, canvas);
   return canvas;
+}
+
+// ─── Viewport culling helpers (duplicated to avoid circular imports) ──────────
+
+function getViewportBounds() {
+  if (this._frameCache?.viewportBounds) {
+    return this._frameCache.viewportBounds;
+  }
+  if (!this.canvas || !this.ctx) {
+    return null;
+  }
+  const width = this.renderWidth || this.canvas.clientWidth || 0;
+  const height = this.renderHeight || this.canvas.clientHeight || 0;
+  const viewCenter = this.getViewCenter();
+  const scale = this.viewScale || 1;
+  const halfWidth = (width / scale) * HALF + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale) * HALF + VIEWPORT_CULL_MARGIN;
+  return {
+    minX: viewCenter.x - halfWidth,
+    maxX: viewCenter.x + halfWidth,
+    minY: viewCenter.y - halfHeight,
+    maxY: viewCenter.y + halfHeight,
+  };
+}
+
+function isInViewport(position, bounds, radius = 0) {
+  if (!position) {
+    return false;
+  }
+  if (!bounds) {
+    return true;
+  }
+  const x = position.x || 0;
+  const y = position.y || 0;
+  return (
+    x + radius >= bounds.minX &&
+    x - radius <= bounds.maxX &&
+    y + radius >= bounds.minY &&
+    y - radius <= bounds.maxY
+  );
+}
+
+// ─── Pre-rendered tower body sprite cache ─────────────────────────────────────
+// Each tower body is a filled circle + stroke + shadow glow that only varies by
+// visual config.  Pre-rendering the body with its shadow into an offscreen
+// canvas eliminates the expensive per-tower ctx.shadowBlur calls.
+const towerBodySpriteCache = new Map();
+const TOWER_BODY_CACHE_MAX = 24;
+
+function getOrCreateTowerBodySprite(bodyRadius, innerFill, outerStroke, shadowColor, shadowBlur) {
+  const roundedRadius = Math.round(bodyRadius);
+  const roundedBlur = Math.round(shadowBlur);
+  const key = `${roundedRadius}:${innerFill}:${outerStroke}:${shadowColor}:${roundedBlur}`;
+  if (towerBodySpriteCache.has(key)) {
+    return towerBodySpriteCache.get(key);
+  }
+  const padding = Math.ceil(shadowBlur * 2) + 6;
+  const size = Math.ceil(bodyRadius * 2) + padding * 2;
+  const cx = size * HALF;
+  const cy = size * HALF;
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  offCtx.shadowColor = shadowColor;
+  offCtx.shadowBlur = shadowBlur;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, bodyRadius, 0, TWO_PI);
+  offCtx.fillStyle = innerFill;
+  offCtx.strokeStyle = outerStroke;
+  offCtx.lineWidth = 2.4;
+  offCtx.fill();
+  offCtx.stroke();
+  if (towerBodySpriteCache.size >= TOWER_BODY_CACHE_MAX) {
+    towerBodySpriteCache.delete(towerBodySpriteCache.keys().next().value);
+  }
+  towerBodySpriteCache.set(key, { canvas, halfSize: size * HALF });
+  return { canvas, halfSize: size * HALF };
 }
 
 function getTowerRingSprites() {
@@ -249,23 +342,31 @@ export function drawTowerPressGlow(playfield, tower, bodyRadius, intensity, visu
   }
   const ringColor = visuals.outerStroke || 'rgba(139, 247, 255, 0.85)';
   const ringRadius = bodyRadius + 6 + clamped * 6;
+  // Replace per-press shadowBlur with a lightweight double-stroke glow pass.
   ctx.save();
   ctx.globalAlpha = 0.35 + clamped * 0.45;
-  playfield.applyCanvasShadow(ctx, ringColor, 16 + clamped * 18);
-  ctx.lineWidth = 2.6 + clamped * 2.8;
-  ctx.strokeStyle = ringColor;
   ctx.beginPath();
   ctx.arc(tower.x, tower.y, ringRadius, 0, TWO_PI);
+  ctx.strokeStyle = ringColor;
+  ctx.lineWidth = (2.6 + clamped * 2.8) + (16 + clamped * 18) * 0.5;
+  ctx.globalAlpha = (0.35 + clamped * 0.45) * 0.3;
+  ctx.stroke();
+  ctx.globalAlpha = 0.35 + clamped * 0.45;
+  ctx.lineWidth = 2.6 + clamped * 2.8;
   ctx.stroke();
   ctx.restore();
 
-  ctx.save();
   const symbolColor = visuals.symbolFill || ringColor;
+  ctx.save();
   ctx.globalAlpha = 0.4 + clamped * 0.5;
-  playfield.applyCanvasShadow(ctx, symbolColor, 18 + clamped * 16);
   ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(4, (18 + clamped * 16) * 0.5);
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  ctx.strokeStyle = symbolColor;
+  ctx.strokeText(glyph || '?', tower.x, tower.y);
   ctx.fillStyle = symbolColor;
   ctx.fillText(glyph || '?', tower.x, tower.y);
   ctx.restore();
@@ -516,6 +617,8 @@ function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direct
   if (!particles.length) {
     return;
   }
+  // Use a single outer save/restore instead of one per particle.
+  ctx.save();
   particles.forEach((particle) => {
     if (!particle) {
       return;
@@ -538,7 +641,6 @@ function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direct
     const wobble = (particle.lateral || 0) * Math.sin(progress * PI);
     const x = tower.x + (particle.offsetX || 0) + direction.x * distance + perpendicular.x * wobble;
     const y = tower.y + (particle.offsetY || 0) + direction.y * distance + perpendicular.y * wobble;
-    ctx.save();
     ctx.globalAlpha = alpha;
     const color = getGlyphParticleColor(transition.mode, particle.hueShift || 0);
     ctx.fillStyle = colorToRgbaString(color, 1);
@@ -546,8 +648,8 @@ function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direct
     ctx.beginPath();
     ctx.arc(x, y, size, 0, TWO_PI);
     ctx.fill();
-    ctx.restore();
   });
+  ctx.restore();
 }
 
 function getGlyphParticleColor(mode, tint = 0) {
@@ -618,23 +720,23 @@ function drawTowerGlyphText(ctx, tower, bodyRadius, transition, now, visuals, gl
   if (eased <= 0) {
     return;
   }
+  // Replace shadowBlur with a lightweight glow stroke for the new glyph text.
   const symbolShadow = visuals.symbolShadow;
-  if (symbolShadow?.color) {
-    this.applyCanvasShadow(
-      ctx,
-      symbolShadow.color,
-      Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
-    );
-  } else {
-    this.clearCanvasShadow(ctx);
-  }
   ctx.save();
   ctx.globalAlpha = eased;
-  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
   ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const symbol = transition?.toSymbol || glyph || tower.symbol || tower.definition?.symbol || '?';
+  if (symbolShadow?.color) {
+    const glowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+    ctx.lineWidth = Math.max(4, glowBlur * 0.5);
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeStyle = symbolShadow.color;
+    ctx.strokeText(symbol, tower.x, tower.y);
+  }
+  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
   ctx.fillText(symbol, tower.x, tower.y);
   ctx.restore();
 }
@@ -663,8 +765,18 @@ export function drawTowers() {
   });
   const hoveredHighlight = activeDrag ? activeDrag.hoverEntry : null;
 
+  // Viewport culling: skip towers that are entirely off-screen.
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  // Cache whether shadows are globally suppressed so per-tower branches stay cheap.
+  const shadowsSuppressed = this.isLowGraphicsMode() || this._zoomingActive;
+
   this.towers.forEach((tower) => {
     if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+      return;
+    }
+
+    // Cull towers outside the visible viewport before any expensive work.
+    if (viewportBounds && !isInViewport(tower, viewportBounds, TOWER_CULL_RADIUS)) {
       return;
     }
 
@@ -753,7 +865,7 @@ export function drawTowers() {
     // createRadialGradient() call; the appearance is static for a given body radius.
     const bloomSprite = getOrCreateGoldenBloomSprite(bodyRadius);
     if (bloomSprite) {
-      const bloomHalfSize = bloomSprite.width * 0.5;
+      const bloomHalfSize = bloomSprite.width * HALF;
       ctx.drawImage(bloomSprite, tower.x - bloomHalfSize, tower.y - bloomHalfSize, bloomSprite.width, bloomSprite.height);
     } else {
       // Fallback: draw the gradient inline when offscreen canvas is unavailable.
@@ -774,27 +886,45 @@ export function drawTowers() {
       ctx.fill();
     }
 
-    const outerShadow = visuals.outerShadow;
-    if (outerShadow?.color) {
-      this.applyCanvasShadow(
-        ctx,
-        outerShadow.color,
-        Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18,
-      );
-    } else {
-      // Fall back to a warm halo when a tower visual preset doesn't define a dedicated outer shadow.
-      this.applyCanvasShadow(ctx, 'rgba(255, 208, 128, 0.34)', Math.max(12, bodyRadius * 1.05));
-    }
-
+    // Draw tower rings WITHOUT shadow active — the ring sprites are pre-blurred PNGs
+    // so applying ctx.shadowBlur on top was redundant and expensive.
     drawTowerRings(ctx, tower, bodyRadius);
 
-    ctx.beginPath();
-    ctx.fillStyle = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
-    ctx.strokeStyle = visuals.outerStroke || 'rgba(139, 247, 255, 0.75)';
-    ctx.lineWidth = 2.4;
-    ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
-    ctx.fill();
-    ctx.stroke();
+    // Draw the tower body circle with shadow as a pre-rendered sprite to eliminate
+    // per-tower ctx.shadowBlur calls.  Falls back to inline drawing when the
+    // offscreen sprite is unavailable or shadows are suppressed.
+    const innerFill = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
+    const outerStroke = visuals.outerStroke || 'rgba(139, 247, 255, 0.75)';
+    const outerShadow = visuals.outerShadow;
+    const shadowColor = outerShadow?.color || 'rgba(255, 208, 128, 0.34)';
+    const bodyShadowBlur = outerShadow?.color
+      ? (Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18)
+      : Math.max(12, bodyRadius * 1.05);
+    if (!shadowsSuppressed) {
+      const bodySprite = getOrCreateTowerBodySprite(bodyRadius, innerFill, outerStroke, shadowColor, bodyShadowBlur);
+      if (bodySprite) {
+        ctx.drawImage(bodySprite.canvas, tower.x - bodySprite.halfSize, tower.y - bodySprite.halfSize);
+      } else {
+        this.applyCanvasShadow(ctx, shadowColor, bodyShadowBlur);
+        ctx.beginPath();
+        ctx.fillStyle = innerFill;
+        ctx.strokeStyle = outerStroke;
+        ctx.lineWidth = 2.4;
+        ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
+        ctx.fill();
+        ctx.stroke();
+        this.clearCanvasShadow(ctx);
+      }
+    } else {
+      // Shadows suppressed — draw body directly without any shadow overhead.
+      ctx.beginPath();
+      ctx.fillStyle = innerFill;
+      ctx.strokeStyle = outerStroke;
+      ctx.lineWidth = 2.4;
+      ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+    }
     ctx.restore();
 
     drawTowerConnectionParticles.call(this, ctx, tower, bodyRadius);
@@ -807,19 +937,21 @@ export function drawTowers() {
     if (glyphTransition) {
       drawTowerGlyphTransition.call(this, ctx, tower, bodyRadius, glyphTransition, visuals, glyph);
     } else {
-      if (symbolShadow?.color) {
-        this.applyCanvasShadow(
-          ctx,
-          symbolShadow.color,
-          Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18,
-        );
-      } else {
-        this.clearCanvasShadow(ctx);
-      }
-      ctx.fillStyle = symbolColor;
+      // Replace per-tower ctx.shadowBlur with a lightweight double-stroke glow pass.
+      // A wide semi-transparent strokeText approximates the shadow glow without the
+      // expensive Gaussian blur filter used by ctx.shadowBlur.
       ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      if (!shadowsSuppressed && symbolShadow?.color) {
+        const glowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+        ctx.lineWidth = Math.max(4, glowBlur * 0.5);
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.strokeStyle = symbolShadow.color;
+        ctx.strokeText(glyph, tower.x, tower.y);
+      }
+      ctx.fillStyle = symbolColor;
       ctx.fillText(glyph, tower.x, tower.y);
     }
 
@@ -864,13 +996,15 @@ export function drawTowers() {
     }
 
     if (tower.chain) {
-      this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', 20);
-      ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
-      ctx.lineWidth = 2;
+      // Replace chain ring shadowBlur with a lightweight double-stroke glow pass.
       ctx.beginPath();
       ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, TWO_PI);
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.22)';
+      ctx.lineWidth = 8;
       ctx.stroke();
-      this.clearCanvasShadow(ctx);
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
     if (this.activeTowerMenu?.towerId === tower.id) {

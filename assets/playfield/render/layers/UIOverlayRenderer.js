@@ -362,11 +362,13 @@ export function drawWaveTallies() {
       ctx.strokeText(label, entry.position.x, entry.position.y);
     }
     if (entry.shadowColor) {
-      ctx.shadowColor = colorToRgbaString(entry.shadowColor, 0.6);
-      ctx.shadowBlur = Number.isFinite(entry.shadowBlur) ? entry.shadowBlur : 8;
-    } else {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-      ctx.shadowBlur = 0;
+      // Replace per-tally shadowBlur with a glow stroke pass.
+      const glowBlur = Number.isFinite(entry.shadowBlur) ? entry.shadowBlur : 8;
+      ctx.lineWidth = Math.max(3, glowBlur * 0.45);
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+      ctx.strokeStyle = colorToRgbaString(entry.shadowColor, 0.6);
+      ctx.strokeText(label, entry.position.x, entry.position.y);
     }
     ctx.fillText(label, entry.position.x, entry.position.y);
     ctx.restore();
