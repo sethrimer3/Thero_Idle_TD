@@ -625,7 +625,10 @@ export function drawSunlightShadows() {
   if (!shadowLayer?.canvas) {
     return;
   }
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
   ctx.drawImage(shadowLayer.canvas, viewportBounds.minX, viewportBounds.minY, shadowLayer.width, shadowLayer.height);
+  ctx.restore();
 }
 
 /**
