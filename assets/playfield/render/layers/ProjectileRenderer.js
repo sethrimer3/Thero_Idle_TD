@@ -59,6 +59,87 @@ const epsilonNeedleSpriteCache = new Map();
 // Gradient stops ensure epsilon needles cycle through the player's palette.
 const EPSILON_NEEDLE_GRADIENT_STOPS = [0.12, 0.38, 0.62, 0.88];
 
+// Radius of the solid dot drawn at the gamma star beam tip.
+const GAMMA_STAR_GLOW_DOT_RADIUS = 5;
+// Outer radius of the pre-rendered halo that replaces ctx.shadowBlur=12 on the beam tip.
+const GAMMA_STAR_GLOW_HALO_RADIUS = 17;
+// Pre-rendered glow sprites for gamma star beam tips, keyed by rounded RGB color string.
+// Replaces ctx.shadowBlur=12 on the beam tip dot with a cached radial-gradient drawImage blit.
+const gammaStarGlowSpriteCache = new Map();
+const GAMMA_STAR_GLOW_SPRITE_CACHE_MAX = 4;
+
+// Return a cached OffscreenCanvas containing a radial-gradient glow circle for the given beam color.
+function getOrCreateGammaStarGlowSprite(color) {
+  const key = `${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)}`;
+  const cached = gammaStarGlowSpriteCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (gammaStarGlowSpriteCache.size >= GAMMA_STAR_GLOW_SPRITE_CACHE_MAX) {
+    gammaStarGlowSpriteCache.delete(gammaStarGlowSpriteCache.keys().next().value);
+  }
+  const size = GAMMA_STAR_GLOW_HALO_RADIUS * 2 + 4;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const r = Math.round(color.r);
+  const g = Math.round(color.g);
+  const b = Math.round(color.b);
+  const grad = offCtx.createRadialGradient(cx, cx, 0, cx, cx, GAMMA_STAR_GLOW_HALO_RADIUS);
+  grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.9)`);
+  grad.addColorStop(GAMMA_STAR_GLOW_DOT_RADIUS / GAMMA_STAR_GLOW_HALO_RADIUS, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+  offCtx.fillStyle = grad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, GAMMA_STAR_GLOW_HALO_RADIUS, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  gammaStarGlowSpriteCache.set(key, entry);
+  return entry;
+}
+
+// Pre-rendered omega wave radial gradient sprites, keyed by rounded radius.
+// Eliminates one createRadialGradient() call per active omega wave per frame.
+// Colors are hardcoded (rgba(255,228,120,...)) so only the radius bucket determines the cache key.
+const omegaWaveGradientCache = new Map();
+const OMEGA_WAVE_GRADIENT_CACHE_MAX = 8;
+
+// Return a cached OffscreenCanvas filled with the standard omega wave radial gradient.
+function getOrCreateOmegaWaveSprite(radius) {
+  const key = Math.round(radius);
+  const cached = omegaWaveGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (omegaWaveGradientCache.size >= OMEGA_WAVE_GRADIENT_CACHE_MAX) {
+    omegaWaveGradientCache.delete(omegaWaveGradientCache.keys().next().value);
+  }
+  const size = key * 2 + 2;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const grad = offCtx.createRadialGradient(cx, cx, 0, cx, cx, key);
+  grad.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
+  grad.addColorStop(1, 'rgba(255, 228, 120, 0)');
+  offCtx.fillStyle = grad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, key, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  omegaWaveGradientCache.set(key, entry);
+  return entry;
+}
+
 // ─── Local utility helpers ────────────────────────────────────────────────────
 
 function clamp(value, min, max) {
@@ -295,14 +376,20 @@ export function drawProjectiles() {
       const radius = Number.isFinite(projectile.parameters?.radius)
         ? projectile.parameters.radius
         : 40;
-      const gradient = ctx.createRadialGradient(position.x, position.y, 0, position.x, position.y, radius);
-      gradient.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
-      gradient.addColorStop(1, 'rgba(255, 228, 120, 0)');
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(position.x, position.y, radius, 0, TWO_PI);
-      ctx.fill();
+      // Blit a pre-rendered OffscreenCanvas instead of recreating the radial gradient every frame.
+      const omegaSprite = getOrCreateOmegaWaveSprite(radius);
+      if (omegaSprite) {
+        ctx.drawImage(omegaSprite.canvas, position.x - omegaSprite.halfSize, position.y - omegaSprite.halfSize, omegaSprite.canvas.width, omegaSprite.canvas.height);
+      } else {
+        // Fallback: rebuild the gradient when sprite creation failed.
+        const gradient = ctx.createRadialGradient(position.x, position.y, 0, position.x, position.y, radius);
+        gradient.addColorStop(0, 'rgba(255, 228, 120, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 228, 120, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, radius, 0, TWO_PI);
+        ctx.fill();
+      }
       return;
     }
 
@@ -420,22 +507,29 @@ export function drawProjectiles() {
       gradient.addColorStop(1, colorToRgbaString(beamColor, 0.95));
 
       ctx.save();
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 3;
       ctx.lineCap = 'round';
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = colorToRgbaString(beamColor, 0.6);
+      // Build path once and stroke twice: avoids rebuilding the same 2-point path.
       ctx.beginPath();
       ctx.moveTo(previousPosition.x, previousPosition.y);
       ctx.lineTo(position.x, position.y);
+      // Halo pass: wide semi-transparent stroke approximates ctx.shadowBlur=8 on the beam line.
+      ctx.strokeStyle = colorToRgbaString(beamColor, 0.12);
+      ctx.lineWidth = 11;
       ctx.stroke();
-
-      // Draw a glow at the current position
-      ctx.fillStyle = colorToRgbaString(beamColor, 0.8);
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.arc(position.x, position.y, 5, 0, TWO_PI);
-      ctx.fill();
+      // Main beam stroke (reuses the existing path — no extra beginPath needed).
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // Beam tip glow: blit a pre-rendered radial-gradient sprite instead of ctx.shadowBlur=12.
+      const glowSprite = getOrCreateGammaStarGlowSprite(beamColor);
+      if (glowSprite) {
+        ctx.drawImage(glowSprite.canvas, position.x - glowSprite.halfSize, position.y - glowSprite.halfSize, glowSprite.canvas.width, glowSprite.canvas.height);
+      } else {
+        ctx.fillStyle = colorToRgbaString(beamColor, 0.8);
+        ctx.beginPath();
+        ctx.arc(position.x, position.y, GAMMA_STAR_GLOW_DOT_RADIUS, 0, TWO_PI);
+        ctx.fill();
+      }
       ctx.restore();
       return;
     }
@@ -475,12 +569,12 @@ export function drawProjectiles() {
       return;
     }
 
-    const beamStart = normalizeProjectileColor(projectile.color, 0);
+    // When projectile.color is a valid RGB object, normalizeProjectileColor returns the palette color
+    // regardless of the second parameter, so the gradient collapsed to a uniform color with varying
+    // alpha (0.72→0.78).  A single stroke at the midpoint alpha (0.75) eliminates the gradient
+    // with no visual difference.
     const beamEnd = normalizeProjectileColor(projectile.color, 1);
-    const beamGradient = ctx.createLinearGradient(source.x, source.y, targetPosition.x, targetPosition.y);
-    beamGradient.addColorStop(0, colorToRgbaString(beamStart, 0.72));
-    beamGradient.addColorStop(1, colorToRgbaString(beamEnd, 0.78));
-    ctx.strokeStyle = beamGradient;
+    ctx.strokeStyle = colorToRgbaString(beamEnd, 0.75);
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(source.x, source.y);

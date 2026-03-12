@@ -58,11 +58,11 @@ body *::-webkit-scrollbar {
   height: 0;
 }
 
-/* Signal draggable surfaces and suppress text selection while panning. */
+/* Signal draggable surfaces and suppress text selection while panning.
+   No touch-action override here — touch pointers are skipped in dragScroll.js
+   so native scroll is preserved.  Mouse/pen panning is handled by JS. */
 [data-drag-scroll] {
   cursor: var(--cursor-grab);
-  /* Force drag-scroll containers to own touch gestures so child controls cannot block scroll starts. */
-  touch-action: none;
 }
 
 /* Lock text selection during an active drag-scroll gesture. */
@@ -1085,12 +1085,10 @@ body.graphics-mode-low .control-button {
   touch-action: pan-y; /* Allow vertical scrolling even when touching child elements */
 }
 
-/* Propagate touch-action to all children for Android Chrome compatibility */
-.panel * {
-  touch-action: pan-y;
-}
-
-/* Override touch-action for elements that need custom touch handling */
+/* Override touch-action for elements that need custom touch handling.
+   Children default to touch-action: auto which intersects with the panel's
+   pan-y to produce an effective value of pan-y — allowing vertical scroll
+   without the specificity conflicts of a wildcard rule. */
 .panel canvas,
 .panel .playfield {
   touch-action: none;
@@ -11220,33 +11218,32 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   color: var(--path-orange);
 }
 
-/* Enforce scrolling on the Towers and Codex panels for Android Chrome compatibility.
-   Android requires explicit touch-action on scrollable containers to prevent touch
-   events from being captured by child elements. */
-#panel-towers,
-#panel-options {
+/* Enforce scrolling on all panels for Android Chrome compatibility.
+   Android requires explicit touch-action on scrollable containers to prevent
+   touch events from being captured by child elements.  The base .panel rule
+   already sets touch-action: pan-y, but repeating it at ID-level specificity
+   ensures no other rule can override the scroll container. */
+.panel {
   position: relative;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  /* Prevent pointer-events on children from blocking scroll gestures on Android. */
   overscroll-behavior-y: contain;
 }
 
-/* Ensure interactive children inside these panels still allow vertical scrolling. */
-#panel-towers > *,
-#panel-options > * {
+/* Ensure direct children of every panel allow vertical scrolling. */
+.panel > * {
   touch-action: pan-y;
 }
 
-/* Buttons and interactive controls should not block panel scroll on touch. */
-#panel-towers button,
-#panel-towers .card,
-#panel-towers .tower-glyph-summary,
-#panel-towers .tower-panel-controls,
-#panel-options button,
-#panel-options .card,
-#panel-options .enemy-codex,
-#panel-options .codex-controls {
+/* Common interactive controls should not block panel scroll on touch. */
+.panel button,
+.panel .card,
+.panel a,
+.panel input,
+.panel select,
+.panel label,
+.panel details,
+.panel summary {
   touch-action: pan-y;
 }
 

@@ -32,6 +32,10 @@ const COLOR_DRIFT = 0.08; // Gradient travel distance for slow color drift.
 const VIEW_BOUNDS_PADDING = 48; // Extra padding to keep edge crystals from popping when panning.
 // Cap expensive inter-cell edge linking when too many crystals are on screen.
 const MAX_VISIBLE_CELL_CONNECTIONS = 160;
+// Rebuild the cached mosaic layers at a modest cadence because the shimmer animation is intentionally subtle.
+const MOSAIC_LAYER_CACHE_INTERVAL_MS = 120;
+// Bucket viewport and parallax inputs so tiny camera nudges can still reuse the cached layer.
+const MOSAIC_LAYER_CACHE_BUCKET_PIXELS = 4;
 
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
@@ -420,6 +424,18 @@ function isPointFarFromSeeds(x, y, seeds, minSpacing) {
 }
 
 /**
+ * Round cache inputs into small buckets so the rasterized mosaic can be reused
+ * across near-identical camera positions.
+ *
+ * @param {number} value
+ * @returns {number}
+ */
+function bucketCacheCoordinate(value) {
+  const numericValue = Number.isFinite(value) ? value : 0;
+  return Math.round(numericValue / MOSAIC_LAYER_CACHE_BUCKET_PIXELS) * MOSAIC_LAYER_CACHE_BUCKET_PIXELS;
+}
+
+/**
  * Main Crystalline Mosaic Manager
  */
 export class CrystallineMosaicManager {
@@ -434,6 +450,11 @@ export class CrystallineMosaicManager {
     this.cellStateVersion = 0;
     // Cache the last visible-cell list to avoid rebuilding every frame.
     this.visibleCellsCache = null;
+    // Cache per-layer rasterized canvases so the live render loop can blit a bitmap instead of every cell.
+    this.layerCanvasCache = {
+      background: null,
+      foreground: null,
+    };
   }
 
   /**
@@ -507,6 +528,8 @@ export class CrystallineMosaicManager {
     this.cellStateVersion += 1;
     // Clear cached visibility lists after generating a new layout.
     this.visibleCellsCache = null;
+    // Drop any rasterized layer caches because they reference the previous layout.
+    this.clearLayerCanvasCache();
     this.needsRegeneration = false;
   }
 
@@ -555,6 +578,20 @@ export class CrystallineMosaicManager {
     for (const cell of this.cells) {
       cell.update(deltaTime);
     }
+  }
+
+  /**
+   * Clear cached rasterized layer canvases so the next draw rebuilds them.
+   *
+   * @param {'background'|'foreground'} [layer]
+   */
+  clearLayerCanvasCache(layer) {
+    if (layer === 'background' || layer === 'foreground') {
+      this.layerCanvasCache[layer] = null;
+      return;
+    }
+    this.layerCanvasCache.background = null;
+    this.layerCanvasCache.foreground = null;
   }
 
   /**
@@ -624,6 +661,72 @@ export class CrystallineMosaicManager {
   }
 
   /**
+   * Build or reuse a rasterized mosaic layer for the current viewport slice.
+   * The resulting bitmap is redrawn only when the camera moves meaningfully or
+   * when the slow crystal shimmer crosses the cache interval.
+   *
+   * @private
+   */
+  _getLayerCanvasCache(layer, viewBounds, viewCenter, renderState = {}) {
+    if (!viewBounds) {
+      return null;
+    }
+    const pixelRatio = Math.max(1, renderState.pixelRatio || 1);
+    const timestamp = Number.isFinite(renderState.timestamp) ? renderState.timestamp : 0;
+    const animationBucket = Math.floor(timestamp / MOSAIC_LAYER_CACHE_INTERVAL_MS);
+    const width = Math.max(1, Math.ceil(viewBounds.maxX - viewBounds.minX));
+    const height = Math.max(1, Math.ceil(viewBounds.maxY - viewBounds.minY));
+    const parallaxFactor = layer === 'foreground' ? FG_PARALLAX_FACTOR : BG_PARALLAX_FACTOR;
+    const offsetX = viewCenter ? viewCenter.x * (1 - parallaxFactor) : 0;
+    const offsetY = viewCenter ? viewCenter.y * (1 - parallaxFactor) : 0;
+    const cacheKey = [
+      layer,
+      `v${this.cellStateVersion}`,
+      `t${animationBucket}`,
+      `pr${pixelRatio}`,
+      `${bucketCacheCoordinate(viewBounds.minX)}:${bucketCacheCoordinate(viewBounds.minY)}:${bucketCacheCoordinate(viewBounds.maxX)}:${bucketCacheCoordinate(viewBounds.maxY)}`,
+      `${bucketCacheCoordinate(offsetX)}:${bucketCacheCoordinate(offsetY)}`,
+    ].join('|');
+    const existing = this.layerCanvasCache[layer];
+    if (existing?.key === cacheKey && existing.canvas) {
+      return existing;
+    }
+
+    const cells = this._getVisibleCells(viewBounds, layer);
+    if (!cells.length) {
+      this.layerCanvasCache[layer] = null;
+      return null;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(width * pixelRatio));
+    canvas.height = Math.max(1, Math.ceil(height * pixelRatio));
+    const cacheCtx = canvas.getContext('2d');
+    if (!cacheCtx) {
+      return null;
+    }
+
+    // Mirror the world-space layer translation on the offscreen canvas so the bitmap blits back in place.
+    cacheCtx.setTransform(
+      pixelRatio,
+      0,
+      0,
+      pixelRatio,
+      (offsetX - viewBounds.minX) * pixelRatio,
+      (offsetY - viewBounds.minY) * pixelRatio,
+    );
+    this._drawCells(cacheCtx, cells);
+
+    this.layerCanvasCache[layer] = {
+      key: cacheKey,
+      canvas,
+      width,
+      height,
+    };
+    return this.layerCanvasCache[layer];
+  }
+
+  /**
    * Ensure cells are generated (shared between renderBackground and renderForeground).
    * @private
    */
@@ -646,7 +749,7 @@ export class CrystallineMosaicManager {
    * @param {string|number} pathVersion
    * @param {{x:number,y:number}} viewCenter - Current camera centre for parallax
    */
-  renderBackground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter) {
+  renderBackground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState = null) {
     if (!this.enabled) {
       return;
     }
@@ -654,21 +757,11 @@ export class CrystallineMosaicManager {
     if (this.cells.length === 0) {
       return;
     }
-
-    const cells = this._getVisibleCells(viewBounds, 'background');
-    if (!cells.length) {
+    const cache = this._getLayerCanvasCache('background', viewBounds, viewCenter, renderState || {});
+    if (!cache?.canvas) {
       return;
     }
-
-    ctx.save();
-    // Background parallax: shift slightly toward the camera centre so they lag behind movement.
-    if (viewCenter) {
-      const ox = viewCenter.x * (1 - BG_PARALLAX_FACTOR);
-      const oy = viewCenter.y * (1 - BG_PARALLAX_FACTOR);
-      ctx.translate(ox, oy);
-    }
-    this._drawCells(ctx, cells);
-    ctx.restore();
+    ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
   }
 
   /**
@@ -681,7 +774,7 @@ export class CrystallineMosaicManager {
    * @param {string|number} pathVersion
    * @param {{x:number,y:number}} viewCenter - Current camera centre for parallax
    */
-  renderForeground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter) {
+  renderForeground(ctx, viewBounds, levelBounds, pathPoints, pathVersion, viewCenter, renderState = null) {
     if (!this.enabled) {
       return;
     }
@@ -689,21 +782,11 @@ export class CrystallineMosaicManager {
     if (this.cells.length === 0) {
       return;
     }
-
-    const cells = this._getVisibleCells(viewBounds, 'foreground');
-    if (!cells.length) {
+    const cache = this._getLayerCanvasCache('foreground', viewBounds, viewCenter, renderState || {});
+    if (!cache?.canvas) {
       return;
     }
-
-    ctx.save();
-    // Foreground parallax: shift slightly away from the camera centre so they lead movement.
-    if (viewCenter) {
-      const ox = viewCenter.x * (1 - FG_PARALLAX_FACTOR);
-      const oy = viewCenter.y * (1 - FG_PARALLAX_FACTOR);
-      ctx.translate(ox, oy);
-    }
-    this._drawCells(ctx, cells);
-    ctx.restore();
+    ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
   }
 
   /**
@@ -713,6 +796,7 @@ export class CrystallineMosaicManager {
     this.enabled = !!enabled;
     if (!this.enabled) {
       this.cells = [];
+      this.clearLayerCanvasCache();
     } else {
       this.needsRegeneration = true;
     }
@@ -723,6 +807,7 @@ export class CrystallineMosaicManager {
    */
   forceRegeneration() {
     this.needsRegeneration = true;
+    this.clearLayerCanvasCache();
     clearShardSpriteCache(); // Clear cache when color scheme changes
   }
 
@@ -732,6 +817,7 @@ export class CrystallineMosaicManager {
   clear() {
     this.cells = [];
     this.needsRegeneration = true;
+    this.clearLayerCanvasCache();
   }
 }
 

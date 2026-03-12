@@ -785,19 +785,18 @@ function setupCarouselInteraction() {
     handleEnd();
   });
 
-  // Touch events
+  // Touch events — use passive listeners so they do not block panel scroll.
   track.addEventListener('touchstart', (e) => {
     handleStart(e.touches[0].clientY);
-  });
+  }, { passive: true });
 
   track.addEventListener('touchmove', (e) => {
-    e.preventDefault();
     handleMove(e.touches[0].clientY);
-  });
+  }, { passive: true });
 
   track.addEventListener('touchend', () => {
     handleEnd();
-  });
+  }, { passive: true });
 }
 
 /**
@@ -1882,9 +1881,9 @@ function setupGlobalPointerHandlers() {
   if (pointerState.handlersAttached) return;
 
   pointerState.handlersAttached = true;
-  document.addEventListener('pointerdown', handleGlobalPointerDown);
-  document.addEventListener('pointermove', handleGlobalPointerMove);
-  document.addEventListener('pointerup', handleGlobalPointerUp);
+  document.addEventListener('pointerdown', handleGlobalPointerDown, { passive: true });
+  document.addEventListener('pointermove', handleGlobalPointerMove, { passive: true });
+  document.addEventListener('pointerup', handleGlobalPointerUp, { passive: true });
 }
 
 function removeGlobalPointerHandlers() {

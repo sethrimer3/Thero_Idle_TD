@@ -29,6 +29,20 @@ const VIEWPORT_CULL_MARGIN = 100;
 // Sunlight radius is a fraction of the larger playfield dimension so the effect
 // scales sensibly on both portrait (mobile) and landscape (desktop) orientations.
 const SUNLIGHT_RADIUS_FACTOR = 0.5;
+// Start shrinking the screen-space glow footprint earlier on dense displays because the same bloom covers more real pixels.
+const HIGH_DPI_SUNLIGHT_PIXEL_RATIO = 1.5;
+// Apply the strongest sunlight reduction on very dense displays to limit the largest full-screen blend.
+const ULTRA_DPI_SUNLIGHT_PIXEL_RATIO = 2.5;
+// Keep most of the glow on moderately dense displays while trimming some expensive overdraw.
+const HIGH_DPI_SUNLIGHT_RADIUS_SCALE = 0.88;
+// Compress the glow more aggressively on ultra-dense displays where the bloom is the most expensive decorative blend.
+const ULTRA_DPI_SUNLIGHT_RADIUS_SCALE = 0.74;
+// Tighten the glow further in low graphics mode so weaker devices spend less time filling the warm bloom.
+const LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE = 0.7;
+// Slightly dim the sunlight overlay when density-based reductions are active so the smaller sprite still reads naturally.
+const HIGH_DPI_SUNLIGHT_ALPHA = 0.9;
+const ULTRA_DPI_SUNLIGHT_ALPHA = 0.8;
+const LOW_GRAPHICS_SUNLIGHT_ALPHA = 0.72;
 
 // Bloom overlay covers a smaller central region for a brighter warm core.
 const BLOOM_RADIUS_FACTOR = 0.55;
@@ -76,6 +90,8 @@ const SHINE_RADIUS_FACTOR = 0.92;
 const SHINE_ALPHA_FACTOR = 0.72;
 // Line width of the shine arc as a fraction of the tower body radius.
 const SHINE_LINE_WIDTH_FACTOR = 0.22;
+// Rebuild the decorative shadow layer at a modest cadence because a 60 FPS refresh is visually unnecessary.
+const SUNLIGHT_SHADOW_CACHE_INTERVAL_MS = 50;
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -141,9 +157,56 @@ function resolveSunlightRadius() {
   const w = this.renderWidth || 0;
   const h = this.renderHeight || 0;
   const larger = Math.max(w, h) || 1;
+  const detailProfile = getSunlightDetailProfile.call(this);
   // Return a screen-space radius so the sprite cache remains stable across zoom
   // levels and the glow covers a consistent screen fraction at any zoom.
-  return larger * SUNLIGHT_RADIUS_FACTOR;
+  return larger * SUNLIGHT_RADIUS_FACTOR * detailProfile.radiusScale;
+}
+
+/**
+ * Cache a simple detail profile for the Mind Gate sunlight so dense displays and
+ * low graphics mode can share the same overdraw reductions for the glow sprite.
+ *
+ * @returns {{ radiusScale: number, alpha: number }}
+ */
+function getSunlightDetailProfile() {
+  const cachedProfile = this?._frameCache?.sunlightDetailProfile;
+  if (cachedProfile) {
+    return cachedProfile;
+  }
+  const pixelRatio = Math.max(1, this?.pixelRatio || 1);
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
+  const ultraDpiEnabled = pixelRatio >= ULTRA_DPI_SUNLIGHT_PIXEL_RATIO;
+  const highDpiEnabled = pixelRatio >= HIGH_DPI_SUNLIGHT_PIXEL_RATIO;
+  const detailTier = lowGraphicsEnabled
+    ? 'low'
+    : ultraDpiEnabled
+      ? 'ultra'
+      : highDpiEnabled
+        ? 'high'
+        : 'default';
+  const radiusScale = detailTier === 'low'
+    ? LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE
+    : detailTier === 'ultra'
+      ? ULTRA_DPI_SUNLIGHT_RADIUS_SCALE
+      : detailTier === 'high'
+        ? HIGH_DPI_SUNLIGHT_RADIUS_SCALE
+        : 1;
+  const alpha = detailTier === 'low'
+    ? LOW_GRAPHICS_SUNLIGHT_ALPHA
+    : detailTier === 'ultra'
+      ? ULTRA_DPI_SUNLIGHT_ALPHA
+      : detailTier === 'high'
+        ? HIGH_DPI_SUNLIGHT_ALPHA
+        : 1;
+  const profile = {
+    radiusScale,
+    alpha,
+  };
+  if (this?._frameCache) {
+    this._frameCache.sunlightDetailProfile = profile;
+  }
+  return profile;
 }
 
 /**
@@ -215,6 +278,29 @@ function resolveMindGatePosition() {
 }
 
 /**
+ * Build a stable cache key for the sunlight shadow layer.
+ *
+ * @param {object} viewBounds
+ * @param {number} pixelRatio
+ * @param {number} timestamp
+ * @param {object} gate
+ * @param {boolean} lowGraphicsEnabled
+ * @returns {string}
+ */
+function getSunlightShadowCacheKey(viewBounds, pixelRatio, timestamp, gate, lowGraphicsEnabled) {
+  const animationBucket = Math.floor(timestamp / SUNLIGHT_SHADOW_CACHE_INTERVAL_MS);
+  const scale = Math.max(0.1, this.viewScale || 1);
+  return [
+    `t${animationBucket}`,
+    `pr${pixelRatio}`,
+    `lg${lowGraphicsEnabled ? 1 : 0}`,
+    `vb${Math.round(viewBounds.minX)}:${Math.round(viewBounds.minY)}:${Math.round(viewBounds.maxX)}:${Math.round(viewBounds.maxY)}`,
+    `g${Math.round(gate.x)}:${Math.round(gate.y)}`,
+    `s${Math.round(scale * 1000)}`,
+  ].join('|');
+}
+
+/**
  * Fill a soft shadow trapezoid using a linear gradient that fades from near to far.
  *
  * @param {CanvasRenderingContext2D} ctx
@@ -246,6 +332,213 @@ function fillSoftShadowQuad(ctx, v1, v2, s2, s1, nearAlpha) {
   ctx.fill();
 }
 
+/**
+ * Render all sunlight shadow geometry onto the supplied context.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {object} gate
+ * @param {object} viewportBounds
+ * @param {number} sunlightRadius
+ * @param {number} towerBodyRadius
+ * @param {boolean} lowGraphicsEnabled
+ */
+function drawSunlightShadowsToContext(ctx, gate, viewportBounds, sunlightRadius, towerBodyRadius, lowGraphicsEnabled) {
+  const sunlightRadiusSquared = sunlightRadius * sunlightRadius;
+
+  // ── Tower shadows ──────────────────────────────────────────────────────────
+  if (Array.isArray(this.towers)) {
+    this.towers.forEach((tower) => {
+      if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+        return;
+      }
+
+      const dx = tower.x - gate.x;
+      const dy = tower.y - gate.y;
+      const distSquared = dx * dx + dy * dy;
+      if (distSquared > sunlightRadiusSquared) {
+        return;
+      }
+      if (!isInViewport({ x: tower.x, y: tower.y }, viewportBounds, towerBodyRadius * 8)) {
+        return;
+      }
+
+      const dist = Math.sqrt(distSquared);
+      // Unit vector from gate to tower (shadow direction)
+      const invDist = dist > 0 ? 1 / dist : 0;
+      const ux = dx * invDist;
+      const uy = dy * invDist;
+
+      // Perpendicular direction to the gate-tower axis
+      const px = -uy;
+      const py = ux;
+
+      // Near edge: two points on opposite sides of the tower body
+      const v1 = { x: tower.x + px * towerBodyRadius, y: tower.y + py * towerBodyRadius };
+      const v2 = { x: tower.x - px * towerBodyRadius, y: tower.y - py * towerBodyRadius };
+
+      // Shadow length scales with distance: closer towers cast shorter shadows
+      const shadowLength = towerBodyRadius * SHADOW_LENGTH_FACTOR * (dist / sunlightRadius);
+      const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
+      const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
+
+      // Low-graphics mode keeps the same geometry but tones down opacity to limit overdraw.
+      const towerNearAlpha = lowGraphicsEnabled ? TOWER_SHADOW_NEAR_ALPHA * 0.7 : TOWER_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, towerNearAlpha);
+    });
+  }
+
+  // ── Enemy shadows ──────────────────────────────────────────────────────────
+  const enemies = this.enemies;
+  if (Array.isArray(enemies)) {
+    enemies.forEach((enemy) => {
+      if (!enemy || enemy.hp <= 0) {
+        return;
+      }
+      const enemyPos = this.getEnemyPosition ? this.getEnemyPosition(enemy) : null;
+      if (!enemyPos || !Number.isFinite(enemyPos.x) || !Number.isFinite(enemyPos.y)) {
+        return;
+      }
+
+      const dx = enemyPos.x - gate.x;
+      const dy = enemyPos.y - gate.y;
+      const distSquared = dx * dx + dy * dy;
+      if (distSquared > sunlightRadiusSquared) {
+        return;
+      }
+      if (!isInViewport(enemyPos, viewportBounds, 60)) {
+        return;
+      }
+
+      const metrics = this.getEnemyVisualMetrics ? this.getEnemyVisualMetrics(enemy) : null;
+      // Enemy shadows should cast from a small circle regardless of shell size.
+      const visualCoreRadius = metrics?.coreRadius ?? 9;
+      const coreRadius = Math.max(
+        ENEMY_SHADOW_RADIUS_MIN,
+        Math.min(ENEMY_SHADOW_RADIUS_MAX, visualCoreRadius * ENEMY_SHADOW_RADIUS_FACTOR),
+      );
+
+      const dist = Math.sqrt(distSquared);
+      const invDist = dist > 0 ? 1 / dist : 0;
+      const ux = dx * invDist;
+      const uy = dy * invDist;
+      const px = -uy;
+      const py = ux;
+
+      const v1 = { x: enemyPos.x + px * coreRadius, y: enemyPos.y + py * coreRadius };
+      const v2 = { x: enemyPos.x - px * coreRadius, y: enemyPos.y - py * coreRadius };
+
+      const shadowLength = coreRadius * SHADOW_LENGTH_FACTOR * (dist / sunlightRadius);
+      const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
+      const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
+
+      // Enemy shadow alpha follows the same low-graphics reduction rule as tower shadows.
+      const enemyNearAlpha = lowGraphicsEnabled ? ENEMY_SHADOW_NEAR_ALPHA * 0.7 : ENEMY_SHADOW_NEAR_ALPHA;
+      fillSoftShadowQuad(ctx, v1, v2, s2, s1, enemyNearAlpha);
+    });
+  }
+
+  // ── Mote gem circle shadows ────────────────────────────────────────────────
+  const gemUnit = Math.max(6, (this._frameCache?.minDimension || 1) * GEM_UNIT_SCALE_FACTOR);
+  if (Array.isArray(moteGemState.active)) {
+    moteGemState.active.forEach((gem) => {
+      if (!gem || !Number.isFinite(gem.x) || !Number.isFinite(gem.y)) {
+        return;
+      }
+
+      const dx = gem.x - gate.x;
+      const dy = gem.y - gate.y;
+      const distSquared = dx * dx + dy * dy;
+      if (distSquared > sunlightRadiusSquared) {
+        return;
+      }
+      if (!isInViewport({ x: gem.x, y: gem.y }, viewportBounds, 30)) {
+        return;
+      }
+
+      const dist = Math.sqrt(distSquared);
+      // Resolve gem radius from its moteSize property, mirroring drawMoteGems
+      const moteSize = Math.max(1, Number.isFinite(gem.moteSize) ? gem.moteSize : gem.value);
+      const gemRadius = Math.max(MIN_GEM_RADIUS, moteSize * gemUnit * GEM_RADIUS_SCALE);
+
+      // Offset the shadow circle away from the gate
+      const invDist = dist > 0 ? 1 / dist : 0;
+      const offsetX = dx * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
+      const offsetY = dy * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
+
+      ctx.beginPath();
+      // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
+      const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
+      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
+      ctx.arc(gem.x + offsetX, gem.y + offsetY, gemRadius * GEM_SHADOW_RADIUS_FACTOR, 0, TWO_PI);
+      ctx.fill();
+    });
+  }
+}
+
+/**
+ * Build or reuse the offscreen sunlight shadow layer for the current viewport.
+ *
+ * @param {object} viewBounds
+ * @param {object} gate
+ * @param {number} sunlightRadius
+ * @param {number} towerBodyRadius
+ * @param {boolean} lowGraphicsEnabled
+ * @returns {{key:string, canvas:HTMLCanvasElement, width:number, height:number}|null}
+ */
+function resolveSunlightShadowLayer(viewBounds, gate, sunlightRadius, towerBodyRadius, lowGraphicsEnabled) {
+  if (!viewBounds || typeof document === 'undefined') {
+    return null;
+  }
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const timestamp = this._frameCache?.timestamp || 0;
+  const key = getSunlightShadowCacheKey.call(
+    this,
+    viewBounds,
+    pixelRatio,
+    timestamp,
+    gate,
+    lowGraphicsEnabled,
+  );
+  const width = Math.max(1, Math.ceil(viewBounds.maxX - viewBounds.minX));
+  const height = Math.max(1, Math.ceil(viewBounds.maxY - viewBounds.minY));
+  const existing = this._sunlightShadowLayerCache;
+  if (existing?.key === key && existing.canvas) {
+    return existing;
+  }
+
+  const canvas = existing?.canvas
+    && existing.width === width
+    && existing.height === height
+    ? existing.canvas
+    : document.createElement('canvas');
+  canvas.width = Math.max(1, Math.ceil(width * pixelRatio));
+  canvas.height = Math.max(1, Math.ceil(height * pixelRatio));
+  const cacheCtx = canvas.getContext('2d');
+  if (!cacheCtx) {
+    return null;
+  }
+  cacheCtx.clearRect(0, 0, canvas.width, canvas.height);
+  cacheCtx.setTransform(pixelRatio, 0, 0, pixelRatio, -viewBounds.minX * pixelRatio, -viewBounds.minY * pixelRatio);
+  cacheCtx.globalCompositeOperation = 'source-over';
+  drawSunlightShadowsToContext.call(
+    this,
+    cacheCtx,
+    gate,
+    viewBounds,
+    sunlightRadius,
+    towerBodyRadius,
+    lowGraphicsEnabled,
+  );
+
+  this._sunlightShadowLayerCache = {
+    key,
+    canvas,
+    width,
+    height,
+  };
+  return this._sunlightShadowLayerCache;
+}
+
 // ─── Exported render functions ────────────────────────────────────────────────
 
 /**
@@ -272,9 +565,11 @@ export function drawMindGateSunlight() {
   // Sprite is built at screen-pixel resolution so the cache is stable across zoom.
   const sunlightSprite = resolveSunlightSprite.call(this, screenRadius);
   const viewScale = Math.max(0.1, this.viewScale || 1);
+  const detailProfile = getSunlightDetailProfile.call(this);
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = detailProfile.alpha;
   if (sunlightSprite?.canvas) {
     // Convert sprite's screen-pixel size to world-coordinate size so the
     // zoom transform applied by the render pipeline scales it back to the
@@ -319,137 +614,18 @@ export function drawSunlightShadows() {
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
-
-  // ── Tower shadows ──────────────────────────────────────────────────────────
-  if (Array.isArray(this.towers)) {
-    this.towers.forEach((tower) => {
-      if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-        return;
-      }
-
-      const dx = tower.x - gate.x;
-      const dy = tower.y - gate.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > sunlightRadius) {
-        return;
-      }
-      if (!isInViewport({ x: tower.x, y: tower.y }, viewportBounds, towerBodyRadius * 8)) {
-        return;
-      }
-
-      // Unit vector from gate to tower (shadow direction)
-      const invDist = dist > 0 ? 1 / dist : 0;
-      const ux = dx * invDist;
-      const uy = dy * invDist;
-
-      // Perpendicular direction to the gate-tower axis
-      const px = -uy;
-      const py = ux;
-
-      // Near edge: two points on opposite sides of the tower body
-      const v1 = { x: tower.x + px * towerBodyRadius, y: tower.y + py * towerBodyRadius };
-      const v2 = { x: tower.x - px * towerBodyRadius, y: tower.y - py * towerBodyRadius };
-
-      // Shadow length scales with distance: closer towers cast shorter shadows
-      const shadowLength = towerBodyRadius * SHADOW_LENGTH_FACTOR * (dist / sunlightRadius);
-      const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
-      const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
-
-      // Low-graphics mode keeps the same geometry but tones down opacity to limit overdraw.
-      const towerNearAlpha = lowGraphicsEnabled ? TOWER_SHADOW_NEAR_ALPHA * 0.7 : TOWER_SHADOW_NEAR_ALPHA;
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, towerNearAlpha);
-    });
+  const shadowLayer = resolveSunlightShadowLayer.call(
+    this,
+    viewportBounds,
+    gate,
+    sunlightRadius,
+    towerBodyRadius,
+    lowGraphicsEnabled,
+  );
+  if (!shadowLayer?.canvas) {
+    return;
   }
-
-  // ── Enemy shadows ──────────────────────────────────────────────────────────
-  const enemies = this.enemies;
-  if (Array.isArray(enemies)) {
-    enemies.forEach((enemy) => {
-      if (!enemy || enemy.hp <= 0) {
-        return;
-      }
-      const enemyPos = this.getEnemyPosition ? this.getEnemyPosition(enemy) : null;
-      if (!enemyPos || !Number.isFinite(enemyPos.x) || !Number.isFinite(enemyPos.y)) {
-        return;
-      }
-
-      const dx = enemyPos.x - gate.x;
-      const dy = enemyPos.y - gate.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > sunlightRadius) {
-        return;
-      }
-      if (!isInViewport(enemyPos, viewportBounds, 60)) {
-        return;
-      }
-
-      const metrics = this.getEnemyVisualMetrics ? this.getEnemyVisualMetrics(enemy) : null;
-      // Enemy shadows should cast from a small circle regardless of shell size.
-      const visualCoreRadius = metrics?.coreRadius ?? 9;
-      const coreRadius = Math.max(
-        ENEMY_SHADOW_RADIUS_MIN,
-        Math.min(ENEMY_SHADOW_RADIUS_MAX, visualCoreRadius * ENEMY_SHADOW_RADIUS_FACTOR),
-      );
-
-      const invDist = dist > 0 ? 1 / dist : 0;
-      const ux = dx * invDist;
-      const uy = dy * invDist;
-      const px = -uy;
-      const py = ux;
-
-      const v1 = { x: enemyPos.x + px * coreRadius, y: enemyPos.y + py * coreRadius };
-      const v2 = { x: enemyPos.x - px * coreRadius, y: enemyPos.y - py * coreRadius };
-
-      const shadowLength = coreRadius * SHADOW_LENGTH_FACTOR * (dist / sunlightRadius);
-      const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
-      const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
-
-      // Enemy shadow alpha follows the same low-graphics reduction rule as tower shadows.
-      const enemyNearAlpha = lowGraphicsEnabled ? ENEMY_SHADOW_NEAR_ALPHA * 0.7 : ENEMY_SHADOW_NEAR_ALPHA;
-      fillSoftShadowQuad(ctx, v1, v2, s2, s1, enemyNearAlpha);
-    });
-  }
-
-  // ── Mote gem circle shadows ────────────────────────────────────────────────
-  const gemUnit = Math.max(6, (this._frameCache?.minDimension || 1) * GEM_UNIT_SCALE_FACTOR);
-  if (Array.isArray(moteGemState.active)) {
-    moteGemState.active.forEach((gem) => {
-      if (!gem || !Number.isFinite(gem.x) || !Number.isFinite(gem.y)) {
-        return;
-      }
-
-      const dx = gem.x - gate.x;
-      const dy = gem.y - gate.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > sunlightRadius) {
-        return;
-      }
-      if (!isInViewport({ x: gem.x, y: gem.y }, viewportBounds, 30)) {
-        return;
-      }
-
-      // Resolve gem radius from its moteSize property, mirroring drawMoteGems
-      const moteSize = Math.max(1, Number.isFinite(gem.moteSize) ? gem.moteSize : gem.value);
-      const gemRadius = Math.max(MIN_GEM_RADIUS, moteSize * gemUnit * GEM_RADIUS_SCALE);
-
-      // Offset the shadow circle away from the gate
-      const invDist = dist > 0 ? 1 / dist : 0;
-      const offsetX = dx * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
-      const offsetY = dy * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
-
-      ctx.beginPath();
-      // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
-      const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
-      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
-      ctx.arc(gem.x + offsetX, gem.y + offsetY, gemRadius * GEM_SHADOW_RADIUS_FACTOR, 0, TWO_PI);
-      ctx.fill();
-    });
-  }
-
-  ctx.restore();
+  ctx.drawImage(shadowLayer.canvas, viewportBounds.minX, viewportBounds.minY, shadowLayer.width, shadowLayer.height);
 }
 
 /**

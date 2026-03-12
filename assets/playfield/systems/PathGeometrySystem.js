@@ -11,6 +11,16 @@ import { getPlayfieldResolutionCap } from '../playfieldPreferences.js';
 const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 const TWO_PI = Math.PI * 2;
 const HALF = 0.5;
+// Start reducing decorative river particles once the backing store is substantially denser than CSS pixels.
+const HIGH_DPI_TRACK_PARTICLE_PIXEL_RATIO = 1.5;
+// Apply the strongest river-particle reduction on very dense displays to limit fill-rate pressure.
+const ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO = 2.5;
+// Use a moderate spawn reduction on high-DPI boards so the river still reads as active motion.
+const HIGH_DPI_TRACK_PARTICLE_SCALE = 0.65;
+// Cut the river particle budget further on ultra-dense boards where each glow covers more real pixels.
+const ULTRA_DPI_TRACK_PARTICLE_SCALE = 0.45;
+// Keep a small tracer presence even after density-based reductions so the river still feels alive.
+const MIN_TRACK_TRACER_PARTICLE_COUNT = 8;
 
 /**
  * Synchronizes canvas size with container dimensions and rebuilds path geometry.
@@ -211,12 +221,32 @@ export function initializeTrackRiverParticles() {
 
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const lowGraphicsEnabled = this.isLowGraphicsMode();
-  const performanceScale = lowGraphicsEnabled ? 0.6 : 1;
-  // Reduce the river spawn budget on low fidelity so the tracer math stays lightweight on busy boards.
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const isHighDpi = pixelRatio >= HIGH_DPI_TRACK_PARTICLE_PIXEL_RATIO;
+  const highDpiPerformanceScale = pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+    ? ULTRA_DPI_TRACK_PARTICLE_SCALE
+    : isHighDpi
+      ? HIGH_DPI_TRACK_PARTICLE_SCALE
+      : 1;
+  const performanceScale = (lowGraphicsEnabled ? 0.6 : 1) * highDpiPerformanceScale;
+  // Reduce the river spawn budget on low fidelity and high-DPI displays so the tracer math stays lightweight.
   const baseCount = Math.round(
     (this.pathLength / Math.max(28, minDimension * 0.35)) * performanceScale,
   );
-  const particleCount = Math.max(36, Math.min(lowGraphicsEnabled ? 120 : 160, baseCount));
+  const minimumParticleCount = lowGraphicsEnabled || pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+    ? 20
+    : isHighDpi
+      ? 24
+      : 36;
+  // Keep the river visibly active while scaling the spawn ceiling down as pixel density or low-graphics mode increases.
+  const maximumParticleCount = lowGraphicsEnabled
+    ? 96
+    : pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+      ? 88
+      : isHighDpi
+        ? 112
+        : 160;
+  const particleCount = Math.max(minimumParticleCount, Math.min(maximumParticleCount, baseCount));
   const createParticle = () => ({
     progress: Math.random(),
     speed: 0.045 + Math.random() * 0.05,
@@ -242,7 +272,12 @@ export function initializeTrackRiverParticles() {
   });
 
   this.trackRiverParticles = Array.from({ length: particleCount }, createParticle);
-  const tracerCount = lowGraphicsEnabled ? 0 : Math.max(10, Math.round(particleCount * 0.25));
+  const tracerCount = lowGraphicsEnabled
+    ? 0
+    : Math.max(
+        MIN_TRACK_TRACER_PARTICLE_COUNT,
+        Math.round(particleCount * (pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO ? 0.16 : isHighDpi ? 0.2 : 0.25)),
+      );
   // Suppress tracer particles entirely in low graphics mode to eliminate the heaviest draw calls.
   this.trackRiverTracerParticles = lowGraphicsEnabled
     ? []

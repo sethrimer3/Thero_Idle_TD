@@ -9,6 +9,10 @@ import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const HALF = 0.5;
+// Treat high-DPI playfields as an effects budget signal because every glow/blit costs more fill-rate.
+const HIGH_DPI_EFFECT_PIXEL_RATIO = 1.5;
+// Apply a stronger reduction on very dense displays where layered particles become especially expensive.
+const ULTRA_DPI_EFFECT_PIXEL_RATIO = 2.5;
 
 // Gate sprite assets loaded eagerly so they are ready before first render.
 // Using PNG symbol sprites uploaded to the gates&track sprite folder.
@@ -85,6 +89,18 @@ const CONSCIOUSNESS_WAVE_WIDTH_SCALE = 2.4; // Wave extends beyond gate
 const CONSCIOUSNESS_WAVE_HEIGHT_SCALE = 0.5; // Base amplitude relative to radius
 const CONSCIOUSNESS_WAVE_PEAKS = 3; // Number of complete sine waves
 const CONSCIOUSNESS_WAVE_POINTS = 80; // Number of points for smooth curve
+// Preserve a readable wave silhouette in low graphics mode with half the original point count.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE = 0.5;
+// Retain more of the original curve on high-DPI displays because the gate is still shown at full size.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE = 0.6;
+// Trim the wave more aggressively on ultra-dense displays where overdraw costs climb fastest.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE = 0.5;
+// Never reduce the wave below this floor in low graphics mode so it still reads as a sine band.
+const CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS = 32;
+// Keep a slightly higher floor for high-DPI displays to avoid a visibly polygonal gate wave.
+const CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS = 40;
+// Allow the strongest high-DPI reduction while preserving the gate's overall light signature.
+const CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS = 32;
 const CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE = 0.7; // Phase offset between peaks
 const CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE = 0.5; // Time-based peak variation speed
 const CONSCIOUSNESS_WAVE_AMPLITUDE_MIN = 0.7; // Minimum peak amplitude multiplier
@@ -100,8 +116,8 @@ const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN = 2.5; // Minimum line width for 
 const CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE = 0.12; // Line width scaling for second layer
 const CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE = 0.5; // Shadow blur scaling for second layer
 
-// Keep both gates at roughly 30 particles for richer motion without overloading render loops.
-const GATE_PARTICLE_COUNT = 30;
+// Reduced from 30 → 18 particles per gate for a ~40% cut in per-frame work while keeping the visual halo.
+const GATE_PARTICLE_COUNT = 18;
 // Bound particle movement to a compact halo around each gate so the effect remains readable.
 const GATE_PARTICLE_MAX_RADIUS_SCALE = 1.16;
 // Ensure every particle keeps drifting even when center pull would otherwise stall it.
@@ -114,10 +130,38 @@ const GATE_PARTICLE_CENTER_PULL = 52;
 const GATE_PARTICLE_NOISE_FORCE = 18;
 // Keep long frame hitches from exploding velocities when tabs regain focus.
 const GATE_PARTICLE_MAX_DT = 0.05;
-// Render each cached blurred particle with a shared base sprite size for consistent softness.
-const GATE_PARTICLE_SPRITE_SIZE = 32;
+// Keep baked particle opacity consistent across the precomputed radial color buckets.
+const GATE_PARTICLE_MIN_ALPHA = 0.38;
+const GATE_PARTICLE_ALPHA_RANGE = 0.5;
+// Simulate gate particles every other frame and reuse the last position on in-between draws.
+const GATE_PARTICLE_SIMULATION_STRIDE = 2;
+// Render each cached blurred particle with a tighter shared base sprite size to reduce blit bandwidth.
+const GATE_PARTICLE_SPRITE_SIZE = 24;
 // Pre-render a small cache of particle radii so runtime draws only blit images.
 const GATE_PARTICLE_SIZE_VARIANTS = [3, 4.5, 6];
+// Cache the largest particle blit size so offscreen buffers and clamps do not recalculate it every frame.
+const GATE_PARTICLE_MAX_DRAW_SIZE = Math.max(...GATE_PARTICLE_SIZE_VARIANTS) * 4.2;
+// Number of pre-tinted color buckets baked into the sprite cache; eliminates per-particle source-atop tinting.
+const GATE_PARTICLE_COLOR_BUCKETS = 8;
+// Pre-calculated max index for color bucket mapping used in both cache build and per-frame draw.
+const GATE_PARTICLE_MAX_COLOR_INDEX = GATE_PARTICLE_COLOR_BUCKETS - 1;
+// Sample particle noise from a small trigonometry lookup table instead of per-frame sin/cos calls.
+const GATE_PARTICLE_NOISE_LUT_SIZE = 256;
+const GATE_PARTICLE_NOISE_LUT_MASK = GATE_PARTICLE_NOISE_LUT_SIZE - 1;
+const GATE_PARTICLE_NOISE_LUT_SCALE = GATE_PARTICLE_NOISE_LUT_SIZE / TWO_PI;
+const GATE_PARTICLE_SIN_LUT = new Float32Array(GATE_PARTICLE_NOISE_LUT_SIZE);
+const GATE_PARTICLE_COS_LUT = new Float32Array(GATE_PARTICLE_NOISE_LUT_SIZE);
+// Guard against divide-by-near-zero when re-scaling almost-stationary particles back to the minimum speed.
+const GATE_PARTICLE_SPEED_EPSILON = 1e-6;
+for (let lutIndex = 0; lutIndex < GATE_PARTICLE_NOISE_LUT_SIZE; lutIndex += 1) {
+  const angle = (lutIndex / GATE_PARTICLE_NOISE_LUT_SIZE) * TWO_PI;
+  GATE_PARTICLE_SIN_LUT[lutIndex] = Math.sin(angle);
+  GATE_PARTICLE_COS_LUT[lutIndex] = Math.cos(angle);
+}
+// Reduce the gate particle budget on dense displays while preserving a readable halo.
+const GATE_PARTICLE_HIGH_DPI_COUNT = 9;
+// Trim even more particles on very dense displays to curb per-frame sprite blits.
+const GATE_PARTICLE_ULTRA_DPI_COUNT = 7;
 // Define the warm distance gradient for Mind Gate particles (center -> outer ring).
 const MIND_GATE_GRADIENT_STOPS = [
   { stop: 0, color: [140, 72, 16] },
@@ -130,24 +174,174 @@ const ENEMY_GATE_GRADIENT_STOPS = [
   { stop: 0.55, color: [56, 20, 98] },
   { stop: 1, color: [214, 184, 255] },
 ];
+// Reuse one canonical warm hue for the Mind Gate wave and its cached gradient.
+const MIND_GATE_WAVE_COLOR = { r: 255, g: 120, b: 0 };
+
+// Cadence at which gate background layer composites are re-rendered to the offscreen cache.
+// At 30 fps the fastest ring (0.3 rad/s) shifts by only ~0.5° per bucket — imperceptible at any scale.
+const GATE_LAYERS_CACHE_FPS = 30;
+// Keep the composite cache bounded; two gates × a couple of resize variants stays ≤4 entries.
+const GATE_LAYERS_COMPOSITE_CACHE_MAX = 4;
+// Pre-composited gate background layer frames keyed by "{layerCount}:{roundedSize}:{stride}:{timeBucket}".
+// Reduces N per-layer save/rotate/drawImage/restore calls to a single drawImage blit on cache hits.
+const gateLayersCompositeCache = new Map();
+
+// Pre-rendered gradient fills for the enemy gate symbol (anti-glow void + cyan aura), keyed by rounded radius.
+// Eliminates two createRadialGradient() calls per frame for the enemy gate anchor.
+const enemyGateGradientCache = new Map();
+const ENEMY_GATE_GRADIENT_CACHE_MAX = 3;
+
+// Pre-rendered glow gradient fill for the mind gate symbol, keyed by rounded radius.
+// Eliminates one createRadialGradient() call per frame for the mind gate anchor.
+const mindGateGradientCache = new Map();
+const MIND_GATE_GRADIENT_CACHE_MAX = 3;
+
+/**
+ * Cache the per-frame effect quality profile so gate and path effects can share the same reduction rules.
+ * @this {{
+ *   _frameCache?: { trackEffectDetailProfile?: object },
+ *   pixelRatio?: number,
+ *   isLowGraphicsMode?: () => boolean
+ * }}
+ * @returns {{
+ *   highDpiEffectsEnabled: boolean,
+ *   ultraDpiEffectsEnabled: boolean,
+ *   backgroundLayerStride: number,
+ *   pathParticleStride: number,
+ *   tracerParticleStride: number,
+ *   gateParticleCount: number,
+ *   wavePointCount: number
+ * }}
+ */
+function getTrackEffectDetailProfile() {
+  const cachedProfile = this?._frameCache?.trackEffectDetailProfile;
+  if (cachedProfile && typeof cachedProfile === 'object') {
+    return cachedProfile;
+  }
+  const pixelRatio = Math.max(1, this?.pixelRatio || 1);
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
+  const highDpiEffectsEnabled = pixelRatio >= HIGH_DPI_EFFECT_PIXEL_RATIO;
+  const ultraDpiEffectsEnabled = pixelRatio >= ULTRA_DPI_EFFECT_PIXEL_RATIO;
+  let wavePointCount = CONSCIOUSNESS_WAVE_POINTS;
+  if (lowGraphicsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_LOW_GRAPHICS_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_LOW_GRAPHICS_SCALE),
+    );
+  } else if (ultraDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_ULTRA_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_ULTRA_DPI_SCALE),
+    );
+  } else if (highDpiEffectsEnabled) {
+    wavePointCount = Math.max(
+      CONSCIOUSNESS_WAVE_HIGH_DPI_MIN_POINTS,
+      Math.round(CONSCIOUSNESS_WAVE_POINTS * CONSCIOUSNESS_WAVE_HIGH_DPI_SCALE),
+    );
+  }
+  const profile = {
+    highDpiEffectsEnabled,
+    ultraDpiEffectsEnabled,
+    // Dense displays and low-graphics mode both benefit from drawing fewer rotating backdrop layers.
+    backgroundLayerStride: lowGraphicsEnabled || ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
+    // River particles are pure eye candy, so halve their draw density when fill-rate is under pressure.
+    pathParticleStride: lowGraphicsEnabled || ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
+    // Keep tracer sparks a bit denser than the base river, but still skip half on dense displays.
+    tracerParticleStride: ultraDpiEffectsEnabled ? 3 : highDpiEffectsEnabled ? 2 : 1,
+    // Reduce gate particle simulation count only when the screen density itself makes blits costlier.
+    gateParticleCount: ultraDpiEffectsEnabled
+      ? GATE_PARTICLE_ULTRA_DPI_COUNT
+      : highDpiEffectsEnabled
+        ? GATE_PARTICLE_HIGH_DPI_COUNT
+        : GATE_PARTICLE_COUNT,
+    // Use fewer line segments for the Mind Gate wave on dense displays where sub-pixel detail is hard to perceive.
+    wavePointCount,
+  };
+  if (this?._frameCache) {
+    this._frameCache.trackEffectDetailProfile = profile;
+  }
+  return profile;
+}
 
 // Draw layered gate background sprites with independent angular velocities.
-function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9) {
+// Pre-composes all layers into a time-bucketed offscreen canvas so each frame only costs one drawImage blit.
+// The cache key encodes the layer set, draw size, stride, and a ~33 ms time bucket so the composite is
+// rebuilt at ≈30 fps while almost every frame reuses the cached bitmap.
+function drawGateBackgroundLayers(ctx, layers, baseDrawSize, currentTime, globalAlpha = 0.9, layerStride = 1) {
   if (!ctx || !Array.isArray(layers) || !layers.length || !Number.isFinite(baseDrawSize) || baseDrawSize <= 0) {
     return;
   }
-  layers.forEach((layer) => {
-    const sprite = layer?.image;
-    if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+  const stride = Math.max(1, layerStride);
+  const roundedSize = Math.ceil(baseDrawSize);
+  const timeBucket = Math.floor(currentTime * GATE_LAYERS_CACHE_FPS);
+  // Use layer count as a cheap identity tag (7 = shadow gate, 8 = mind gate).
+  const cacheKey = `${layers.length}:${roundedSize}:${stride}:${timeBucket}`;
+
+  let entry = gateLayersCompositeCache.get(cacheKey);
+  if (!entry) {
+    // Evict any stale entry for the same (gate, size, stride) combination before writing a new one.
+    const stalePrefix = `${layers.length}:${roundedSize}:${stride}:`;
+    for (const existingKey of gateLayersCompositeCache.keys()) {
+      if (existingKey.startsWith(stalePrefix)) {
+        gateLayersCompositeCache.delete(existingKey);
+        break;
+      }
+    }
+    // Cap total cache entries in case multiple sizes are active during a resize transition.
+    if (gateLayersCompositeCache.size >= GATE_LAYERS_COMPOSITE_CACHE_MAX) {
+      gateLayersCompositeCache.delete(gateLayersCompositeCache.keys().next().value);
+    }
+
+    // Build the offscreen composite for this time bucket.
+    const canvasSize = roundedSize + 4;
+    const halfSize = canvasSize * HALF;
+    const offscreen = typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(canvasSize, canvasSize)
+      : (() => { const c = document.createElement('canvas'); c.width = canvasSize; c.height = canvasSize; return c; })();
+    const offCtx = offscreen?.getContext('2d');
+    if (!offCtx) {
+      // Fallback: draw directly with a single outer save/restore and per-layer state isolation.
+      ctx.save();
+      ctx.globalAlpha = globalAlpha;
+      for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+        const layer = layers[layerIndex];
+        const sprite = layer?.image;
+        if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+          continue;
+        }
+        const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
+        ctx.save();
+        ctx.rotate(rotation);
+        ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
+        ctx.restore();
+      }
+      ctx.restore();
       return;
     }
-    const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
-    ctx.save();
-    ctx.rotate(rotation);
-    ctx.globalAlpha = globalAlpha;
-    ctx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
-    ctx.restore();
-  });
+
+    // Composite all layers into the offscreen canvas centered at (halfSize, halfSize).
+    offCtx.translate(halfSize, halfSize);
+    for (let layerIndex = 0; layerIndex < layers.length; layerIndex += stride) {
+      const layer = layers[layerIndex];
+      const sprite = layer?.image;
+      if (!sprite?.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+        continue;
+      }
+      const rotation = currentTime * (layer.speed || 0) * (layer.direction || 1);
+      offCtx.save();
+      offCtx.rotate(rotation);
+      offCtx.drawImage(sprite, -baseDrawSize * HALF, -baseDrawSize * HALF, baseDrawSize, baseDrawSize);
+      offCtx.restore();
+    }
+    entry = { canvas: offscreen, halfSize };
+    gateLayersCompositeCache.set(cacheKey, entry);
+  }
+
+  // Blit the pre-composited layers with a single drawImage call.
+  ctx.save();
+  ctx.globalAlpha = globalAlpha;
+  ctx.drawImage(entry.canvas, -entry.halfSize, -entry.halfSize, entry.canvas.width, entry.canvas.height);
+  ctx.restore();
 }
 
 // Build a cache key for the static path layer to avoid re-rasterizing on zoom.
@@ -411,49 +605,52 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
   const colorByPoint = tunnelCache?.colorByPoint;
 
   // Draw path segments with varying opacity
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   for (let layer = 0; layer < 2; layer += 1) {
     const isBase = layer === 0;
     const lineWidth = isBase ? baseLineWidth : highlightLineWidth;
     const alphaMultiplier = isBase ? baseAlpha : highlightAlpha;
-    
+    ctx.lineWidth = lineWidth;
+    if (!isBase) {
+      this.clearCanvasShadow(ctx);
+    }
+
     for (let i = 0; i < points.length - 1; i += 1) {
       const point = points[i];
       const nextPoint = points[i + 1];
-      
+
       // Calculate opacity for this segment
       const startOpacity = opacityByPoint ? opacityByPoint[i] : 1;
       const endOpacity = opacityByPoint ? opacityByPoint[i + 1] : 1;
       const segmentOpacity = (startOpacity + endOpacity) * HALF;
-      
+
       // Skip fully transparent segments
       if (segmentOpacity <= 0.01) {
         continue;
       }
-      
+
       // Sample color based on position along path using cached values when available.
       const color = colorByPoint ? colorByPoint[i] : samplePaletteGradient(i / (points.length - 1));
       const alpha = alphaMultiplier * segmentOpacity;
-      
-      ctx.save();
+
       ctx.beginPath();
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = lineWidth;
-      
       if (isBase) {
+        ctx.globalAlpha = 1;
         const shadowColor = colorToRgbaString(color, (trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2) * segmentOpacity);
         this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
       } else {
         ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 * segmentOpacity : segmentOpacity;
       }
-      
+
       ctx.moveTo(point.x, point.y);
       ctx.lineTo(nextPoint.x, nextPoint.y);
       ctx.strokeStyle = colorToRgbaString(color, alpha);
       ctx.stroke();
-      ctx.restore();
     }
   }
+  ctx.restore();
 }
 
 function drawTrackParticleRiver() {
@@ -463,17 +660,19 @@ function drawTrackParticleRiver() {
   const ctx = this.ctx;
   const particles = this.trackRiverParticles;
   const lowGraphicsEnabled = this.isLowGraphicsMode?.();
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
   const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
   const laneRadius = Math.max(4, minDimension * 0.014);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  particles.forEach((particle) => {
+  for (let particleIndex = 0; particleIndex < particles.length; particleIndex += effectDetailProfile.pathParticleStride) {
+    const particle = particles[particleIndex];
     if (!particle || !Number.isFinite(particle.progress)) {
-      return;
+      continue;
     }
     const position = this.getPositionAlongPath(particle.progress);
     if (!position) {
-      return;
+      continue;
     }
     const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
     const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
@@ -489,7 +688,7 @@ function drawTrackParticleRiver() {
     ctx.beginPath();
     ctx.arc(position.x + offsetX, position.y + offsetY, radius, 0, TWO_PI);
     ctx.fill();
-  });
+  }
 
   // Overlay the luminous tracer sparks whenever the preference is enabled.
   if (
@@ -500,13 +699,14 @@ function drawTrackParticleRiver() {
     this.trackRiverTracerParticles.length
   ) {
     const tracerRadius = Math.max(1.2, laneRadius * 0.45);
-    this.trackRiverTracerParticles.forEach((particle) => {
+    for (let tracerIndex = 0; tracerIndex < this.trackRiverTracerParticles.length; tracerIndex += effectDetailProfile.tracerParticleStride) {
+      const particle = this.trackRiverTracerParticles[tracerIndex];
       if (!particle || !Number.isFinite(particle.progress)) {
-        return;
+        continue;
       }
       const position = this.getPositionAlongPath(particle.progress);
       if (!position) {
-        return;
+        continue;
       }
       const tangent = Number.isFinite(position.tangent) ? position.tangent : 0;
       const lateral = (Number.isFinite(particle.offset) ? particle.offset : 0) * laneRadius;
@@ -535,7 +735,7 @@ function drawTrackParticleRiver() {
         Math.min(1, glowAlpha + 0.25),
       );
       ctx.stroke();
-    });
+    }
   }
   ctx.restore();
 }
@@ -598,40 +798,126 @@ function sampleGateParticleGradient(stops, normalizedDistance) {
   return stops[stops.length - 1].color;
 }
 
-// Build cached blurred particle sprites once so per-frame gate renders only blit pre-blurred circles.
-function buildGateParticleSpriteCache() {
+/**
+ * Quantize a radian angle into the precomputed gate particle lookup table.
+ * @param {number} angle
+ * @returns {number}
+ */
+function getGateParticleNoiseLutIndex(angle) {
+  return Math.floor(angle * GATE_PARTICLE_NOISE_LUT_SCALE) & GATE_PARTICLE_NOISE_LUT_MASK;
+}
+
+/**
+ * Cache the wave gradient by width and alpha so repeated gate frames reuse the same canvas gradient setup.
+ * @param {{ _waveGradientCache?: Map<string, CanvasGradient> }} cacheOwner
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} waveWidth
+ * @param {number} waveAlpha
+ * @returns {CanvasGradient}
+ */
+function getMindGateWaveGradient(cacheOwner, ctx, waveWidth, waveAlpha) {
+  if (!cacheOwner._waveGradientCache) {
+    cacheOwner._waveGradientCache = new Map();
+  }
+  const cacheKey = `${waveWidth.toFixed(3)}:${waveAlpha.toFixed(3)}`;
+  const cachedGradient = cacheOwner._waveGradientCache.get(cacheKey);
+  if (cachedGradient) {
+    return cachedGradient;
+  }
+  const gradient = ctx.createLinearGradient(-waveWidth * HALF, 0, waveWidth * HALF, 0);
+  gradient.addColorStop(0, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, 0)`);
+  gradient.addColorStop(0.2, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha * 0.7})`);
+  gradient.addColorStop(0.5, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha})`);
+  gradient.addColorStop(0.8, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, ${waveAlpha * 0.7})`);
+  gradient.addColorStop(1, `rgba(${MIND_GATE_WAVE_COLOR.r}, ${MIND_GATE_WAVE_COLOR.g}, ${MIND_GATE_WAVE_COLOR.b}, 0)`);
+  cacheOwner._waveGradientCache.set(cacheKey, gradient);
+  return gradient;
+}
+
+/**
+ * Draw a low-cost rotating halo when particle simulation is disabled by low graphics mode.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} radius
+ * @param {number} currentTime
+ * @param {{ r: number, g: number, b: number }} color
+ * @param {number} rotationSpeed
+ * @param {number} [sizeScale=1]
+ * @returns {void}
+ */
+function drawGateLowGraphicsHalo(ctx, radius, currentTime, color, rotationSpeed, sizeScale = 1) {
+  if (!ctx) {
+    return;
+  }
+  ctx.save();
+  ctx.rotate(currentTime * rotationSpeed);
+  ctx.globalAlpha = 0.58;
+  const mainLineWidth = Math.max(1.2, radius * 0.08);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radius * sizeScale, radius * (sizeScale * 0.82), 0, 0, TWO_PI);
+  // Glow pass: wide semi-transparent stroke approximates ctx.shadowBlur without the blur filter overhead.
+  ctx.strokeStyle = colorToRgbaString(color, 0.22);
+  ctx.lineWidth = mainLineWidth + radius * 0.35;
+  ctx.stroke();
+  // Main visible stroke reuses the same path.
+  ctx.strokeStyle = colorToRgbaString(color, 0.78);
+  ctx.lineWidth = mainLineWidth;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Build cached pre-tinted blurred particle sprites for a specific gradient so per-frame draws only blit images.
+// Returns a nested array [sizeVariantIndex][colorBucketIndex] → { radius, canvas, drawSize }.
+function buildGateParticleSpriteCache(gradientStops) {
   const spriteCache = [];
   GATE_PARTICLE_SIZE_VARIANTS.forEach((radius) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = GATE_PARTICLE_SPRITE_SIZE;
-    canvas.height = GATE_PARTICLE_SPRITE_SIZE;
-    const cacheCtx = canvas.getContext('2d');
-    if (!cacheCtx) {
-      return;
+    const colorVariants = [];
+    for (let bucket = 0; bucket < GATE_PARTICLE_COLOR_BUCKETS; bucket += 1) {
+      const normalizedDistance = bucket / Math.max(1, GATE_PARTICLE_MAX_COLOR_INDEX);
+      const bakedAlpha = GATE_PARTICLE_MIN_ALPHA + normalizedDistance * GATE_PARTICLE_ALPHA_RANGE;
+      const [r, g, b] = sampleGateParticleGradient(gradientStops, normalizedDistance);
+      const canvas = document.createElement('canvas');
+      canvas.width = GATE_PARTICLE_SPRITE_SIZE;
+      canvas.height = GATE_PARTICLE_SPRITE_SIZE;
+      const cacheCtx = canvas.getContext('2d');
+      if (!cacheCtx) {
+        colorVariants.push(null);
+        continue;
+      }
+      const center = GATE_PARTICLE_SPRITE_SIZE * HALF;
+      cacheCtx.clearRect(0, 0, GATE_PARTICLE_SPRITE_SIZE, GATE_PARTICLE_SPRITE_SIZE);
+      // Render the blurred soft circle.
+      cacheCtx.filter = `blur(${Math.max(1.4, radius * 0.5)}px)`;
+      cacheCtx.beginPath();
+      cacheCtx.arc(center, center, radius, 0, TWO_PI);
+      cacheCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      cacheCtx.fill();
+      cacheCtx.filter = 'none';
+      // Tint with the gradient color once here (source-atop), so runtime draws skip this step entirely.
+      cacheCtx.globalCompositeOperation = 'source-atop';
+      cacheCtx.globalAlpha = bakedAlpha;
+      cacheCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.95)`;
+      cacheCtx.fillRect(0, 0, GATE_PARTICLE_SPRITE_SIZE, GATE_PARTICLE_SPRITE_SIZE);
+      cacheCtx.globalAlpha = 1;
+      colorVariants.push({ radius, canvas, drawSize: radius * 4.2 });
     }
-    const center = GATE_PARTICLE_SPRITE_SIZE * HALF;
-    cacheCtx.clearRect(0, 0, GATE_PARTICLE_SPRITE_SIZE, GATE_PARTICLE_SPRITE_SIZE);
-    cacheCtx.filter = `blur(${Math.max(1.4, radius * 0.5)}px)`;
-    cacheCtx.beginPath();
-    cacheCtx.arc(center, center, radius, 0, TWO_PI);
-    cacheCtx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    cacheCtx.fill();
-    cacheCtx.filter = 'none';
-    spriteCache.push({ radius, canvas, drawSize: radius * 4.2 });
+    spriteCache.push(colorVariants);
   });
   return spriteCache;
 }
 
-// Lazily initialize particle state and sprite cache per gate type to minimize startup work.
-function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection) {
-  if (!this._gateParticleSpriteCache) {
-    this._gateParticleSpriteCache = buildGateParticleSpriteCache();
+// Lazily initialize particle state and per-gate tinted sprite cache to minimize startup work.
+function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection, gradientStops) {
+  const spriteCacheKey = `${systemKey}_spriteCache`;
+  if (!this[spriteCacheKey]) {
+    this[spriteCacheKey] = buildGateParticleSpriteCache(gradientStops);
   }
-  if (!this[systemKey]?.particles?.length) {
+  const spriteCache = this[spriteCacheKey];
+  const targetParticleCount = getTrackEffectDetailProfile.call(this).gateParticleCount;
+  if (!this[systemKey]?.particles || this[systemKey].targetParticleCount !== targetParticleCount) {
     const maxRadius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     const particles = [];
-    for (let index = 0; index < GATE_PARTICLE_COUNT; index += 1) {
-      const distance = maxRadius * Math.sqrt((index + 0.5) / GATE_PARTICLE_COUNT);
+    for (let particleIndex = 0; particleIndex < targetParticleCount; particleIndex += 1) {
+      const distance = maxRadius * Math.sqrt((particleIndex + 0.5) / targetParticleCount);
       const angle = Math.random() * TWO_PI;
       const tangentX = -Math.sin(angle) * swirlDirection;
       const tangentY = Math.cos(angle) * swirlDirection;
@@ -641,99 +927,142 @@ function ensureGateParticleSystem(systemKey, gateRadius, swirlDirection) {
         y: Math.sin(angle) * distance,
         vx: tangentX * baseSpeed,
         vy: tangentY * baseSpeed,
-        noisePhase: Math.random() * TWO_PI,
+        noiseAngle: Math.random() * TWO_PI,
         noiseSpeed: 0.55 + Math.random() * 1.35,
-        sizeIndex: index % this._gateParticleSpriteCache.length,
+        colorBucket: Math.round((distance / Math.max(1e-6, maxRadius)) * GATE_PARTICLE_MAX_COLOR_INDEX),
+        sizeIndex: particleIndex % spriteCache.length,
       });
     }
+    const systemDiameter = Math.max(1, maxRadius * 2 + GATE_PARTICLE_MAX_DRAW_SIZE);
+    const particleCanvas = document.createElement('canvas');
+    particleCanvas.width = Math.ceil(systemDiameter);
+    particleCanvas.height = Math.ceil(systemDiameter);
+    const particleCtx = particleCanvas.getContext('2d');
     this[systemKey] = {
       particles,
       lastTime: null,
       radius: maxRadius,
       swirlDirection,
+      spriteCache,
+      particleCanvas,
+      particleCtx,
+      simFrameCount: 0,
+      targetParticleCount,
     };
   } else {
     this[systemKey].radius = Math.max(2, gateRadius * GATE_PARTICLE_MAX_RADIUS_SCALE);
     this[systemKey].swirlDirection = swirlDirection;
+    this[systemKey].targetParticleCount = targetParticleCount;
+    const systemDiameter = Math.max(1, this[systemKey].radius * 2 + GATE_PARTICLE_MAX_DRAW_SIZE);
+    const nextCanvasSize = Math.ceil(systemDiameter);
+    if (!this[systemKey].particleCanvas) {
+      this[systemKey].particleCanvas = document.createElement('canvas');
+    }
+    if (this[systemKey].particleCanvas.width !== nextCanvasSize || this[systemKey].particleCanvas.height !== nextCanvasSize) {
+      this[systemKey].particleCanvas.width = nextCanvasSize;
+      this[systemKey].particleCanvas.height = nextCanvasSize;
+    }
+    if (!this[systemKey].particleCtx) {
+      this[systemKey].particleCtx = this[systemKey].particleCanvas.getContext('2d');
+    }
   }
   return this[systemKey];
 }
 
 // Integrate one particle frame with center attraction + tangential flow + minimum speed floor.
-function updateGateParticleParticle(particle, dt, systemRadius, swirlDirection, currentTime) {
-  const distance = Math.max(1e-4, Math.hypot(particle.x, particle.y));
+function updateGateParticleParticle(particle, dt, systemRadius, swirlDirection) {
+  const distanceSq = particle.x * particle.x + particle.y * particle.y;
+  const distance = Math.max(1e-4, Math.sqrt(distanceSq));
   const dirX = particle.x / distance;
   const dirY = particle.y / distance;
   const tangentX = -dirY * swirlDirection;
   const tangentY = dirX * swirlDirection;
   const inwardForce = -GATE_PARTICLE_CENTER_PULL * Math.min(1.35, distance / systemRadius);
-  const noiseAngle = particle.noisePhase + currentTime * particle.noiseSpeed;
-  const noiseX = Math.cos(noiseAngle);
-  const noiseY = Math.sin(noiseAngle);
+  particle.noiseAngle = (particle.noiseAngle + particle.noiseSpeed * dt) % TWO_PI;
+  const noiseIndex = getGateParticleNoiseLutIndex(particle.noiseAngle);
+  const noiseX = GATE_PARTICLE_COS_LUT[noiseIndex];
+  const noiseY = GATE_PARTICLE_SIN_LUT[noiseIndex];
   const accelerationX = dirX * inwardForce + tangentX * (GATE_PARTICLE_CENTER_PULL * 0.34) + noiseX * GATE_PARTICLE_NOISE_FORCE;
   const accelerationY = dirY * inwardForce + tangentY * (GATE_PARTICLE_CENTER_PULL * 0.34) + noiseY * GATE_PARTICLE_NOISE_FORCE;
   particle.vx += accelerationX * dt;
   particle.vy += accelerationY * dt;
-  const speed = Math.hypot(particle.vx, particle.vy);
-  if (speed < GATE_PARTICLE_MIN_SPEED) {
-    const floorScale = GATE_PARTICLE_MIN_SPEED / Math.max(speed, 1e-6);
+  const speedSq = particle.vx * particle.vx + particle.vy * particle.vy;
+  const minSpeedSq = GATE_PARTICLE_MIN_SPEED * GATE_PARTICLE_MIN_SPEED;
+  const maxSpeedSq = GATE_PARTICLE_MAX_SPEED * GATE_PARTICLE_MAX_SPEED;
+  if (speedSq < minSpeedSq) {
+    // Preserve a tiny floor so completely stalled particles can still be rescaled back to the minimum drift speed.
+    const speed = Math.sqrt(Math.max(speedSq, GATE_PARTICLE_SPEED_EPSILON));
+    const floorScale = GATE_PARTICLE_MIN_SPEED / speed;
     particle.vx *= floorScale;
     particle.vy *= floorScale;
-  } else if (speed > GATE_PARTICLE_MAX_SPEED) {
+  } else if (speedSq > maxSpeedSq) {
+    const speed = Math.sqrt(speedSq);
     const clampScale = GATE_PARTICLE_MAX_SPEED / speed;
     particle.vx *= clampScale;
     particle.vy *= clampScale;
   }
   particle.x += particle.vx * dt;
   particle.y += particle.vy * dt;
-  const updatedDistance = Math.hypot(particle.x, particle.y);
-  if (updatedDistance > systemRadius) {
-    const wrapScale = systemRadius / Math.max(updatedDistance, 1e-6);
+  let updatedDistSq = particle.x * particle.x + particle.y * particle.y;
+  const radiusSq = systemRadius * systemRadius;
+  let finalDistance;
+  if (updatedDistSq > radiusSq) {
+    finalDistance = Math.sqrt(updatedDistSq);
+    const wrapScale = systemRadius / Math.max(finalDistance, 1e-6);
     particle.x *= wrapScale;
     particle.y *= wrapScale;
     particle.vx *= 0.84;
     particle.vy *= 0.84;
+    updatedDistSq = radiusSq;
+    finalDistance = systemRadius;
   }
+  particle.colorBucket = Math.round(
+    Math.max(0, Math.min(1, (finalDistance ?? Math.sqrt(updatedDistSq)) / Math.max(1e-6, systemRadius))) * GATE_PARTICLE_MAX_COLOR_INDEX,
+  );
 }
 
-// Draw one gate particle field using cached blurred sprites tinted by distance gradient.
+// Draw one gate particle field using pre-tinted sprites; composite operations are set once per gate draw.
 function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStops, swirlDirection) {
-  const system = ensureGateParticleSystem.call(this, systemKey, radius, swirlDirection);
+  const system = ensureGateParticleSystem.call(this, systemKey, radius, swirlDirection, gradientStops);
   const previousTime = Number.isFinite(system.lastTime) ? system.lastTime : currentTime;
   const dt = Math.max(0, Math.min(GATE_PARTICLE_MAX_DT, currentTime - previousTime));
   system.lastTime = currentTime;
-  const spriteCache = this._gateParticleSpriteCache;
-  if (!Array.isArray(spriteCache) || !spriteCache.length) {
+  const spriteCache = system.spriteCache;
+  const particleCanvas = system.particleCanvas;
+  const particleCtx = system.particleCtx;
+  if (!Array.isArray(spriteCache) || !spriteCache.length || !particleCtx || !particleCanvas) {
     return;
   }
+  system.simFrameCount = (system.simFrameCount || 0) + 1;
+  const shouldSimulate = dt > 0 && system.simFrameCount % GATE_PARTICLE_SIMULATION_STRIDE === 0;
+  const simulationDt = shouldSimulate ? Math.min(GATE_PARTICLE_MAX_DT, dt * GATE_PARTICLE_SIMULATION_STRIDE) : 0;
+  const canvasCenterX = particleCanvas.width * HALF;
+  const canvasCenterY = particleCanvas.height * HALF;
+  particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+  // Composite particle sprites on the offscreen canvas, then blit the whole halo once onto the main surface.
+  particleCtx.save();
+  particleCtx.globalCompositeOperation = 'lighter';
   for (let index = 0; index < system.particles.length; index += 1) {
     const particle = system.particles[index];
-    updateGateParticleParticle(particle, dt, system.radius, system.swirlDirection, currentTime);
-    const particleDistance = Math.hypot(particle.x, particle.y);
-    const normalizedDistance = Math.max(0, Math.min(1, particleDistance / Math.max(1e-6, system.radius)));
-    const [r, g, b] = sampleGateParticleGradient(gradientStops, normalizedDistance);
-    const sprite = spriteCache[particle.sizeIndex % spriteCache.length];
-    const alpha = 0.38 + normalizedDistance * 0.5;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(
+    if (shouldSimulate) {
+      updateGateParticleParticle(particle, simulationDt, system.radius, system.swirlDirection);
+    }
+    const colorBucket = Math.max(0, Math.min(GATE_PARTICLE_MAX_COLOR_INDEX, particle.colorBucket));
+    const sizeVariants = spriteCache[particle.sizeIndex % spriteCache.length];
+    const sprite = sizeVariants?.[colorBucket];
+    if (!sprite) {
+      continue;
+    }
+    particleCtx.drawImage(
       sprite.canvas,
-      particle.x - sprite.drawSize * HALF,
-      particle.y - sprite.drawSize * HALF,
+      canvasCenterX + particle.x - sprite.drawSize * HALF,
+      canvasCenterY + particle.y - sprite.drawSize * HALF,
       sprite.drawSize,
       sprite.drawSize,
     );
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.95)`;
-    ctx.fillRect(
-      particle.x - sprite.drawSize * HALF,
-      particle.y - sprite.drawSize * HALF,
-      sprite.drawSize,
-      sprite.drawSize,
-    );
-    ctx.restore();
   }
+  particleCtx.restore();
+  ctx.drawImage(particleCanvas, -canvasCenterX, -canvasCenterY, particleCanvas.width, particleCanvas.height);
 }
 
 // Draw warm, center-attracted particles around the Mind Gate using cached blurred sprite blits.
@@ -746,6 +1075,49 @@ function drawEnemyGateParticles(ctx, radius, currentTime) {
   drawGateParticleField.call(this, ctx, radius, currentTime, '_enemyGateParticleSystem', ENEMY_GATE_GRADIENT_STOPS, -1);
 }
 
+// Build and cache a pre-rendered OffscreenCanvas containing both the anti-glow dark void and the cyan
+// aura gradient fills for the enemy gate symbol.  Keyed by rounded radius so it is rebuilt only on resize.
+function getOrCreateEnemyGateGradientSprite(radius) {
+  const key = Math.round(radius);
+  const cached = enemyGateGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (enemyGateGradientCache.size >= ENEMY_GATE_GRADIENT_CACHE_MAX) {
+    enemyGateGradientCache.delete(enemyGateGradientCache.keys().next().value);
+  }
+  const outerRadius = radius * Math.max(ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 1.1);
+  const size = Math.ceil(outerRadius * 2) + 4;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  // Anti-glow dark void fill.
+  const glowGrad = offCtx.createRadialGradient(cx, cx, radius * 0.18, cx, cx, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
+  glowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
+  glowGrad.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
+  glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  offCtx.fillStyle = glowGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
+  offCtx.fill();
+  // Cyan aura fill.
+  const auraGrad = offCtx.createRadialGradient(cx, cx, radius * 0.2, cx, cx, radius * 1.2);
+  auraGrad.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
+  auraGrad.addColorStop(1, 'rgba(15, 27, 63, 0)');
+  offCtx.fillStyle = auraGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * 1.1, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  enemyGateGradientCache.set(key, entry);
+  return entry;
+}
+
 function drawEnemyGateSymbol(ctx, position) {
   if (!ctx || !position) {
     return;
@@ -756,6 +1128,7 @@ function drawEnemyGateSymbol(ctx, position) {
   const baseSize = Math.max(12, Math.min(20, baseRadius || 16));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE;
   const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
 
   ctx.save();
   const anchorX = Math.round(position.x);
@@ -763,29 +1136,43 @@ function drawEnemyGateSymbol(ctx, position) {
   // Snap to whole pixels so the enlarged gate stays centered on the path anchor.
   ctx.translate(anchorX, anchorY);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
-  glow.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
-  glow.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
-  ctx.fill();
-
-  const antiGlow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
-  antiGlow.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
-  antiGlow.addColorStop(1, 'rgba(15, 27, 63, 0)');
-  ctx.fillStyle = antiGlow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
-  ctx.fill();
+  // Blit pre-rendered anti-glow void and cyan aura gradients; falls back to inline draw when unavailable.
+  const enemyGateBg = getOrCreateEnemyGateGradientSprite(radius);
+  if (enemyGateBg) {
+    ctx.drawImage(enemyGateBg.canvas, -enemyGateBg.halfSize, -enemyGateBg.halfSize, enemyGateBg.canvas.width, enemyGateBg.canvas.height);
+  } else {
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE);
+    glow.addColorStop(0, 'rgba(0, 0, 0, 0.44)');
+    glow.addColorStop(0.58, 'rgba(20, 8, 36, 0.22)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * ENEMY_GATE_ANTIGLOW_RADIUS_SCALE, 0, TWO_PI);
+    ctx.fill();
+    const antiGlow = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.2);
+    antiGlow.addColorStop(0, 'rgba(74, 240, 255, 0.16)');
+    antiGlow.addColorStop(1, 'rgba(15, 27, 63, 0)');
+    ctx.fillStyle = antiGlow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.1, 0, TWO_PI);
+    ctx.fill();
+  }
 
   // Render uploaded shadow background rings behind particles and the main symbol.
-  drawGateBackgroundLayers(ctx, SHADOW_GATE_BACKGROUND_LAYERS, radius * 2.2, currentTime, 0.78);
+  drawGateBackgroundLayers(
+    ctx,
+    SHADOW_GATE_BACKGROUND_LAYERS,
+    radius * 2.2,
+    currentTime,
+    0.78,
+    effectDetailProfile.backgroundLayerStride,
+  );
 
   // Draw dark violet particles swirling counter-clockwise behind the gate symbol.
   if (!this.isLowGraphicsMode?.()) {
     drawEnemyGateParticles.call(this, ctx, radius, currentTime);
+  } else {
+    drawGateLowGraphicsHalo(ctx, radius * 0.9, currentTime, { r: 126, g: 208, b: 255 }, -0.8, 1.02);
   }
 
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
@@ -809,6 +1196,40 @@ function drawEnemyGateSymbol(ctx, position) {
   ctx.restore();
 }
 
+// Build and cache a pre-rendered OffscreenCanvas containing the warm glow gradient fill for the mind gate
+// symbol.  Keyed by rounded radius so it is rebuilt only on resize.
+function getOrCreateMindGateGradientSprite(radius) {
+  const key = Math.round(radius);
+  const cached = mindGateGradientCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (mindGateGradientCache.size >= MIND_GATE_GRADIENT_CACHE_MAX) {
+    mindGateGradientCache.delete(mindGateGradientCache.keys().next().value);
+  }
+  const outerRadius = radius * MIND_GATE_GLOW_RADIUS_SCALE;
+  const size = Math.ceil(outerRadius * 2) + 4;
+  const cx = size * HALF;
+  const offscreen = typeof OffscreenCanvas !== 'undefined'
+    ? new OffscreenCanvas(size, size)
+    : (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })();
+  const offCtx = offscreen?.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const glowGrad = offCtx.createRadialGradient(cx, cx, radius * 0.18, cx, cx, radius * MIND_GATE_GLOW_RADIUS_SCALE);
+  glowGrad.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
+  glowGrad.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
+  glowGrad.addColorStop(1, 'rgba(139, 247, 255, 0)');
+  offCtx.fillStyle = glowGrad;
+  offCtx.beginPath();
+  offCtx.arc(cx, cx, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
+  offCtx.fill();
+  const entry = { canvas: offscreen, halfSize: cx };
+  mindGateGradientCache.set(key, entry);
+  return entry;
+}
+
 function drawMindGateSymbol(ctx, position) {
   if (!ctx || !position) {
     return;
@@ -819,21 +1240,35 @@ function drawMindGateSymbol(ctx, position) {
   const baseSize = Math.max(14, Math.min(24, baseRadius || 18));
   const radius = baseSize * 2 * TRACK_GATE_SIZE_SCALE;
   const currentTime = (this.lastRenderTime !== undefined ? this.lastRenderTime : Date.now()) / 1000;
+  const effectDetailProfile = getTrackEffectDetailProfile.call(this);
 
   ctx.save();
   ctx.translate(position.x, position.y);
 
-  const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE);
-  glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
-  glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
-  glow.addColorStop(1, 'rgba(139, 247, 255, 0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
-  ctx.fill();
+  // Blit the pre-rendered warm glow gradient from the offscreen sprite cache; falls back to inline draw.
+  const mindGateBg = getOrCreateMindGateGradientSprite(radius);
+  if (mindGateBg) {
+    ctx.drawImage(mindGateBg.canvas, -mindGateBg.halfSize, -mindGateBg.halfSize, mindGateBg.canvas.width, mindGateBg.canvas.height);
+  } else {
+    const glow = ctx.createRadialGradient(0, 0, radius * 0.18, 0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE);
+    glow.addColorStop(0, 'rgba(255, 248, 220, 0.9)');
+    glow.addColorStop(0.55, 'rgba(255, 196, 150, 0.35)');
+    glow.addColorStop(1, 'rgba(139, 247, 255, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * MIND_GATE_GLOW_RADIUS_SCALE, 0, TWO_PI);
+    ctx.fill();
+  }
 
   // Render uploaded mind background rings behind the wave and core symbol.
-  drawGateBackgroundLayers(ctx, MIND_GATE_BACKGROUND_LAYERS, radius * 2.55, currentTime, 0.82);
+  drawGateBackgroundLayers(
+    ctx,
+    MIND_GATE_BACKGROUND_LAYERS,
+    radius * 2.55,
+    currentTime,
+    0.82,
+    effectDetailProfile.backgroundLayerStride,
+  );
 
   this.applyCanvasShadow(ctx, 'rgba(255, 228, 120, 0.55)', radius);
   ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
@@ -859,18 +1294,22 @@ function drawMindGateSymbol(ctx, position) {
   const waveHeight = radius * CONSCIOUSNESS_WAVE_HEIGHT_SCALE * healthPercentage;
 
   ctx.save();
+  // Clear any shadow inherited from the outer save block so the wave glow pass uses wider strokes instead.
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0)';
   ctx.beginPath();
 
   // Generate sine wave with varying amplitudes for each peak.
-  for (let i = 0; i <= CONSCIOUSNESS_WAVE_POINTS; i++) {
-    const x = -waveWidth * HALF + (i / CONSCIOUSNESS_WAVE_POINTS) * waveWidth;
-    const normalizedX = (i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
+  const wavePointCount = Math.max(2, effectDetailProfile.wavePointCount);
+  for (let i = 0; i <= wavePointCount; i++) {
+    const x = -waveWidth * HALF + (i / wavePointCount) * waveWidth;
+    const normalizedX = (i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS * TWO_PI;
 
     // Base sine wave.
     let y = Math.sin(normalizedX + waveOffset) * waveHeight;
 
     // Add amplitude variation per peak to create dynamic effect.
-    const peakIndex = Math.floor((i / CONSCIOUSNESS_WAVE_POINTS) * CONSCIOUSNESS_WAVE_PEAKS);
+    const peakIndex = Math.floor((i / wavePointCount) * CONSCIOUSNESS_WAVE_PEAKS);
     const peakPhase = (peakIndex * CONSCIOUSNESS_WAVE_PEAK_PHASE_SCALE + currentTime * CONSCIOUSNESS_WAVE_PEAK_TIME_SCALE) % (TWO_PI);
     const peakAmplitudeMod = CONSCIOUSNESS_WAVE_AMPLITUDE_MIN + CONSCIOUSNESS_WAVE_AMPLITUDE_RANGE * Math.sin(peakPhase);
     y *= peakAmplitudeMod;
@@ -891,31 +1330,35 @@ function drawMindGateSymbol(ctx, position) {
 
   // Keep the consciousness wave in a deep orange with 50% transparency.
   const waveAlpha = 0.5 * healthPercentage;
-  const waveColor = { r: 255, g: 120, b: 0 };
 
-  // Create gradient for the wave.
-  const waveGradient = ctx.createLinearGradient(-waveWidth * HALF, 0, waveWidth * HALF, 0);
-  waveGradient.addColorStop(0, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
-  waveGradient.addColorStop(0.2, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
-  waveGradient.addColorStop(0.5, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`);
-  waveGradient.addColorStop(0.8, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha * 0.7})`);
-  waveGradient.addColorStop(1, `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, 0)`);
+  // Reuse cached gradients because the wave only varies by width and alpha over time.
+  const waveGradient = getMindGateWaveGradient(this, ctx, waveWidth, waveAlpha);
 
   ctx.strokeStyle = waveGradient;
   ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Add glow effect to the wave.
-  ctx.shadowColor = `rgba(${waveColor.r}, ${waveColor.g}, ${waveColor.b}, ${waveAlpha})`;
-  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE;
+  // Glow pass: a wider semi-transparent stroke on the same path approximates the luminous halo that was
+  // previously drawn via ctx.shadowBlur, at a lower GPU cost.
+  ctx.save();
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE);
+  ctx.globalAlpha = waveAlpha * 0.30;
+  ctx.stroke();
+  ctx.restore();
+  // Normal stroke.
   ctx.stroke();
 
   // Draw second layer for enhanced visibility with explicit alpha management.
   ctx.save();
   ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
   ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
-  ctx.shadowBlur = radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE;
+  // Glow pass for second layer.
+  ctx.save();
+  ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE);
+  ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA * 0.25;
+  ctx.stroke();
+  ctx.restore();
   ctx.stroke();
   ctx.restore();
 
@@ -924,6 +1367,8 @@ function drawMindGateSymbol(ctx, position) {
   // Draw warm particles swirling clockwise behind the gate symbol.
   if (!this.isLowGraphicsMode?.()) {
     drawMindGateParticles.call(this, ctx, radius, currentTime);
+  } else {
+    drawGateLowGraphicsHalo(ctx, radius * 0.92, currentTime, { r: 255, g: 196, b: 92 }, 0.8, 1.08);
   }
 
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;

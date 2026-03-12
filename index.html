@@ -4684,6 +4684,28 @@
                 <button class="action-button ghost" type="button" id="graphics-mode-button">
                   Graphics · High
                 </button>
+                <!-- Toggle for automatic graphics quality switching based on frame rate. -->
+                <div class="settings-toggle" id="auto-graphics-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="auto-graphics-toggle-title">Auto Graphics</span>
+                    <span class="settings-toggle-description" id="auto-graphics-toggle-description"
+                      >Automatically lower graphics quality when frame rate drops, and restore it when performance stabilises.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="auto-graphics-toggle">
+                    <input
+                      type="checkbox"
+                      id="auto-graphics-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="auto-graphics-toggle-title"
+                      aria-describedby="auto-graphics-toggle-description"
+                      aria-checked="false"
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="auto-graphics-toggle-state">Off</span>
+                  </label>
+                </div>
                 <!-- Toggle between damage numbers and remaining life display. -->
                 <button class="action-button ghost" type="button" id="damage-number-mode-button">
                   Damage Display · Damage Numbers
