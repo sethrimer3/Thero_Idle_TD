@@ -851,12 +851,16 @@ function drawGateLowGraphicsHalo(ctx, radius, currentTime, color, rotationSpeed,
   ctx.save();
   ctx.rotate(currentTime * rotationSpeed);
   ctx.globalAlpha = 0.58;
-  ctx.strokeStyle = colorToRgbaString(color, 0.78);
-  ctx.lineWidth = Math.max(1.2, radius * 0.08);
-  ctx.shadowColor = colorToRgbaString(color, 0.42);
-  ctx.shadowBlur = radius * 0.35;
+  const mainLineWidth = Math.max(1.2, radius * 0.08);
   ctx.beginPath();
   ctx.ellipse(0, 0, radius * sizeScale, radius * (sizeScale * 0.82), 0, 0, TWO_PI);
+  // Glow pass: wide semi-transparent stroke approximates ctx.shadowBlur without the blur filter overhead.
+  ctx.strokeStyle = colorToRgbaString(color, 0.22);
+  ctx.lineWidth = mainLineWidth + radius * 0.35;
+  ctx.stroke();
+  // Main visible stroke reuses the same path.
+  ctx.strokeStyle = colorToRgbaString(color, 0.78);
+  ctx.lineWidth = mainLineWidth;
   ctx.stroke();
   ctx.restore();
 }
