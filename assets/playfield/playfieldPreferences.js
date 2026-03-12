@@ -6,13 +6,17 @@ import {
   readStorageJson,
   writeStorage,
 } from '../autoSave.js';
+import { isLowGraphicsModeActive } from '../preferences.js';
 
 const PLAYFIELD_SETTINGS_KEY = 'playfieldVisualSettings';
 // Broadcast preference changes so the playfield can rebuild its canvas resolution.
 export const PLAYFIELD_RESOLUTION_EVENT = 'playfield-resolution-change';
 
 // Cap the playfield canvas backing resolution based on the user's preference.
+// The `low` tier (0.75×) is engaged automatically when the auto-graphics system
+// detects sustained frame drops and activates low-graphics mode.
 const PLAYFIELD_RESOLUTION_CAPS = Object.freeze({
+  low: 0.75,
   standard: 1,
   high: 2,
 });
@@ -97,8 +101,13 @@ function notifyPlayfieldResolutionChange() {
 
 /**
  * Expose the maximum pixel ratio allowed for playfield rendering.
+ * Returns the low-resolution cap (0.75×) when the auto-graphics system has
+ * engaged low-graphics mode, reducing fill-rate on low-end mobile devices.
  */
 export function getPlayfieldResolutionCap() {
+  if (isLowGraphicsModeActive() && !settings.highResolution) {
+    return PLAYFIELD_RESOLUTION_CAPS.low;
+  }
   return settings.highResolution
     ? PLAYFIELD_RESOLUTION_CAPS.high
     : PLAYFIELD_RESOLUTION_CAPS.standard;

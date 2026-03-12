@@ -84,6 +84,15 @@ const swirlBackdropCache = new Map();
 // Evict oldest entry once we exceed this limit so diverse-radius waves stay bounded.
 const SWIRL_BACKDROP_CACHE_MAX = 32;
 
+// ─── Swarm cloud glow sprite cache ────────────────────────────────────────────
+// Pre-rendered offscreen canvases for swarm cloud outer glow + inner core,
+// keyed by "{roundedRadius}:{r1},{g1},{b1}:{r2},{g2},{b2}".  Each sprite is
+// drawn at normalised (alpha = 1) intensity; the caller multiplies by the
+// actual frame alpha via ctx.globalAlpha, eliminating per-cloud per-frame
+// createRadialGradient() calls.
+const swarmCloudSpriteCache = new Map();
+const SWARM_CLOUD_CACHE_MAX = 24;
+
 // ─── Utility constants (duplicated from CanvasRenderer for a self-contained module) ───
 const TWO_PI = Math.PI * 2;
 const PI = Math.PI;
@@ -643,6 +652,72 @@ function drawEnemySwirlBackdrop(ctx, metrics, inversionActive) {
   ctx.drawImage(sprite, -halfSize, -halfSize, sprite.width, sprite.height);
 }
 
+/**
+ * Return a cached offscreen canvas containing the pre-rendered swarm cloud
+ * outer glow and inner core for the given radius and colors.  The sprite is
+ * drawn at normalised intensity (alpha multipliers of 0.4 / 0.25 / 0.6);
+ * callers apply the actual per-frame alpha via ctx.globalAlpha so the
+ * cache key does not need to include alpha.
+ */
+function getOrCreateSwarmCloudSprite(effectiveRadius, color1, color2) {
+  const r1 = Math.round(color1.r);
+  const g1 = Math.round(color1.g);
+  const b1 = Math.round(color1.b);
+  const r2 = Math.round(color2.r);
+  const g2 = Math.round(color2.g);
+  const b2 = Math.round(color2.b);
+  const key = `${Math.round(effectiveRadius)}:${r1},${g1},${b1}:${r2},${g2},${b2}`;
+  if (swarmCloudSpriteCache.has(key)) {
+    return swarmCloudSpriteCache.get(key);
+  }
+
+  const size = Math.ceil(effectiveRadius * 2) + 4; // 2 px padding each side
+  const cx = size * HALF;
+  const cy = size * HALF;
+  const coreRadius = effectiveRadius * 0.3;
+
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+
+  // Outer glow — normalised alpha stops (0.4 / 0.25 / 0) so per-frame alpha
+  // is applied via ctx.globalAlpha rather than baked into the sprite.
+  const gradient = offCtx.createRadialGradient(cx, cy, 0, cx, cy, effectiveRadius);
+  gradient.addColorStop(0, colorToRgbaString(color1, 0.4));
+  gradient.addColorStop(0.5, colorToRgbaString(color2, 0.25));
+  gradient.addColorStop(1, colorToRgbaString(color1, 0));
+  offCtx.fillStyle = gradient;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, effectiveRadius, 0, TWO_PI);
+  offCtx.fill();
+
+  // Inner core — also normalised.
+  const coreGradient = offCtx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius);
+  coreGradient.addColorStop(0, colorToRgbaString(color2, 0.6));
+  coreGradient.addColorStop(1, colorToRgbaString(color1, 0));
+  offCtx.fillStyle = coreGradient;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, coreRadius, 0, TWO_PI);
+  offCtx.fill();
+
+  // FIFO eviction when the cache is full.
+  if (swarmCloudSpriteCache.size >= SWARM_CLOUD_CACHE_MAX) {
+    swarmCloudSpriteCache.delete(swarmCloudSpriteCache.keys().next().value);
+  }
+  swarmCloudSpriteCache.set(key, canvas);
+  return canvas;
+}
+
 function drawEnemySwirlParticles(ctx, enemy, metrics, now, inversionActive) {
   if (!ctx || !enemy || !metrics) {
     return;
@@ -1064,27 +1139,34 @@ export function drawSwarmClouds() {
       color2 = samplePaletteGradient(0.48);
     }
 
-    // Draw outer glow
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, effectiveRadius);
-    gradient.addColorStop(0, colorToRgbaString(color1, alpha * 0.4));
-    gradient.addColorStop(0.5, colorToRgbaString(color2, alpha * 0.25));
-    gradient.addColorStop(1, colorToRgbaString(color1, 0));
+    // Retrieve or create a cached sprite (outer glow + inner core, normalised
+    // to alpha = 1) and blit it with ctx.globalAlpha for the per-frame fade.
+    const sprite = getOrCreateSwarmCloudSprite(effectiveRadius, color1, color2);
+    if (sprite) {
+      const halfSize = sprite.width * HALF;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(sprite, x - halfSize, y - halfSize, sprite.width, sprite.height);
+      ctx.globalAlpha = 1;
+    } else {
+      // Fallback: draw gradients inline when offscreen canvas is unavailable.
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, effectiveRadius);
+      gradient.addColorStop(0, colorToRgbaString(color1, alpha * 0.4));
+      gradient.addColorStop(0.5, colorToRgbaString(color2, alpha * 0.25));
+      gradient.addColorStop(1, colorToRgbaString(color1, 0));
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, effectiveRadius, 0, TWO_PI);
+      ctx.fill();
 
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(x, y, effectiveRadius, 0, TWO_PI);
-    ctx.fill();
-
-    // Draw inner core
-    const coreRadius = effectiveRadius * 0.3;
-    const coreGradient = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
-    coreGradient.addColorStop(0, colorToRgbaString(color2, alpha * 0.6));
-    coreGradient.addColorStop(1, colorToRgbaString(color1, 0));
-
-    ctx.fillStyle = coreGradient;
-    ctx.beginPath();
-    ctx.arc(x, y, coreRadius, 0, TWO_PI);
-    ctx.fill();
+      const coreRadius = effectiveRadius * 0.3;
+      const coreGradient = ctx.createRadialGradient(x, y, 0, x, y, coreRadius);
+      coreGradient.addColorStop(0, colorToRgbaString(color2, alpha * 0.6));
+      coreGradient.addColorStop(1, colorToRgbaString(color1, 0));
+      ctx.fillStyle = coreGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, coreRadius, 0, TWO_PI);
+      ctx.fill();
+    }
   });
 
   ctx.restore();
