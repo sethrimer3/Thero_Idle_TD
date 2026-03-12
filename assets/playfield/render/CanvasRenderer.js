@@ -74,11 +74,20 @@ const MOTE_GEM_CULL_RADIUS = 50;
 const devLayerFlags = {
   background: true,
   track: true,
+  // Keep Mind Gate feature flags separate so developers can isolate expensive gate sub-effects.
+  mindGateBackground: true,
+  mindGateWave: true,
+  mindGateParticles: true,
+  mindGateSymbol: true,
   sunlight: true,
   towers: true,
   enemies: true,
   projectiles: true,
   uiOverlay: true,
+  // Keep Shadow Gate feature flags separate so developers can profile each spawn-gate layer independently.
+  shadowGateBackground: true,
+  shadowGateParticles: true,
+  shadowGateSymbol: true,
 };
 
 /**
