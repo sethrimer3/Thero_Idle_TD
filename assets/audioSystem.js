@@ -192,8 +192,13 @@ export class AudioManager {
       });
     };
 
+    // Mark touch listeners as passive so mobile browsers can keep scroll/touch pipelines responsive.
+    const activationListenerOptionsByEvent = {
+      touchstart: { passive: true },
+    };
+
     ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach((eventName) => {
-      element.addEventListener(eventName, handler);
+      element.addEventListener(eventName, handler, activationListenerOptionsByEvent[eventName]);
     });
 
     if (this.activationElements && typeof this.activationElements.add === 'function') {
