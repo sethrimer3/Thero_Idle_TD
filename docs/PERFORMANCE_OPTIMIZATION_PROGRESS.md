@@ -29,7 +29,8 @@ When working on performance tasks in this repository:
   - Tower golden bloom gradient now cached; enemy gate (anti-glow + cyan aura) and mind gate (warm glow) gradients now cached via offscreen sprites keyed by rounded radius
   - Omega wave radial gradient (hardcoded amber colors) now cached per rounded radius in `omegaWaveGradientCache`; renders via `drawImage` instead of `createRadialGradient` each frame
   - Standard beam `createLinearGradient` eliminated — both endpoints share the same palette color so the gradient collapsed to a solid stroke at the midpoint alpha (0.75)
-  - Remaining: eta laser `createLinearGradient` (continuous per-projectile fade with variable length and alpha — harder to cache)
+  - Eta laser `createLinearGradient` eliminated — normalized alpha falloff (1.0→0.6→0) pre-rendered into a 256×1 OffscreenCanvas per beam color (`etaLaserGradientSpriteCache`); per-frame alpha scaling done via `ctx.globalAlpha` and beam is blitted with `drawImage` scaled to `(length, lineWidth)`
+  - Gamma star piercing beam `createLinearGradient` eliminated — both gradient stops share the same beam color, alpha range 0.5→0.95 collapsed to a solid stroke at midpoint alpha (0.72); same approach used for standard beams
 - [x] Composite the crystalline mosaic through offscreen layer caches instead of redrawing every visible cell every frame
 - [x] Reduce the Shadow Gate's 7 rotating sprite layers to a cheaper composite path
   - Applied the same time-bucketed offscreen composite approach to both Shadow Gate (7 layers) and Mind Gate (8 layers) via the shared `drawGateBackgroundLayers` function
@@ -54,6 +55,13 @@ When working on performance tasks in this repository:
 - HUD changes are DOM-bound, so updating them less often than the render loop is usually invisible to players but cheaper for layout/reflow.
 
 ## Implementation Log
+
+- **Build 606**
+  - **Files:** `assets/playfield/render/layers/ProjectileRenderer.js`
+  - **Change:** Two gradient-creation eliminations completing the `createLinearGradient` hot-path work:
+    1. **Eta laser gradient sprite cache** — Added module-level `etaLaserGradientSpriteCache` (keyed by rounded beam-color RGB). A 256×1 OffscreenCanvas per color encodes the normalized alpha falloff (1.0→0.6→0) at full opacity. Each active laser now blits the sprite via `drawImage` scaled to `(length, lineWidth)` with `ctx.globalAlpha = alpha` for per-frame alpha scaling, eliminating one `createLinearGradient()` call per laser per frame. Inline gradient fallback retained for environments where `OffscreenCanvas` fails.
+    2. **Gamma star piercing beam gradient elimination** — The `createLinearGradient` for the gamma star main stroke was removed. Both color stops share the same `beamColor`; the alpha range (0.5→0.95) collapses to a solid stroke at midpoint alpha (0.72). Same approach applied earlier for standard α/β/γ/ε/ι/ξ beams.
+  - **Validation:** Syntax-checked the modified file; browser load sanity check performed after the changes.
 
 - **Build 601**
   - **Files:** `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/ProjectileRenderer.js`, `assets/playfield.js`
