@@ -5244,7 +5244,6 @@ export class SimplePlayfield {
     }
 
     const ctx = this.ctx;
-    const totalTowerCount = this.towers.length;
 
     this.infinityTowers.forEach((infinityTower) => {
       // Get all towers within range
@@ -5258,38 +5257,34 @@ export class SimplePlayfield {
         }
       );
 
-      // Draw golden lines to each tower in range
+      // Pre-compute pulsing effect and color string once per infinity tower.
+      const time = (this.gameTime || 0) * 0.001;
+      const pulse = 0.3 + 0.3 * Math.sin(time * INFINITY_PARTICLE_CONFIG.pulseSpeed);
+      const lineAlpha = INFINITY_PARTICLE_CONFIG.lineColor.a * (0.4 + pulse);
+      const lineColor = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, ${lineAlpha})`;
+
+      // Draw golden lines to each tower in range using a single save/restore.
+      ctx.save();
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = INFINITY_PARTICLE_CONFIG.lineWidth;
       towersInRange.forEach((tower) => {
         if (tower.type === 'infinity') {
-          return; // Don't draw line to itself
+          return;
         }
-
-        // Pulsing effect based on time
-        const time = (this.gameTime || 0) * 0.001; // Convert to seconds
-        const pulse = 0.3 + 0.3 * Math.sin(time * INFINITY_PARTICLE_CONFIG.pulseSpeed);
-
-        ctx.save();
         ctx.beginPath();
         ctx.moveTo(infinityTower.x, infinityTower.y);
         ctx.lineTo(tower.x, tower.y);
-
-        // Golden color with pulsing alpha
-        const alpha = INFINITY_PARTICLE_CONFIG.lineColor.a * (0.4 + pulse);
-        ctx.strokeStyle = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, ${alpha})`;
-        ctx.lineWidth = INFINITY_PARTICLE_CONFIG.lineWidth;
         ctx.stroke();
-        ctx.restore();
       });
+      ctx.restore();
 
       // Draw range circle around infinity tower (subtle)
       const rangePixels = getInfinityRange() * metersToPixels(1);
-      ctx.save();
       ctx.beginPath();
       ctx.arc(infinityTower.x, infinityTower.y, rangePixels, 0, TWO_PI);
       ctx.strokeStyle = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, 0.15)`;
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.restore();
     });
   }
 
