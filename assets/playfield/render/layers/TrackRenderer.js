@@ -730,16 +730,12 @@ function drawTrackParticleRiver() {
       const x = position.x + offsetX;
       const y = position.y + offsetY;
 
-      // Replace per-tracer shadowBlur with a double-stroke glow pass.
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, TWO_PI);
+      // Replace per-tracer shadowBlur with a soft halo pass.
       // Soft halo pass
       ctx.fillStyle = colorToRgbaString(TRACK_TRACER_HALO_COLOR, haloAlpha * 0.35);
-      ctx.save();
       ctx.beginPath();
       ctx.arc(x, y, radius * 3.0, 0, TWO_PI);
       ctx.fill();
-      ctx.restore();
       // Main fill
       ctx.beginPath();
       ctx.fillStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
