@@ -816,12 +816,11 @@ function drawParticle(ctx, particle) {
   const sprite = resolveShotSpriteVariant(particle);
   if (sprite) {
     // Draw the cached sprite variant with particle opacity for the new shot visuals.
+    // Replace per-particle save/restore with manual globalAlpha management.
     const drawSize = size * 2;
     const alpha = clamp(particle.opacity, 0, 1);
-    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.drawImage(sprite, x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
-    ctx.restore();
     return;
   }
   if (!particle.color) {
