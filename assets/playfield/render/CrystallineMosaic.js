@@ -4,7 +4,7 @@
  * using shades from the selected color palette gradient. Cells slowly fade in brightness
  * and drift along the color palette gradient for a dynamic crystalline effect.
  * 
- * Uses SVG sprites from assets/sprites/shards/ that are colored using the player's
+ * Uses PNG sprites from assets/sprites/shards/ that are colored using the player's
  * selected palette and cached for performance.
  */
 
@@ -39,8 +39,8 @@ const MOSAIC_LAYER_CACHE_INTERVAL_MS = 500;
 const MOSAIC_LAYER_CACHE_BUCKET_PIXELS = 4;
 
 // Shard sprite configuration
-const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
-const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).svg';
+const SHARD_SPRITE_COUNT = 37; // Number of shard PNG sprites available (1-37)
+const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).png';
 // With brightness pre-baked into the color at call sites, the cache universe is ~5× smaller.
 const CACHE_MAX_SIZE = 200; // Maximum number of cached colored sprites
 
@@ -253,7 +253,7 @@ function createSeededRandom(seed) {
 
 /**
  * Polygon cell representing a single crystalline Voronoi-like region.
- * Uses SVG sprites coloured with the active palette.
+ * Uses PNG sprites coloured with the active palette.
  * Purely decorative – not targetable or destructible.
  * Cells are assigned to 'background' or 'foreground' layers for parallax rendering.
  */

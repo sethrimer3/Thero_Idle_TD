@@ -63,6 +63,8 @@ export const PLAYFIELD_ENEMY_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfie
 export const PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY = 'glyph-defense-idle:playfield-edge-crystals';
 // Storage key used to persist playfield background particles visibility.
 export const PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-background-particles';
+// Storage key used to persist the crystal background sprites toggle preference.
+export const CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY = 'glyph-defense-idle:crystal-background-sprites';
 // Storage key used to persist the automatic graphics-quality switching toggle.
 export const AUTO_GRAPHICS_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:auto-graphics-mode';
 // Storage key used to persist the last active main tab so the player returns to it on reload.

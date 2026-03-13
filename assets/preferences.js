@@ -24,6 +24,7 @@ import {
   PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY,
   PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY,
   AUTO_GRAPHICS_TOGGLE_STORAGE_KEY,
+  CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY,
 } from './autoSave.js';
 import { setAutoGraphicsEnabled } from './performanceMonitor.js';
 
@@ -1477,4 +1478,77 @@ export function bindSpireOptionsPlacementButton() {
   });
   updateSpireOptionsPlacementUi();
   applySpireOptionsPlacementDom();
+}
+
+// Crystal Background Sprites Settings
+let crystalBackgroundSpritesEnabled = false;
+let crystalBackgroundSpritesToggle = null;
+let crystalBackgroundSpritesStateLabel = null;
+
+/**
+ * Synchronize the crystal background sprites toggle control with the in-memory state.
+ */
+function updateCrystalBackgroundSpritesToggleUi() {
+  if (crystalBackgroundSpritesToggle) {
+    crystalBackgroundSpritesToggle.checked = crystalBackgroundSpritesEnabled;
+    crystalBackgroundSpritesToggle.setAttribute('aria-checked', crystalBackgroundSpritesEnabled ? 'true' : 'false');
+    const controlShell = crystalBackgroundSpritesToggle.closest('.settings-toggle-control');
+    if (controlShell) {
+      controlShell.classList.toggle('is-active', crystalBackgroundSpritesEnabled);
+    }
+  }
+  if (crystalBackgroundSpritesStateLabel) {
+    crystalBackgroundSpritesStateLabel.textContent = crystalBackgroundSpritesEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Persist and apply the crystal background sprites preference.
+ */
+export function applyCrystalBackgroundSpritesPreference(preference, { persist = true } = {}) {
+  const enabled = normalizeGlyphEquationPreference(preference);
+  crystalBackgroundSpritesEnabled = enabled;
+  updateCrystalBackgroundSpritesToggleUi();
+  if (persist) {
+    writeStorage(CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY, crystalBackgroundSpritesEnabled ? '1' : '0');
+  }
+  const playfield = playfieldGetter();
+  if (playfield && typeof playfield.draw === 'function') {
+    playfield.draw();
+  }
+  return crystalBackgroundSpritesEnabled;
+}
+
+/**
+ * Bind the visual settings toggle for crystal background sprites.
+ */
+export function bindCrystalBackgroundSpritesToggle() {
+  crystalBackgroundSpritesToggle = document.getElementById('crystal-background-sprites-toggle');
+  crystalBackgroundSpritesStateLabel = document.getElementById('crystal-background-sprites-state');
+  if (!crystalBackgroundSpritesToggle) {
+    return;
+  }
+  crystalBackgroundSpritesToggle.addEventListener('change', (event) => {
+    applyCrystalBackgroundSpritesPreference(event?.target?.checked);
+  });
+  updateCrystalBackgroundSpritesToggleUi();
+}
+
+/**
+ * Initialize the crystal background sprites preference from storage.
+ * Defaults to off since it is a heavy visual effect.
+ */
+export function initializeCrystalBackgroundSpritesPreference() {
+  const stored = readStorage(CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY);
+  const normalized = stored === null || stored === undefined
+    ? false
+    : stored !== '0' && stored !== 'false';
+  return applyCrystalBackgroundSpritesPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether crystal background sprites are enabled.
+ */
+export function areCrystalBackgroundSpritesEnabled() {
+  return crystalBackgroundSpritesEnabled;
 }

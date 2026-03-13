@@ -12,6 +12,8 @@ import {
   drawSketches,
   drawSketchLayerCache,
   drawFloaters,
+  drawCrystalBackground,
+  drawForegroundCrystalBackground,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -244,6 +246,8 @@ function draw() {
 
   // Background layer: crystal mosaic, sketches, and floaters.
   if (devLayerFlags.background) {
+    // Crystal background sprites are drawn first, behind all other background elements.
+    this.drawCrystalBackground();
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
@@ -290,6 +294,8 @@ function draw() {
   // Foreground shards render on top of all game elements for a parallax depth effect.
   if (devLayerFlags.background) {
     this.drawForegroundCrystallineMosaic();
+    // Corner crystal background sprites overlay the play area for a depth-of-field effect.
+    this.drawForegroundCrystalBackground();
   }
   if (devLayerFlags.uiOverlay) {
     this.drawDamageNumbers();
@@ -681,6 +687,8 @@ export {
   draw,
   drawCrystallineMosaic,
   drawForegroundCrystallineMosaic,
+  drawCrystalBackground,
+  drawForegroundCrystalBackground,
   drawSketches,
   drawFloaters,
   drawMoteGems,
