@@ -5263,19 +5263,19 @@ export class SimplePlayfield {
       const lineAlpha = INFINITY_PARTICLE_CONFIG.lineColor.a * (0.4 + pulse);
       const lineColor = `rgba(${INFINITY_PARTICLE_CONFIG.lineColor.r}, ${INFINITY_PARTICLE_CONFIG.lineColor.g}, ${INFINITY_PARTICLE_CONFIG.lineColor.b}, ${lineAlpha})`;
 
-      // Draw golden lines to each tower in range using a single save/restore.
+      // Draw golden lines to each tower in range in a single batched path.
       ctx.save();
       ctx.strokeStyle = lineColor;
       ctx.lineWidth = INFINITY_PARTICLE_CONFIG.lineWidth;
+      ctx.beginPath();
       towersInRange.forEach((tower) => {
         if (tower.type === 'infinity') {
           return;
         }
-        ctx.beginPath();
         ctx.moveTo(infinityTower.x, infinityTower.y);
         ctx.lineTo(tower.x, tower.y);
-        ctx.stroke();
       });
+      ctx.stroke();
       ctx.restore();
 
       // Draw range circle around infinity tower (subtle)

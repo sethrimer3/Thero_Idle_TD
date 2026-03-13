@@ -347,6 +347,11 @@ export function drawProjectiles() {
   // Use cached viewport bounds to reduce redundant calculations
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
+  // Collect standard beam endpoints so they can be drawn in two batched paths
+  // (one stroke path for lines, one fill path for tip dots) instead of per-projectile
+  // beginPath/stroke/fill calls.  Special projectile types are drawn inline as before.
+  const standardBeams = [];
+
   if (this.projectiles.length) {
     ctx.save();
   }
@@ -579,6 +584,7 @@ export function drawProjectiles() {
       return;
     }
 
+    // Standard beam projectile — defer to batched rendering below.
     const source = projectile.source;
     const targetPosition = projectile.target
       ? projectile.target
@@ -614,23 +620,50 @@ export function drawProjectiles() {
       return;
     }
 
-    // When projectile.color is a valid RGB object, normalizeProjectileColor returns the palette color
-    // regardless of the second parameter, so the gradient collapsed to a uniform color with varying
-    // alpha (0.72→0.78).  A single stroke at the midpoint alpha (0.75) eliminates the gradient
-    // with no visual difference.
+    // Collect for batched rendering: resolve color once per beam.
     const beamEnd = normalizeProjectileColor(projectile.color, 1);
-    ctx.strokeStyle = colorToRgbaString(beamEnd, 0.75);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(source.x, source.y);
-    ctx.lineTo(targetPosition.x, targetPosition.y);
-    ctx.stroke();
-
-    ctx.fillStyle = colorToRgbaString(beamEnd, 0.9);
-    ctx.beginPath();
-    ctx.arc(targetPosition.x, targetPosition.y, 4, 0, TWO_PI);
-    ctx.fill();
+    standardBeams.push({ source, target: targetPosition, color: beamEnd });
   });
+
+  // Batch-render all standard beams: group by color string, draw one stroke path
+  // per color for lines and one fill path per color for tip dots.
+  // This eliminates N×(beginPath + moveTo + lineTo + stroke + beginPath + arc + fill)
+  // calls and replaces them with at most 2 calls per unique color.
+  if (standardBeams.length) {
+    const beamsByColor = new Map();
+    for (let i = 0; i < standardBeams.length; i += 1) {
+      const beam = standardBeams[i];
+      const strokeKey = colorToRgbaString(beam.color, 0.75);
+      let group = beamsByColor.get(strokeKey);
+      if (!group) {
+        group = { strokeStyle: strokeKey, fillStyle: colorToRgbaString(beam.color, 0.9), beams: [] };
+        beamsByColor.set(strokeKey, group);
+      }
+      group.beams.push(beam);
+    }
+    for (const group of beamsByColor.values()) {
+      // Stroke all beam lines in one path.
+      ctx.strokeStyle = group.strokeStyle;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < group.beams.length; i += 1) {
+        const beam = group.beams[i];
+        ctx.moveTo(beam.source.x, beam.source.y);
+        ctx.lineTo(beam.target.x, beam.target.y);
+      }
+      ctx.stroke();
+
+      // Fill all beam tip dots in one path.
+      ctx.fillStyle = group.fillStyle;
+      ctx.beginPath();
+      for (let i = 0; i < group.beams.length; i += 1) {
+        const beam = group.beams[i];
+        ctx.moveTo(beam.target.x + 4, beam.target.y);
+        ctx.arc(beam.target.x, beam.target.y, 4, 0, TWO_PI);
+      }
+      ctx.fill();
+    }
+  }
 
   if (this.projectiles.length) {
     ctx.restore();
@@ -667,7 +700,17 @@ export function drawGammaStarBursts() {
 
   // Use gamma particle color
   const color = samplePaletteGradient(0.66) || { r: 120, g: 219, b: 255 };
-  const rgbaStr = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.9)`;
+  const rr = Math.round(color.r);
+  const rg = Math.round(color.g);
+  const rb = Math.round(color.b);
+  const rgbaStr = `rgba(${rr}, ${rg}, ${rb}, 0.9)`;
+  // Pre-compute completed-edge opacity strings to avoid per-edge string construction.
+  const fadePerEdge = 0.15;
+  const edgeOpacityStrings = [];
+  for (let e = 0; e < 5; e += 1) {
+    edgeOpacityStrings.push(`rgba(${rr}, ${rg}, ${rb}, ${Math.max(0.2, 0.9 - e * fadePerEdge)})`);
+  }
+  const glowFillStyle = `rgba(${rr}, ${rg}, ${rb}, 0.7)`;
 
   ctx.save();
   ctx.strokeStyle = rgbaStr;
@@ -704,16 +747,15 @@ export function drawGammaStarBursts() {
       const toPoint = starPoints[toIndex];
 
       if (fromPoint && toPoint && burst.currentPosition) {
-        // Draw completed edges with fading opacity
-        const fadePerEdge = 0.15;
+        // Draw completed edges with fading opacity — group by opacity level
+        // to batch beginPath/stroke calls where possible.
         for (let i = 0; i < edgeIndex; i++) {
           const fi = GAMMA_STAR_SEQUENCE[i];
           const ti = GAMMA_STAR_SEQUENCE[i + 1];
           const fp = starPoints[fi];
           const tp = starPoints[ti];
           if (fp && tp) {
-            const opacity = Math.max(0.2, 0.9 - (edgeIndex - i) * fadePerEdge);
-            ctx.strokeStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, ${opacity})`;
+            ctx.strokeStyle = edgeOpacityStrings[edgeIndex - i] || edgeOpacityStrings[edgeOpacityStrings.length - 1];
             ctx.beginPath();
             ctx.moveTo(fp.x, fp.y);
             ctx.lineTo(tp.x, tp.y);
@@ -730,7 +772,7 @@ export function drawGammaStarBursts() {
         ctx.stroke();
 
         // Draw a glow at current position
-        ctx.fillStyle = `rgba(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}, 0.7)`;
+        ctx.fillStyle = glowFillStyle;
         ctx.beginPath();
         ctx.arc(burst.currentPosition.x, burst.currentPosition.y, 4, 0, TWO_PI);
         ctx.fill();

@@ -439,20 +439,26 @@ function drawSunlightShadowsToContext(ctx, gate, viewportBounds, sunlightRadius,
 
   // ── Mote gem circle shadows ────────────────────────────────────────────────
   const gemUnit = Math.max(6, (this._frameCache?.minDimension || 1) * GEM_UNIT_SCALE_FACTOR);
-  if (Array.isArray(moteGemState.active)) {
-    moteGemState.active.forEach((gem) => {
+  if (Array.isArray(moteGemState.active) && moteGemState.active.length) {
+    // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
+    const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
+    ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
+    // Batch all gem shadow circles into a single path to reduce per-gem beginPath/fill overhead.
+    ctx.beginPath();
+    for (let i = 0; i < moteGemState.active.length; i += 1) {
+      const gem = moteGemState.active[i];
       if (!gem || !Number.isFinite(gem.x) || !Number.isFinite(gem.y)) {
-        return;
+        continue;
       }
 
       const dx = gem.x - gate.x;
       const dy = gem.y - gate.y;
       const distSquared = dx * dx + dy * dy;
       if (distSquared > sunlightRadiusSquared) {
-        return;
+        continue;
       }
       if (!isInViewport({ x: gem.x, y: gem.y }, viewportBounds, 30)) {
-        return;
+        continue;
       }
 
       const dist = Math.sqrt(distSquared);
@@ -464,14 +470,12 @@ function drawSunlightShadowsToContext(ctx, gate, viewportBounds, sunlightRadius,
       const invDist = dist > 0 ? 1 / dist : 0;
       const offsetX = dx * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
       const offsetY = dy * invDist * gemRadius * GEM_SHADOW_OFFSET_FACTOR;
-
-      ctx.beginPath();
-      // Gem shadows are reduced in low-graphics mode to preserve clarity on smaller devices.
-      const gemShadowAlpha = lowGraphicsEnabled ? GEM_SHADOW_ALPHA * 0.7 : GEM_SHADOW_ALPHA;
-      ctx.fillStyle = `rgba(${SHADOW_COLOR_R},${SHADOW_COLOR_G},${SHADOW_COLOR_B},${gemShadowAlpha})`;
-      ctx.arc(gem.x + offsetX, gem.y + offsetY, gemRadius * GEM_SHADOW_RADIUS_FACTOR, 0, TWO_PI);
-      ctx.fill();
-    });
+      const shadowRadius = gemRadius * GEM_SHADOW_RADIUS_FACTOR;
+      // moveTo before each arc avoids unintended line segments between disjoint circles.
+      ctx.moveTo(gem.x + offsetX + shadowRadius, gem.y + offsetY);
+      ctx.arc(gem.x + offsetX, gem.y + offsetY, shadowRadius, 0, TWO_PI);
+    }
+    ctx.fill();
   }
 }
 

@@ -387,9 +387,11 @@ export function drawFloaters() {
     const baseSize = Math.max(0.6, minDimension * 0.0038);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    swimmers.forEach((swimmer) => {
+    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
+    for (let i = 0; i < swimmers.length; i += 1) {
+      const swimmer = swimmers[i];
       if (swimmer?.isViewportActive === false) {
-        return;
+        continue;
       }
       const flicker =
         Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
@@ -404,38 +406,47 @@ export function drawFloaters() {
           swimmer.y - size - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxY
         )
       ) {
-        return;
+        continue;
       }
+      // Use globalAlpha per-swimmer instead of per-swimmer rgba string allocation.
+      ctx.globalAlpha = Math.max(0.08, 0.18 * flicker);
       ctx.beginPath();
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.08, 0.18 * flicker)})`;
       ctx.arc(swimmer.x, swimmer.y, size, 0, TWO_PI);
       ctx.fill();
-    });
+    }
     ctx.restore();
   }
 
-  this.floaterConnections.forEach((connection) => {
-    const from = this.floaters[connection.from];
-    const to = this.floaters[connection.to];
-    if (!from || !to) {
-      return;
-    }
-    const alpha = Math.max(0, Math.min(1, connection.strength || 0)) * 0.25;
-    if (alpha <= 0) {
-      return;
-    }
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+  // Batch floater connection lines: all connections share the same lineWidth,
+  // so group by alpha bucket to reduce stroke calls.
+  if (this.floaterConnections.length) {
     ctx.lineWidth = connectionWidth;
-    ctx.beginPath();
-    ctx.moveTo(from.x, from.y);
-    ctx.lineTo(to.x, to.y);
-    ctx.stroke();
-  });
+    for (let i = 0; i < this.floaterConnections.length; i += 1) {
+      const connection = this.floaterConnections[i];
+      const from = this.floaters[connection.from];
+      const to = this.floaters[connection.to];
+      if (!from || !to) {
+        continue;
+      }
+      const alpha = Math.max(0, Math.min(1, connection.strength || 0)) * 0.25;
+      if (alpha <= 0) {
+        continue;
+      }
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+  }
 
-  this.floaters.forEach((floater) => {
+  // Render floater circles using globalAlpha instead of per-floater rgba strings.
+  ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+  for (let i = 0; i < this.floaters.length; i += 1) {
+    const floater = this.floaters[i];
     const opacity = Math.max(0, Math.min(1, floater.opacity || 0));
     if (opacity <= 0) {
-      return;
+      continue;
     }
     let radiusFactor = Number.isFinite(floater.radiusFactor) ? floater.radiusFactor : null;
     if (!radiusFactor) {
@@ -444,12 +455,12 @@ export function drawFloaters() {
     }
     const radius = Math.max(2, radiusFactor * minDimension);
     const strokeWidth = Math.max(0.8, radius * 0.22);
-    ctx.beginPath();
     ctx.lineWidth = strokeWidth;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.25})`;
+    ctx.globalAlpha = opacity * 0.25;
+    ctx.beginPath();
     ctx.arc(floater.x, floater.y, radius, 0, TWO_PI);
     ctx.stroke();
-  });
+  }
 
   ctx.restore();
 }
