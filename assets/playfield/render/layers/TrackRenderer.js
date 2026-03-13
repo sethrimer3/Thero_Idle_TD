@@ -9,6 +9,14 @@ import { getTrackRenderMode, TRACK_RENDER_MODES, areTrackTracersEnabled } from '
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 const HALF = 0.5;
+
+// Fast inline RGBA string builder for hot render loops (river particles, tracers).
+// Skips the full clamp/round pipeline of colorToRgbaString when the caller already
+// guarantees a valid {r,g,b} input from samplePaletteGradient or a constant.
+function fastRgba(color, alpha) {
+  return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${alpha.toFixed(3)})`;
+}
+
 // Treat high-DPI playfields as an effects budget signal because every glow/blit costs more fill-rate.
 const HIGH_DPI_EFFECT_PIXEL_RATIO = 1.5;
 // Apply a stronger reduction on very dense displays where layered particles become especially expensive.
@@ -689,12 +697,12 @@ function drawTrackParticleRiver() {
     const px = position.x + offsetX;
     const py = position.y + offsetY;
     // Soft halo pass replaces the expensive per-particle shadowBlur.
-    ctx.fillStyle = colorToRgbaString(progressColor, alpha * 0.35);
+    ctx.fillStyle = fastRgba(progressColor, alpha * 0.35);
     ctx.beginPath();
     ctx.arc(px, py, radius * 2.8, 0, TWO_PI);
     ctx.fill();
     // Main particle
-    ctx.fillStyle = colorToRgbaString(progressColor, alpha);
+    ctx.fillStyle = fastRgba(progressColor, alpha);
     ctx.beginPath();
     ctx.arc(px, py, radius, 0, TWO_PI);
     ctx.fill();
@@ -732,17 +740,17 @@ function drawTrackParticleRiver() {
 
       // Replace per-tracer shadowBlur with a soft halo pass.
       // Soft halo pass
-      ctx.fillStyle = colorToRgbaString(TRACK_TRACER_HALO_COLOR, haloAlpha * 0.35);
+      ctx.fillStyle = fastRgba(TRACK_TRACER_HALO_COLOR, haloAlpha * 0.35);
       ctx.beginPath();
       ctx.arc(x, y, radius * 3.0, 0, TWO_PI);
       ctx.fill();
       // Main fill
       ctx.beginPath();
-      ctx.fillStyle = colorToRgbaString(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
+      ctx.fillStyle = fastRgba(TRACK_TRACER_PRIMARY_COLOR, glowAlpha);
       ctx.arc(x, y, radius, 0, TWO_PI);
       ctx.fill();
       ctx.lineWidth = Math.max(radius * 0.55, 1.2);
-      ctx.strokeStyle = colorToRgbaString(
+      ctx.strokeStyle = fastRgba(
         TRACK_TRACER_HALO_COLOR,
         Math.min(1, glowAlpha + 0.25),
       );
@@ -1202,10 +1210,9 @@ function drawEnemyGateSymbol(ctx, position) {
   const spriteReady = enemyGateSprite?.complete && enemyGateSprite.naturalWidth > 0;
   if (shadowGateSymbolVisible && spriteReady) {
     const spriteSize = Math.max(baseSize * 2, 40) * 2 * TRACK_GATE_SIZE_SCALE * ENEMY_GATE_SYMBOL_SCALE * SHADOW_GATE_SYMBOL_SIZE_MULTIPLIER;
-    ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.drawImage(enemyGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
-    ctx.restore();
+    ctx.globalAlpha = 1;
   } else if (shadowGateSymbolVisible) {
     this.applyCanvasShadow(ctx, 'rgba(74, 240, 255, 0.6)', radius * 0.6);
     ctx.strokeStyle = 'rgba(202, 245, 255, 0.8)';
@@ -1371,32 +1378,27 @@ function drawMindGateSymbol(ctx, position) {
     const waveGradient = getMindGateWaveGradient(this, ctx, waveWidth, waveAlpha);
 
     ctx.strokeStyle = waveGradient;
-    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
+    const baseLineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LINE_WIDTH_SCALE);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Glow pass: a wider semi-transparent stroke on the same path approximates the luminous halo that was
-    // previously drawn via ctx.shadowBlur, at a lower GPU cost.
-    ctx.save();
+    // Layer 1 glow pass: wider semi-transparent stroke approximates the luminous halo.
     ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_SHADOW_BLUR_SCALE);
     ctx.globalAlpha = waveAlpha * 0.30;
     ctx.stroke();
-    ctx.restore();
-    // Normal stroke.
+    // Layer 1 normal stroke.
+    ctx.lineWidth = baseLineWidth;
+    ctx.globalAlpha = 1;
     ctx.stroke();
 
-    // Draw second layer for enhanced visibility with explicit alpha management.
-    ctx.save();
-    ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
-    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
-    // Glow pass for second layer.
-    ctx.save();
+    // Layer 2 glow pass.
     ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_SHADOW_BLUR_SCALE);
     ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA * 0.25;
     ctx.stroke();
-    ctx.restore();
+    // Layer 2 normal stroke.
+    ctx.lineWidth = Math.max(CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_MIN, radius * CONSCIOUSNESS_WAVE_LAYER2_LINE_WIDTH_SCALE);
+    ctx.globalAlpha = CONSCIOUSNESS_WAVE_LAYER2_ALPHA;
     ctx.stroke();
-    ctx.restore();
 
     ctx.restore();
   }
@@ -1413,10 +1415,9 @@ function drawMindGateSymbol(ctx, position) {
   const spriteReady = mindGateSprite?.complete && mindGateSprite.naturalWidth > 0;
   if (mindGateSymbolVisible && spriteReady) {
     const spriteSize = Math.max(baseSize * 2.1, 46) * 2 * TRACK_GATE_SIZE_SCALE;
-    ctx.save();
     ctx.globalAlpha = 0.96;
     ctx.drawImage(mindGateSprite, -spriteSize * HALF, -spriteSize * HALF, spriteSize, spriteSize);
-    ctx.restore();
+    ctx.globalAlpha = 1;
   } else if (mindGateSymbolVisible) {
     this.applyCanvasShadow(ctx, 'rgba(139, 247, 255, 0.55)', radius * 0.7);
     ctx.strokeStyle = 'rgba(139, 247, 255, 0.85)';

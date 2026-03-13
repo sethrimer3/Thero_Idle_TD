@@ -48,6 +48,9 @@ const TWO_PI = Math.PI * 2;
 const PI = Math.PI;
 const HALF = 0.5;
 
+// Reusable empty dash array avoids allocating a new [] on every setLineDash([]); call inside the tower loop.
+const EMPTY_DASH = [];
+
 // Viewport culling margin: buffer zone beyond visible area to prevent pop-in.
 const VIEWPORT_CULL_MARGIN = 100;
 // Tower culling radius covers the body, rings, bloom glow, and range circle.
@@ -81,6 +84,27 @@ const TOWER_RING_FADE_DURATION_MS = 120;
 
 // Cache tower ring Image objects so rendering can reuse decoded sprites every frame.
 let cachedTowerRingSprites = null;
+
+// Per-tower-type visual extension dispatch table.
+// Replaces 13 sequential if-checks per tower per frame with a single property lookup.
+const TOWER_TYPE_HANDLERS = {
+  theta: (renderer, tower) => drawThetaContoursHelper(renderer, tower),
+  zeta: (renderer, tower) => drawZetaPendulumsHelper(renderer, tower),
+  eta: (renderer, tower) => drawEtaOrbitsHelper(renderer, tower),
+  kappa: (renderer, tower) => drawKappaTripwiresHelper(renderer, tower),
+  lambda: (renderer, tower) => drawLambdaLasersHelper(renderer, tower),
+  mu: (renderer, tower) => drawMuMinesHelper(renderer, tower),
+  nu: (renderer, tower) => drawNuKillParticlesHelper(renderer, tower),
+  xi: (renderer, tower) => drawXiBallsHelper(renderer, tower),
+  pi: (renderer, tower) => {
+    drawPiLockOnLinesHelper(renderer, tower);
+    drawPiFrozenLinesHelper(renderer, tower);
+    drawPiRadialLaserHelper(renderer, tower);
+  },
+  tau: (renderer, tower) => drawTauProjectilesHelper(renderer, tower),
+  upsilon: (renderer, tower) => drawUpsilonFleetHelper(renderer, tower),
+  phi: (renderer, tower) => drawPhiTowerHelper(renderer, tower),
+};
 
 // Cache pre-rendered golden bloom glow circles keyed by rounded body radius.
 // The bloom appearance never changes between frames for a given body radius, so
@@ -770,6 +794,15 @@ export function drawTowers() {
   // Cache whether shadows are globally suppressed so per-tower branches stay cheap.
   const shadowsSuppressed = this.isLowGraphicsMode() || this._zoomingActive;
 
+  // Body radius is identical for every tower; compute once outside the loop.
+  const bodyRadius = Math.max(
+    12,
+    Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
+  );
+  // Pre-build font strings that repeat across all towers to avoid per-tower template allocation.
+  const glyphFontSize = Math.round(bodyRadius * 1.4);
+  const glyphFont = `${glyphFontSize}px "Cormorant Garamond", serif`;
+
   this.towers.forEach((tower) => {
     if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
       return;
@@ -784,14 +817,9 @@ export function drawTowers() {
     const rangeRadius = Number.isFinite(tower.range)
       ? tower.range
       : Math.min(this.renderWidth, this.renderHeight) * 0.22;
-    const bodyRadius = Math.max(
-      12,
-      Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
-    );
 
     const highlightEntry = highlightMap.get(tower.id) || null;
     if (highlightEntry) {
-      ctx.save();
       const isHovered = hoveredHighlight && hoveredHighlight.towerId === tower.id;
       const strokeColor = highlightEntry.action === 'connect'
         ? isHovered
@@ -806,8 +834,7 @@ export function drawTowers() {
       ctx.beginPath();
       ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
       ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
+      ctx.setLineDash(EMPTY_DASH);
     }
 
     if (Number.isFinite(rangeRadius) && rangeRadius > 0) {
@@ -817,47 +844,13 @@ export function drawTowers() {
       ctx.setLineDash([8, 6]);
       ctx.arc(tower.x, tower.y, rangeRadius, 0, TWO_PI);
       ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.setLineDash(EMPTY_DASH);
     }
 
-    if (tower.type === 'theta') {
-      drawThetaContoursHelper(this, tower);
-    }
-
-    if (tower.type === 'zeta') {
-      drawZetaPendulumsHelper(this, tower);
-    }
-    if (tower.type === 'eta') {
-      drawEtaOrbitsHelper(this, tower);
-    }
-    if (tower.type === 'kappa') {
-      drawKappaTripwiresHelper(this, tower);
-    }
-    if (tower.type === 'lambda') {
-      drawLambdaLasersHelper(this, tower);
-    }
-    if (tower.type === 'mu') {
-      drawMuMinesHelper(this, tower);
-    }
-    if (tower.type === 'nu') {
-      drawNuKillParticlesHelper(this, tower);
-    }
-    if (tower.type === 'xi') {
-      drawXiBallsHelper(this, tower);
-    }
-    if (tower.type === 'pi') {
-      drawPiLockOnLinesHelper(this, tower);
-      drawPiFrozenLinesHelper(this, tower);
-      drawPiRadialLaserHelper(this, tower);
-    }
-    if (tower.type === 'tau') {
-      drawTauProjectilesHelper(this, tower);
-    }
-    if (tower.type === 'upsilon') {
-      drawUpsilonFleetHelper(this, tower);
-    }
-    if (tower.type === 'phi') {
-      drawPhiTowerHelper(this, tower);
+    // Dispatch per-tower-type visual extensions via a lookup table instead of 13 sequential if-checks.
+    const towerTypeHandler = TOWER_TYPE_HANDLERS[tower.type];
+    if (towerTypeHandler) {
+      towerTypeHandler(this, tower);
     }
 
     ctx.save();
@@ -940,7 +933,7 @@ export function drawTowers() {
       // Replace per-tower ctx.shadowBlur with a lightweight double-stroke glow pass.
       // A wide semi-transparent strokeText approximates the shadow glow without the
       // expensive Gaussian blur filter used by ctx.shadowBlur.
-      ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+      ctx.font = glyphFont;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       if (!shadowsSuppressed && symbolShadow?.color) {
@@ -966,19 +959,16 @@ export function drawTowers() {
     if (tower.type === 'beta') {
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
       if (alphaShots >= 3) {
-        ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.75)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(`${alphaShots}α`, tower.x, tower.y + bodyRadius + 6);
-        ctx.restore();
       }
     } else if (tower.type === 'gamma') {
       const betaShots = Math.max(0, Math.floor(tower.storedBetaShots || 0));
       const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
       if (betaShots >= 3 || alphaShots >= 3) {
-        ctx.save();
         ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
         ctx.font = `${Math.round(bodyRadius * 0.7)}px "Cormorant Garamond", serif`;
         ctx.textAlign = 'center';
@@ -991,7 +981,6 @@ export function drawTowers() {
         if (alphaShots >= 3) {
           ctx.fillText(`${alphaShots}α`, tower.x, labelY);
         }
-        ctx.restore();
       }
     }
 

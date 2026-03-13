@@ -104,6 +104,25 @@ const VIEWPORT_CULL_MARGIN = 100;
 const ENEMY_CULL_RADIUS = 100;
 const DEATH_PARTICLE_CULL_RADIUS = 30;
 
+// ─── Font string cache ────────────────────────────────────────────────────────
+// Avoids per-enemy template literal allocation for Cormorant Garamond font strings.
+const fontCache = new Map();
+const FONT_CACHE_MAX = 32;
+
+function getCachedFont(prefix, size) {
+  const key = `${prefix}:${size}`;
+  const cached = fontCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  if (fontCache.size >= FONT_CACHE_MAX) {
+    fontCache.delete(fontCache.keys().next().value);
+  }
+  const font = prefix ? `${prefix} ${size}px "Cormorant Garamond", serif` : `${size}px "Cormorant Garamond", serif`;
+  fontCache.set(key, font);
+  return font;
+}
+
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
 function clamp(value, min, max) {
@@ -846,7 +865,7 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
   const symbolFillStyle = 'rgba(255, 255, 255, 0.96)';
   // Replace per-enemy ctx.shadowBlur with a lightweight glow stroke pass.
   const shadowsSuppressed = this.isLowGraphicsMode?.() || this._zoomingActive;
-  ctx.font = `${metrics.symbolSize}px "Cormorant Garamond", serif`;
+  ctx.font = getCachedFont('', metrics.symbolSize);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   if (!shadowsSuppressed) {
@@ -863,7 +882,7 @@ function drawEnemySymbolAndExponent(ctx, options = {}) {
 
   const exponentFillStyle = inversionActive ? 'rgba(24, 34, 46, 0.9)' : this.resolveEnemyExponentColor(enemy);
   const exponentStrokeStyle = inversionActive ? 'rgba(236, 240, 248, 0.85)' : 'rgba(6, 8, 14, 0.85)';
-  ctx.font = `700 ${metrics.exponentSize}px "Cormorant Garamond", serif`;
+  ctx.font = getCachedFont('700', metrics.exponentSize);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
   const exponentLabel = Number.isFinite(exponent) ? exponent.toFixed(1) : '0.0';
@@ -1033,10 +1052,10 @@ export function drawEnemies() {
       const span = PI_OVER_3;
       ctx.strokeStyle = 'rgba(255, 228, 120, 0.85)';
       ctx.lineWidth = 2;
+      // Combine both marker arcs into a single path+stroke call.
       ctx.beginPath();
       ctx.arc(0, 0, markerRadius, angle, angle + span);
-      ctx.stroke();
-      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle + PI) * markerRadius, Math.sin(angle + PI) * markerRadius);
       ctx.arc(0, 0, markerRadius, angle + PI, angle + PI + span);
       ctx.stroke();
     }
@@ -1068,20 +1087,22 @@ export function drawEnemyDeathParticles() {
   // Use cached viewport bounds to reduce redundant calculations
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
 
-  this.enemyDeathParticles.forEach((particle) => {
+  // Pre-compute visible death particles and their positions to avoid per-particle
+  // branching inside the draw loop.  Splitting into separate fill + stroke passes
+  // batches state changes and reduces per-particle overhead.
+  const visibleParticles = [];
+  for (let i = 0; i < this.enemyDeathParticles.length; i += 1) {
+    const particle = this.enemyDeathParticles[i];
     if (!particle || !particle.position) {
-      return;
+      continue;
     }
     const alpha = clamp(Number.isFinite(particle.alpha) ? particle.alpha : 1, 0, 1);
     if (alpha <= 0) {
-      return;
+      continue;
     }
-
-    // Skip rendering death particles outside viewport
     if (viewportBounds && !isInViewport(particle.position, viewportBounds, DEATH_PARTICLE_CULL_RADIUS)) {
-      return;
+      continue;
     }
-
     const wobbleFrequency = Number.isFinite(particle.wobbleFrequency) ? particle.wobbleFrequency : 0;
     const wobbleAmplitude = Number.isFinite(particle.wobbleAmplitude) ? particle.wobbleAmplitude : 0;
     const wobblePhase = (Number.isFinite(particle.phase) ? particle.phase : 0)
@@ -1092,15 +1113,26 @@ export function drawEnemyDeathParticles() {
     const y = particle.position.y + (perpendicular.y || 0) * wobbleOffset;
     const size = Math.max(1, Number.isFinite(particle.size) ? particle.size : 2);
     const color = particle.color || samplePaletteGradient(Math.random());
+    visibleParticles.push({ x, y, size, color, alpha });
+  }
 
+  // Fill pass: draw all particle circles in sequence. Each particle still needs its
+  // own fillStyle (unique alpha/color), but we avoid the extra stroke() call per
+  // particle by combining the outline with a slightly wider fill radius.
+  for (let i = 0; i < visibleParticles.length; i += 1) {
+    const p = visibleParticles[i];
+    // Outer halo replaces the per-particle stroke() with a marginally larger fill
+    // at reduced alpha, yielding the same soft-edge look with one fewer draw call.
+    ctx.fillStyle = colorToRgbaString(p.color, p.alpha * 0.55);
     ctx.beginPath();
-    ctx.fillStyle = colorToRgbaString(color, alpha * 0.9);
-    ctx.arc(x, y, size, 0, TWO_PI);
+    ctx.arc(p.x, p.y, p.size + Math.max(0.4, p.size * 0.35), 0, TWO_PI);
     ctx.fill();
-    ctx.lineWidth = Math.max(0.4, size * 0.35);
-    ctx.strokeStyle = colorToRgbaString(color, alpha * 0.65);
-    ctx.stroke();
-  });
+    // Core fill on top.
+    ctx.fillStyle = colorToRgbaString(p.color, p.alpha * 0.9);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
