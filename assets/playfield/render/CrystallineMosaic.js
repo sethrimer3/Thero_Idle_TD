@@ -33,15 +33,16 @@ const VIEW_BOUNDS_PADDING = 48; // Extra padding to keep edge crystals from popp
 // Cap expensive inter-cell edge linking when too many crystals are on screen.
 const MAX_VISIBLE_CELL_CONNECTIONS = 160;
 // Rebuild the cached mosaic layers at a modest cadence because the shimmer animation is intentionally subtle.
-const MOSAIC_LAYER_CACHE_INTERVAL_MS = 120;
+// 500 ms (~2 rebuilds/sec) is imperceptible given the extremely slow FADE_SPEED shimmer.
+const MOSAIC_LAYER_CACHE_INTERVAL_MS = 500;
 // Bucket viewport and parallax inputs so tiny camera nudges can still reuse the cached layer.
 const MOSAIC_LAYER_CACHE_BUCKET_PIXELS = 4;
 
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard SVG sprites available (1-37)
 const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).svg';
-const CACHE_MAX_SIZE = 500; // Maximum number of cached colored sprites
-const BRIGHTNESS_PRECISION = 10; // Rounding precision for brightness in cache keys
+// With brightness pre-baked into the color at call sites, the cache universe is ~5× smaller.
+const CACHE_MAX_SIZE = 200; // Maximum number of cached colored sprites
 
 // Sprite and cache management
 const shardSprites = []; // Array of loaded Image objects
@@ -95,13 +96,14 @@ function loadShardSprites() {
 }
 
 /**
- * Create a colored version of a shard sprite and cache it
+ * Create a colored version of a shard sprite and cache it.
+ * Brightness is NOT part of the cache key – callers must pre-multiply it into the
+ * color components before calling so the cache stays small and stable.
  * @param {number} spriteIndex - Index of the sprite to color
- * @param {Object} color - RGB color object {r, g, b}
- * @param {number} brightness - Brightness multiplier
+ * @param {Object} color - RGB color object {r, g, b} (brightness already baked in)
  * @returns {HTMLCanvasElement|null} Cached colored sprite canvas
  */
-function getColoredShardSprite(spriteIndex, color, brightness) {
+function getColoredShardSprite(spriteIndex, color) {
   if (!spritesLoaded || spriteIndex < 0 || spriteIndex >= shardSprites.length) {
     return null;
   }
@@ -111,9 +113,8 @@ function getColoredShardSprite(spriteIndex, color, brightness) {
     return null;
   }
 
-  // Create cache key based on sprite index, color, and brightness (rounded to reduce cache size)
-  const brightnessRounded = Math.round(brightness * BRIGHTNESS_PRECISION) / BRIGHTNESS_PRECISION;
-  const cacheKey = `${spriteIndex}_${color.r}_${color.g}_${color.b}_${brightnessRounded}`;
+  // Cache key uses only sprite index and the already-brightness-adjusted color.
+  const cacheKey = `${spriteIndex}_${color.r}_${color.g}_${color.b}`;
 
   // Return cached version if available
   if (shardSpriteCache.has(cacheKey)) {
@@ -134,10 +135,10 @@ function getColoredShardSprite(spriteIndex, color, brightness) {
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
 
-  // Apply color and brightness to each pixel
-  const r = Math.floor(color.r * brightness);
-  const g = Math.floor(color.g * brightness);
-  const b = Math.floor(color.b * brightness);
+  // Color values already include the brightness factor from the caller.
+  const r = color.r;
+  const g = color.g;
+  const b = color.b;
 
   for (let i = 0; i < data.length; i += 4) {
     // Get the grayscale value (use red channel as they're B&W)
@@ -176,24 +177,23 @@ loadShardSprites();
 
 // Pixel padding around blurred sprites to avoid clipping the blur effect
 const BLUR_PADDING = 16;
-const BLUR_CACHE_MAX_SIZE = 200;
+const BLUR_CACHE_MAX_SIZE = 100;
 
 /**
  * Get (or create and cache) a blurred version of a colored shard sprite.
  * The blur is rendered once into an offscreen canvas so per-frame cost is just a drawImage.
+ * Brightness is not part of the cache key – it must already be baked into the color components.
  * @param {number} spriteIndex
- * @param {Object} color - {r,g,b}
- * @param {number} brightness
+ * @param {Object} color - {r,g,b} with brightness pre-multiplied
  * @param {number} blurRadius - CSS blur amount in pixels
  * @returns {HTMLCanvasElement|null}
  */
-function getBlurredShardSprite(spriteIndex, color, brightness, blurRadius) {
-  const source = getColoredShardSprite(spriteIndex, color, brightness);
+function getBlurredShardSprite(spriteIndex, color, blurRadius) {
+  const source = getColoredShardSprite(spriteIndex, color);
   if (!source) {
     return null;
   }
-  const brightnessRounded = Math.round(brightness * BRIGHTNESS_PRECISION) / BRIGHTNESS_PRECISION;
-  const blurKey = `blur_${spriteIndex}_${color.r}_${color.g}_${color.b}_${brightnessRounded}_${Math.round(blurRadius)}`;
+  const blurKey = `blur_${spriteIndex}_${color.r}_${color.g}_${color.b}_${Math.round(blurRadius)}`;
   if (blurredSpriteCache.has(blurKey)) {
     return blurredSpriteCache.get(blurKey);
   }
@@ -273,6 +273,9 @@ class CrystallineCell {
     
     // Deterministic rotation for variety
     this.rotation = rand() * TWO_PI;
+    // Pre-compute trig for rotation so draw() can use setTransform without save/restore.
+    this.cosR = Math.cos(this.rotation);
+    this.sinR = Math.sin(this.rotation);
 
     // Parallax layer: 'background' cells are crisp and slow; 'foreground' are blurred and fast.
     this.layer = layer || 'background';
@@ -297,25 +300,39 @@ class CrystallineCell {
   /**
    * Render the cell using SVG sprite to the canvas.
    * Foreground cells use a pre-blurred cached sprite; background cells use the normal sprite.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Object} paletteColor - {r,g,b} sampled from the palette gradient
+   * @param {number} baseA - pixelRatio component of the base transform (ctx.a)
+   * @param {number} baseD - pixelRatio component of the base transform (ctx.d)
+   * @param {number} baseE - x-translation component of the base transform (ctx.e)
+   * @param {number} baseF - y-translation component of the base transform (ctx.f)
    */
-  draw(ctx, paletteColor) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.rotation);
+  draw(ctx, paletteColor, baseA, baseD, baseE, baseF) {
+    // Compose the base offscreen transform with this cell's translate + rotate in one call,
+    // avoiding the overhead of save/translate/rotate/restore for every cell.
+    ctx.setTransform(
+      baseA * this.cosR,
+      baseA * this.sinR,
+      baseD * -this.sinR,
+      baseD * this.cosR,
+      baseE + this.x * baseA,
+      baseF + this.y * baseD,
+    );
 
     // Apply brightness multiplier to the palette color.
     const r = Math.floor(paletteColor.r * this.brightness);
     const g = Math.floor(paletteColor.g * this.brightness);
     const b = Math.floor(paletteColor.b * this.brightness);
     const alpha = this.alphaBase + 0.05 * Math.sin(this.phase * 0.4);
-    ctx.globalAlpha *= alpha;
+    ctx.globalAlpha = alpha;
 
     let coloredSprite;
     if (this.layer === 'foreground') {
       // Foreground shards use a cached blurred sprite for a depth-of-field effect.
-      coloredSprite = getBlurredShardSprite(this.spriteIndex, { r, g, b }, this.brightness, FG_BLUR_RADIUS);
+      // Brightness is already baked into r,g,b so no separate brightness arg needed.
+      coloredSprite = getBlurredShardSprite(this.spriteIndex, { r, g, b }, FG_BLUR_RADIUS);
     } else {
-      coloredSprite = getColoredShardSprite(this.spriteIndex, { r, g, b }, this.brightness);
+      coloredSprite = getColoredShardSprite(this.spriteIndex, { r, g, b });
     }
 
     if (coloredSprite) {
@@ -346,8 +363,7 @@ class CrystallineCell {
       ctx.arc(0, 0, this.size, 0, TWO_PI);
       ctx.fill();
     }
-
-    ctx.restore();
+    // globalAlpha is reset to 1 by _drawCells after the full cell loop.
   }
 }
 
@@ -450,6 +466,9 @@ export class CrystallineMosaicManager {
     this.cellStateVersion = 0;
     // Cache the last visible-cell list to avoid rebuilding every frame.
     this.visibleCellsCache = null;
+    // Pre-computed connection coordinate lists per layer ([x1,y1,x2,y2,...] flat arrays).
+    this.backgroundConnections = [];
+    this.foregroundConnections = [];
     // Cache per-layer rasterized canvases so the live render loop can blit a bitmap instead of every cell.
     this.layerCanvasCache = {
       background: null,
@@ -526,6 +545,12 @@ export class CrystallineMosaicManager {
     }
     // Bump the state version so render caches refresh after regeneration.
     this.cellStateVersion += 1;
+    // Pre-compute connection lines for each layer once so _drawCells never runs O(n²) checks.
+    // Connections are stored as flat coordinate quads [x1,y1,x2,y2,...].
+    const bgCells = this.cells.filter((c) => c.layer === 'background');
+    const fgCells = this.cells.filter((c) => c.layer === 'foreground');
+    this.backgroundConnections = this._computeConnections(bgCells);
+    this.foregroundConnections = this._computeConnections(fgCells);
     // Clear cached visibility lists after generating a new layout.
     this.visibleCellsCache = null;
     // Drop any rasterized layer caches because they reference the previous layout.
@@ -626,37 +651,73 @@ export class CrystallineMosaicManager {
   }
 
   /**
-   * Draw a set of cells plus their connection lines.
+   * Pre-compute connection coordinate quads for a layer's cells.
+   * Returns a flat Float64Array [x1,y1,x2,y2, ...] of pairs that are close enough
+   * to warrant a connecting line. Uses squared-distance comparison to avoid sqrt.
    * @private
+   * @param {CrystallineCell[]} cells
+   * @returns {number[]}
    */
-  _drawCells(ctx, cells) {
+  _computeConnections(cells) {
+    const connections = [];
+    for (let i = 0; i < cells.length; i++) {
+      const cell1 = cells[i];
+      for (let j = i + 1; j < cells.length; j++) {
+        const cell2 = cells[j];
+        const dx = cell2.x - cell1.x;
+        const dy = cell2.y - cell1.y;
+        const threshold = (cell1.size + cell2.size) * 1.5;
+        if (dx * dx + dy * dy < threshold * threshold) {
+          connections.push(cell1.x, cell1.y, cell2.x, cell2.y);
+        }
+      }
+    }
+    return connections;
+  }
+
+  /**
+   * Draw a set of cells plus their pre-computed connection lines.
+   * Uses setTransform per cell (no save/restore) and batches all connection lines
+   * into a single beginPath/stroke call.
+   * @private
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {CrystallineCell[]} cells - Visible cells to draw
+   * @param {number[]} connections - Flat coordinate array [x1,y1,x2,y2,...] for this layer
+   */
+  _drawCells(ctx, cells, connections) {
+    // Capture the base transform (pixelRatio + offset set by _getLayerCanvasCache) so each
+    // cell can compose its own translate+rotate via a single setTransform call.
+    const baseT = ctx.getTransform();
+    const baseA = baseT.a;
+    const baseD = baseT.d;
+    const baseE = baseT.e;
+    const baseF = baseT.f;
+
     for (const cell of cells) {
       const paletteColor = samplePaletteGradient(cell.colorShift);
-      cell.draw(ctx, paletteColor);
+      // globalAlpha is always 1.0 here: this canvas is freshly cleared by _getLayerCanvasCache
+      // and we restore it to 1 after each cell-draw pass, so cell.draw() can set it directly.
+      cell.draw(ctx, paletteColor, baseA, baseD, baseE, baseF);
     }
 
-    // Draw faint connecting lines between nearby same-layer cells.
+    // Restore the base transform and alpha after per-cell transforms.
+    ctx.setTransform(baseA, 0, 0, baseD, baseE, baseF);
+    ctx.globalAlpha = 1;
+
+    // Draw faint connecting lines between nearby same-layer cells using the
+    // pre-computed coordinate list — single path, single stroke call.
     if (cells.length <= MAX_VISIBLE_CELL_CONNECTIONS) {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 2;
       ctx.globalCompositeOperation = 'source-over';
-      for (let i = 0; i < cells.length; i++) {
-        const cell1 = cells[i];
-        for (let j = i + 1; j < cells.length; j++) {
-          const cell2 = cells[j];
-          const dx = cell2.x - cell1.x;
-          const dy = cell2.y - cell1.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance < (cell1.size + cell2.size) * 1.5) {
-            ctx.beginPath();
-            ctx.moveTo(cell1.x, cell1.y);
-            ctx.lineTo(cell2.x, cell2.y);
-            ctx.globalAlpha = 0.1;
-            ctx.stroke();
-            ctx.globalAlpha = 1;
-          }
-        }
+      ctx.globalAlpha = 0.1;
+      ctx.beginPath();
+      for (let k = 0; k < connections.length; k += 4) {
+        ctx.moveTo(connections[k], connections[k + 1]);
+        ctx.lineTo(connections[k + 2], connections[k + 3]);
       }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -679,16 +740,23 @@ export class CrystallineMosaicManager {
     const parallaxFactor = layer === 'foreground' ? FG_PARALLAX_FACTOR : BG_PARALLAX_FACTOR;
     const offsetX = viewCenter ? viewCenter.x * (1 - parallaxFactor) : 0;
     const offsetY = viewCenter ? viewCenter.y * (1 - parallaxFactor) : 0;
-    const cacheKey = [
-      layer,
-      `v${this.cellStateVersion}`,
-      `t${animationBucket}`,
-      `pr${pixelRatio}`,
-      `${bucketCacheCoordinate(viewBounds.minX)}:${bucketCacheCoordinate(viewBounds.minY)}:${bucketCacheCoordinate(viewBounds.maxX)}:${bucketCacheCoordinate(viewBounds.maxY)}`,
-      `${bucketCacheCoordinate(offsetX)}:${bucketCacheCoordinate(offsetY)}`,
-    ].join('|');
+
+    // Fix 6: Store and compare numeric cache inputs directly – no string building on cache hits.
+    const bMinX = bucketCacheCoordinate(viewBounds.minX);
+    const bMinY = bucketCacheCoordinate(viewBounds.minY);
+    const bMaxX = bucketCacheCoordinate(viewBounds.maxX);
+    const bMaxY = bucketCacheCoordinate(viewBounds.maxY);
+    const bOffX = bucketCacheCoordinate(offsetX);
+    const bOffY = bucketCacheCoordinate(offsetY);
+
     const existing = this.layerCanvasCache[layer];
-    if (existing?.key === cacheKey && existing.canvas) {
+    if (existing && existing.canvas &&
+        existing.stateVersion === this.cellStateVersion &&
+        existing.animBucket === animationBucket &&
+        existing.pr === pixelRatio &&
+        existing.bMinX === bMinX && existing.bMinY === bMinY &&
+        existing.bMaxX === bMaxX && existing.bMaxY === bMaxY &&
+        existing.bOffX === bOffX && existing.bOffY === bOffY) {
       return existing;
     }
 
@@ -698,13 +766,20 @@ export class CrystallineMosaicManager {
       return null;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.ceil(width * pixelRatio));
-    canvas.height = Math.max(1, Math.ceil(height * pixelRatio));
+    // Fix 4: Reuse the existing GPU-backed canvas when dimensions are unchanged to avoid GC churn.
+    const targetW = Math.max(1, Math.ceil(width * pixelRatio));
+    const targetH = Math.max(1, Math.ceil(height * pixelRatio));
+    let canvas = existing?.canvas;
+    if (!canvas || canvas.width !== targetW || canvas.height !== targetH) {
+      canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
     const cacheCtx = canvas.getContext('2d');
     if (!cacheCtx) {
       return null;
     }
+    cacheCtx.clearRect(0, 0, targetW, targetH);
 
     // Mirror the world-space layer translation on the offscreen canvas so the bitmap blits back in place.
     cacheCtx.setTransform(
@@ -715,13 +790,21 @@ export class CrystallineMosaicManager {
       (offsetX - viewBounds.minX) * pixelRatio,
       (offsetY - viewBounds.minY) * pixelRatio,
     );
-    this._drawCells(cacheCtx, cells);
 
+    // Use the pre-computed connection list for this layer.
+    const connections = layer === 'background' ? this.backgroundConnections : this.foregroundConnections;
+    this._drawCells(cacheCtx, cells, connections);
+
+    // Fix 6: Store numeric fields so the next cache check is pure numeric comparison.
     this.layerCanvasCache[layer] = {
-      key: cacheKey,
       canvas,
       width,
       height,
+      stateVersion: this.cellStateVersion,
+      animBucket: animationBucket,
+      pr: pixelRatio,
+      bMinX, bMinY, bMaxX, bMaxY,
+      bOffX, bOffY,
     };
     return this.layerCanvasCache[layer];
   }
@@ -816,6 +899,8 @@ export class CrystallineMosaicManager {
    */
   clear() {
     this.cells = [];
+    this.backgroundConnections = [];
+    this.foregroundConnections = [];
     this.needsRegeneration = true;
     this.clearLayerCanvasCache();
   }
