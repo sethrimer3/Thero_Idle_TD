@@ -8,6 +8,14 @@ import {
 } from '../../enemies.js';
 import { metersToPixels } from '../../gameUnits.js';
 
+// Clear the launch vector once a mote gem has finished its toss so it can rest on the field.
+function settleDirectedMoteGem(gem) {
+  if (!gem) {
+    return;
+  }
+  gem.launch = null;
+}
+
 /**
  * Advance mote gem flight each frame — applies velocity, gravity, fade, and directed
  * launch ballistics, then collects gems that have gone offscreen or expired.
@@ -116,7 +124,7 @@ export function updateMoteGems(delta) {
       const offscreenY = height ? gem.y < -96 || gem.y > height + 96 : gem.y < -96;
       const travelComplete = progress >= 1;
       if (travelComplete) {
-        gem.launch = null; // Let the gem settle onto the field so manual pickups and timed sigils can interact with it.
+        settleDirectedMoteGem(gem); // Let the gem settle onto the field so manual pickups and timed sigils can interact with it.
       }
       if (offscreenX || offscreenY || invisible) {
         toCollect.push(gem);

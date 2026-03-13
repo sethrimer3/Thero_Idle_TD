@@ -774,7 +774,7 @@ function craftEpiphanySigil(recipe) {
     id: recipe.id,
     name: recipe.name,
     type: recipe.type,
-    symbol: '⌘',
+    symbol: 'Σ',
   });
   syncEpiphanySigilEffects();
   if (typeof requestInventoryRefresh === 'function') {
