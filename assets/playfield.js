@@ -579,7 +579,7 @@ export class SimplePlayfield {
     this.towerGlyphTransitions = new Map();
 
     this.developerPathMarkers = [];
-    // Developer tools service handles crystals and developer towers
+    // Developer tools service handles Thero crystals and developer towers.
     this.developerTools = null; // Created after needed methods are available
 
     // Level lifecycle manager handles level entry/exit

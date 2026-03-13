@@ -619,6 +619,30 @@ function drawDeveloperCrystals() {
         ctx.stroke();
         ctx.setLineDash([]);
       }
+
+      // Render the crystal's reward formula as a large, glowing gold label to communicate behavior.
+      const formulaLabel = typeof crystal.formulaText === 'string' ? crystal.formulaText.trim() : '';
+      // Draw formula/hit metadata only when the crystal has an explicit or derived formula to communicate.
+      if (formulaLabel) {
+        ctx.save();
+        ctx.rotate(-(crystal.orientation || 0));
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `${Math.max(16, radius * 0.34)}px "Cinzel", "Cormorant Garamond", serif`;
+        ctx.fillStyle = 'rgba(255, 216, 96, 0.96)';
+        ctx.shadowColor = 'rgba(255, 198, 80, 0.95)';
+        ctx.shadowBlur = Math.max(12, radius * 0.35);
+        ctx.fillText(formulaLabel, 0, -radius * 0.06);
+
+        // Render the remaining hit count directly below the formula in smaller parenthesized text.
+        const rawHits = crystal.hitsRemaining;
+        const hitCounter = Number.isFinite(rawHits) ? `${Math.max(0, Math.floor(rawHits))}` : '∞';
+        ctx.shadowBlur = Math.max(6, radius * 0.16);
+        ctx.font = `${Math.max(11, radius * 0.15)}px "Cormorant Garamond", serif`;
+        ctx.fillStyle = 'rgba(255, 235, 170, 0.95)';
+        ctx.fillText(`(${hitCounter})`, 0, radius * 0.28);
+        ctx.restore();
+      }
       ctx.restore();
     });
     ctx.restore();
