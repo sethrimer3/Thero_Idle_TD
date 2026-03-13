@@ -609,6 +609,7 @@ export function createDeveloperModeManager(options = {}) {
       }
       moteGemState.inventory?.clear?.();
       moteGemState.autoCollectUnlocked = false;
+      moteGemState.autoCollectDelayMs = 0;
     }
     updateMoteGemInventoryDisplay?.();
 

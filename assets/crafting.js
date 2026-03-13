@@ -1,5 +1,10 @@
 import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
-import { moteGemState, resolveGemDefinition, getGemSpriteAssetPath } from './enemies.js';
+import {
+  moteGemState,
+  resolveGemDefinition,
+  getGemSpriteAssetPath,
+  setMoteGemAutoCollectDelayMs,
+} from './enemies.js';
 import {
   getTowerDefinitions,
   getTowerDefinition,
@@ -11,6 +16,7 @@ import {
   getEquipmentAssignment,
   assignEquipmentToTower,
   addEquipmentListener,
+  registerCraftedEquipment,
 } from './equipment.js';
 
 // Establish the ordered rarity tiers so the tier builder can follow the droptable cadence.
@@ -61,6 +67,25 @@ const EQUIPMENT_LENS_SPRITE_LOOKUP = new Map([
   ['diamond', './assets/sprites/equipment/diamondLens.png'],
   ['nullstone', './assets/sprites/equipment/nullstoneLens.png'],
 ]);
+
+const HABITUATION_SIGIL_ID = 'habituation-sigil';
+const HABITUATION_SIGIL_AUTO_COLLECT_MS = 1000;
+const HABITUATION_SIGIL_AUTO_COLLECT_SECONDS = HABITUATION_SIGIL_AUTO_COLLECT_MS / 1000;
+const HABITUATION_SIGIL_TIMING_PHRASE = `after ${HABITUATION_SIGIL_AUTO_COLLECT_SECONDS} second`;
+const EPIPHANY_SIGIL_RECIPES = [
+  {
+    id: HABITUATION_SIGIL_ID,
+    name: 'Habituation Sigil',
+    type: 'Epiphany Sigil',
+    symbol: 'Σ',
+    effectLabel: `Auto-collect enemy gem drops ${HABITUATION_SIGIL_TIMING_PHRASE}.`,
+    buttonLabel: 'Inscribe Sigil',
+    costs: [
+      { gemId: 'emerald', amount: 1, label: 'Emerald' },
+      { gemId: 'sunstone', amount: 100, label: 'Sunstone' },
+    ],
+  },
+];
 
 function getEquipmentLensSpritePath(materialId) {
   const key = typeof materialId === 'string' ? materialId.trim().toLowerCase() : '';
@@ -256,14 +281,21 @@ const craftingElements = {
   list: null,
   equipmentList: null,
   equipmentEmpty: null,
+  lensesTab: null,
+  sigilsTab: null,
+  lensesPanel: null,
+  sigilsPanel: null,
+  sigilList: null,
   lastFocus: null,
 };
 
 let revealOverlayCallback = null;
 let scheduleOverlayHideCallback = null;
 let requestInventoryRefresh = null;
+let commitCraftingState = null;
 let removeEquipmentListener = null;
 let removeCraftingProgressListener = null;
+let activeCraftingCategory = 'lenses';
 
 // Format a tower label using its symbol and name for assignment summaries.
 function getTowerLabel(towerId) {
@@ -276,6 +308,47 @@ function getTowerLabel(towerId) {
   return symbol ? `${symbol} ${name}` : name;
 }
 
+/**
+ * Return the crafted equipment list filtered down to lens-style entries for the Lenses tab.
+ * @returns {Array<Object>} Crafted equipment excluding Epiphany Sigils.
+ */
+function getCraftedLenses() {
+  return getCraftedEquipment().filter(
+    (equipment) =>
+      typeof equipment?.id === 'string' &&
+      typeof equipment?.type === 'string' &&
+      equipment.type !== 'Epiphany Sigil',
+  );
+}
+
+/**
+ * Determine whether a crafted equipment record with the supplied identifier already exists.
+ * @param {string} equipmentId - Crafted equipment identifier to look up.
+ * @returns {boolean} True when the crafted inventory already contains the requested item.
+ */
+function hasCraftedEquipmentId(equipmentId) {
+  if (typeof equipmentId !== 'string' || !equipmentId.trim()) {
+    return false;
+  }
+  return getCraftedEquipment().some((equipment) => equipment?.id === equipmentId);
+}
+
+/**
+ * Convenience wrapper that checks whether the Habituation Sigil has already been inscribed.
+ * @returns {boolean} True when the Habituation Sigil exists in the crafted equipment roster.
+ */
+function hasHabituationSigil() {
+  return hasCraftedEquipmentId(HABITUATION_SIGIL_ID);
+}
+
+/**
+ * Apply passive sigil effects immediately after load and after each successful sigil craft.
+ * @returns {void}
+ */
+function syncEpiphanySigilEffects() {
+  setMoteGemAutoCollectDelayMs(hasHabituationSigil() ? HABITUATION_SIGIL_AUTO_COLLECT_MS : 0);
+}
+
 // Render the crafted equipment roster with assignment controls.
 function renderCraftedEquipmentList() {
   const { equipmentList, equipmentEmpty } = craftingElements;
@@ -284,7 +357,7 @@ function renderCraftedEquipmentList() {
   }
 
   equipmentList.innerHTML = '';
-  const crafted = getCraftedEquipment();
+  const crafted = getCraftedLenses();
   if (!crafted.length) {
     equipmentList.hidden = true;
     equipmentList.setAttribute('aria-hidden', 'true');
@@ -395,6 +468,54 @@ function renderCraftedEquipmentList() {
   equipmentList.append(fragment);
 }
 
+/**
+ * Return whether the player can currently afford every requirement in the supplied gem ledger.
+ * @param {Array<{ gemId: string, amount: number }>} costs - Gem requirements to verify.
+ * @returns {boolean} True when the inventory contains enough motes for all listed costs.
+ */
+function canAffordGemCosts(costs) {
+  if (!Array.isArray(costs) || !costs.length) {
+    return false;
+  }
+  return costs.every((cost) => getMoteGemCountById(cost?.gemId) >= Math.max(0, cost?.amount || 0));
+}
+
+/**
+ * Spend gem motes from the shared inventory while keeping cluster counts in sync.
+ * @param {Array<{ gemId: string, amount: number }>} costs - Gem requirements to deduct.
+ * @returns {boolean} True when all costs were successfully removed from inventory.
+ */
+function spendGemCosts(costs) {
+  if (!canAffordGemCosts(costs)) {
+    return false;
+  }
+
+  costs.forEach((cost) => {
+    const gemId = typeof cost?.gemId === 'string' ? cost.gemId : '';
+    const amount = Math.max(0, cost?.amount || 0);
+    if (!gemId || amount <= 0) {
+      return;
+    }
+    const record = moteGemState.inventory.get(gemId);
+    if (!record) {
+      return;
+    }
+    const gemDefinition = resolveGemDefinition(gemId);
+    const motesPerCluster = Number.isFinite(gemDefinition?.moteSize)
+      ? Math.max(1, gemDefinition.moteSize)
+      : 1;
+    const nextTotal = Math.max(0, (Number(record.total) || 0) - amount);
+    const nextCount = nextTotal > 0 ? Math.ceil(nextTotal / motesPerCluster) : 0;
+    moteGemState.inventory.set(gemId, {
+      ...record,
+      total: nextTotal,
+      count: nextCount,
+    });
+  });
+
+  return true;
+}
+
 // Resolve a mote gem total by id so crafting recipes can show owned amounts.
 function getMoteGemCountById(gemId) {
   if (!gemId) {
@@ -449,6 +570,46 @@ function createGemColorSwatch(gemId) {
     );
   }
   return swatch;
+}
+
+/**
+ * Render a formatted gem-cost ledger and append it to the supplied parent element.
+ * @param {HTMLElement} parent - Container that will receive the rendered cost list.
+ * @param {Array<{ gemId: string, amount: number, label?: string }>} requirements - Cost rows to render.
+ * @returns {void}
+ */
+function appendCostList(parent, requirements) {
+  if (!parent || !Array.isArray(requirements) || !requirements.length) {
+    return;
+  }
+
+  const costList = document.createElement('ul');
+  costList.className = 'crafting-cost';
+
+  requirements.forEach((requirement) => {
+    const costItem = document.createElement('li');
+    costItem.className = 'crafting-cost__item';
+    const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
+      requirement.label || 'Motes'
+    }`;
+
+    const swatch = createGemColorSwatch(requirement.gemId);
+    costItem.append(swatch);
+
+    const amount = document.createElement('span');
+    amount.className = 'crafting-cost__amount';
+    amount.textContent = amountLabel;
+    costItem.append(amount);
+
+    const owned = document.createElement('span');
+    owned.className = 'crafting-cost__owned';
+    owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountById(requirement.gemId))})`;
+    costItem.append(owned);
+
+    costList.append(costItem);
+  });
+
+  parent.append(costList);
 }
 
 // Build the deterministic tier ledger that escalates costs and bonuses per specification.
@@ -601,34 +762,8 @@ function renderCraftingRecipes() {
       tierBonus.textContent = `+${formatWholeNumber(tier.bonusPercent)}% ${recipe.type}`;
       tierHeader.append(labelWrap, tierBonus);
 
-      // Summarize the gem ledger for this tier using the shared cost styling.
-      const costList = document.createElement('ul');
-      costList.className = 'crafting-cost';
-
-      tier.requirements.forEach((requirement) => {
-        const costItem = document.createElement('li');
-        costItem.className = 'crafting-cost__item';
-        const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
-          requirement.label || 'Motes'
-        }`;
-
-        const swatch = createGemColorSwatch(requirement.gemId);
-        costItem.append(swatch);
-
-        const amount = document.createElement('span');
-        amount.className = 'crafting-cost__amount';
-        amount.textContent = amountLabel;
-        costItem.append(amount);
-
-        const owned = document.createElement('span');
-        owned.className = 'crafting-cost__owned';
-        owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountById(requirement.gemId))})`;
-        costItem.append(owned);
-
-        costList.append(costItem);
-      });
-
-      tierItem.append(tierHeader, costList);
+      tierItem.append(tierHeader);
+      appendCostList(tierItem, tier.requirements);
       tierList.append(tierItem);
     } else {
       // Signal completion when all tiers are forged so the ledger stays concise.
@@ -648,6 +783,126 @@ function renderCraftingRecipes() {
   craftingElements.list.append(fragment);
 }
 
+/**
+ * Toggle the visible crafting sub-tab so lenses and sigils stay separated.
+ * @param {'lenses'|'sigils'} categoryId - Requested crafting category to display.
+ * @returns {void}
+ */
+function setActiveCraftingCategory(categoryId) {
+  activeCraftingCategory = categoryId === 'sigils' ? 'sigils' : 'lenses';
+  const isSigils = activeCraftingCategory === 'sigils';
+  const isLenses = !isSigils;
+  const { lensesTab, sigilsTab, lensesPanel, sigilsPanel } = craftingElements;
+
+  if (lensesTab) {
+    lensesTab.classList.toggle('active', isLenses);
+    lensesTab.setAttribute('aria-selected', isLenses ? 'true' : 'false');
+    lensesTab.tabIndex = isLenses ? 0 : -1;
+  }
+  if (sigilsTab) {
+    sigilsTab.classList.toggle('active', isSigils);
+    sigilsTab.setAttribute('aria-selected', isSigils ? 'true' : 'false');
+    sigilsTab.tabIndex = isSigils ? 0 : -1;
+  }
+  if (lensesPanel) {
+    lensesPanel.hidden = !isLenses;
+  }
+  if (sigilsPanel) {
+    sigilsPanel.hidden = !isSigils;
+  }
+}
+
+/**
+ * Craft the requested Epiphany Sigil recipe and activate any passive effects it unlocks.
+ * @param {{ id: string, name: string, type: string, symbol: string, costs: Array<Object> }} recipe - Sigil recipe metadata.
+ * @returns {boolean} True when the sigil is successfully crafted.
+ */
+function craftEpiphanySigil(recipe) {
+  if (!recipe || hasCraftedEquipmentId(recipe.id) || !spendGemCosts(recipe.costs)) {
+    return false;
+  }
+
+  registerCraftedEquipment({
+    id: recipe.id,
+    name: recipe.name,
+    type: recipe.type,
+    symbol: recipe.symbol,
+  });
+  syncEpiphanySigilEffects();
+  if (typeof requestInventoryRefresh === 'function') {
+    requestInventoryRefresh();
+  }
+  renderCraftingRecipes();
+  renderCraftedEquipmentList();
+  renderEpiphanySigils();
+  if (typeof commitCraftingState === 'function') {
+    commitCraftingState();
+  }
+  return true;
+}
+
+/**
+ * Render the Epiphany Sigils tab with inscription recipes, costs, and forged-state messaging.
+ * @returns {void}
+ */
+function renderEpiphanySigils() {
+  const { sigilList } = craftingElements;
+  if (!sigilList) {
+    return;
+  }
+
+  sigilList.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  EPIPHANY_SIGIL_RECIPES.forEach((recipe) => {
+    const sigilUnlocked = hasCraftedEquipmentId(recipe.id);
+    const item = document.createElement('li');
+    item.className = 'crafting-item';
+    item.setAttribute('data-sigil-id', recipe.id);
+
+    const header = document.createElement('div');
+    header.className = 'crafting-item__header';
+
+    const title = document.createElement('h3');
+    title.className = 'crafting-item__title';
+    title.textContent = recipe.name;
+
+    const effect = document.createElement('p');
+    effect.className = 'crafting-item__effect';
+    effect.textContent = recipe.effectLabel;
+
+    header.append(title, effect);
+    item.append(header);
+
+    appendCostList(item, recipe.costs);
+
+    const actionRow = document.createElement('div');
+    actionRow.className = 'sigil-crafting-actions';
+
+    const status = document.createElement('p');
+    status.className = 'sigil-crafting-status';
+    status.textContent = sigilUnlocked
+      ? `Forged — enemy gem drops now gather themselves ${HABITUATION_SIGIL_TIMING_PHRASE}.`
+      : 'Available for inscription once the required gem motes are assembled.';
+
+    const button = document.createElement('button');
+    button.className = 'sigil-crafting-button';
+    button.type = 'button';
+    button.textContent = sigilUnlocked ? 'Forged' : recipe.buttonLabel;
+    button.disabled = sigilUnlocked || !canAffordGemCosts(recipe.costs);
+    button.setAttribute('aria-disabled', button.disabled ? 'true' : 'false');
+    button.addEventListener('click', () => {
+      craftEpiphanySigil(recipe);
+    });
+
+    actionRow.append(status, button);
+    item.append(actionRow);
+    fragment.append(item);
+  });
+
+  sigilList.append(fragment);
+}
+
 // Prepare the crafting overlay markup and interactions.
 function bindCraftingOverlayElements() {
   craftingElements.overlay = document.getElementById('crafting-overlay');
@@ -655,13 +910,23 @@ function bindCraftingOverlayElements() {
   craftingElements.list = document.getElementById('crafting-list');
   craftingElements.equipmentList = document.getElementById('crafted-equipment-list');
   craftingElements.equipmentEmpty = document.getElementById('crafted-equipment-empty');
+  craftingElements.lensesTab = document.getElementById('crafting-category-lenses');
+  craftingElements.sigilsTab = document.getElementById('crafting-category-sigils');
+  craftingElements.lensesPanel = document.getElementById('crafting-panel-lenses');
+  craftingElements.sigilsPanel = document.getElementById('crafting-panel-sigils');
+  craftingElements.sigilList = document.getElementById('crafting-sigil-list');
 
   renderCraftingRecipes();
   renderCraftedEquipmentList();
+  renderEpiphanySigils();
+  syncEpiphanySigilEffects();
+  setActiveCraftingCategory(activeCraftingCategory);
 
   if (!removeEquipmentListener) {
     removeEquipmentListener = addEquipmentListener(() => {
+      syncEpiphanySigilEffects();
       renderCraftedEquipmentList();
+      renderEpiphanySigils();
     });
   }
 
@@ -681,7 +946,19 @@ function bindCraftingOverlayElements() {
     document.addEventListener('tower-variables-changed', renderCraftingRecipes);
   }
 
-  const { overlay, closeButton } = craftingElements;
+  const { overlay, closeButton, lensesTab, sigilsTab } = craftingElements;
+
+  if (lensesTab) {
+    lensesTab.addEventListener('click', () => {
+      setActiveCraftingCategory('lenses');
+    });
+  }
+
+  if (sigilsTab) {
+    sigilsTab.addEventListener('click', () => {
+      setActiveCraftingCategory('sigils');
+    });
+  }
 
   if (overlay) {
     overlay.addEventListener('click', (event) => {
@@ -718,6 +995,7 @@ export function openCraftingOverlay() {
   }
   renderCraftingRecipes();
   renderCraftedEquipmentList();
+  renderEpiphanySigils();
 
   if (typeof revealOverlayCallback === 'function') {
     revealOverlayCallback(overlay);
@@ -768,11 +1046,12 @@ export function initializeCraftingOverlay({
   revealOverlay,
   scheduleOverlayHide,
   onRequestInventoryRefresh,
+  onCommitState,
 } = {}) {
   revealOverlayCallback = typeof revealOverlay === 'function' ? revealOverlay : null;
   scheduleOverlayHideCallback = typeof scheduleOverlayHide === 'function' ? scheduleOverlayHide : null;
   requestInventoryRefresh = typeof onRequestInventoryRefresh === 'function' ? onRequestInventoryRefresh : null;
+  commitCraftingState = typeof onCommitState === 'function' ? onCommitState : null;
 
   bindCraftingOverlayElements();
 }
-

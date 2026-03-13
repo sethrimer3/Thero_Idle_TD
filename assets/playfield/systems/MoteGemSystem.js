@@ -9,6 +9,18 @@ import {
 import { metersToPixels } from '../../gameUnits.js';
 
 /**
+ * Clear the launch vector once a mote gem has finished its toss so it can rest on the field.
+ * @param {Object} gem - Active mote gem state.
+ * @returns {void}
+ */
+function settleDirectedMoteGem(gem) {
+  if (!gem) {
+    return;
+  }
+  gem.launch = null;
+}
+
+/**
  * Advance mote gem flight each frame — applies velocity, gravity, fade, and directed
  * launch ballistics, then collects gems that have gone offscreen or expired.
  */
@@ -115,7 +127,10 @@ export function updateMoteGems(delta) {
       const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
       const offscreenY = height ? gem.y < -96 || gem.y > height + 96 : gem.y < -96;
       const travelComplete = progress >= 1;
-      if (offscreenX || offscreenY || travelComplete || invisible) {
+      if (travelComplete) {
+        settleDirectedMoteGem(gem); // Let the gem remain on the field for later pickup evaluation instead of collecting it immediately on launch completion.
+      }
+      if (offscreenX || offscreenY || invisible) {
         toCollect.push(gem);
       }
       return;
@@ -123,8 +138,12 @@ export function updateMoteGems(delta) {
 
     const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
     const offscreenY = gem.y < -96 || (height ? gem.y > height + 96 : false);
+    const autoCollectDelay = Number.isFinite(moteGemState.autoCollectDelayMs)
+      ? Math.max(0, moteGemState.autoCollectDelayMs)
+      : 0;
     const lifetimeExpired = gem.lifetime > 1400;
-    if (offscreenX || offscreenY || lifetimeExpired || invisible) {
+    const timedAutoCollect = autoCollectDelay > 0 && gem.lifetime >= autoCollectDelay;
+    if (offscreenX || offscreenY || lifetimeExpired || timedAutoCollect || invisible) {
       toCollect.push(gem);
     }
   });
