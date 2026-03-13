@@ -1476,6 +1476,17 @@
       "theroCap": 600,
       "theroPerKill": 32,
       "passiveTheroPerSecond": 14,
+      "theroCrystals": [
+        {
+          "x": 0.5,
+          "y": 0.5,
+          "integrity": 9999999,
+          "thero": 0,
+          "theroMultiplier": 2,
+          "formulaText": "Þ=dmgx2",
+          "hitLimit": 50
+        }
+      ],
       "lives": 100,
       "waves": [
         {

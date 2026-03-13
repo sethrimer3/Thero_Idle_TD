@@ -111,17 +111,22 @@ export function resetState() {
 }
 
 export function loadLevelCrystals() {
-  // Clear any existing developer crystals
+  // Clear any existing Thero crystal level elements before loading the next level.
   if (typeof this.clearDeveloperCrystals === 'function') {
     this.clearDeveloperCrystals({ silent: true });
   }
 
-  // Load crystals from level config if present
-  if (!this.levelConfig || !Array.isArray(this.levelConfig.crystals)) {
+  // Resolve level-element crystals from the new `theroCrystals` key, with legacy `crystals` fallback.
+  const crystalConfigs = Array.isArray(this.levelConfig?.theroCrystals)
+    ? this.levelConfig.theroCrystals
+    : Array.isArray(this.levelConfig?.crystals)
+      ? this.levelConfig.crystals
+      : null;
+  if (!crystalConfigs) {
     return;
   }
 
-  this.levelConfig.crystals.forEach((crystalConfig) => {
+  crystalConfigs.forEach((crystalConfig) => {
     if (!crystalConfig || typeof crystalConfig.x !== 'number' || typeof crystalConfig.y !== 'number') {
       return;
     }
@@ -131,6 +136,8 @@ export function loadLevelCrystals() {
       integrity: crystalConfig.integrity,
       thero: crystalConfig.thero || 0,
       theroMultiplier: crystalConfig.theroMultiplier || 0,
+      formulaText: crystalConfig.formulaText,
+      hitLimit: crystalConfig.hitLimit,
     };
 
     if (typeof this.addDeveloperCrystal === 'function') {
