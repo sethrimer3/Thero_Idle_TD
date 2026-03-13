@@ -70,12 +70,15 @@ const EQUIPMENT_LENS_SPRITE_LOOKUP = new Map([
 
 const HABITUATION_SIGIL_ID = 'habituation-sigil';
 const HABITUATION_SIGIL_AUTO_COLLECT_MS = 1000;
+const HABITUATION_SIGIL_AUTO_COLLECT_SECONDS = HABITUATION_SIGIL_AUTO_COLLECT_MS / 1000;
+const HABITUATION_SIGIL_TIMING_PHRASE = `after ${HABITUATION_SIGIL_AUTO_COLLECT_SECONDS} second`;
 const EPIPHANY_SIGIL_RECIPES = [
   {
     id: HABITUATION_SIGIL_ID,
     name: 'Habituation Sigil',
     type: 'Epiphany Sigil',
-    effectLabel: 'Auto-collect enemy gem drops after 1 second.',
+    symbol: 'Σ',
+    effectLabel: `Auto-collect enemy gem drops ${HABITUATION_SIGIL_TIMING_PHRASE}.`,
     buttonLabel: 'Inscribe Sigil',
     costs: [
       { gemId: 'emerald', amount: 1, label: 'Emerald' },
@@ -305,17 +308,43 @@ function getTowerLabel(towerId) {
   return symbol ? `${symbol} ${name}` : name;
 }
 
-// Split the crafted equipment ledger so the lenses tab excludes passive sigils.
+/**
+ * Return the crafted equipment list filtered down to lens-style entries for the Lenses tab.
+ * @returns {Array<Object>} Crafted equipment excluding Epiphany Sigils.
+ */
 function getCraftedLenses() {
-  return getCraftedEquipment().filter((equipment) => equipment?.id !== HABITUATION_SIGIL_ID);
+  return getCraftedEquipment().filter(
+    (equipment) =>
+      typeof equipment?.id === 'string' &&
+      typeof equipment?.type === 'string' &&
+      equipment.type !== 'Epiphany Sigil',
+  );
 }
 
-// Determine whether the Habituation Sigil has already been inscribed.
+/**
+ * Determine whether a crafted equipment record with the supplied identifier already exists.
+ * @param {string} equipmentId - Crafted equipment identifier to look up.
+ * @returns {boolean} True when the crafted inventory already contains the requested item.
+ */
+function hasCraftedEquipmentId(equipmentId) {
+  if (typeof equipmentId !== 'string' || !equipmentId.trim()) {
+    return false;
+  }
+  return getCraftedEquipment().some((equipment) => equipment?.id === equipmentId);
+}
+
+/**
+ * Convenience wrapper that checks whether the Habituation Sigil has already been inscribed.
+ * @returns {boolean} True when the Habituation Sigil exists in the crafted equipment roster.
+ */
 function hasHabituationSigil() {
-  return getCraftedEquipment().some((equipment) => equipment?.id === HABITUATION_SIGIL_ID);
+  return hasCraftedEquipmentId(HABITUATION_SIGIL_ID);
 }
 
-// Apply passive sigil effects immediately after load and after each craft.
+/**
+ * Apply passive sigil effects immediately after load and after each successful sigil craft.
+ * @returns {void}
+ */
 function syncEpiphanySigilEffects() {
   setMoteGemAutoCollectDelayMs(hasHabituationSigil() ? HABITUATION_SIGIL_AUTO_COLLECT_MS : 0);
 }
@@ -439,7 +468,11 @@ function renderCraftedEquipmentList() {
   equipmentList.append(fragment);
 }
 
-// Return whether the player can currently afford the supplied gem ledger.
+/**
+ * Return whether the player can currently afford every requirement in the supplied gem ledger.
+ * @param {Array<{ gemId: string, amount: number }>} costs - Gem requirements to verify.
+ * @returns {boolean} True when the inventory contains enough motes for all listed costs.
+ */
 function canAffordGemCosts(costs) {
   if (!Array.isArray(costs) || !costs.length) {
     return false;
@@ -447,7 +480,11 @@ function canAffordGemCosts(costs) {
   return costs.every((cost) => getMoteGemCountById(cost?.gemId) >= Math.max(0, cost?.amount || 0));
 }
 
-// Spend gem motes from the shared inventory while keeping cluster counts in sync.
+/**
+ * Spend gem motes from the shared inventory while keeping cluster counts in sync.
+ * @param {Array<{ gemId: string, amount: number }>} costs - Gem requirements to deduct.
+ * @returns {boolean} True when all costs were successfully removed from inventory.
+ */
 function spendGemCosts(costs) {
   if (!canAffordGemCosts(costs)) {
     return false;
@@ -464,9 +501,11 @@ function spendGemCosts(costs) {
       return;
     }
     const gemDefinition = resolveGemDefinition(gemId);
-    const clusterValue = Number.isFinite(gemDefinition?.moteSize) ? Math.max(1, gemDefinition.moteSize) : 1;
+    const motesPerCluster = Number.isFinite(gemDefinition?.moteSize)
+      ? Math.max(1, gemDefinition.moteSize)
+      : 1;
     const nextTotal = Math.max(0, (Number(record.total) || 0) - amount);
-    const nextCount = nextTotal > 0 ? Math.ceil(nextTotal / clusterValue) : 0;
+    const nextCount = nextTotal > 0 ? Math.ceil(nextTotal / motesPerCluster) : 0;
     moteGemState.inventory.set(gemId, {
       ...record,
       total: nextTotal,
@@ -533,7 +572,12 @@ function createGemColorSwatch(gemId) {
   return swatch;
 }
 
-// Render the shared gem-cost ledger used by both lenses and sigils.
+/**
+ * Render a formatted gem-cost ledger and append it to the supplied parent element.
+ * @param {HTMLElement} parent - Container that will receive the rendered cost list.
+ * @param {Array<{ gemId: string, amount: number, label?: string }>} requirements - Cost rows to render.
+ * @returns {void}
+ */
 function appendCostList(parent, requirements) {
   if (!parent || !Array.isArray(requirements) || !requirements.length) {
     return;
@@ -739,7 +783,11 @@ function renderCraftingRecipes() {
   craftingElements.list.append(fragment);
 }
 
-// Toggle the visible crafting sub-tab so lenses and sigils stay separated.
+/**
+ * Toggle the visible crafting sub-tab so lenses and sigils stay separated.
+ * @param {'lenses'|'sigils'} categoryId - Requested crafting category to display.
+ * @returns {void}
+ */
 function setActiveCraftingCategory(categoryId) {
   activeCraftingCategory = categoryId === 'sigils' ? 'sigils' : 'lenses';
   const isSigils = activeCraftingCategory === 'sigils';
@@ -764,9 +812,13 @@ function setActiveCraftingCategory(categoryId) {
   }
 }
 
-// Craft the Habituation Sigil and activate its one-second gem collection cadence.
+/**
+ * Craft the requested Epiphany Sigil recipe and activate any passive effects it unlocks.
+ * @param {{ id: string, name: string, type: string, symbol: string, costs: Array<Object> }} recipe - Sigil recipe metadata.
+ * @returns {boolean} True when the sigil is successfully crafted.
+ */
 function craftEpiphanySigil(recipe) {
-  if (!recipe || hasHabituationSigil() || !spendGemCosts(recipe.costs)) {
+  if (!recipe || hasCraftedEquipmentId(recipe.id) || !spendGemCosts(recipe.costs)) {
     return false;
   }
 
@@ -774,7 +826,7 @@ function craftEpiphanySigil(recipe) {
     id: recipe.id,
     name: recipe.name,
     type: recipe.type,
-    symbol: 'Σ',
+    symbol: recipe.symbol,
   });
   syncEpiphanySigilEffects();
   if (typeof requestInventoryRefresh === 'function') {
@@ -789,7 +841,10 @@ function craftEpiphanySigil(recipe) {
   return true;
 }
 
-// Render the sigil tab with its available inscription recipe and unlock state.
+/**
+ * Render the Epiphany Sigils tab with inscription recipes, costs, and forged-state messaging.
+ * @returns {void}
+ */
 function renderEpiphanySigils() {
   const { sigilList } = craftingElements;
   if (!sigilList) {
@@ -797,10 +852,10 @@ function renderEpiphanySigils() {
   }
 
   sigilList.innerHTML = '';
-  const sigilUnlocked = hasHabituationSigil();
   const fragment = document.createDocumentFragment();
 
   EPIPHANY_SIGIL_RECIPES.forEach((recipe) => {
+    const sigilUnlocked = hasCraftedEquipmentId(recipe.id);
     const item = document.createElement('li');
     item.className = 'crafting-item';
     item.setAttribute('data-sigil-id', recipe.id);
@@ -827,7 +882,7 @@ function renderEpiphanySigils() {
     const status = document.createElement('p');
     status.className = 'sigil-crafting-status';
     status.textContent = sigilUnlocked
-      ? 'Forged — enemy gem drops now gather themselves after 1 second.'
+      ? `Forged — enemy gem drops now gather themselves ${HABITUATION_SIGIL_TIMING_PHRASE}.`
       : 'Available for inscription once the required gem motes are assembled.';
 
     const button = document.createElement('button');
