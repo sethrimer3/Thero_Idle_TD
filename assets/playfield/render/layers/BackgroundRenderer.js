@@ -461,7 +461,6 @@ export function drawFloaters() {
     ctx.arc(floater.x, floater.y, radius, 0, TWO_PI);
     ctx.stroke();
   }
-  ctx.globalAlpha = 1;
 
   ctx.restore();
 }

@@ -14,7 +14,7 @@ const HALF = 0.5;
 // Skips the full clamp/round pipeline of colorToRgbaString when the caller already
 // guarantees a valid {r,g,b} input from samplePaletteGradient or a constant.
 function fastRgba(color, alpha) {
-  return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${alpha.toFixed(3)})`;
+  return `rgba(${Math.round(color.r)},${Math.round(color.g)},${Math.round(color.b)},${alpha.toFixed(2)})`;
 }
 
 // Treat high-DPI playfields as an effects budget signal because every glow/blit costs more fill-rate.

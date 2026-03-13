@@ -71,6 +71,26 @@ When working on performance tasks in this repository:
 
 ## Implementation Log
 
+- **Build 608–609**
+  - **Files:** `assets/playfield/render/layers/ProjectileRenderer.js`, `assets/playfield/render/layers/EnemyRenderer.js`, `assets/playfield/render/layers/TowerSpriteRenderer.js`, `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/SunlightRenderer.js`, `assets/playfield/render/layers/BackgroundRenderer.js`, `assets/playfield.js`, `scripts/features/towers/alphaTower.js`, `assets/buildInfo.js`
+  - **Change:** Comprehensive rendering hot-path optimization pass targeting per-entity per-frame overhead:
+    1. **Batch standard beam projectiles** — Standard beams now collect source/target/color during the forEach loop, then render all lines in one stroke path and all tip dots in one fill path per unique color. Eliminates N×(beginPath+stroke+beginPath+fill) for standard beams.
+    2. **Batch enemy death particles** — Removed per-particle `stroke()` call; replaced with dual-fill approach (outer halo circle at lower alpha + inner core fill), eliminating lineWidth/strokeStyle state changes per particle.
+    3. **Reduce save/restore in TowerSpriteRenderer** — Removed save/restore around highlight ring (now resets setLineDash manually with reusable `EMPTY_DASH` array), beta/gamma shot labels. Added reusable empty dash constant.
+    4. **Cache font string construction** — Hoisted `bodyRadius` and `glyphFont` string above the tower loop. Added `getCachedFont()` cache in EnemyRenderer to avoid per-enemy template literal allocation for Cormorant Garamond font strings.
+    5. **Tower type dispatch lookup table** — Replaced 13 sequential if-checks per tower with a single `TOWER_TYPE_HANDLERS[tower.type]` property lookup.
+    6. **Flatten consciousness wave nesting** — Replaced 3-level nested save/restore in mind gate wave with sequential lineWidth/globalAlpha adjustments on the same path (4 strokes, 1 save/restore).
+    7. **Fast inline RGBA string builder** — Added `fastRgba()` in TrackRenderer for river/tracer particle hot loops; skips the full clamp/round pipeline of `colorToRgbaString` when callers already guarantee valid RGB input.
+    8. **Reduce gate sprite save/restore** — Replaced save/globalAlpha/drawImage/restore with manual globalAlpha set+reset for both enemy gate and mind gate sprite blits.
+    9. **Combine focused enemy marker arcs** — Merged two separate beginPath/arc/stroke calls into one combined path with moveTo between arcs.
+    10. **Cache gamma star burst opacity strings** — Pre-computed per-opacity rgba strings and glow fillStyle outside the burst loop.
+    11. **Batch mote gem shadows** — All gem shadow arcs in SunlightRenderer now share one beginPath/fill with moveTo between disjoint circles and a single fillStyle set. Eliminates per-gem fillStyle and fill calls.
+    12. **Optimize swimmers** — Replaced per-swimmer rgba string allocation with globalAlpha; converted forEach to for-loop.
+    13. **Optimize floaters** — Replaced per-floater rgba strokeStyle strings with globalAlpha approach using white base strokeStyle.
+    14. **Batch infinity aura lines** — All tower connection lines per infinity tower now rendered in a single beginPath/stroke path.
+    15. **Remove per-particle save/restore in burst rendering** — `drawParticle` in alphaTower.js now uses manual globalAlpha instead of per-particle save/restore for sprite drawImage.
+  - **Validation:** Syntax-checked all modified files.
+
 - **Build 607**
   - **Files:** `assets/playfield/render/layers/TowerSpriteRenderer.js`, `assets/playfield/render/layers/EnemyRenderer.js`, `assets/playfield/render/layers/TrackRenderer.js`, `assets/playfield/render/layers/UIOverlayRenderer.js`, `assets/playfield.js`, `assets/buildInfo.js`
   - **Change:** Major per-frame `ctx.shadowBlur` elimination pass reducing ~120-175 shadow operations per frame to near zero in the normal hot render path:
