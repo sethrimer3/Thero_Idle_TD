@@ -3611,6 +3611,12 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const tsadiState = spireResourceState.tsadi || {};
     const shinState = spireResourceState.shin || {};
     const kufState = spireResourceState.kuf || {};
+    const moteGems = Array.from(moteGemState.inventory.entries()).map(([gemId, record = {}]) => ({
+      gemId,
+      label: typeof record.label === 'string' ? record.label : gemId,
+      total: Number.isFinite(record.total) ? Math.max(0, record.total) : 0,
+      count: Number.isFinite(record.count) ? Math.max(0, Math.floor(record.count)) : 0,
+    }));
 
     return {
       powder: {
@@ -3659,6 +3665,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         unlocked: Boolean(kufState.unlocked),
         storySeen: Boolean(kufState.storySeen),
       },
+      moteGems: {
+        inventory: moteGems,
+        autoCollectUnlocked: Boolean(moteGemState.autoCollectUnlocked),
+        autoCollectDelayMs: Number.isFinite(moteGemState.autoCollectDelayMs)
+          ? Math.max(0, Math.floor(moteGemState.autoCollectDelayMs))
+          : 0,
+      },
     };
   }
 
@@ -3677,6 +3690,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const tsadiBranch = snapshot.tsadi || {};
     const shinBranch = snapshot.shin || {};
     const kufBranch = snapshot.kuf || {};
+    const moteGemBranch = snapshot.moteGems || {};
 
     const powderStoryState = spireResourceState.powder || {};
     powderStoryState.storySeen = Boolean(powderBranch.storySeen || powderStoryState.storySeen);
@@ -3735,6 +3749,27 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     const kufState = spireResourceState.kuf || {};
     kufState.unlocked = Boolean(kufBranch.unlocked || kufState.unlocked);
     kufState.storySeen = Boolean(kufBranch.storySeen || kufState.storySeen);
+
+    moteGemState.inventory.clear();
+    if (Array.isArray(moteGemBranch.inventory)) {
+      moteGemBranch.inventory.forEach((entry) => {
+        const gemId = typeof entry?.gemId === 'string' ? entry.gemId.trim() : '';
+        if (!gemId) {
+          return;
+        }
+        moteGemState.inventory.set(gemId, {
+          label: typeof entry.label === 'string' && entry.label.trim().length ? entry.label.trim() : gemId,
+          total: Number.isFinite(entry.total) ? Math.max(0, entry.total) : 0,
+          count: Number.isFinite(entry.count) ? Math.max(0, Math.floor(entry.count)) : 0,
+        });
+      });
+    }
+    moteGemState.autoCollectUnlocked = Boolean(
+      moteGemBranch.autoCollectUnlocked || moteGemState.autoCollectUnlocked,
+    );
+    moteGemState.autoCollectDelayMs = Number.isFinite(moteGemBranch.autoCollectDelayMs)
+      ? Math.max(0, Math.floor(moteGemBranch.autoCollectDelayMs))
+      : moteGemState.autoCollectDelayMs || 0;
   }
 
   // Configure the autosave helpers so they can persist powder, stats, and preference state.
@@ -7635,6 +7670,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       revealOverlay,
       scheduleOverlayHide,
       onRequestInventoryRefresh: updateMoteGemInventoryDisplay,
+      onCommitState: commitAutoSave,
     });
     bindAchievements();
     // Initialize boosts section in achievements tab

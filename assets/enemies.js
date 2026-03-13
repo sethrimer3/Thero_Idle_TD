@@ -10,6 +10,7 @@ export const moteGemState = {
   nextId: 1,
   inventory: new Map(),
   autoCollectUnlocked: false,
+  autoCollectDelayMs: 0,
 };
 
 // Gem definitions ordered from most common to rarest. Each entry includes the
@@ -576,4 +577,11 @@ export function autoCollectActiveMoteGems(reason = 'auto') {
 // Update the auto-collect upgrade flag so glyph completions can sweep gems.
 export function setMoteGemAutoCollectUnlocked(unlocked) {
   moteGemState.autoCollectUnlocked = Boolean(unlocked);
+}
+
+// Update the passive sigil delay used for timed gem auto collection.
+export function setMoteGemAutoCollectDelayMs(delayMs) {
+  moteGemState.autoCollectDelayMs = Number.isFinite(delayMs)
+    ? Math.max(0, Math.floor(delayMs))
+    : 0;
 }

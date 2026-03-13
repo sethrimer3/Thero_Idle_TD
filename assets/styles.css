@@ -9001,6 +9001,41 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 /* Present crafted equipment management controls above the recipe ledger. */
+.crafting-category-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.crafting-category-tab {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 247, 255, 0.22);
+  background: rgba(10, 14, 22, 0.78);
+  color: rgba(247, 247, 245, 0.82);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.crafting-category-tab.active {
+  border-color: rgba(255, 228, 120, 0.55);
+  background: rgba(28, 24, 12, 0.88);
+  color: rgba(255, 244, 214, 0.98);
+}
+
+.crafting-category-tab:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.75);
+  outline-offset: 2px;
+}
+
+.crafting-category-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .crafted-equipment-section {
   display: grid;
   gap: 14px;
@@ -9145,6 +9180,39 @@ body.playfield-fullscreen .playfield canvas {
   margin: 0;
   font-size: 0.85rem;
   color: rgba(247, 247, 245, 0.72);
+}
+
+.sigil-crafting-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.sigil-crafting-status {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(255, 228, 120, 0.82);
+}
+
+.sigil-crafting-button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 247, 255, 0.28);
+  background: rgba(3, 5, 10, 0.9);
+  color: var(--text);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sigil-crafting-button:disabled {
+  opacity: 0.58;
+}
+
+.sigil-crafting-button:focus-visible {
+  outline: 2px solid rgba(139, 247, 255, 0.75);
+  outline-offset: 2px;
 }
 
 /* Carry the variable codex detail inline so crafting lore stays visible. */

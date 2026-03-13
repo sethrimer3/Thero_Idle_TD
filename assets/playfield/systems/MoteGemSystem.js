@@ -115,7 +115,10 @@ export function updateMoteGems(delta) {
       const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
       const offscreenY = height ? gem.y < -96 || gem.y > height + 96 : gem.y < -96;
       const travelComplete = progress >= 1;
-      if (offscreenX || offscreenY || travelComplete || invisible) {
+      if (travelComplete) {
+        gem.launch = null; // Let the gem settle onto the field so manual pickups and timed sigils can interact with it.
+      }
+      if (offscreenX || offscreenY || invisible) {
         toCollect.push(gem);
       }
       return;
@@ -123,8 +126,12 @@ export function updateMoteGems(delta) {
 
     const offscreenX = width ? gem.x < -64 || gem.x > width + 64 : false;
     const offscreenY = gem.y < -96 || (height ? gem.y > height + 96 : false);
+    const autoCollectDelay = Number.isFinite(moteGemState.autoCollectDelayMs)
+      ? Math.max(0, moteGemState.autoCollectDelayMs)
+      : 0;
     const lifetimeExpired = gem.lifetime > 1400;
-    if (offscreenX || offscreenY || lifetimeExpired || invisible) {
+    const timedAutoCollect = autoCollectDelay > 0 && gem.lifetime >= autoCollectDelay;
+    if (offscreenX || offscreenY || lifetimeExpired || timedAutoCollect || invisible) {
       toCollect.push(gem);
     }
   });

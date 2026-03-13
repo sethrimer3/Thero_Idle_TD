@@ -5554,29 +5554,76 @@
           <ul class="powder-gem-inventory" id="powder-gem-inventory" aria-live="polite"></ul>
           <p class="powder-gem-inventory-empty" id="powder-gem-empty">No mote gems catalogued yet.</p>
         </article>
+        <div class="crafting-category-tabs" role="tablist" aria-label="Equipment categories">
+          <button
+            class="crafting-category-tab active"
+            type="button"
+            id="crafting-category-lenses"
+            role="tab"
+            aria-selected="true"
+            aria-controls="crafting-panel-lenses"
+          >
+            Lenses
+          </button>
+          <button
+            class="crafting-category-tab"
+            type="button"
+            id="crafting-category-sigils"
+            role="tab"
+            aria-selected="false"
+            aria-controls="crafting-panel-sigils"
+            tabindex="-1"
+          >
+            Sigils
+          </button>
+        </div>
         <section
-          class="crafted-equipment-section"
-          id="crafted-equipment-section"
-          aria-labelledby="crafted-equipment-title"
+          class="crafting-category-panel"
+          id="crafting-panel-lenses"
+          role="tabpanel"
+          aria-labelledby="crafting-category-lenses"
         >
-          <header class="crafted-equipment-header">
-            <h3 class="crafted-equipment-title" id="crafted-equipment-title">Crafted Equipment</h3>
-            <p class="crafted-equipment-note">
-              Assign relics to towers to reshape their glyph lattice. Selecting a new tower automatically frees the previous socket.
+          <section
+            class="crafted-equipment-section"
+            id="crafted-equipment-section"
+            aria-labelledby="crafted-equipment-title"
+          >
+            <header class="crafted-equipment-header">
+              <h3 class="crafted-equipment-title" id="crafted-equipment-title">Forged Lenses</h3>
+              <p class="crafted-equipment-note">
+                Assign lenses to towers to reshape their glyph lattice. Selecting a new tower automatically frees the previous socket.
+              </p>
+            </header>
+            <ul
+              class="crafted-equipment-list"
+              id="crafted-equipment-list"
+              role="list"
+              aria-live="polite"
+              aria-label="Forged lenses"
+            ></ul>
+            <p class="crafted-equipment-empty" id="crafted-equipment-empty" aria-hidden="true">
+              No lenses forged yet.
             </p>
-          </header>
-          <ul
-            class="crafted-equipment-list"
-            id="crafted-equipment-list"
-            role="list"
-            aria-live="polite"
-            aria-label="Crafted equipment"
-          ></ul>
-          <p class="crafted-equipment-empty" id="crafted-equipment-empty" aria-hidden="true">
-            No lenses forged yet.
-          </p>
+          </section>
+          <ul class="crafting-list" id="crafting-list" role="list"></ul>
         </section>
-        <ul class="crafting-list" id="crafting-list" role="list"></ul>
+        <section
+          class="crafting-category-panel"
+          id="crafting-panel-sigils"
+          role="tabpanel"
+          aria-labelledby="crafting-category-sigils"
+          hidden
+        >
+          <section class="crafted-equipment-section" aria-labelledby="epiphany-sigils-title">
+            <header class="crafted-equipment-header">
+              <h3 class="crafted-equipment-title" id="epiphany-sigils-title">Epiphany Sigils</h3>
+              <p class="crafted-equipment-note">
+                Craft singular sigils that grant passive battlefield revelations and mote-gem conveniences.
+              </p>
+            </header>
+            <ul class="crafting-list" id="crafting-sigil-list" role="list" aria-live="polite"></ul>
+          </section>
+        </section>
         <p class="overlay-instruction">Tap outside or press Esc to close.</p>
       </div>
     </div>
