@@ -1,7 +1,7 @@
 /**
  * Developer Tools Service
  * Provides developer-only functionality for testing and sandbox features.
- * Consolidates crystal management and developer tower placement.
+ * Consolidates Thero crystal management and developer tower placement.
  * Created as part of Phase 1.1.4 refactoring.
  */
 
@@ -16,7 +16,7 @@ const TWO_PI = Math.PI * 2;
  * @returns {object} Developer tools service instance
  */
 export function createDeveloperToolsService(playfield) {
-  // Internal state for developer crystals
+  // Internal state for Thero crystals.
   const state = {
     crystals: [],
     shards: [],
@@ -34,10 +34,10 @@ export function createDeveloperToolsService(playfield) {
     state.focusedCrystalId = null;
   }
 
-  // ========== Crystal Management ==========
+  // ========== Thero Crystal Management ==========
 
   /**
-   * Compute a developer crystal's render radius relative to the active canvas bounds.
+   * Compute a Thero crystal's render radius relative to the active canvas bounds.
    * @param {object} crystal
    * @returns {number}
    */
@@ -51,7 +51,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Translate a normalized developer crystal position into canvas coordinates.
+   * Translate a normalized Thero crystal position into canvas coordinates.
    * @param {object} crystal
    * @returns {{x:number,y:number}|null}
    */
@@ -63,7 +63,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Spawn a developer crystal for sandbox testing at the supplied normalized coordinates.
+   * Spawn a Thero crystal level element at the supplied normalized coordinates.
    * @param {{x:number,y:number}} normalized
    * @param {{integrity?:number,thero?:number,theroMultiplier?:number}} options
    * @returns {boolean}
@@ -78,12 +78,19 @@ export function createDeveloperToolsService(playfield) {
       return false;
     }
     state.crystalIdCounter += 1;
-    const id = `developer-crystal-${state.crystalIdCounter}`;
+    const id = `thero-crystal-${state.crystalIdCounter}`;
     const paletteRatio = Math.random();
     const outline = Array.from({ length: 7 }, () => 0.72 + Math.random() * 0.28);
     const integrity = Number.isFinite(options.integrity) && options.integrity > 0 ? options.integrity : 900;
     const thero = Number.isFinite(options.thero) && options.thero >= 0 ? options.thero : 0;
     const theroMultiplier = Number.isFinite(options.theroMultiplier) ? options.theroMultiplier : 0;
+    // Persist formula text and hit-limit metadata so each crystal can communicate its reward rule in-world.
+    const formulaText = typeof options.formulaText === 'string' && options.formulaText.trim()
+      ? options.formulaText.trim()
+      : 'Þ=dmg×1';
+    const hitLimit = Number.isFinite(options.hitLimit) && options.hitLimit > 0
+      ? Math.max(1, Math.floor(options.hitLimit))
+      : Infinity;
     const crystal = {
       id,
       normalized: clamped,
@@ -95,17 +102,20 @@ export function createDeveloperToolsService(playfield) {
       orientation: Math.random() * TWO_PI,
       theroReward: thero,
       theroMultiplier,
+      formulaText,
+      hitLimit,
+      hitsRemaining: hitLimit,
     };
     state.crystals.push(crystal);
     if (playfield.messageEl) {
-      playfield.messageEl.textContent = 'Developer crystal anchored—towers can now chip through it.';
+      playfield.messageEl.textContent = 'Thero crystal anchored—tap to target it for tower fire.';
     }
     playfield.draw();
     return true;
   }
 
   /**
-   * Remove all developer crystals (and shards) from the battlefield.
+   * Remove all Thero crystals (and shards) from the battlefield.
    * @param {{silent?:boolean}} options
    * @returns {number}
    */
@@ -120,15 +130,15 @@ export function createDeveloperToolsService(playfield) {
     state.focusedCrystalId = null;
     if (!silent && playfield.messageEl) {
       playfield.messageEl.textContent = removed > 0
-        ? 'Developer crystals cleared from the battlefield.'
-        : 'No developer crystals to clear.';
+        ? 'Thero crystals cleared from the battlefield.'
+        : 'No Thero crystals to clear.';
     }
     playfield.draw();
     return removed;
   }
 
   /**
-   * Retrieve the currently focused developer crystal, pruning stale selections.
+   * Retrieve the currently focused Thero crystal, pruning stale selections.
    * @returns {object|null}
    */
   function getFocusedCrystal() {
@@ -143,7 +153,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Focus a specific developer crystal so towers prioritize it.
+   * Focus a specific Thero crystal so towers prioritize it.
    * @param {object|null} crystal
    * @param {{silent?:boolean}} options
    */
@@ -155,7 +165,7 @@ export function createDeveloperToolsService(playfield) {
     const { silent = false } = options;
     state.focusedCrystalId = crystal.id;
     if (!silent && playfield.messageEl) {
-      playfield.messageEl.textContent = 'All towers focusing on the developer crystal.';
+      playfield.messageEl.textContent = 'Thero crystal targeted—towers will focus it until cleared.';
     }
   }
 
@@ -177,7 +187,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Toggle whether a developer crystal is focused.
+   * Toggle whether a Thero crystal is focused.
    * @param {object|null} crystal
    */
   function toggleCrystalFocus(crystal) {
@@ -193,7 +203,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Locate a developer crystal under the supplied canvas-space position.
+   * Locate a Thero crystal under the supplied canvas-space position.
    * @param {{x:number,y:number}} position
    * @returns {object|null}
    */
@@ -249,7 +259,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Emit shard particles when a developer crystal takes damage.
+   * Emit shard particles when a Thero crystal takes damage.
    * @param {{x:number,y:number}} origin
    * @param {number} baseRadius
    * @param {{intensity?:number,paletteRatio?:number}} options
@@ -282,7 +292,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Apply damage to a developer crystal and fire fracture/shard visuals.
+   * Apply damage to a Thero crystal and fire fracture/shard visuals.
    * @param {object} crystal
    * @param {number} damage
    * @param {{position?:{x:number,y:number}}} options
@@ -315,9 +325,15 @@ export function createDeveloperToolsService(playfield) {
       playfield.addThero(theroGained);
     }
     
+    // Count discrete hit instances so crystals can shatter after a fixed number of attacks.
+    if (Number.isFinite(crystal.hitsRemaining) && crystal.hitsRemaining !== Infinity) {
+      crystal.hitsRemaining = Math.max(0, Math.floor(crystal.hitsRemaining) - 1);
+    }
+
     const currentIntegrity = Number.isFinite(crystal.integrity) ? crystal.integrity : 0;
     crystal.integrity = Math.max(0, currentIntegrity - damage);
-    if (crystal.integrity <= 0) {
+    const exhaustedHitLimit = Number.isFinite(crystal.hitsRemaining) && crystal.hitsRemaining <= 0;
+    if (crystal.integrity <= 0 || exhaustedHitLimit) {
       state.crystals = state.crystals.filter((entry) => entry?.id !== crystal.id);
       if (state.focusedCrystalId === crystal.id) {
         state.focusedCrystalId = null;
@@ -328,10 +344,10 @@ export function createDeveloperToolsService(playfield) {
           playfield.addThero(crystal.theroReward);
         }
         if (playfield.messageEl) {
-          playfield.messageEl.textContent = `Crystal shattered—earned ${crystal.theroReward}θ!`;
+          playfield.messageEl.textContent = `Thero crystal shattered—earned ${crystal.theroReward}θ!`;
         }
       } else if (playfield.messageEl) {
-        playfield.messageEl.textContent = 'Developer crystal shattered—shards scatter across the lane.';
+        playfield.messageEl.textContent = 'Thero crystal shattered—shards scatter across the lane.';
       }
     }
   }
@@ -378,7 +394,7 @@ export function createDeveloperToolsService(playfield) {
   }
 
   /**
-   * Remove a specific developer crystal by ID.
+   * Remove a specific Thero crystal by ID.
    * @param {string} crystalId
    * @returns {boolean}
    */

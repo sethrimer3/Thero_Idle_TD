@@ -860,7 +860,7 @@ export function createLevelEditorController({
     if (developerMapElements.note) {
       const noteMessages = {
         path: 'Click to place path anchors. Drag to adjust, Shift-click to remove.',
-        crystal: 'Click the battlefield to place crystal obstacles.',
+        crystal: 'Click the battlefield to place Thero crystal level elements.',
         tower: 'Click the battlefield to place pre-configured towers.',
         erase: 'Click on path anchors, crystals, or towers to remove them.',
       };
@@ -873,7 +873,7 @@ export function createLevelEditorController({
   function placeDeveloperCrystal(normalized) {
     const playfield = getPlayfield();
     if (!playfield || typeof playfield.addDeveloperCrystal !== 'function') {
-      setLevelEditorStatus('Active battlefield required before placing crystals.', { tone: 'warning' });
+      setLevelEditorStatus('Active battlefield required before placing Thero crystals.', { tone: 'warning' });
       return false;
     }
     const placed = playfield.addDeveloperCrystal(normalized, {
@@ -881,14 +881,14 @@ export function createLevelEditorController({
       thero: developerMapPlacementState.crystalThero,
     });
     if (!placed) {
-      setLevelEditorStatus('Crystal placement failed—ensure the click stays within the battlefield.', { tone: 'error' });
+      setLevelEditorStatus('Thero crystal placement failed—ensure the click stays within the battlefield.', { tone: 'error' });
       return false;
     }
     const integrityText = developerMapPlacementState.crystalIntegrity;
     const theroText = developerMapPlacementState.crystalThero > 0
       ? ` (${developerMapPlacementState.crystalThero}θ reward)`
       : '';
-    setLevelEditorStatus(`Crystal placed (${integrityText} integrity${theroText}).`, {
+    setLevelEditorStatus(`Thero crystal placed (${integrityText} integrity${theroText}).`, {
       tone: 'info',
       duration: 2800,
     });
@@ -974,7 +974,7 @@ export function createLevelEditorController({
           if (crystal) {
             const removed = playfield.removeDeveloperCrystal(crystal.id);
             if (removed) {
-              setLevelEditorStatus('Crystal removed from battlefield.', { tone: 'info', duration: 2000 });
+              setLevelEditorStatus('Thero crystal removed from battlefield.', { tone: 'info', duration: 2000 });
               return true;
             }
           }
@@ -1003,15 +1003,15 @@ export function createLevelEditorController({
   function clearDeveloperCrystalsFromUI() {
     const playfield = getPlayfield();
     if (!playfield || typeof playfield.clearDeveloperCrystals !== 'function') {
-      setLevelEditorStatus('Enter an interactive defense to clear developer crystals.', { tone: 'warning' });
+      setLevelEditorStatus('Enter an interactive defense to clear Thero crystals.', { tone: 'warning' });
       return;
     }
     const removed = playfield.clearDeveloperCrystals({ silent: false });
     if (removed > 0) {
       const suffix = removed === 1 ? '' : 's';
-      setLevelEditorStatus(`Cleared ${removed} developer crystal${suffix}.`, { tone: 'info' });
+      setLevelEditorStatus(`Cleared ${removed} Thero crystal${suffix}.`, { tone: 'info' });
     } else {
-      setLevelEditorStatus('No developer crystals to clear.', { tone: 'warning' });
+      setLevelEditorStatus('No Thero crystals to clear.', { tone: 'warning' });
     }
   }
 
