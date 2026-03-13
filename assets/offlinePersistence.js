@@ -328,9 +328,6 @@ function hideOfflineOverlay() {
       offlineOverlayLastFocus.focus({ preventScroll: true });
     }
     offlineOverlayLastFocus = null;
-    if (typeof dependencies.setActiveTab === 'function') {
-      dependencies.setActiveTab('powder');
-    }
   }, OFFLINE_OVERLAY_FADE_MS);
 }
 

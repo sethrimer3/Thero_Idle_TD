@@ -2,8 +2,10 @@ import { fetchJsonWithFallback } from './gameplayConfigLoaders.js';
 
 const STORY_DATA_URL = new URL('./data/levelStories.json', import.meta.url);
 const STORY_DATA_RELATIVE_PATH = './assets/data/levelStories.json';
-const WORD_DELAY_MS = 100;
-const SECTION_PAUSE_MS = 5000;
+// Delay between consecutive words fading in (ms).
+const WORD_DELAY_MS = 10;
+// Milliseconds of post-paragraph pause per word in the paragraph.
+const PAUSE_MS_PER_WORD = 50;
 const PROMPT_DELAY_AFTER_COMPLETE_MS = 5000;
 const STORY_BACKGROUND_IMAGE_PATHS = [
   './assets/sprites/backgrounds/blackboardMobile.png',
@@ -353,7 +355,9 @@ export function createLevelStoryScreen({
       }, index * WORD_DELAY_MS);
       entry.timers.push(timer);
     });
-    const totalDuration = entry.words.length * WORD_DELAY_MS + SECTION_PAUSE_MS;
+    // Last word appears at (words.length - 1) * WORD_DELAY_MS.
+    // After the last word is visible, pause for words.length * PAUSE_MS_PER_WORD before advancing.
+    const totalDuration = (entry.words.length - 1) * WORD_DELAY_MS + entry.words.length * PAUSE_MS_PER_WORD;
     entry.advanceTimer = timerApi.setTimeout(() => {
       finalizeSection(entry);
     }, totalDuration);

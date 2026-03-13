@@ -65,6 +65,8 @@ export const PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY = 'glyph-defense-idle:playfield
 export const PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:playfield-background-particles';
 // Storage key used to persist the automatic graphics-quality switching toggle.
 export const AUTO_GRAPHICS_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:auto-graphics-mode';
+// Storage key used to persist the last active main tab so the player returns to it on reload.
+export const ACTIVE_TAB_STORAGE_KEY = 'glyph-defense-idle:active-tab';
 
 const DEFAULT_AUTOSAVE_INTERVAL_MS = 30000;
 const MIN_AUTOSAVE_INTERVAL_MS = 5000;

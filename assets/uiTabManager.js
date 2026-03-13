@@ -1,4 +1,6 @@
 // Provides shared helpers for managing the primary UI tab collection.
+import { readStorage, writeStorage, ACTIVE_TAB_STORAGE_KEY } from './autoSave.js';
+
 const tabHotkeys = new Map([
   ['1', 'tower'],
   ['2', 'towers'],
@@ -238,6 +240,10 @@ export function setActiveTab(target) {
     if (activeTab) {
       activeTabId = activeTab.dataset.tab || activeTabId;
       const matched = activeTabId === target;
+      if (matched) {
+        // Persist the active tab so it can be restored on next page load.
+        writeStorage(ACTIVE_TAB_STORAGE_KEY, activeTabId);
+      }
       notifyTabChange(activeTabId, { matched });
     }
 
@@ -278,6 +284,8 @@ export function setActiveTab(target) {
 
   if (matchedTab) {
     activeTabId = target;
+    // Persist the active tab so it can be restored on next page load.
+    writeStorage(ACTIVE_TAB_STORAGE_KEY, activeTabId);
     notifyTabChange(activeTabId, { matched: true });
   }
 }
@@ -405,9 +413,18 @@ export function initializeTabs() {
     }
   });
 
-  const initialTab = tabs[activeTabIndex];
-  if (initialTab) {
-    setActiveTab(initialTab.dataset.tab);
+  // Restore the last active tab from storage; fall back to the HTML default if not stored or inaccessible.
+  const storedTabId = readStorage(ACTIVE_TAB_STORAGE_KEY);
+  const storedTabElement = storedTabId
+    ? document.querySelector(`.tab-button[data-tab='${storedTabId}']`)
+    : null;
+  if (storedTabElement && isTabAccessible(storedTabElement)) {
+    setActiveTab(storedTabId);
+  } else {
+    const initialTab = tabs[activeTabIndex];
+    if (initialTab) {
+      setActiveTab(initialTab.dataset.tab);
+    }
   }
 
   bindKeyboardNavigation();

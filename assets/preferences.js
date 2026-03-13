@@ -1172,7 +1172,10 @@ export function bindEdgeCrystalsToggle() {
  */
 export function initializeEdgeCrystalsPreference() {
   const stored = readStorage(PLAYFIELD_EDGE_CRYSTALS_STORAGE_KEY);
-  const normalized = stored === '0' || stored === 'false' ? false : true;
+  // Default to false (off) when no stored preference exists, since edge crystals can cause lag.
+  const normalized = stored === null || stored === undefined
+    ? false
+    : stored !== '0' && stored !== 'false';
   return applyEdgeCrystalsPreference(normalized, { persist: false });
 }
 
