@@ -84,10 +84,13 @@ export function createDeveloperToolsService(playfield) {
     const integrity = Number.isFinite(options.integrity) && options.integrity > 0 ? options.integrity : 900;
     const thero = Number.isFinite(options.thero) && options.thero >= 0 ? options.thero : 0;
     const theroMultiplier = Number.isFinite(options.theroMultiplier) ? options.theroMultiplier : 0;
-    // Persist formula text and hit-limit metadata so each crystal can communicate its reward rule in-world.
-    const formulaText = typeof options.formulaText === 'string' && options.formulaText.trim()
+    // Derive formula text from explicit config first, then from multiplier so labels always match reward behavior.
+    const explicitFormulaText = typeof options.formulaText === 'string' && options.formulaText.trim()
       ? options.formulaText.trim()
-      : 'Þ=dmg×1';
+      : '';
+    // Hide formula labels when no per-hit multiplier exists to avoid implying rewards that are not granted.
+    const derivedFormulaText = theroMultiplier !== 0 ? `Þ=dmgx${theroMultiplier}` : '';
+    const formulaText = explicitFormulaText || derivedFormulaText;
     const hitLimit = Number.isFinite(options.hitLimit) && options.hitLimit > 0
       ? Math.max(1, Math.floor(options.hitLimit))
       : Infinity;
