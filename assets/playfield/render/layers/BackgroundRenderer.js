@@ -17,6 +17,10 @@
 
 import { areEdgeCrystalsEnabled, areBackgroundParticlesEnabled } from '../../../preferences.js';
 import { getCrystallineMosaicManager } from '../CrystallineMosaic.js';
+import {
+  drawCrystalBackground as _drawCrystalBackground,
+  drawForegroundCrystalBackground as _drawForegroundCrystalBackground,
+} from '../CrystalBackgroundRenderer.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -463,4 +467,22 @@ export function drawFloaters() {
   }
 
   ctx.restore();
+}
+
+// ─── Crystal Background Sprites ──────────────────────────────────────────────
+
+/**
+ * Render the background layer of CrystalBackground sprites (Main + Edge).
+ * Delegates to CrystalBackgroundRenderer using the `.call(renderer)` convention.
+ */
+export function drawCrystalBackground() {
+  _drawCrystalBackground.call(this);
+}
+
+/**
+ * Render the foreground layer of CrystalBackground sprites (Corner sprites).
+ * Delegates to CrystalBackgroundRenderer using the `.call(renderer)` convention.
+ */
+export function drawForegroundCrystalBackground() {
+  _drawForegroundCrystalBackground.call(this);
 }

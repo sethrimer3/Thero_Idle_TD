@@ -5126,6 +5126,14 @@ export class SimplePlayfield {
     return CanvasRenderer.drawForegroundCrystallineMosaic.call(this);
   }
 
+  drawCrystalBackground() {
+    return CanvasRenderer.drawCrystalBackground.call(this);
+  }
+
+  drawForegroundCrystalBackground() {
+    return CanvasRenderer.drawForegroundCrystalBackground.call(this);
+  }
+
   drawSketches() {
     return CanvasRenderer.drawSketches.call(this);
   }

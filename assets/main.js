@@ -102,6 +102,8 @@ import {
   areEnemyParticlesEnabled,
   bindEdgeCrystalsToggle,
   initializeEdgeCrystalsPreference,
+  bindCrystalBackgroundSpritesToggle,
+  initializeCrystalBackgroundSpritesPreference,
   bindBackgroundParticlesToggle,
   initializeBackgroundParticlesPreference,
   bindPlayfieldTrackTypeButton,
@@ -6614,6 +6616,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeEnemyParticlesPreference();
     bindEdgeCrystalsToggle();
     initializeEdgeCrystalsPreference();
+    bindCrystalBackgroundSpritesToggle();
+    initializeCrystalBackgroundSpritesPreference();
     bindBackgroundParticlesToggle();
     initializeBackgroundParticlesPreference();
     bindPlayfieldTrackTypeButton();
