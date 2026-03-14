@@ -115,7 +115,7 @@ import {
   initializeAutoGraphicsPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
-import { setDevLayerVisible, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
+import { setDevLayerVisible, getDevLayerVisible, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
 import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
 import {
@@ -785,6 +785,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     { id: 'dev-layer-shadow-gate-particles-toggle', stateId: 'dev-layer-shadow-gate-particles-state', layer: 'shadowGateParticles' },
     { id: 'dev-layer-shadow-gate-symbol-toggle', stateId: 'dev-layer-shadow-gate-symbol-state', layer: 'shadowGateSymbol' },
     { id: 'dev-layer-sunlight-toggle', stateId: 'dev-layer-sunlight-state', layer: 'sunlight' },
+    { id: 'dev-layer-sunlight-v2-toggle', stateId: 'dev-layer-sunlight-v2-state', layer: 'sunlightV2' },
     { id: 'dev-layer-towers-toggle', stateId: 'dev-layer-towers-state', layer: 'towers' },
     { id: 'dev-layer-enemies-toggle', stateId: 'dev-layer-enemies-state', layer: 'enemies' },
     { id: 'dev-layer-projectiles-toggle', stateId: 'dev-layer-projectiles-state', layer: 'projectiles' },
@@ -823,14 +824,16 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Reset all layer flags to visible when developer mode is turned off so the game renders normally.
     if (!active) {
       resetDevLayerFlags();
-      devLayerToggleConfigs.forEach(({ id, stateId }) => {
+      devLayerToggleConfigs.forEach(({ id, stateId, layer }) => {
         const toggle = document.getElementById(id);
         const stateLabel = document.getElementById(stateId);
+        // Layers that default to off (e.g. sunlightV2) stay unchecked after reset.
+        const defaultOn = getDevLayerVisible(layer);
         if (toggle) {
-          toggle.checked = true;
+          toggle.checked = defaultOn;
         }
         if (stateLabel) {
-          stateLabel.textContent = 'On';
+          stateLabel.textContent = defaultOn ? 'On' : 'Off';
         }
       });
     }
