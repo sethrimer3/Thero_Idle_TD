@@ -541,8 +541,6 @@ import {
   completeTutorial,
   isTowersTabUnlocked,
   unlockTowersTab as unlockTowersTabState,
-  isCodexUnlocked,
-  unlockCodex,
   isAchievementsUnlocked,
   unlockAchievements,
 } from './tutorialState.js';
@@ -5587,11 +5585,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
               unlockNextInteractiveLevel(level.id);
               updateLevelCards();
               
-              // Special unlock for Prologue - Story: unlock Codex, Achievements, and first Trial
+              // Special unlock for Prologue - Story: unlock Achievements and first Trial.
               if (level.id === 'Prologue - Story') {
-                unlockCodex();
                 unlockAchievements();
-                unlockCodexTab();
                 unlockAchievementsTab();
                 // Unlock first trial after completing prologue
                 if (isInteractiveLevel('Trial - 1')) {
@@ -7450,9 +7446,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     // Unlock tabs based on saved state
     if (isTowersTabUnlocked()) {
       unlockTowersTab();
-    }
-    if (isCodexUnlocked()) {
-      unlockCodexTab();
     }
     if (isAchievementsUnlocked()) {
       unlockAchievementsTab();

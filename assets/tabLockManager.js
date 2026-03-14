@@ -2,7 +2,6 @@
 
 import {
   isTowersTabUnlocked,
-  isCodexUnlocked,
   isAchievementsUnlocked,
 } from './tutorialState.js';
 
@@ -69,12 +68,11 @@ export function updateTabLockStates(tutorialCompleted) {
     });
   }
 
-  // Codex (options) tab: unlocked if tutorial completed OR if individually unlocked
+  // Codex (options) tab: always unlocked because it contains core game settings.
   const codexTab = document.getElementById('tab-options');
   if (codexTab) {
     setTabButtonState(codexTab, {
-      unlocked: tutorialCompleted || isCodexUnlocked(),
-      lockedLabel: 'Locked - Complete Tutorial',
+      unlocked: true,
     });
   }
 
