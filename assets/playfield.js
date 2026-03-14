@@ -1150,12 +1150,19 @@ export class SimplePlayfield {
   }
 
   createFloater(width, height) {
-    const margin = Math.min(width, height) * 0.08;
-    const usableWidth = Math.max(1, width - margin * 2);
-    const usableHeight = Math.max(1, height - margin * 2);
+    // Support both legacy width/height calls and explicit ambient-bounds objects.
+    const bounds = (typeof width === 'object' && width)
+      ? width
+      : { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
+    const boundsWidth = Math.max(1, Number.isFinite(bounds.width) ? bounds.width : (bounds.maxX - bounds.minX));
+    const boundsHeight = Math.max(1, Number.isFinite(bounds.height) ? bounds.height : (bounds.maxY - bounds.minY));
+    const margin = Math.min(boundsWidth, boundsHeight) * 0.08;
+    const usableWidth = Math.max(1, boundsWidth - margin * 2);
+    const usableHeight = Math.max(1, boundsHeight - margin * 2);
     return {
-      x: margin + Math.random() * usableWidth,
-      y: margin + Math.random() * usableHeight,
+      // Seed floater positions across the full ambient effect bounds so zoomed-out edges stay populated.
+      x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
+      y: (Number.isFinite(bounds.minY) ? bounds.minY : 0) + margin + Math.random() * usableHeight,
       vx: (Math.random() - 0.5) * 12,
       vy: (Math.random() - 0.5) * 12,
       ax: 0,
@@ -1166,47 +1173,78 @@ export class SimplePlayfield {
     };
   }
 
+  getAmbientEffectBounds() {
+    const width = this.renderWidth || 0;
+    const height = this.renderHeight || 0;
+    if (!width || !height) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+    }
+    // Expand ambient/background effect bounds to match what the camera can reveal at the minimum zoom scale.
+    const minScale = Math.max(this.minViewScale || 1, 0.0001);
+    const overflowX = Math.max(0, ((1 / minScale) - 1) * width * 0.5);
+    const overflowY = Math.max(0, ((1 / minScale) - 1) * height * 0.5);
+    return {
+      minX: -overflowX,
+      minY: -overflowY,
+      maxX: width + overflowX,
+      maxY: height + overflowY,
+      width: width + overflowX * 2,
+      height: height + overflowY * 2,
+    };
+  }
+
   ensureFloatersLayout() {
     const width = this.renderWidth || 0;
     const height = this.renderHeight || 0;
+    const ambientBounds = this.getAmbientEffectBounds();
 
     if (!this.levelConfig || !width || !height) {
       this.floaters = [];
       this.floaterConnections = [];
-      this.floaterBounds = { width, height };
+      this.floaterBounds = { ...ambientBounds };
       this.backgroundSwimmers = [];
-      this.swimmerBounds = { width, height };
+      this.swimmerBounds = { ...ambientBounds };
       return;
     }
 
-    const previousWidth = this.floaterBounds?.width || width;
-    const previousHeight = this.floaterBounds?.height || height;
-    const scaleX = previousWidth ? width / previousWidth : 1;
-    const scaleY = previousHeight ? height / previousHeight : 1;
-    const previousSwimmerWidth = this.swimmerBounds?.width || width;
-    const previousSwimmerHeight = this.swimmerBounds?.height || height;
-    const swimmerScaleX = previousSwimmerWidth ? width / previousSwimmerWidth : scaleX;
-    const swimmerScaleY = previousSwimmerHeight ? height / previousSwimmerHeight : scaleY;
+    const previousFloaterBounds = this.floaterBounds || ambientBounds;
+    const previousSwimmerBounds = this.swimmerBounds || ambientBounds;
+    const previousWidth = Math.max(1, previousFloaterBounds.width || width);
+    const previousHeight = Math.max(1, previousFloaterBounds.height || height);
+    const previousSwimmerWidth = Math.max(1, previousSwimmerBounds.width || width);
+    const previousSwimmerHeight = Math.max(1, previousSwimmerBounds.height || height);
 
-    if (this.floaters.length && (scaleX !== 1 || scaleY !== 1)) {
+    if (this.floaters.length && (
+      previousFloaterBounds.minX !== ambientBounds.minX ||
+      previousFloaterBounds.minY !== ambientBounds.minY ||
+      previousWidth !== ambientBounds.width ||
+      previousHeight !== ambientBounds.height
+    )) {
       this.floaters.forEach((floater) => {
-        floater.x *= scaleX;
-        floater.y *= scaleY;
-        floater.vx *= scaleX;
-        floater.vy *= scaleY;
+        // Preserve normalized floater placement when ambient bounds change (resize/zoom setting changes).
+        const normalizedX = (floater.x - (previousFloaterBounds.minX || 0)) / previousWidth;
+        const normalizedY = (floater.y - (previousFloaterBounds.minY || 0)) / previousHeight;
+        floater.x = ambientBounds.minX + normalizedX * ambientBounds.width;
+        floater.y = ambientBounds.minY + normalizedY * ambientBounds.height;
       });
     }
 
-    if (this.backgroundSwimmers.length && (swimmerScaleX !== 1 || swimmerScaleY !== 1)) {
+    if (this.backgroundSwimmers.length && (
+      previousSwimmerBounds.minX !== ambientBounds.minX ||
+      previousSwimmerBounds.minY !== ambientBounds.minY ||
+      previousSwimmerWidth !== ambientBounds.width ||
+      previousSwimmerHeight !== ambientBounds.height
+    )) {
       this.backgroundSwimmers.forEach((swimmer) => {
-        swimmer.x *= swimmerScaleX;
-        swimmer.y *= swimmerScaleY;
-        swimmer.vx *= swimmerScaleX;
-        swimmer.vy *= swimmerScaleY;
+        // Keep swimmer distribution stable while remapping to the updated ambient bounds.
+        const normalizedX = (swimmer.x - (previousSwimmerBounds.minX || 0)) / previousSwimmerWidth;
+        const normalizedY = (swimmer.y - (previousSwimmerBounds.minY || 0)) / previousSwimmerHeight;
+        swimmer.x = ambientBounds.minX + normalizedX * ambientBounds.width;
+        swimmer.y = ambientBounds.minY + normalizedY * ambientBounds.height;
       });
     }
 
-    const desired = this.computeFloaterCount(width, height);
+    const desired = this.computeFloaterCount(ambientBounds.width, ambientBounds.height);
 
     if (!this.floaters.length) {
       this.floaters = [];
@@ -1215,13 +1253,13 @@ export class SimplePlayfield {
     if (this.floaters.length < desired) {
       const needed = desired - this.floaters.length;
       for (let index = 0; index < needed; index += 1) {
-        this.floaters.push(this.createFloater(width, height));
+        this.floaters.push(this.createFloater(ambientBounds));
       }
     } else if (this.floaters.length > desired) {
       this.floaters.length = desired;
     }
 
-    const desiredSwimmers = this.computeSwimmerCount(width, height);
+    const desiredSwimmers = this.computeSwimmerCount(ambientBounds.width, ambientBounds.height);
     if (!this.backgroundSwimmers.length) {
       this.backgroundSwimmers = [];
     }
@@ -1229,16 +1267,17 @@ export class SimplePlayfield {
     if (this.backgroundSwimmers.length < desiredSwimmers) {
       const needed = desiredSwimmers - this.backgroundSwimmers.length;
       for (let index = 0; index < needed; index += 1) {
-        this.backgroundSwimmers.push(this.createBackgroundSwimmer(width, height));
+        this.backgroundSwimmers.push(this.createBackgroundSwimmer(ambientBounds));
       }
     } else if (this.backgroundSwimmers.length > desiredSwimmers) {
       this.backgroundSwimmers.length = desiredSwimmers;
     }
 
-    const safeMargin = Math.min(width, height) * 0.04;
+    const safeMargin = Math.min(ambientBounds.width, ambientBounds.height) * 0.04;
     this.floaters.forEach((floater) => {
-      floater.x = Math.min(width - safeMargin, Math.max(safeMargin, floater.x));
-      floater.y = Math.min(height - safeMargin, Math.max(safeMargin, floater.y));
+      // Clamp floaters inside ambient bounds so they can populate zoomed-out edges without escaping forever.
+      floater.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, floater.x));
+      floater.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, floater.y));
       if (!Number.isFinite(floater.vx)) {
         floater.vx = 0;
       }
@@ -1257,8 +1296,9 @@ export class SimplePlayfield {
     });
 
     this.backgroundSwimmers.forEach((swimmer) => {
-      swimmer.x = Math.min(width - safeMargin, Math.max(safeMargin, swimmer.x));
-      swimmer.y = Math.min(height - safeMargin, Math.max(safeMargin, swimmer.y));
+      // Clamp swimmers to the same ambient region so all decorative layers share matching extents.
+      swimmer.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, swimmer.x));
+      swimmer.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, swimmer.y));
       swimmer.vx = Number.isFinite(swimmer.vx) ? swimmer.vx : 0;
       swimmer.vy = Number.isFinite(swimmer.vy) ? swimmer.vy : 0;
       swimmer.ax = Number.isFinite(swimmer.ax) ? swimmer.ax : 0;
@@ -1267,8 +1307,8 @@ export class SimplePlayfield {
       swimmer.sizeScale = Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1;
     });
 
-    this.floaterBounds = { width, height };
-    this.swimmerBounds = { width, height };
+    this.floaterBounds = { ...ambientBounds };
+    this.swimmerBounds = { ...ambientBounds };
   }
 
   ensureLoop() {
