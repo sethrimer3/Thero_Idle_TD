@@ -1,7 +1,7 @@
 // Floating feedback system for displaying gem collection notifications
 // Shows "+N (gem icon)" messages that fade in, move upward, and fade out
 
-import { getGemSpriteImage } from '../../enemies.js';
+import { GEM_DEFINITIONS, getGemSpriteImage } from '../../enemies.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
 const HALF = 0.5;
@@ -11,7 +11,7 @@ const FLOAT_DURATION_MS = 1500; // Total duration of floating animation
 const FLOAT_DISTANCE_PX = 80; // Distance to move upward in pixels
 const FADE_IN_DURATION_MS = 200; // Time to fade in
 const FADE_OUT_START_MS = 1100; // When to start fading out
-const STACK_OFFSET_MS = 400; // Time offset between stacked messages
+const STACK_OFFSET_MS = 170; // Keep rarity stack popups snappy so multi-gem pickups read as a quick burst.
 const STACK_SPACING_PX = 35; // Vertical spacing between stacked messages
 
 /**
@@ -47,8 +47,16 @@ export function createFloatingFeedbackController({ canvas, ctx, getCanvasPositio
       return;
     }
 
+    // Sort pickup lines from most common to rarest so stacked feedback follows the rarity ladder consistently.
+    const rarityIndexByGemKey = new Map(GEM_DEFINITIONS.map((definition, index) => [definition.id, index]));
+    const gemsInRarityOrder = [...gems].sort((left, right) => {
+      const leftRarity = rarityIndexByGemKey.get(left?.typeKey) ?? Number.MAX_SAFE_INTEGER;
+      const rightRarity = rarityIndexByGemKey.get(right?.typeKey) ?? Number.MAX_SAFE_INTEGER;
+      return leftRarity - rightRarity;
+    });
+
     // Create stacked messages for each gem type
-    gems.forEach((gem, index) => {
+    gemsInRarityOrder.forEach((gem, index) => {
       if (!gem || !gem.count || gem.count <= 0) {
         return;
       }
