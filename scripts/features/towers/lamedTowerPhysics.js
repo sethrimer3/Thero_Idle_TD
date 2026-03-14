@@ -1022,6 +1022,26 @@ export function updateAsteroids(deltaTime) {
   const dpr = this.getEffectiveDevicePixelRatio();
   
   for (const asteroid of this.asteroids) {
+    // Ease from an oversized/offscreen intro state into the legacy orbit and size to mimic a camera zooming out.
+    if (Number.isFinite(asteroid.zoomOutDuration) && asteroid.zoomOutDuration > 0) {
+      const previousProgress = Number.isFinite(asteroid.zoomOutProgress) ? asteroid.zoomOutProgress : 0;
+      const nextProgress = Math.min(1, previousProgress + (dt / asteroid.zoomOutDuration));
+      asteroid.zoomOutProgress = nextProgress;
+      const easedProgress = 1 - Math.pow(1 - nextProgress, 3);
+
+      const introOrbitRadius = Number.isFinite(asteroid.initialOrbitRadius)
+        ? asteroid.initialOrbitRadius
+        : asteroid.orbitRadius;
+      const settledOrbitRadius = Number.isFinite(asteroid.targetOrbitRadius)
+        ? asteroid.targetOrbitRadius
+        : asteroid.orbitRadius;
+      asteroid.orbitRadius = introOrbitRadius + (settledOrbitRadius - introOrbitRadius) * easedProgress;
+
+      const introSize = Number.isFinite(asteroid.size) ? asteroid.size : 30;
+      const settledSize = Number.isFinite(asteroid.targetSize) ? asteroid.targetSize : introSize;
+      asteroid.size = introSize + (settledSize - introSize) * easedProgress;
+    }
+
     // Calculate distance to center
     const dx = this.centerX - asteroid.x;
     const dy = this.centerY - asteroid.y;

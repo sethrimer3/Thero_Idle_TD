@@ -611,16 +611,33 @@ export class GravitySimulation {
       const vx = -Math.sin(angle) * circularSpeed;
       const vy = Math.cos(angle) * circularSpeed;
       
+      // Seed asteroids oversized and beyond the viewport edge so the opening motion reads as a camera zoom-out reveal.
       this.asteroids.push({
         x,
         y,
         vx,
         vy,
         spriteIndex: i % this.sprites.asteroids.length,
-        size: this.rng.range(20, 40), // Random size for variety
+        size: this.rng.range(120, 180), // Start huge; renderer eases this down toward normal scale over time.
+        targetSize: this.rng.range(20, 40), // Preserve the old steady-state asteroid size range for the end of the reveal.
         orbitRadius: orbitRadiusDevice, // Store the fixed orbit distance
+        targetOrbitRadius: orbitRadiusDevice, // Retain the long-term orbital distance once the intro zoom-out settles.
+        initialOrbitRadius: orbitRadiusDevice * this.rng.range(2.4, 3.2), // Spawn well offscreen to sell the zoom-out camera illusion.
+        zoomOutProgress: 0,
+        zoomOutDuration: this.rng.range(4.5, 6.5),
         maxRenderDistance: maxAsteroidR * dpr, // Store max distance for opacity calculation
       });
+    }
+
+    // Apply the oversized/orbit-expanded intro state immediately after all target radii are captured.
+    for (const asteroid of this.asteroids) {
+      const introOrbitRadius = Number.isFinite(asteroid.initialOrbitRadius)
+        ? asteroid.initialOrbitRadius
+        : asteroid.orbitRadius;
+      const introAngle = Math.atan2(asteroid.y - this.centerY, asteroid.x - this.centerX);
+      asteroid.orbitRadius = introOrbitRadius;
+      asteroid.x = this.centerX + Math.cos(introAngle) * introOrbitRadius;
+      asteroid.y = this.centerY + Math.sin(introAngle) * introOrbitRadius;
     }
   }
   
