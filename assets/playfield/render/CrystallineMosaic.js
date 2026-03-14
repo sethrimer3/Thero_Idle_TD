@@ -217,13 +217,16 @@ function getBlurredShardSprite(spriteIndex, color, blurRadius) {
   return canvas;
 }
 
-// Parallax factors: background shards lag behind the camera; foreground shards lead.
-const BG_PARALLAX_FACTOR = 0.88; // Background moves at 88% of camera speed (slower = farther away)
-const FG_PARALLAX_FACTOR = 1.08; // Foreground moves at 108% of camera speed (faster = closer)
+// Double the edge-crystal parallax response so background/foreground depth separation is more pronounced.
+const BG_PARALLAX_FACTOR = 0.76; // Background moves at 76% of camera speed (2x previous lag parallax)
+// Double the edge-crystal parallax response so foreground shards lead camera motion more strongly.
+const FG_PARALLAX_FACTOR = 1.16; // Foreground moves at 116% of camera speed (2x previous lead parallax)
 // Fraction of cells assigned to the foreground layer
 const FOREGROUND_LAYER_FRACTION = 0.35;
-// Blur radius (in pixels) applied to cached foreground sprites
-const FG_BLUR_RADIUS = 4;
+// Halve foreground blur so edge crystals remain readable while still feeling depth-separated.
+const FG_BLUR_RADIUS = 2;
+// Keep edge crystals transparent so palette tinting feels like layered glass rather than opaque decals.
+const EDGE_CRYSTAL_ALPHA_MULTIPLIER = 0.55;
 
 // Counter for unique cell IDs
 let cellIdCounter = 0;
@@ -319,11 +322,12 @@ class CrystallineCell {
       baseF + this.y * baseD,
     );
 
-    // Apply brightness multiplier to the palette color.
+    // Apply brightness to the active palette sample so edge crystals stay tied to player-selected colors.
     const r = Math.floor(paletteColor.r * this.brightness);
     const g = Math.floor(paletteColor.g * this.brightness);
     const b = Math.floor(paletteColor.b * this.brightness);
-    const alpha = this.alphaBase + 0.05 * Math.sin(this.phase * 0.4);
+    // Reduce the animated alpha band to restore the transparent "old shard" look.
+    const alpha = (this.alphaBase + 0.05 * Math.sin(this.phase * 0.4)) * EDGE_CRYSTAL_ALPHA_MULTIPLIER;
     ctx.globalAlpha = alpha;
 
     let coloredSprite;
