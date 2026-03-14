@@ -128,6 +128,15 @@ export function resetDevLayerFlags() {
 }
 
 /**
+ * Return the compile-time default for a developer layer flag.
+ * @param {string} layer - Key of devLayerFlags
+ * @returns {boolean}
+ */
+export function getDevLayerDefault(layer) {
+  return Object.prototype.hasOwnProperty.call(DEV_LAYER_DEFAULTS, layer) ? DEV_LAYER_DEFAULTS[layer] !== false : true;
+}
+
+/**
  * Calculate the visible viewport bounds in world coordinates.
  * Returns an object with min/max x/y coordinates for culling.
  * Uses cached values when available to reduce redundant calculations.

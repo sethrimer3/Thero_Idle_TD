@@ -115,7 +115,7 @@ import {
   initializeAutoGraphicsPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
-import { setDevLayerVisible, getDevLayerVisible, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
+import { setDevLayerVisible, getDevLayerDefault, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
 import { configurePerformanceMonitor } from './performanceMonitor.js';
 import * as PlayfieldStatsPanel from './playfieldStatsPanel.js';
 import {
@@ -828,7 +828,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         const toggle = document.getElementById(id);
         const stateLabel = document.getElementById(stateId);
         // Layers that default to off (e.g. sunlightV2) stay unchecked after reset.
-        const defaultOn = getDevLayerVisible(layer);
+        const defaultOn = getDevLayerDefault(layer);
         if (toggle) {
           toggle.checked = defaultOn;
         }
