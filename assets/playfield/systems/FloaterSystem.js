@@ -13,12 +13,15 @@ function updateFloaters(delta) {
 
   const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  if (!width || !height) {
+  const ambientBounds = this.floaterBounds || { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
+  const ambientWidth = Math.max(0, Number.isFinite(ambientBounds.width) ? ambientBounds.width : (ambientBounds.maxX - ambientBounds.minX));
+  const ambientHeight = Math.max(0, Number.isFinite(ambientBounds.height) ? ambientBounds.height : (ambientBounds.maxY - ambientBounds.minY));
+  if (!width || !height || !ambientWidth || !ambientHeight) {
     return;
   }
 
   const dt = Math.max(0, Math.min(delta, 0.05));
-  const minDimension = Math.min(width, height);
+  const minDimension = Math.min(ambientWidth, ambientHeight);
   if (!minDimension) {
     return;
   }
@@ -82,20 +85,20 @@ function updateFloaters(delta) {
   }
 
   floaters.forEach((floater) => {
-    if (floater.x < edgeMargin) {
-      const proximity = 1 - floater.x / edgeMargin;
+    if (floater.x < ambientBounds.minX + edgeMargin) {
+      const proximity = 1 - (floater.x - ambientBounds.minX) / edgeMargin;
       floater.ax += edgeRepelStrength * proximity;
     }
-    if (width - floater.x < edgeMargin) {
-      const proximity = 1 - (width - floater.x) / edgeMargin;
+    if (ambientBounds.maxX - floater.x < edgeMargin) {
+      const proximity = 1 - (ambientBounds.maxX - floater.x) / edgeMargin;
       floater.ax -= edgeRepelStrength * proximity;
     }
-    if (floater.y < edgeMargin) {
-      const proximity = 1 - floater.y / edgeMargin;
+    if (floater.y < ambientBounds.minY + edgeMargin) {
+      const proximity = 1 - (floater.y - ambientBounds.minY) / edgeMargin;
       floater.ay += edgeRepelStrength * proximity;
     }
-    if (height - floater.y < edgeMargin) {
-      const proximity = 1 - (height - floater.y) / edgeMargin;
+    if (ambientBounds.maxY - floater.y < edgeMargin) {
+      const proximity = 1 - (ambientBounds.maxY - floater.y) / edgeMargin;
       floater.ay -= edgeRepelStrength * proximity;
     }
 

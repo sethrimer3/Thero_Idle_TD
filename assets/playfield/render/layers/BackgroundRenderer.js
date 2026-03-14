@@ -75,9 +75,15 @@ export function drawCrystallineMosaic() {
   // so they never reposition when the player zooms in or out.
   const renderWidth = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const renderHeight = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const levelBounds = (renderWidth && renderHeight)
-    ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+  // Match mosaic generation bounds to the same zoom-out envelope used by other ambient effects.
+  const ambientBounds = typeof this.getAmbientEffectBounds === 'function'
+    ? this.getAmbientEffectBounds()
     : null;
+  const levelBounds = ambientBounds && ambientBounds.width && ambientBounds.height
+    ? ambientBounds
+    : ((renderWidth && renderHeight)
+      ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+      : null);
 
   // Get path points for distance checking
   const pathPoints = this.pathPoints || [];
@@ -125,9 +131,15 @@ export function drawForegroundCrystallineMosaic() {
 
   const renderWidth = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const renderHeight = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  const levelBounds = (renderWidth && renderHeight)
-    ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+  // Match mosaic generation bounds to the same zoom-out envelope used by other ambient effects.
+  const ambientBounds = typeof this.getAmbientEffectBounds === 'function'
+    ? this.getAmbientEffectBounds()
     : null;
+  const levelBounds = ambientBounds && ambientBounds.width && ambientBounds.height
+    ? ambientBounds
+    : ((renderWidth && renderHeight)
+      ? { minX: 0, minY: 0, maxX: renderWidth, maxY: renderHeight }
+      : null);
 
   const pathPoints = this.pathPoints || [];
   const pathVersion = this.levelConfig?.id || null;

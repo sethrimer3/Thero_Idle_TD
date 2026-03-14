@@ -73,14 +73,21 @@ function computeSwimmerCount(width, height) {
  * @returns {Object} Swimmer object with position, velocity, and visual properties
  */
 function createBackgroundSwimmer(width, height) {
-  const margin = Math.min(width, height) * 0.05;
-  const usableWidth = Math.max(1, width - margin * 2);
-  const usableHeight = Math.max(1, height - margin * 2);
+  // Accept either legacy width/height numbers or an explicit ambient-bounds object from the playfield.
+  const bounds = (typeof width === 'object' && width)
+    ? width
+    : { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
+  const boundsWidth = Math.max(1, Number.isFinite(bounds.width) ? bounds.width : (bounds.maxX - bounds.minX));
+  const boundsHeight = Math.max(1, Number.isFinite(bounds.height) ? bounds.height : (bounds.maxY - bounds.minY));
+  const margin = Math.min(boundsWidth, boundsHeight) * 0.05;
+  const usableWidth = Math.max(1, boundsWidth - margin * 2);
+  const usableHeight = Math.max(1, boundsHeight - margin * 2);
   const angle = Math.random() * TWO_PI;
   const drift = 8 + Math.random() * 6;
   return {
-    x: margin + Math.random() * usableWidth,
-    y: margin + Math.random() * usableHeight,
+    // Spawn swimmers across the full ambient bounds so they remain visible at max zoom-out edges.
+    x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
+    y: (Number.isFinite(bounds.minY) ? bounds.minY : 0) + margin + Math.random() * usableHeight,
     vx: Math.cos(angle) * drift,
     vy: Math.sin(angle) * drift,
     ax: 0,
@@ -119,13 +126,16 @@ function updateBackgroundSwimmers(delta) {
 
   const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
   const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-  if (!width || !height) {
+  const ambientBounds = this.swimmerBounds || { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
+  const ambientWidth = Math.max(0, Number.isFinite(ambientBounds.width) ? ambientBounds.width : (ambientBounds.maxX - ambientBounds.minX));
+  const ambientHeight = Math.max(0, Number.isFinite(ambientBounds.height) ? ambientBounds.height : (ambientBounds.maxY - ambientBounds.minY));
+  if (!width || !height || !ambientWidth || !ambientHeight) {
     return;
   }
 
   // Tune swimmer motion so they meander slowly but never stall out.
   const dt = Math.max(0, Math.min(delta, 0.05));
-  const minDimension = Math.min(width, height);
+  const minDimension = Math.min(ambientWidth, ambientHeight);
   const speedFloor = Math.max(6, minDimension * 0.012);
   const speedCap = minDimension * 0.38;
   const wanderStrength = minDimension * 0.22;
@@ -250,14 +260,15 @@ function updateBackgroundSwimmers(delta) {
     swimmer.x += swimmer.vx * dt;
     swimmer.y += swimmer.vy * dt;
 
-    const softMargin = Math.min(width, height) * 0.02;
-    if (swimmer.x < softMargin || swimmer.x > width - softMargin) {
+    const softMargin = Math.min(ambientWidth, ambientHeight) * 0.02;
+    // Bounce swimmers against the ambient bounds (not just base canvas bounds) to fill zoomed-out edges.
+    if (swimmer.x < ambientBounds.minX + softMargin || swimmer.x > ambientBounds.maxX - softMargin) {
       swimmer.vx *= -0.6;
-      swimmer.x = Math.min(width - softMargin, Math.max(softMargin, swimmer.x));
+      swimmer.x = Math.min(ambientBounds.maxX - softMargin, Math.max(ambientBounds.minX + softMargin, swimmer.x));
     }
-    if (swimmer.y < softMargin || swimmer.y > height - softMargin) {
+    if (swimmer.y < ambientBounds.minY + softMargin || swimmer.y > ambientBounds.maxY - softMargin) {
       swimmer.vy *= -0.6;
-      swimmer.y = Math.min(height - softMargin, Math.max(softMargin, swimmer.y));
+      swimmer.y = Math.min(ambientBounds.maxY - softMargin, Math.max(ambientBounds.minY + softMargin, swimmer.y));
     }
 
     // Advance the flicker timer so the renderer can breathe subtle brightness pulses.
