@@ -32,8 +32,8 @@ const LAYER_CONFIGS = [
   { count: 440,  parallaxFactor: 0.38, sizeMinPx: 1.2, sizeMaxPx: 2.9 },
 ];
 
-// Tripled twinkle oscillation amplitude so Lamed Spire stars pulse more visibly against the dark backdrop.
-const STAR_TWINKLE_AMPLITUDE = 0.09;
+// Increase twinkle oscillation amplitude 10x so Lamed Spire stars pulse dramatically brighter/dimmer each cycle.
+const STAR_TWINKLE_AMPLITUDE = 0.9;
 
 /**
  * Sample a palette index from the reworked parallax palette using weighted distribution.
