@@ -568,17 +568,16 @@ export function drawMindGateSunlight() {
   const ctx = this.ctx;
   // Sprite is built at screen-pixel resolution so the cache is stable across zoom.
   const sunlightSprite = resolveSunlightSprite.call(this, screenRadius);
-  const viewScale = Math.max(0.1, this.viewScale || 1);
   const detailProfile = getSunlightDetailProfile.call(this);
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha = detailProfile.alpha;
   if (sunlightSprite?.canvas) {
-    // Convert sprite's screen-pixel size to world-coordinate size so the
-    // zoom transform applied by the render pipeline scales it back to the
-    // intended screen coverage – preserving a constant glow footprint at any zoom.
-    const drawSize = sunlightSprite.size / viewScale;
+    // Draw the sprite at a fixed world-space size so the glow covers the same
+    // world area regardless of zoom.  The render pipeline's viewScale transform
+    // scales it to screen pixels, making the glow grow on-screen as you zoom in.
+    const drawSize = sunlightSprite.size;
     ctx.drawImage(
       sunlightSprite.canvas,
       gate.x - drawSize * HALF,
@@ -610,11 +609,10 @@ export function drawSunlightShadows() {
     return;
   }
 
-  // Convert screen-space radius to world-space for distance checks so the same
-  // towers/enemies remain lit regardless of zoom level.
+  // Use the same fixed world-space radius as the glow so shadow distance checks
+  // are zoom-independent and match the lit area.
   const screenRadius = resolveSunlightRadius.call(this);
-  const viewScale = Math.max(0.1, this.viewScale || 1);
-  const sunlightRadius = screenRadius / viewScale;
+  const sunlightRadius = screenRadius;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
@@ -653,11 +651,9 @@ export function drawTowerSunShine() {
     return;
   }
 
-  // Convert screen-space radius to world-space for distance checks so the same
-  // towers remain lit regardless of zoom level.
+  // Use fixed world-space radius so tower shine distance checks are zoom-independent.
   const screenRadius = resolveSunlightRadius.call(this);
-  const viewScale = Math.max(0.1, this.viewScale || 1);
-  const sunlightRadius = screenRadius / viewScale;
+  const sunlightRadius = screenRadius;
   const ctx = this.ctx;
   const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
   const towerBodyRadius = resolveTowerBodyRadius.call(this);
@@ -710,5 +706,274 @@ export function drawTowerSunShine() {
     ctx.stroke();
   });
 
+  ctx.restore();
+}
+
+// ─── V2 Sunlight Implementation ─────────────────────────────────────────────
+// Alternative mind gate glow rendered entirely in world coordinates.
+// Shadows subtract from the glow using destination-out so towers and enemies
+// cast visible light-blocking shadows inside the lit area.
+
+// V2 glow radius as a fraction of the larger screen dimension (world units at viewScale=1).
+const V2_GLOW_RADIUS_FACTOR = 0.5;
+// V2 shadow opacity for the destination-out subtraction – higher = darker shadow.
+const V2_SHADOW_STRENGTH = 0.55;
+// V2 enemy shadow strength is softer than tower shadows.
+const V2_ENEMY_SHADOW_STRENGTH = 0.38;
+// V2 shadow extension length as a multiple of the body radius.
+const V2_SHADOW_LENGTH_FACTOR = 5;
+// V2 offscreen sprite rebuild tolerance (pixels).
+const V2_SPRITE_REBUILD_TOLERANCE = 4;
+
+/**
+ * Resolve the V2 world-space glow radius, independent of zoom.
+ */
+function resolveV2GlowWorldRadius() {
+  const w = this.renderWidth || 0;
+  const h = this.renderHeight || 0;
+  const larger = Math.max(w, h) || 1;
+  const lowGraphicsEnabled = Boolean(this?.isLowGraphicsMode?.());
+  const scale = lowGraphicsEnabled ? LOW_GRAPHICS_SUNLIGHT_RADIUS_SCALE : 1;
+  return larger * V2_GLOW_RADIUS_FACTOR * scale;
+}
+
+/**
+ * Build or reuse a cached offscreen canvas containing the V2 glow gradient.
+ * This base sprite is composited with shadow cut-outs each frame.
+ */
+function resolveV2GlowSprite(worldRadius) {
+  if (!Number.isFinite(worldRadius) || worldRadius <= 0 || typeof document === 'undefined') {
+    return null;
+  }
+
+  const cacheRadius = Math.max(1, Math.round(worldRadius));
+  const existing = this._v2GlowSpriteCache;
+  if (existing?.radius && Math.abs(existing.radius - cacheRadius) <= V2_SPRITE_REBUILD_TOLERANCE && existing?.canvas) {
+    return existing;
+  }
+
+  const size = Math.max(32, Math.ceil(cacheRadius * 2) + 4);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return null;
+  }
+
+  const center = size * HALF;
+
+  // Base warm radial glow.
+  const baseGrad = ctx.createRadialGradient(center, center, 0, center, center, cacheRadius);
+  baseGrad.addColorStop(0, 'rgba(255, 248, 220, 0.38)');
+  baseGrad.addColorStop(0.15, 'rgba(255, 200, 110, 0.30)');
+  baseGrad.addColorStop(0.40, 'rgba(255, 170, 80, 0.18)');
+  baseGrad.addColorStop(1, 'rgba(255, 140, 56, 0)');
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.arc(center, center, cacheRadius, 0, TWO_PI);
+  ctx.fillStyle = baseGrad;
+  ctx.fill();
+
+  // Brighter bloom core.
+  const bloomRadius = cacheRadius * BLOOM_RADIUS_FACTOR;
+  const bloomGrad = ctx.createRadialGradient(center, center, 0, center, center, bloomRadius);
+  bloomGrad.addColorStop(0, 'rgba(255, 235, 185, 0.62)');
+  bloomGrad.addColorStop(0.18, 'rgba(255, 196, 112, 0.40)');
+  bloomGrad.addColorStop(0.40, 'rgba(255, 152, 78, 0.22)');
+  bloomGrad.addColorStop(1, 'rgba(255, 120, 45, 0)');
+  ctx.beginPath();
+  ctx.arc(center, center, bloomRadius, 0, TWO_PI);
+  ctx.fillStyle = bloomGrad;
+  ctx.fill();
+
+  this._v2GlowSpriteCache = { radius: cacheRadius, canvas, size, center };
+  return this._v2GlowSpriteCache;
+}
+
+/**
+ * Draw V2 glow with shadow cut-outs.
+ *
+ * Builds a composite offscreen canvas each frame that contains the warm glow
+ * with tower/enemy shadow trapezoids subtracted using destination-out, so
+ * shadows appear as darkened regions inside the lit circle.
+ */
+export function drawMindGateSunlightV2() {
+  if (!this.ctx) {
+    return;
+  }
+  const gate = resolveMindGatePosition.call(this);
+  if (!gate) {
+    return;
+  }
+  const worldRadius = resolveV2GlowWorldRadius.call(this);
+  if (worldRadius <= 0) {
+    return;
+  }
+
+  const glowSprite = resolveV2GlowSprite.call(this, worldRadius);
+  if (!glowSprite?.canvas) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  const lowGraphicsEnabled = Boolean(this.isLowGraphicsMode?.());
+  const towerBodyRadius = resolveTowerBodyRadius.call(this);
+  const worldRadiusSq = worldRadius * worldRadius;
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+
+  // ── Build composite offscreen with glow + shadow cut-outs ──────────────────
+  const compositeSize = glowSprite.size;
+  let compositeCanvas = this._v2CompositeCanvas;
+  if (!compositeCanvas || compositeCanvas.width !== compositeSize || compositeCanvas.height !== compositeSize) {
+    compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = compositeSize;
+    compositeCanvas.height = compositeSize;
+    this._v2CompositeCanvas = compositeCanvas;
+  }
+  const offCtx = compositeCanvas.getContext('2d');
+  if (!offCtx) {
+    return;
+  }
+
+  // Start with the glow sprite.
+  offCtx.clearRect(0, 0, compositeSize, compositeSize);
+  offCtx.globalCompositeOperation = 'source-over';
+  offCtx.drawImage(glowSprite.canvas, 0, 0);
+
+  // Use destination-out to subtract shadow shapes from the glow.
+  offCtx.globalCompositeOperation = 'destination-out';
+  const spriteCenter = glowSprite.center;
+
+  // World-to-sprite coordinate mapping: sprite pixel = (worldPos - gate) + spriteCenter.
+  const mapX = spriteCenter - gate.x;
+  const mapY = spriteCenter - gate.y;
+
+  // ── Tower shadow cut-outs ──────────────────────────────────────────────────
+  if (Array.isArray(this.towers)) {
+    for (let i = 0; i < this.towers.length; i += 1) {
+      const tower = this.towers[i];
+      if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+        continue;
+      }
+      const dx = tower.x - gate.x;
+      const dy = tower.y - gate.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > worldRadiusSq || distSq < 1) {
+        continue;
+      }
+      if (!isInViewport({ x: tower.x, y: tower.y }, viewportBounds, towerBodyRadius * 8)) {
+        continue;
+      }
+
+      const dist = Math.sqrt(distSq);
+      const invDist = 1 / dist;
+      const ux = dx * invDist;
+      const uy = dy * invDist;
+      const px = -uy;
+      const py = ux;
+
+      // Shadow strength fades with distance from gate.
+      const falloff = 1 - dist / worldRadius;
+      const alpha = (lowGraphicsEnabled ? V2_SHADOW_STRENGTH * 0.6 : V2_SHADOW_STRENGTH) * falloff;
+
+      const shadowLen = towerBodyRadius * V2_SHADOW_LENGTH_FACTOR * (dist / worldRadius);
+
+      // Near-edge vertices (perpendicular to gate→tower direction).
+      const v1x = tower.x + mapX + px * towerBodyRadius;
+      const v1y = tower.y + mapY + py * towerBodyRadius;
+      const v2x = tower.x + mapX - px * towerBodyRadius;
+      const v2y = tower.y + mapY - py * towerBodyRadius;
+      // Far-edge vertices.
+      const s1x = v1x + ux * shadowLen;
+      const s1y = v1y + uy * shadowLen;
+      const s2x = v2x + ux * shadowLen;
+      const s2y = v2y + uy * shadowLen;
+
+      offCtx.globalAlpha = alpha;
+      offCtx.beginPath();
+      offCtx.moveTo(v1x, v1y);
+      offCtx.lineTo(v2x, v2y);
+      offCtx.lineTo(s2x, s2y);
+      offCtx.lineTo(s1x, s1y);
+      offCtx.closePath();
+      offCtx.fill();
+    }
+  }
+
+  // ── Enemy shadow cut-outs ──────────────────────────────────────────────────
+  const enemies = this.enemies;
+  if (Array.isArray(enemies)) {
+    for (let i = 0; i < enemies.length; i += 1) {
+      const enemy = enemies[i];
+      if (!enemy || enemy.hp <= 0) {
+        continue;
+      }
+      const enemyPos = this.getEnemyPosition ? this.getEnemyPosition(enemy) : null;
+      if (!enemyPos || !Number.isFinite(enemyPos.x) || !Number.isFinite(enemyPos.y)) {
+        continue;
+      }
+      const dx = enemyPos.x - gate.x;
+      const dy = enemyPos.y - gate.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > worldRadiusSq || distSq < 1) {
+        continue;
+      }
+      if (!isInViewport(enemyPos, viewportBounds, 60)) {
+        continue;
+      }
+
+      const metrics = this.getEnemyVisualMetrics ? this.getEnemyVisualMetrics(enemy) : null;
+      const coreRadius = Math.max(
+        ENEMY_SHADOW_RADIUS_MIN,
+        Math.min(ENEMY_SHADOW_RADIUS_MAX, (metrics?.coreRadius ?? 9) * ENEMY_SHADOW_RADIUS_FACTOR),
+      );
+
+      const dist = Math.sqrt(distSq);
+      const invDist = 1 / dist;
+      const ux = dx * invDist;
+      const uy = dy * invDist;
+      const px = -uy;
+      const py = ux;
+
+      const falloff = 1 - dist / worldRadius;
+      const alpha = (lowGraphicsEnabled ? V2_ENEMY_SHADOW_STRENGTH * 0.6 : V2_ENEMY_SHADOW_STRENGTH) * falloff;
+
+      const shadowLen = coreRadius * V2_SHADOW_LENGTH_FACTOR * (dist / worldRadius);
+
+      const v1x = enemyPos.x + mapX + px * coreRadius;
+      const v1y = enemyPos.y + mapY + py * coreRadius;
+      const v2x = enemyPos.x + mapX - px * coreRadius;
+      const v2y = enemyPos.y + mapY - py * coreRadius;
+      const s1x = v1x + ux * shadowLen;
+      const s1y = v1y + uy * shadowLen;
+      const s2x = v2x + ux * shadowLen;
+      const s2y = v2y + uy * shadowLen;
+
+      offCtx.globalAlpha = alpha;
+      offCtx.beginPath();
+      offCtx.moveTo(v1x, v1y);
+      offCtx.lineTo(v2x, v2y);
+      offCtx.lineTo(s2x, s2y);
+      offCtx.lineTo(s1x, s1y);
+      offCtx.closePath();
+      offCtx.fill();
+    }
+  }
+
+  offCtx.globalAlpha = 1;
+
+  // ── Blit the composite glow (with shadow holes) to the main canvas ─────────
+  const drawSize = glowSprite.size;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = lowGraphicsEnabled ? LOW_GRAPHICS_SUNLIGHT_ALPHA : 1;
+  ctx.drawImage(
+    compositeCanvas,
+    gate.x - drawSize * HALF,
+    gate.y - drawSize * HALF,
+    drawSize,
+    drawSize,
+  );
   ctx.restore();
 }

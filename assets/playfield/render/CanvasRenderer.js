@@ -57,6 +57,7 @@ import {
   drawMindGateSunlight,
   drawSunlightShadows,
   drawTowerSunShine,
+  drawMindGateSunlightV2,
 } from './layers/SunlightRenderer.js';
 
 // Pre-calculated constants for performance optimization in tight render loops
@@ -82,6 +83,9 @@ const devLayerFlags = {
   mindGateParticles: true,
   mindGateSymbol: true,
   sunlight: true,
+  // When enabled, replaces the v1 sunlight pass with a v2 implementation that bakes shadow
+  // cut-outs directly into the glow sprite using destination-out compositing.
+  sunlightV2: false,
   towers: true,
   enemies: true,
   projectiles: true,
@@ -114,11 +118,22 @@ export function getDevLayerVisible(layer) {
 
 /**
  * Reset all developer layer flags to visible (called when developer mode is disabled).
+ * Flags that default to false (e.g. sunlightV2) are restored to their default value.
  */
+const DEV_LAYER_DEFAULTS = Object.freeze({ ...devLayerFlags });
 export function resetDevLayerFlags() {
   Object.keys(devLayerFlags).forEach((key) => {
-    devLayerFlags[key] = true;
+    devLayerFlags[key] = DEV_LAYER_DEFAULTS[key] ?? true;
   });
+}
+
+/**
+ * Return the compile-time default for a developer layer flag.
+ * @param {string} layer - Key of devLayerFlags
+ * @returns {boolean}
+ */
+export function getDevLayerDefault(layer) {
+  return Object.prototype.hasOwnProperty.call(DEV_LAYER_DEFAULTS, layer) ? DEV_LAYER_DEFAULTS[layer] !== false : true;
 }
 
 /**
@@ -266,7 +281,10 @@ function draw() {
     this.drawDeveloperCrystals();
     this.drawNodes();
   }
-  if (devLayerFlags.sunlight) {
+  if (devLayerFlags.sunlightV2) {
+    // V2 glow bakes shadow cut-outs directly into the glow sprite (replaces v1 glow + shadows).
+    this.drawMindGateSunlightV2();
+  } else if (devLayerFlags.sunlight) {
     this.drawMindGateSunlight();
     this.drawSunlightShadows();
   }
@@ -699,6 +717,7 @@ export {
   drawMindGateSymbol,
   drawNodes,
   drawMindGateSunlight,
+  drawMindGateSunlightV2,
   drawSunlightShadows,
   drawTowerSunShine,
   drawChiThralls,

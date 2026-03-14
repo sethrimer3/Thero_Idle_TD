@@ -5212,6 +5212,10 @@ export class SimplePlayfield {
     return CanvasRenderer.drawMindGateSunlight.call(this);
   }
 
+  drawMindGateSunlightV2() {
+    return CanvasRenderer.drawMindGateSunlightV2.call(this);
+  }
+
   drawSunlightShadows() {
     return CanvasRenderer.drawSunlightShadows.call(this);
   }
