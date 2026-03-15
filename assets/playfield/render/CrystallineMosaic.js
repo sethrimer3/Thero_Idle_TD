@@ -227,6 +227,9 @@ const FOREGROUND_LAYER_FRACTION = 0.35;
 const FG_BLUR_RADIUS = 2;
 // Keep edge crystals transparent so palette tinting feels like layered glass rather than opaque decals.
 const EDGE_CRYSTAL_ALPHA_MULTIPLIER = 0.55;
+// Disable the rasterized layer cache so edge crystals render with immediate per-frame fidelity.
+// This intentionally restores the pre-optimization behavior that did not exhibit cache jitter/popping.
+const USE_RASTERIZED_LAYER_CACHE = false;
 
 // Counter for unique cell IDs
 let cellIdCounter = 0;
@@ -844,11 +847,28 @@ export class CrystallineMosaicManager {
     if (this.cells.length === 0) {
       return;
     }
-    const cache = this._getLayerCanvasCache('background', viewBounds, viewCenter, renderState || {});
-    if (!cache?.canvas) {
+    const cells = this._getVisibleCells(viewBounds, 'background');
+    if (!cells.length) {
       return;
     }
-    ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
+
+    const backgroundConnections = this.backgroundConnections;
+    const parallaxOffsetX = viewCenter ? viewCenter.x * (1 - BG_PARALLAX_FACTOR) : 0;
+    const parallaxOffsetY = viewCenter ? viewCenter.y * (1 - BG_PARALLAX_FACTOR) : 0;
+
+    // Render directly to the live context when cache bypass is enabled to avoid stale bitmap artifacts.
+    if (!USE_RASTERIZED_LAYER_CACHE) {
+      ctx.save();
+      ctx.translate(parallaxOffsetX, parallaxOffsetY);
+      this._drawCells(ctx, cells, backgroundConnections);
+      ctx.restore();
+      return;
+    }
+
+    const cache = this._getLayerCanvasCache('background', viewBounds, viewCenter, renderState || {});
+    if (cache?.canvas) {
+      ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
+    }
   }
 
   /**
@@ -869,11 +889,28 @@ export class CrystallineMosaicManager {
     if (this.cells.length === 0) {
       return;
     }
-    const cache = this._getLayerCanvasCache('foreground', viewBounds, viewCenter, renderState || {});
-    if (!cache?.canvas) {
+    const cells = this._getVisibleCells(viewBounds, 'foreground');
+    if (!cells.length) {
       return;
     }
-    ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
+
+    const foregroundConnections = this.foregroundConnections;
+    const parallaxOffsetX = viewCenter ? viewCenter.x * (1 - FG_PARALLAX_FACTOR) : 0;
+    const parallaxOffsetY = viewCenter ? viewCenter.y * (1 - FG_PARALLAX_FACTOR) : 0;
+
+    // Render directly to the live context when cache bypass is enabled to avoid stale bitmap artifacts.
+    if (!USE_RASTERIZED_LAYER_CACHE) {
+      ctx.save();
+      ctx.translate(parallaxOffsetX, parallaxOffsetY);
+      this._drawCells(ctx, cells, foregroundConnections);
+      ctx.restore();
+      return;
+    }
+
+    const cache = this._getLayerCanvasCache('foreground', viewBounds, viewCenter, renderState || {});
+    if (cache?.canvas) {
+      ctx.drawImage(cache.canvas, viewBounds.minX, viewBounds.minY, cache.width, cache.height);
+    }
   }
 
   /**
