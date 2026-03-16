@@ -589,7 +589,7 @@ function appendCostList(parent, requirements) {
   requirements.forEach((requirement) => {
     const costItem = document.createElement('li');
     costItem.className = 'crafting-cost__item';
-    const amountLabel = `${formatGameNumber(Math.max(0, requirement.amount || 0))} ${
+    const amountLabel = `${formatWholeNumber(Math.max(0, Math.floor(requirement.amount || 0)))} ${
       requirement.label || 'Motes'
     }`;
 
@@ -603,7 +603,7 @@ function appendCostList(parent, requirements) {
 
     const owned = document.createElement('span');
     owned.className = 'crafting-cost__owned';
-    owned.textContent = `(Owned: ${formatGameNumber(getMoteGemCountById(requirement.gemId))})`;
+    owned.textContent = `(Owned: ${formatWholeNumber(Math.floor(getMoteGemCountById(requirement.gemId)))})`;
     costItem.append(owned);
 
     costList.append(costItem);
