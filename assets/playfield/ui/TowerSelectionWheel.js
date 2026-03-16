@@ -3,6 +3,7 @@ import {
   isTowerPlaceable,
   isTowerUnlocked,
 } from '../../towersTab.js';
+import { isCarouselDragInverted } from '../../preferences.js';
 
 // Pre-calculated constant for performance
 const HALF = 0.5;
@@ -213,7 +214,8 @@ export function openTowerSelectionWheel(tower) {
   const handleScroll = (event) => {
     const delta = event.deltaY || event.detail || event.wheelDelta || 0;
     const direction = delta > 0 ? 1 : -1;
-    this.shiftTowerSelectionWheel(direction);
+    const invertMultiplier = isCarouselDragInverted() ? -1 : 1;
+    this.shiftTowerSelectionWheel(direction * invertMultiplier);
     if (typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
@@ -249,8 +251,9 @@ export function openTowerSelectionWheel(tower) {
       }
     }
     const stepDelta = Math.trunc(deltaY / DRAG_STEP_PIXELS);
-    if (stepDelta !== 0) {
-      this.shiftTowerSelectionWheel(stepDelta);
+    const invertedStepDelta = isCarouselDragInverted() ? -stepDelta : stepDelta;
+    if (invertedStepDelta !== 0) {
+      this.shiftTowerSelectionWheel(invertedStepDelta);
       // Adjust the baseline so each step is discrete instead of continuous.
       wheel.dragState.startY += stepDelta * DRAG_STEP_PIXELS;
     }

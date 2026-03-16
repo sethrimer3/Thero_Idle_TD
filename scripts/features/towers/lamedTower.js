@@ -573,9 +573,9 @@ export class GravitySimulation {
   }
   
   /**
-   * Initialize 5 asteroids at random orbital distances.
-   * Asteroids face upward in their sprites and should rotate to face the sun.
-   * Each asteroid maintains its fixed orbit distance.
+   * Initialize asteroids at random orbital distances.
+   * The number of asteroids equals the current tier index (0 for Proto-star, 1 for Main Sequence, etc.).
+   * Asteroid sprites cycle through the available sprites when the tier count exceeds the sprite count.
    * 
    * Note: This method requires this.rng to be initialized and valid canvas dimensions.
    */
@@ -585,7 +585,13 @@ export class GravitySimulation {
       return;
     }
     
+    // Asteroid count is tied to the current sun tier index (0 at the start).
+    const { tierIndex } = this.getCurrentTier();
+    const asteroidCount = tierIndex;
     this.asteroids = [];
+    if (asteroidCount <= 0) {
+      return;
+    }
     const dpr = this.getEffectiveDevicePixelRatio();
     
     // Calculate safe orbital range for asteroids
@@ -595,8 +601,9 @@ export class GravitySimulation {
     // Asteroids orbit between 2.5x sun radius and 0.8x max radius (not too close, not at edge)
     const minR = Math.min(maxR * 0.3, starVisualRadius * 2.5);
     const maxAsteroidR = maxR * 0.8;
+    const spriteCount = Math.max(1, this.sprites.asteroids.length);
     
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < asteroidCount; i++) {
       const orbitRadiusCss = this.rng.range(minR, maxAsteroidR);
       const orbitRadiusDevice = orbitRadiusCss * dpr;
       const angle = this.rng.next() * Math.PI * 2;
@@ -607,9 +614,9 @@ export class GravitySimulation {
       // Calculate circular orbital velocity for stable orbit
       const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
       
-      // Tangential velocity (perpendicular to radius)
-      const vx = -Math.sin(angle) * circularSpeed;
-      const vy = Math.cos(angle) * circularSpeed;
+      // Tangential velocity (perpendicular to radius, counter-clockwise)
+      const vx = Math.sin(angle) * circularSpeed;
+      const vy = -Math.cos(angle) * circularSpeed;
       
       // Seed asteroids oversized and beyond the viewport edge so the opening motion reads as a camera zoom-out reveal.
       this.asteroids.push({
@@ -617,7 +624,7 @@ export class GravitySimulation {
         y,
         vx,
         vy,
-        spriteIndex: i % this.sprites.asteroids.length,
+        spriteIndex: i % spriteCount,
         size: this.rng.range(120, 180), // Start huge; renderer eases this down toward normal scale over time.
         targetSize: this.rng.range(20, 40), // Preserve the old steady-state asteroid size range for the end of the reveal.
         orbitRadius: orbitRadiusDevice, // Store the fixed orbit distance
@@ -638,6 +645,68 @@ export class GravitySimulation {
       asteroid.orbitRadius = introOrbitRadius;
       asteroid.x = this.centerX + Math.cos(introAngle) * introOrbitRadius;
       asteroid.y = this.centerY + Math.sin(introAngle) * introOrbitRadius;
+    }
+  }
+
+  /**
+   * Synchronize the number of asteroids with the current sun tier.
+   * Adds new asteroids when the tier increases and removes excess when it decreases.
+   */
+  syncAsteroidsToTier() {
+    if (!this.rng) {
+      return;
+    }
+    const { tierIndex } = this.getCurrentTier();
+    const targetCount = tierIndex;
+    if (this.asteroids.length === targetCount) {
+      return;
+    }
+    if (this.asteroids.length > targetCount) {
+      // Remove excess asteroids from the end.
+      this.asteroids.length = targetCount;
+      return;
+    }
+    // Add new asteroids for the new tier(s).
+    const dpr = this.getEffectiveDevicePixelRatio();
+    const starVisualRadius = this.calculateCoreRadius();
+    const maxR = this.calculateMaxSpawnRadiusCss();
+    const minR = Math.min(maxR * 0.3, starVisualRadius * 2.5);
+    const maxAsteroidR = maxR * 0.8;
+    const spriteCount = Math.max(1, this.sprites.asteroids.length);
+    while (this.asteroids.length < targetCount) {
+      const i = this.asteroids.length;
+      const orbitRadiusCss = this.rng.range(minR, maxAsteroidR);
+      const orbitRadiusDevice = orbitRadiusCss * dpr;
+      const angle = this.rng.next() * Math.PI * 2;
+      const x = this.centerX + Math.cos(angle) * orbitRadiusDevice;
+      const y = this.centerY + Math.sin(angle) * orbitRadiusDevice;
+      const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadiusDevice, this.epsilon));
+      const vx = Math.sin(angle) * circularSpeed;
+      const vy = -Math.cos(angle) * circularSpeed;
+      this.asteroids.push({
+        x,
+        y,
+        vx,
+        vy,
+        spriteIndex: i % spriteCount,
+        size: this.rng.range(120, 180),
+        targetSize: this.rng.range(20, 40),
+        orbitRadius: orbitRadiusDevice,
+        targetOrbitRadius: orbitRadiusDevice,
+        initialOrbitRadius: orbitRadiusDevice * this.rng.range(2.4, 3.2),
+        zoomOutProgress: 0,
+        zoomOutDuration: this.rng.range(4.5, 6.5),
+        maxRenderDistance: maxAsteroidR * dpr,
+      });
+      // Apply oversized intro state for the zoom-out reveal.
+      const newAsteroid = this.asteroids[this.asteroids.length - 1];
+      const introOrbitRadius = Number.isFinite(newAsteroid.initialOrbitRadius)
+        ? newAsteroid.initialOrbitRadius
+        : newAsteroid.orbitRadius;
+      const introAngle = Math.atan2(newAsteroid.y - this.centerY, newAsteroid.x - this.centerX);
+      newAsteroid.orbitRadius = introOrbitRadius;
+      newAsteroid.x = this.centerX + Math.cos(introAngle) * introOrbitRadius;
+      newAsteroid.y = this.centerY + Math.sin(introAngle) * introOrbitRadius;
     }
   }
   
@@ -1008,6 +1077,8 @@ export class GravitySimulation {
     // Update all simulation components
     this.updateShootingStars(deltaTime);
     this.updateStars(deltaTime);
+    // Sync asteroid count with the current sun tier after mass changes from absorbed stars.
+    this.syncAsteroidsToTier();
     this.updateAsteroids(deltaTime);
     this.spawnDustParticles(deltaTime);
     this.updateDustParticles(deltaTime);

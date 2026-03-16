@@ -927,6 +927,16 @@ export function updateStars(deltaTime) {
       this.stars.splice(i, 1);
       continue;
     }
+
+    // Despawn stars that escape too far beyond the visible area.
+    const maxR = Math.min(this.width, this.height) / 2;
+    if (dist > maxR + 200 * dpr) {
+      if (star.hasTrail) {
+        this.trailEnabledStarCount = Math.max(0, this.trailEnabledStarCount - 1);
+      }
+      this.stars.splice(i, 1);
+      continue;
+    }
     
     // Calculate gravitational acceleration: a = -G * M / r^2 * r̂
     const forceMagnitude = (this.G * this.starMass) / distSq;
@@ -1055,9 +1065,9 @@ export function updateAsteroids(deltaTime) {
     const orbitRadius = asteroid.orbitRadius || dist;
     const circularSpeed = Math.sqrt((this.G * this.starMass) / Math.max(orbitRadius, this.epsilon));
     
-    // Set velocity to be purely tangential (perpendicular to radius)
-    asteroid.vx = -Math.sin(currentAngle) * circularSpeed;
-    asteroid.vy = Math.cos(currentAngle) * circularSpeed;
+    // Set velocity to be purely tangential (perpendicular to radius, counter-clockwise)
+    asteroid.vx = Math.sin(currentAngle) * circularSpeed;
+    asteroid.vy = -Math.cos(currentAngle) * circularSpeed;
     
     // Update position
     asteroid.x += asteroid.vx * dt;

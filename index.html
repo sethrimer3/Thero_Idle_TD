@@ -4956,6 +4956,51 @@
                 </div>
               </div>
             </article>
+            <article class="card visual-settings-card">
+              <div class="visual-settings-copy">
+                <h3>Control Settings</h3>
+                <p>Adjust input controls and interaction preferences.</p>
+              </div>
+              <button
+                class="action-button visual-settings-trigger"
+                type="button"
+                id="control-settings-menu-button"
+                aria-expanded="false"
+                aria-controls="control-settings-menu"
+              >
+                Control Settings
+              </button>
+              <div
+                class="visual-settings-menu"
+                id="control-settings-menu"
+                data-open="false"
+                aria-hidden="true"
+                hidden
+              >
+                <div class="settings-toggle" id="invert-carousel-drag-toggle-row">
+                  <div class="settings-toggle-text">
+                    <span class="settings-toggle-title" id="invert-carousel-drag-title">Invert Tower Carousel</span>
+                    <span class="settings-toggle-description" id="invert-carousel-drag-description"
+                      >Reverse the drag direction for the tower selection carousel.</span
+                    >
+                  </div>
+                  <label class="settings-toggle-control" for="invert-carousel-drag-toggle">
+                    <input
+                      type="checkbox"
+                      id="invert-carousel-drag-toggle"
+                      class="settings-toggle-input"
+                      role="switch"
+                      aria-labelledby="invert-carousel-drag-title"
+                      aria-describedby="invert-carousel-drag-description"
+                      aria-checked="true"
+                      checked
+                    />
+                    <span class="settings-toggle-slider" aria-hidden="true"></span>
+                    <span class="settings-toggle-state" id="invert-carousel-drag-toggle-state">On</span>
+                  </label>
+                </div>
+              </div>
+            </article>
             <article class="card">
               <h3>Field Notes</h3>
               <p>Consult the archivist for a briefing on the current storyline.</p>
@@ -5581,7 +5626,7 @@
     >
       <div class="overlay-panel crafting-panel" role="document" aria-labelledby="crafting-title">
         <button class="overlay-close" type="button" id="crafting-close" aria-label="Close crafting menu">×</button>
-        <h2 class="overlay-title" id="crafting-title">Lens Forge</h2>
+        <h2 class="overlay-title" id="crafting-title">Mind Forge</h2>
         <!-- Display the player's mote gem collection at the top of the equipment menu. -->
         <article class="card powder-gem-inventory-card">
           <h3>Gem collection</h3>

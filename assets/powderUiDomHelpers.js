@@ -307,9 +307,10 @@ export function createPowderUiDomHelpers(options = {}) {
       const formatClusters = typeof formatWholeNumber === 'function'
         ? formatWholeNumber(entry.count)
         : `${entry.count}`;
-      const formatMotes = typeof formatGameNumber === 'function'
-        ? formatGameNumber(entry.total)
-        : `${entry.total}`;
+      // Display gem totals as whole numbers since gems come in whole-number parts.
+      const formatMotes = typeof formatWholeNumber === 'function'
+        ? formatWholeNumber(Math.floor(entry.total))
+        : `${Math.floor(entry.total)}`;
       countEl.textContent = `${formatClusters} ${clusterLabel} · ${formatMotes} ${moteLabel}`;
 
       item.appendChild(labelContainer);

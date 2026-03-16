@@ -1057,8 +1057,10 @@ function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStop
     return;
   }
   system.simFrameCount = (system.simFrameCount || 0) + 1;
-  const shouldSimulate = dt > 0 && system.simFrameCount % GATE_PARTICLE_SIMULATION_STRIDE === 0;
-  const simulationDt = shouldSimulate ? Math.min(GATE_PARTICLE_MAX_DT, dt * GATE_PARTICLE_SIMULATION_STRIDE) : 0;
+  // Simulate particles every frame on high graphics for smooth animation; skip frames on low graphics.
+  const lowGraphicsStride = Boolean(this?.isLowGraphicsMode?.()) ? GATE_PARTICLE_SIMULATION_STRIDE : 1;
+  const shouldSimulate = dt > 0 && system.simFrameCount % lowGraphicsStride === 0;
+  const simulationDt = shouldSimulate ? Math.min(GATE_PARTICLE_MAX_DT, dt * lowGraphicsStride) : 0;
   const canvasCenterX = particleCanvas.width * HALF;
   const canvasCenterY = particleCanvas.height * HALF;
   particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
@@ -1090,7 +1092,8 @@ function drawGateParticleField(ctx, radius, currentTime, systemKey, gradientStop
 
 // Draw warm, center-attracted particles around the Mind Gate using cached blurred sprite blits.
 function drawMindGateParticles(ctx, radius, currentTime) {
-  drawGateParticleField.call(this, ctx, radius, currentTime, '_mindGateParticleSystem', MIND_GATE_GRADIENT_STOPS, 1);
+  // Scale the particle radius up to match the visual swirl extent of the Shadow Gate halo.
+  drawGateParticleField.call(this, ctx, radius * 1.15, currentTime, '_mindGateParticleSystem', MIND_GATE_GRADIENT_STOPS, 1);
 }
 
 // Draw shadowy, center-attracted particles around the Enemy Gate using cached blurred sprite blits.

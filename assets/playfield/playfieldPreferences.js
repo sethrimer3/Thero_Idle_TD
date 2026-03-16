@@ -22,7 +22,7 @@ const PLAYFIELD_RESOLUTION_CAPS = Object.freeze({
 });
 
 const DEFAULT_SETTINGS = Object.freeze({
-  renderOverlapLevel: 0, // Default to Small (overlap 0 margin)
+  renderOverlapLevel: 1, // Default to Medium (overlap 1 margin)
   highResolution: false, // Default to standard resolution for stable performance.
 });
 
