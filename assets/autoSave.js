@@ -67,6 +67,8 @@ export const PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY = 'glyph-defense-idle:pl
 export const CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY = 'glyph-defense-idle:crystal-background-sprites';
 // Storage key used to persist the automatic graphics-quality switching toggle.
 export const AUTO_GRAPHICS_TOGGLE_STORAGE_KEY = 'glyph-defense-idle:auto-graphics-mode';
+// Storage key used to persist the invert tower carousel drag preference.
+export const INVERT_CAROUSEL_DRAG_STORAGE_KEY = 'glyph-defense-idle:invert-carousel-drag';
 // Storage key used to persist the last active main tab so the player returns to it on reload.
 export const ACTIVE_TAB_STORAGE_KEY = 'glyph-defense-idle:active-tab';
 

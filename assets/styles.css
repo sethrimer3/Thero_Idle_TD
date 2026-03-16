@@ -9036,6 +9036,11 @@ body.playfield-fullscreen .playfield canvas {
   gap: 16px;
 }
 
+/* Ensure the hidden attribute properly hides panels when toggling between Lenses and Sigils. */
+.crafting-category-panel[hidden] {
+  display: none;
+}
+
 .crafted-equipment-section {
   display: grid;
   gap: 14px;

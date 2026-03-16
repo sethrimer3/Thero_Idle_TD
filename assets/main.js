@@ -113,6 +113,8 @@ import {
   initializeSpireOptionsPlacementPreference,
   bindAutoGraphicsToggle,
   initializeAutoGraphicsPreference,
+  bindInvertCarouselDragToggle,
+  initializeInvertCarouselDragPreference,
 } from './preferences.js';
 import { SimplePlayfield, configurePlayfieldSystem } from './playfield.js';
 import { setDevLayerVisible, getDevLayerDefault, resetDevLayerFlags } from './playfield/render/CanvasRenderer.js';
@@ -6049,6 +6051,59 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     menu.style.maxHeight = '0px';
   }
 
+  function bindControlSettingsMenu() {
+    const trigger = document.getElementById('control-settings-menu-button');
+    const menu = document.getElementById('control-settings-menu');
+    if (!trigger || !menu) {
+      return;
+    }
+
+    const setMenuState = (open) => {
+      menu.dataset.open = open ? 'true' : 'false';
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+    };
+
+    const expandMenu = () => {
+      menu.hidden = false;
+      menu.style.maxHeight = '0px';
+      setMenuState(true);
+      menu.getBoundingClientRect();
+      menu.style.maxHeight = `${menu.scrollHeight}px`;
+    };
+
+    const collapseMenu = () => {
+      menu.style.maxHeight = `${menu.scrollHeight}px`;
+      setMenuState(false);
+      menu.getBoundingClientRect();
+      menu.style.maxHeight = '0px';
+    };
+
+    trigger.addEventListener('click', () => {
+      const open = menu.dataset.open === 'true';
+      if (open) {
+        collapseMenu();
+      } else {
+        expandMenu();
+      }
+    });
+
+    menu.addEventListener('transitionend', (event) => {
+      if (event.propertyName !== 'max-height') {
+        return;
+      }
+      if (menu.dataset.open === 'true') {
+        menu.style.maxHeight = 'none';
+      } else {
+        menu.hidden = true;
+      }
+    });
+
+    setMenuState(false);
+    menu.hidden = true;
+    menu.style.maxHeight = '0px';
+  }
+
   function bindLeaveLevelButton() {
     if (!leaveLevelBtn) return;
     leaveLevelBtn.addEventListener('click', () => {
@@ -6595,6 +6650,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     initializeAutoGraphicsPreference();
     bindGraphicsModeToggle();
     bindVisualSettingsMenu();
+    bindControlSettingsMenu();
+    bindInvertCarouselDragToggle();
+    initializeInvertCarouselDragPreference();
     bindColorSchemeButton();
     bindTrackRenderModeButton();
     // Expose a tactile toggle for the luminous track tracer overlay.

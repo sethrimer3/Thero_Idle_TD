@@ -25,6 +25,7 @@ import {
   PLAYFIELD_BACKGROUND_PARTICLES_STORAGE_KEY,
   AUTO_GRAPHICS_TOGGLE_STORAGE_KEY,
   CRYSTAL_BACKGROUND_SPRITES_STORAGE_KEY,
+  INVERT_CAROUSEL_DRAG_STORAGE_KEY,
 } from './autoSave.js';
 import { setAutoGraphicsEnabled } from './performanceMonitor.js';
 
@@ -1551,4 +1552,72 @@ export function initializeCrystalBackgroundSpritesPreference() {
  */
 export function areCrystalBackgroundSpritesEnabled() {
   return crystalBackgroundSpritesEnabled;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Invert Tower Carousel Drag
+// ────────────────────────────────────────────────────────────────────────────
+
+let invertCarouselDragEnabled = true; // Default inverted so dragging up scrolls down.
+let invertCarouselDragToggleInput = null;
+let invertCarouselDragToggleStateLabel = null;
+
+/**
+ * Bind the invert carousel drag toggle checkbox to its UI elements.
+ */
+export function bindInvertCarouselDragToggle() {
+  invertCarouselDragToggleInput = document.getElementById('invert-carousel-drag-toggle');
+  invertCarouselDragToggleStateLabel = document.getElementById('invert-carousel-drag-toggle-state');
+  if (!invertCarouselDragToggleInput) {
+    return;
+  }
+  invertCarouselDragToggleInput.addEventListener('change', (event) => {
+    applyInvertCarouselDragPreference(event?.target?.checked);
+  });
+  updateInvertCarouselDragToggleUi();
+}
+
+function updateInvertCarouselDragToggleUi() {
+  if (invertCarouselDragToggleInput) {
+    invertCarouselDragToggleInput.checked = invertCarouselDragEnabled;
+    invertCarouselDragToggleInput.setAttribute('aria-checked', invertCarouselDragEnabled ? 'true' : 'false');
+  }
+  if (invertCarouselDragToggleStateLabel) {
+    invertCarouselDragToggleStateLabel.textContent = invertCarouselDragEnabled ? 'On' : 'Off';
+  }
+}
+
+/**
+ * Apply the invert carousel drag preference and optionally persist it.
+ * @param {boolean} preference - Whether to invert the carousel drag direction.
+ * @param {Object} [options]
+ * @param {boolean} [options.persist=true] - Whether to persist to storage.
+ * @returns {boolean} The resolved preference.
+ */
+export function applyInvertCarouselDragPreference(preference, { persist = true } = {}) {
+  invertCarouselDragEnabled = Boolean(preference);
+  updateInvertCarouselDragToggleUi();
+  if (persist) {
+    writeStorage(INVERT_CAROUSEL_DRAG_STORAGE_KEY, invertCarouselDragEnabled ? '1' : '0');
+  }
+  return invertCarouselDragEnabled;
+}
+
+/**
+ * Load the persisted invert carousel drag preference from storage.
+ */
+export function initializeInvertCarouselDragPreference() {
+  const stored = readStorage(INVERT_CAROUSEL_DRAG_STORAGE_KEY);
+  // Default to true (inverted) when no stored value exists.
+  const normalized = stored === null || stored === undefined
+    ? true
+    : stored !== '0' && stored !== 'false';
+  return applyInvertCarouselDragPreference(normalized, { persist: false });
+}
+
+/**
+ * Reports whether the tower carousel drag direction is inverted.
+ */
+export function isCarouselDragInverted() {
+  return invertCarouselDragEnabled;
 }
