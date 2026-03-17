@@ -25,6 +25,7 @@ import {
 import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
 import { createPrologueShapeEffect } from '../PrologueShapeEffect.js';
 import { createVermiculateEffect } from '../VermiculateEffect.js';
+import { createSubstrateEffect } from '../SubstrateEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -724,5 +725,73 @@ export function drawChapter1Vermiculate() {
   ctx.save();
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _vermiculateEffect.draw(ctx);
+  ctx.restore();
+}
+
+// ─── Chapter 6 – Substrate Crystalline Crack Effect ──────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _substrateEffect = null;
+
+// Track the last chapter theme so the effect resets when the player leaves chapter 6.
+let _substrateLastChapterTheme = null;
+
+/**
+ * Render the Chapter 6 "Substrate" ambient background decoration.
+ * Crystalline crack lines grow across the viewport following a perpendicular
+ * growth rule, creating intricate city-like structures.  Soft pastel sand fills
+ * the regions between cracks.  Inspired by the XScreenSaver "Substrate" by
+ * J. Tarbell (2004).
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawChapter6Substrate() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active inside Chapter 6.
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  if (chapterTheme !== 'chapter-6') {
+    // Reset the effect when leaving so it feels fresh on re-entry.
+    if (_substrateLastChapterTheme === 'chapter-6' && _substrateEffect) {
+      _substrateEffect.reset();
+    }
+    _substrateLastChapterTheme = chapterTheme || null;
+    return;
+  }
+  _substrateLastChapterTheme = 'chapter-6';
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width  = this.renderWidth  || (this.canvas ? this.canvas.clientWidth  : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_substrateEffect) {
+    _substrateEffect = createSubstrateEffect();
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation.
+  _substrateEffect.update(nowMs, width, height);
+
+  // Draw in screen space (pixelRatio transform only) so the crack pattern stays
+  // fixed to the viewport regardless of camera pan / zoom.
+  const ctx = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+
+  ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  _substrateEffect.draw(ctx);
   ctx.restore();
 }

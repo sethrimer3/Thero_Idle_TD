@@ -17,6 +17,7 @@ import {
   drawChapter5TetrisBlocks,
   drawPrologueShapes,
   drawChapter1Vermiculate,
+  drawChapter6Substrate,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -272,6 +273,8 @@ function draw() {
     drawPrologueShapes.call(this);
     // Chapter 1 Vermiculate worm-line ambient decoration.
     drawChapter1Vermiculate.call(this);
+    // Chapter 6 Substrate crystalline crack pattern.
+    drawChapter6Substrate.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
