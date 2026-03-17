@@ -1,11 +1,20 @@
 // Background swimmer particle system extracted from SimplePlayfield for modular ambient animation.
-// Manages small swimming particles that drift with path current and avoid towers/projectiles.
+// Swimmers are small, blurred ambient particles with fluid-dynamics interactions.
+// They respond to path currents, enemy wakes, projectile displacement, gate forces,
+// and inter-particle repulsion for an organic, water-like feel.
 
 import { areBackgroundParticlesEnabled } from '../../preferences.js';
+import { metersToPixels } from '../../gameUnits.js';
 
 // Pre-calculated constants for performance
 const TWO_PI = Math.PI * 2;
 const HALF = 0.5;
+
+// Physics tuning — distances are expressed in meters and converted per-frame.
+const REPULSION_RADIUS_METERS = 0.5;
+const GATE_INFLUENCE_METERS = 2.0;
+const GATE_WARP_RADIUS_METERS = 0.25;
+const PATH_CURRENT_WIDTH_METERS = 0.35;
 
 /**
  * Resolve an expanded viewport bounds object so decorative swimmers only spend CPU
@@ -50,7 +59,7 @@ function isSwimmerInBounds(swimmer, bounds) {
 /**
  * Compute the number of background swimmers based on viewport dimensions.
  * Larger areas spawn more swimmers for consistent visual density.
- * 
+ *
  * @param {number} width - Viewport width in pixels
  * @param {number} height - Viewport height in pixels
  * @returns {number} Number of swimmers to spawn (28-120)
@@ -66,9 +75,9 @@ function computeSwimmerCount(width, height) {
 
 /**
  * Create a new background swimmer particle with randomized initial state.
- * Swimmers have drift velocity and flicker animation for visual variety.
- * 
- * @param {number} width - Viewport width in pixels
+ * Swimmers start nearly stationary so they fade in only when disturbed.
+ *
+ * @param {number} width - Viewport width in pixels (or bounds object)
  * @param {number} height - Viewport height in pixels
  * @returns {Object} Swimmer object with position, velocity, and visual properties
  */
@@ -82,32 +91,112 @@ function createBackgroundSwimmer(width, height) {
   const margin = Math.min(boundsWidth, boundsHeight) * 0.05;
   const usableWidth = Math.max(1, boundsWidth - margin * 2);
   const usableHeight = Math.max(1, boundsHeight - margin * 2);
+  // Start with very low velocity — swimmers are invisible until pushed.
   const angle = Math.random() * TWO_PI;
-  const drift = 8 + Math.random() * 6;
+  const drift = Math.random() * 2;
   return {
-    // Spawn swimmers across the full ambient bounds so they remain visible at max zoom-out edges.
     x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
     y: (Number.isFinite(bounds.minY) ? bounds.minY : 0) + margin + Math.random() * usableHeight,
     vx: Math.cos(angle) * drift,
     vy: Math.sin(angle) * drift,
     ax: 0,
     ay: 0,
-    // Seed a subtle pulsation so tiny swimmers feel alive even at low speed.
+    // Cached speed scalar written each update for the renderer to use as opacity.
+    speed: drift,
     flicker: Math.random() * TWO_PI,
     sizeScale: 0.5 + Math.random() * 0.8,
   };
 }
 
 /**
- * Update all background swimmer particles with physics-based animation.
- * Swimmers exhibit several behaviors:
- * - Random wandering for organic motion
- * - Path current influence (follows track lanes)
- * - Tower avoidance (repelled by towers)
- * - Projectile avoidance (repelled by active projectiles)
- * - Boundary constraints (soft bounce at edges)
- * - Speed limits (minimum and maximum speeds)
- * 
+ * Resolve the position of a projectile from the varied shapes used in the engine.
+ * @param {Object} projectile
+ * @returns {{x:number, y:number, vx:number, vy:number}|null}
+ */
+function resolveProjectileState(projectile) {
+  let x, y;
+  if (projectile?.currentPosition?.x !== undefined && projectile?.currentPosition?.y !== undefined) {
+    x = projectile.currentPosition.x;
+    y = projectile.currentPosition.y;
+  } else if (projectile?.position?.x !== undefined && projectile?.position?.y !== undefined) {
+    x = projectile.position.x;
+    y = projectile.position.y;
+  } else if (projectile?.x !== undefined && projectile?.y !== undefined) {
+    x = projectile.x;
+    y = projectile.y;
+  } else if (projectile?.source && projectile?.target && Number.isFinite(projectile?.progress)) {
+    const ratio = Math.max(0, Math.min(1, projectile.progress));
+    x = projectile.source.x + (projectile.target.x - projectile.source.x) * ratio;
+    y = projectile.source.y + (projectile.target.y - projectile.source.y) * ratio;
+  } else {
+    return null;
+  }
+  // Derive an approximate velocity from previous-position delta if available.
+  const prev = projectile.previousPosition || projectile.source;
+  let vx = 0;
+  let vy = 0;
+  if (prev && Number.isFinite(prev.x) && Number.isFinite(prev.y)) {
+    vx = x - prev.x;
+    vy = y - prev.y;
+  }
+  return { x, y, vx, vy };
+}
+
+/**
+ * Apply a wake-style push to the swimmer from a moving object.
+ * Creates a V-shaped outward displacement behind the mover (like a boat wake).
+ *
+ * @param {Object} swimmer - The swimmer particle
+ * @param {number} objX - Object x position
+ * @param {number} objY - Object y position
+ * @param {number} moveVx - Object velocity x
+ * @param {number} moveVy - Object velocity y
+ * @param {number} influenceRadius - Radius of influence in pixels
+ * @param {number} strength - Base force multiplier
+ */
+function applyWakeForce(swimmer, objX, objY, moveVx, moveVy, influenceRadius, strength) {
+  const dx = swimmer.x - objX;
+  const dy = swimmer.y - objY;
+  const dist = Math.hypot(dx, dy);
+  if (!dist || dist >= influenceRadius) {
+    return;
+  }
+  const moveSpeed = Math.hypot(moveVx, moveVy);
+  if (moveSpeed < 0.5) {
+    return;
+  }
+  const proximity = 1 - dist / influenceRadius;
+  // Perpendicular outward splay (wake V-shape).
+  const nx = dx / dist;
+  const ny = dy / dist;
+  // Dot product: positive means the swimmer is ahead, negative means behind the mover.
+  const moveDirX = moveVx / moveSpeed;
+  const moveDirY = moveVy / moveSpeed;
+  const dot = nx * moveDirX + ny * moveDirY;
+  // Stronger push for particles to the side and behind the mover.
+  const splayFactor = Math.max(0, 1 - dot * 0.6);
+  // Perpendicular component for the V-splay.
+  const perpX = nx - moveDirX * dot;
+  const perpY = ny - moveDirY * dot;
+  const perpLen = Math.hypot(perpX, perpY) || 1;
+  const force = strength * proximity * proximity * splayFactor * moveSpeed;
+  // Push outward with perpendicular splay.
+  swimmer.ax += (perpX / perpLen) * force * 0.7 + nx * force * 0.3;
+  swimmer.ay += (perpY / perpLen) * force * 0.7 + ny * force * 0.3;
+}
+
+/**
+ * Update all background swimmer particles with fluid-dynamics physics.
+ * Swimmers exhibit:
+ * - Inter-particle repulsion (half meter radius)
+ * - Path current (shadow gate → mind gate direction)
+ * - Enemy wake push (fluid V-wake behind movers)
+ * - Projectile displacement (wake-like push)
+ * - Mind gate suction (2 m radius) with warp-to-shadow-gate teleportation
+ * - Shadow gate repulsion (2 m radius)
+ * - Speed-based opacity (still = invisible, fast = opaque)
+ * - Velocity damping that lets particles settle to stillness
+ *
  * @param {number} delta - Time delta in seconds for frame-independent animation
  */
 function updateBackgroundSwimmers(delta) {
@@ -133,18 +222,21 @@ function updateBackgroundSwimmers(delta) {
     return;
   }
 
-  // Tune swimmer motion so they meander slowly but never stall out.
   const dt = Math.max(0, Math.min(delta, 0.05));
   const minDimension = Math.min(ambientWidth, ambientHeight);
-  const speedFloor = Math.max(6, minDimension * 0.012);
+
+  // Convert meter-based radii into pixel distances for this viewport size.
+  const repulsionRadius = metersToPixels(REPULSION_RADIUS_METERS, minDimension);
+  const gateInfluence = metersToPixels(GATE_INFLUENCE_METERS, minDimension);
+  const gateWarpDist = metersToPixels(GATE_WARP_RADIUS_METERS, minDimension);
+  const currentWidthPx = metersToPixels(PATH_CURRENT_WIDTH_METERS, minDimension);
+
   const speedCap = minDimension * 0.38;
-  const wanderStrength = minDimension * 0.22;
-  const towerInfluence = minDimension * 0.24;
+  const wanderStrength = minDimension * 0.04;
   const projectileInfluence = minDimension * 0.16;
-  const currentWidth = minDimension * 0.18;
-  const activityMargin = Math.max(24, currentWidth);
-  const damping = dt > 0 ? Math.exp(-dt * 0.8) : 1;
-  const blend = dt > 0 ? 1 - Math.exp(-dt * 4.5) : 1;
+  const activityMargin = Math.max(24, currentWidthPx);
+  // Damping lets particles gradually settle toward stillness.
+  const damping = dt > 0 ? Math.exp(-dt * 2.8) : 1;
   const activeBounds = resolveSwimmerActiveBounds.call(this, width, height, activityMargin);
   const activeSwimmers = [];
 
@@ -153,7 +245,6 @@ function updateBackgroundSwimmers(delta) {
       return;
     }
     swimmer.isViewportActive = isSwimmerInBounds(swimmer, activeBounds);
-    // Off-screen decorative swimmers can pause their heavier behavior work until they matter visually again.
     if (!swimmer.isViewportActive) {
       swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
       swimmer.flicker += dt * 1.2;
@@ -165,36 +256,87 @@ function updateBackgroundSwimmers(delta) {
     return;
   }
 
-  const towerPositions = this.towers.map((tower) => ({ x: tower.x, y: tower.y }));
-  const projectilePositions = this.projectiles
-    .map((projectile) => {
-      if (projectile?.currentPosition?.x !== undefined && projectile?.currentPosition?.y !== undefined) {
-        return projectile.currentPosition;
+  // Resolve gate positions: shadow gate = path start, mind gate = path end.
+  const pathPoints = Array.isArray(this.pathPoints) ? this.pathPoints : [];
+  const shadowGate = pathPoints.length ? pathPoints[0] : null;
+  const mindGate = pathPoints.length ? pathPoints[pathPoints.length - 1] : null;
+
+  // Resolve projectile states with velocity for wake calculations.
+  const projectileStates = this.projectiles.map(resolveProjectileState).filter(Boolean);
+
+  // Resolve enemy positions with movement direction for wake effects.
+  const enemyStates = [];
+  if (Array.isArray(this.enemies)) {
+    this.enemies.forEach((enemy) => {
+      if (!enemy || enemy.hp <= 0) {
+        return;
       }
-      if (projectile?.position?.x !== undefined && projectile?.position?.y !== undefined) {
-        return projectile.position;
+      const pos = typeof this.getEnemyPosition === 'function' ? this.getEnemyPosition(enemy) : null;
+      if (!pos) {
+        return;
       }
-      if (projectile?.x !== undefined && projectile?.y !== undefined) {
-        return { x: projectile.x, y: projectile.y };
+      // Derive movement direction from path segments at the enemy's progress.
+      const speed = Number.isFinite(enemy.speed) ? enemy.speed : 0;
+      let dirX = 0;
+      let dirY = 0;
+      if (speed > 0 && this.pathSegments.length) {
+        // Find the segment the enemy currently occupies to derive movement direction.
+        let accumulated = 0;
+        for (let i = 0; i < this.pathSegments.length; i += 1) {
+          const seg = this.pathSegments[i];
+          const segLen = Math.hypot(seg.end.x - seg.start.x, seg.end.y - seg.start.y);
+          const segProgress = this.pathLength ? (accumulated + segLen) / this.pathLength : 0;
+          if (segProgress >= (enemy.progress || 0) || i === this.pathSegments.length - 1) {
+            const len = segLen || 1;
+            dirX = (seg.end.x - seg.start.x) / len;
+            dirY = (seg.end.y - seg.start.y) / len;
+            break;
+          }
+          accumulated += segLen;
+        }
       }
-      if (projectile?.source && projectile?.target && Number.isFinite(projectile?.progress)) {
-        const ratio = Math.max(0, Math.min(1, projectile.progress));
-        const x = projectile.source.x + (projectile.target.x - projectile.source.x) * ratio;
-        const y = projectile.source.y + (projectile.target.y - projectile.source.y) * ratio;
-        return { x, y };
-      }
-      return null;
-    })
-    .filter(Boolean);
+      // Convert progress-space speed into approximate pixel velocity magnitude.
+      const pixelSpeed = speed * (this.pathLength || minDimension);
+      enemyStates.push({
+        x: pos.x,
+        y: pos.y,
+        vx: dirX * pixelSpeed,
+        vy: dirY * pixelSpeed,
+      });
+    });
+  }
+
+  // Current strength scales with the min dimension so the feel is consistent across resolutions.
+  const currentStrength = minDimension * 0.06;
 
   activeSwimmers.forEach((swimmer) => {
-    // Keep the motion lively by applying a small random wander every frame.
+    // Start with a gentle random wander.
     swimmer.ax = (Math.random() - 0.5) * wanderStrength;
     swimmer.ay = (Math.random() - 0.5) * wanderStrength;
 
+    // --- Inter-particle repulsion (half meter) ---
+    if (repulsionRadius > 0) {
+      for (let j = 0; j < activeSwimmers.length; j += 1) {
+        const other = activeSwimmers[j];
+        if (other === swimmer) {
+          continue;
+        }
+        const dx = swimmer.x - other.x;
+        const dy = swimmer.y - other.y;
+        const dist = Math.hypot(dx, dy);
+        if (!dist || dist >= repulsionRadius) {
+          continue;
+        }
+        const proximity = 1 - dist / repulsionRadius;
+        const repelForce = minDimension * 0.12 * proximity * proximity;
+        swimmer.ax += (dx / dist) * repelForce;
+        swimmer.ay += (dy / dist) * repelForce;
+      }
+    }
+
+    // --- Path current (shadow gate → mind gate direction along track) ---
     let closestDistance = Infinity;
     let flowDirection = null;
-    // Let nearby track lanes act like a current that nudges motes forward.
     this.pathSegments.forEach((segment) => {
       const projection = this.projectPointOntoSegment(swimmer, segment.start, segment.end);
       const dx = projection.point.x - swimmer.x;
@@ -210,58 +352,88 @@ function updateBackgroundSwimmers(delta) {
       }
     });
 
-    if (flowDirection && closestDistance < currentWidth) {
-      const influence = 1 - closestDistance / currentWidth;
-      const push = speedFloor * 2.2 * influence;
+    if (flowDirection && closestDistance < currentWidthPx) {
+      const influence = 1 - closestDistance / currentWidthPx;
+      const push = currentStrength * influence;
       swimmer.ax += flowDirection.x * push;
       swimmer.ay += flowDirection.y * push;
     }
 
-    towerPositions.forEach((towerPosition) => {
-      const dx = swimmer.x - towerPosition.x;
-      const dy = swimmer.y - towerPosition.y;
-      const distance = Math.hypot(dx, dy);
-      if (!distance || distance >= towerInfluence) {
-        return;
-      }
-      const proximity = 1 - distance / towerInfluence;
-      const force = speedFloor * 3.8 * proximity;
-      swimmer.ax += (dx / distance) * force;
-      swimmer.ay += (dy / distance) * force;
-    });
+    // --- Enemy wake push (fluid V-wake behind moving enemies) ---
+    const enemyWakeRadius = minDimension * 0.18;
+    for (let e = 0; e < enemyStates.length; e += 1) {
+      const es = enemyStates[e];
+      applyWakeForce(swimmer, es.x, es.y, es.vx, es.vy, enemyWakeRadius, 0.35);
+    }
 
-    projectilePositions.forEach((projectilePosition) => {
-      const dx = swimmer.x - projectilePosition.x;
-      const dy = swimmer.y - projectilePosition.y;
-      const distance = Math.hypot(dx, dy);
-      if (!distance || distance >= projectileInfluence) {
-        return;
+    // --- Projectile displacement (wake push) ---
+    for (let p = 0; p < projectileStates.length; p += 1) {
+      const ps = projectileStates[p];
+      applyWakeForce(swimmer, ps.x, ps.y, ps.vx, ps.vy, projectileInfluence, 0.25);
+      // Also apply a radial push so nearby particles scatter even from slow projectiles.
+      const dx = swimmer.x - ps.x;
+      const dy = swimmer.y - ps.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist < projectileInfluence) {
+        const proximity = 1 - dist / projectileInfluence;
+        const radialForce = minDimension * 0.08 * proximity;
+        swimmer.ax += (dx / dist) * radialForce;
+        swimmer.ay += (dy / dist) * radialForce;
       }
-      const proximity = 1 - distance / projectileInfluence;
-      const force = speedFloor * 2.4 * proximity;
-      swimmer.ax += (dx / distance) * force;
-      swimmer.ay += (dy / distance) * force;
-    });
+    }
 
+    // --- Mind gate suction (2 m radius, pulls particles inward) ---
+    if (mindGate && gateInfluence > 0) {
+      const dx = mindGate.x - swimmer.x;
+      const dy = mindGate.y - swimmer.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist < gateInfluence) {
+        const proximity = 1 - dist / gateInfluence;
+        // Gentle cubic pull that strengthens close to the gate.
+        const pullForce = minDimension * 0.05 * proximity * proximity * proximity;
+        swimmer.ax += (dx / dist) * pullForce;
+        swimmer.ay += (dy / dist) * pullForce;
+      }
+      // Warp: if very close to mind gate, teleport to shadow gate preserving velocity.
+      if (dist < gateWarpDist && shadowGate) {
+        swimmer.x = shadowGate.x;
+        swimmer.y = shadowGate.y;
+      }
+    }
+
+    // --- Shadow gate repulsion (2 m radius, pushes particles outward) ---
+    if (shadowGate && gateInfluence > 0) {
+      const dx = swimmer.x - shadowGate.x;
+      const dy = swimmer.y - shadowGate.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist < gateInfluence) {
+        const proximity = 1 - dist / gateInfluence;
+        const repelForce = minDimension * 0.04 * proximity * proximity;
+        swimmer.ax += (dx / dist) * repelForce;
+        swimmer.ay += (dy / dist) * repelForce;
+      }
+    }
+
+    // --- Integrate velocity with damping ---
     swimmer.vx = ((Number.isFinite(swimmer.vx) ? swimmer.vx : 0) + swimmer.ax * dt) * damping;
     swimmer.vy = ((Number.isFinite(swimmer.vy) ? swimmer.vy : 0) + swimmer.ay * dt) * damping;
 
     const speed = Math.hypot(swimmer.vx, swimmer.vy);
     if (speed > speedCap) {
-      const scale = speedCap / speed;
-      swimmer.vx *= scale;
-      swimmer.vy *= scale;
-    } else if (speed < speedFloor) {
-      const nudgeAngle = Math.random() * TWO_PI;
-      swimmer.vx = Math.cos(nudgeAngle) * speedFloor * 0.65 + swimmer.vx * blend;
-      swimmer.vy = Math.sin(nudgeAngle) * speedFloor * 0.65 + swimmer.vy * blend;
+      const s = speedCap / speed;
+      swimmer.vx *= s;
+      swimmer.vy *= s;
     }
+    // No speed floor — particles settle to stillness (invisible when still).
+
+    // Store speed for the renderer to use as opacity.
+    swimmer.speed = Math.hypot(swimmer.vx, swimmer.vy);
 
     swimmer.x += swimmer.vx * dt;
     swimmer.y += swimmer.vy * dt;
 
     const softMargin = Math.min(ambientWidth, ambientHeight) * 0.02;
-    // Bounce swimmers against the ambient bounds (not just base canvas bounds) to fill zoomed-out edges.
+    // Bounce swimmers against the ambient bounds.
     if (swimmer.x < ambientBounds.minX + softMargin || swimmer.x > ambientBounds.maxX - softMargin) {
       swimmer.vx *= -0.6;
       swimmer.x = Math.min(ambientBounds.maxX - softMargin, Math.max(ambientBounds.minX + softMargin, swimmer.x));
@@ -271,7 +443,7 @@ function updateBackgroundSwimmers(delta) {
       swimmer.y = Math.min(ambientBounds.maxY - softMargin, Math.max(ambientBounds.minY + softMargin, swimmer.y));
     }
 
-    // Advance the flicker timer so the renderer can breathe subtle brightness pulses.
+    // Advance the flicker timer for subtle visual variation.
     swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
     swimmer.flicker += dt * 1.2;
   });
