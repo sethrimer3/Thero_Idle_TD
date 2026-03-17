@@ -413,6 +413,7 @@ import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer, getPreviewPointsForLevel } from './levelPreviewRenderer.js';
 import { createLevelOverlayController } from './levelOverlayController.js';
 import { createLevelGridController } from './levelGridController.js';
+import { bindCollapsibleMenu } from './settingsMenuController.js';
 import { createLevelStoryScreen } from './levelStoryScreen.js';
 import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createSpireGemMenuController } from './spireGemMenu.js';
@@ -4959,110 +4960,13 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 
 
 
+  // Collapsible settings menus use a shared helper to eliminate duplicate expand/collapse logic.
   function bindVisualSettingsMenu() {
-    const trigger = document.getElementById('visual-settings-menu-button');
-    const menu = document.getElementById('visual-settings-menu');
-    if (!trigger || !menu) {
-      return;
-    }
-
-    const setMenuState = (open) => {
-      menu.dataset.open = open ? 'true' : 'false';
-      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-    };
-
-    const expandMenu = () => {
-      menu.hidden = false;
-      menu.style.maxHeight = '0px';
-      setMenuState(true);
-      menu.getBoundingClientRect();
-      menu.style.maxHeight = `${menu.scrollHeight}px`;
-    };
-
-    const collapseMenu = () => {
-      menu.style.maxHeight = `${menu.scrollHeight}px`;
-      setMenuState(false);
-      menu.getBoundingClientRect();
-      menu.style.maxHeight = '0px';
-    };
-
-    trigger.addEventListener('click', () => {
-      const open = menu.dataset.open === 'true';
-      if (open) {
-        collapseMenu();
-      } else {
-        expandMenu();
-      }
-    });
-
-    menu.addEventListener('transitionend', (event) => {
-      if (event.propertyName !== 'max-height') {
-        return;
-      }
-      if (menu.dataset.open === 'true') {
-        menu.style.maxHeight = 'none';
-      } else {
-        menu.hidden = true;
-      }
-    });
-
-    setMenuState(false);
-    menu.hidden = true;
-    menu.style.maxHeight = '0px';
+    bindCollapsibleMenu({ triggerId: 'visual-settings-menu-button', menuId: 'visual-settings-menu' });
   }
 
   function bindControlSettingsMenu() {
-    const trigger = document.getElementById('control-settings-menu-button');
-    const menu = document.getElementById('control-settings-menu');
-    if (!trigger || !menu) {
-      return;
-    }
-
-    const setMenuState = (open) => {
-      menu.dataset.open = open ? 'true' : 'false';
-      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-    };
-
-    const expandMenu = () => {
-      menu.hidden = false;
-      menu.style.maxHeight = '0px';
-      setMenuState(true);
-      menu.getBoundingClientRect();
-      menu.style.maxHeight = `${menu.scrollHeight}px`;
-    };
-
-    const collapseMenu = () => {
-      menu.style.maxHeight = `${menu.scrollHeight}px`;
-      setMenuState(false);
-      menu.getBoundingClientRect();
-      menu.style.maxHeight = '0px';
-    };
-
-    trigger.addEventListener('click', () => {
-      const open = menu.dataset.open === 'true';
-      if (open) {
-        collapseMenu();
-      } else {
-        expandMenu();
-      }
-    });
-
-    menu.addEventListener('transitionend', (event) => {
-      if (event.propertyName !== 'max-height') {
-        return;
-      }
-      if (menu.dataset.open === 'true') {
-        menu.style.maxHeight = 'none';
-      } else {
-        menu.hidden = true;
-      }
-    });
-
-    setMenuState(false);
-    menu.hidden = true;
-    menu.style.maxHeight = '0px';
+    bindCollapsibleMenu({ triggerId: 'control-settings-menu-button', menuId: 'control-settings-menu' });
   }
 
   function bindLeaveLevelButton() {
