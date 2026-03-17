@@ -1148,6 +1148,22 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 630-631):**
+- betTerrariumController.js created in `assets/`: 806 lines (Phase 1 - Bet Spire Terrarium lifecycle extracted from main.js)
+  - Created: createBetTerrariumController({...}) factory function with late-bound getter dependencies
+  - Moved: enforceFluidStudyDisabledState, waitForTerrariumSprite, ensureTerrariumSurfacesReady, ensureFluidTerrariumCreatures, ensureFluidTerrariumBirds, ensureFluidTerrariumGrass, ensureFluidTerrariumWater, ensureFluidTerrariumCrystal, ensureFluidTerrariumTrees, handleCelestialPlacement, unlockTerrariumCelestialBody, addTerrariumCreature, addTerrariumItem, ensureFluidTerrariumSkyCycle, ensureFluidTerrariumCelestialBodies, ensureFluidTerrariumShrooms, handleShroomPlacement, handleSlimePlacement, handleBirdPlacement, ensureFluidTerrariumItemsDropdown, getBetTerrariumCreatureCount, setBetTerrariumCreatureCount (22 functions)
+  - 10 terrarium class instance variables (fluidTerrariumCreatures, ...Birds, ...Crystal, ...Trees, ...Grass, ...Water, ...SkyCycle, ...CelestialBodies, ...Shrooms, ...ItemsDropdown) + 9 achievements mirror variables moved
+  - 10 FluidTerrarium* class imports removed from main.js (FluidTerrariumCreatures, ...Birds, ...Crystal, ...Trees, ...Grass, ...Water, ...SkyCycle, ...CelestialBodies, ...Shrooms, ...ItemsDropdown)
+  - main.js reduced from 6,771 to 6,074 lines (697-line reduction)
+  - Late-bound dependencies via getter pattern (getSetFluidCameraMode, getUpdatePowderDisplay, getSpendFluidSerendipity, getGetCurrentFluidDropBank) to avoid hoisting order issues
+- alephTierTransitionController.js created in `assets/`: 335 lines (Phase 1 - Aleph tier-transition animation extracted from main.js)
+  - Created: createAlephTierTransitionController({...}) factory function
+  - Moved: resolveAlephTierStubPalette, resolveAlephTierRate, getTierAdvanceCount, clearAlephTierTransitionTimers, setAlephTierTransitionVisualState, setAlephTierTransitionSpawnState, getTierVisualGlyphCount, completeAlephTierTransition, beginAlephTierTransition, collectGoldenAlephTierGlyph, maybeStartAlephTierTransition, bindAlephTierTransitionControls, syncAlephTierVisualProfile (13 functions)
+  - ALEPH_TIER_STUB_COLORS array + ALEPH_TIER_WALL_EXIT_MS/COLLECT_MS/WALL_ENTER_MS timing constants moved
+  - parseCssColor import removed from main.js (now imported directly by controller from powderTower.js)
+  - main.js reduced from 6,074 to 5,820 lines (254-line reduction)
+  - Total main.js reduction across Builds 630-631: 951 lines (6,771 → 5,820)
+
 **Progress Notes (Build 627-628):**
 - settingsMenuController.js created in `assets/`: 74 lines (Phase 1 - shared collapsible menu factory extracted from main.js)
   - Created: bindCollapsibleMenu({triggerId, menuId}) factory function
@@ -1433,6 +1449,8 @@ Update this section as refactoring progresses:
 - [x] Main.js Navigation Router extracted — completed prior to Build 626 via `uiTabManager.js`, `uiHelpers.js`, `levelOverlayController.js`
 - [x] Main.js Level Grid Controller extracted (Build 626) — `levelGridController.js` (1,043 lines): buildLevelCards, updateLevelCards, updateLevelSetLocks, updateActiveLevelBanner, campaign/set expand/collapse, lock state management, SVG path previews; main.js reduced from 7,905 to 6,864 lines
 - [x] Main.js Settings Menu Controller extracted (Build 627) — `settingsMenuController.js` (74 lines): shared `bindCollapsibleMenu` factory deduplicating identical visual/control settings menu implementations; main.js reduced from 6,867 to 6,771 lines
+- [x] Main.js Bet Terrarium Controller extracted (Build 630) — `betTerrariumController.js` (806 lines): 22 terrarium creation/placement/lifecycle functions; 10 FluidTerrarium* class imports removed; main.js reduced from 6,771 to 6,074 lines (697-line reduction)
+- [x] Main.js Aleph Tier Transition Controller extracted (Build 631) — `alephTierTransitionController.js` (335 lines): 13 tier-transition animation/palette/visual functions + timing constants + ALEPH_TIER_STUB_COLORS palette; parseCssColor import removed; main.js reduced from 6,074 to 5,820 lines (254-line reduction)
 - [ ] Main.js Lifecycle Coordinator extracted
 - [ ] Main.js Event Bus implemented
 - [ ] State module pattern documented
