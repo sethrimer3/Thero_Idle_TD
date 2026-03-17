@@ -399,36 +399,58 @@ export function drawFloaters() {
 
   const swimmers = Array.isArray(this.backgroundSwimmers) ? this.backgroundSwimmers : [];
   if (swimmers.length) {
-    // Render faint white swimmers beneath the lattice lines so the background feels fluid.
-    const baseSize = Math.max(0.6, minDimension * 0.0038);
+    // Render blurred swimmer particles whose opacity is dictated by speed.
+    // A cached offscreen canvas stores the blurred dot so the per-frame blur filter is avoided.
+    const baseSize = Math.max(1.2, minDimension * 0.005);
+    const spriteKey = Math.round(baseSize * 10);
+    if (!this._swimmerSpriteCache || this._swimmerSpriteCache.key !== spriteKey) {
+      const spriteRadius = Math.ceil(baseSize * 3);
+      const spriteDiameter = spriteRadius * 2;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = spriteDiameter;
+      offscreen.height = spriteDiameter;
+      const offCtx = offscreen.getContext('2d');
+      offCtx.filter = `blur(${Math.max(1, baseSize * 0.8)}px)`;
+      offCtx.fillStyle = 'rgba(255, 255, 255, 1)';
+      offCtx.beginPath();
+      offCtx.arc(spriteRadius, spriteRadius, baseSize, 0, TWO_PI);
+      offCtx.fill();
+      offCtx.filter = 'none';
+      this._swimmerSpriteCache = { canvas: offscreen, key: spriteKey, radius: spriteRadius };
+    }
+    const sprite = this._swimmerSpriteCache.canvas;
+    const spriteRadius = this._swimmerSpriteCache.radius;
+    // Determine a speed reference so opacity maps 0-1 across the expected range.
+    const speedRef = Math.max(1, minDimension * 0.12);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = 'rgba(255, 255, 255, 1)';
     for (let i = 0; i < swimmers.length; i += 1) {
       const swimmer = swimmers[i];
       if (swimmer?.isViewportActive === false) {
         continue;
       }
-      const flicker =
-        Math.sin(Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0) * 0.15 + 0.85;
-      const size =
-        baseSize * (Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1) * flicker;
+      const sizeScale = Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1;
+      const scaledRadius = spriteRadius * sizeScale;
       if (
         viewportBounds &&
         (
-          swimmer.x + size + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minX ||
-          swimmer.x - size - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxX ||
-          swimmer.y + size + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minY ||
-          swimmer.y - size - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxY
+          swimmer.x + scaledRadius + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minX ||
+          swimmer.x - scaledRadius - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxX ||
+          swimmer.y + scaledRadius + SWIMMER_VIEWPORT_MARGIN < viewportBounds.minY ||
+          swimmer.y - scaledRadius - SWIMMER_VIEWPORT_MARGIN > viewportBounds.maxY
         )
       ) {
         continue;
       }
-      // Use globalAlpha per-swimmer instead of per-swimmer rgba string allocation.
-      ctx.globalAlpha = Math.max(0.08, 0.18 * flicker);
-      ctx.beginPath();
-      ctx.arc(swimmer.x, swimmer.y, size, 0, TWO_PI);
-      ctx.fill();
+      // Opacity driven by speed: still particles are invisible, fast ones fully opaque.
+      const swimmerSpeed = Number.isFinite(swimmer.speed) ? swimmer.speed : 0;
+      const speedAlpha = Math.min(1, swimmerSpeed / speedRef);
+      if (speedAlpha < 0.005) {
+        continue;
+      }
+      ctx.globalAlpha = speedAlpha;
+      const drawSize = spriteRadius * 2 * sizeScale;
+      ctx.drawImage(sprite, swimmer.x - scaledRadius, swimmer.y - scaledRadius, drawSize, drawSize);
     }
     ctx.restore();
   }
