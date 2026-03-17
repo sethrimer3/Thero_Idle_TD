@@ -78,6 +78,8 @@ export const MELEE_UNIT_CONFIG = {
   CHARGE_THRESHOLD: 80,         // Begin charging when within this distance
   ACCELERATION: 140,            // Acceleration for velocity-based steering
   ATTACK_LUNGE: 6,              // Brief lunge distance on melee strike
+  COOLDOWN_DECEL_RATE: 6,       // Deceleration factor while waiting for attack cooldown
+  IDLE_DECEL_RATE: 4,           // Deceleration factor when no targets are nearby
 };
 
 /**
@@ -89,9 +91,12 @@ export const RANGED_UNIT_CONFIG = {
   SIGHT_RANGE: 180,
   SPEED: 50,
   PREFERRED_RANGE: 100,         // Ideal engagement distance to maintain
+  PREFERRED_RANGE_INNER: 0.85,  // Fraction of preferred range that triggers drift-out
   RETREAT_THRESHOLD: 50,        // Back away when closer than this
   RETREAT_SPEED: 65,            // Speed when retreating from threats
   ACCELERATION: 100,            // Acceleration for velocity-based steering
+  DRIFT_SPEED_RATIO: 0.6,      // Fraction of move speed for outward drift
+  STRAFE_SPEED_RATIO: 0.4,     // Fraction of move speed for lateral strafing
 };
 
 /**

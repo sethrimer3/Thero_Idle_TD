@@ -475,10 +475,10 @@ export function updateTurrets(delta) {
             const targetVy = (dy / dist) * turret.moveSpeed;
             turret.vx += (targetVx - turret.vx) * Math.min(1, accel / turret.moveSpeed);
             turret.vy += (targetVy - turret.vy) * Math.min(1, accel / turret.moveSpeed);
-          } else if (dist < preferredRange * 0.85) {
+          } else if (dist < preferredRange * RANGED_UNIT_CONFIG.PREFERRED_RANGE_INNER) {
             // Inside preferred range — drift outward to maintain ideal distance.
             turret.isRetreating = true;
-            const driftSpeed = turret.moveSpeed * 0.6;
+            const driftSpeed = turret.moveSpeed * RANGED_UNIT_CONFIG.DRIFT_SPEED_RATIO;
             const driftX = -(dx / dist) * driftSpeed;
             const driftY = -(dy / dist) * driftSpeed;
             turret.vx += (driftX - turret.vx) * Math.min(1, accel / driftSpeed);
@@ -489,7 +489,7 @@ export function updateTurrets(delta) {
             const perpX = -dy / dist;
             const perpY = dx / dist;
             const strafeDir = ((turret.x + turret.y) | 0) % 2 === 0 ? 1 : -1;
-            const strafeSpeed = turret.moveSpeed * 0.4;
+            const strafeSpeed = turret.moveSpeed * RANGED_UNIT_CONFIG.STRAFE_SPEED_RATIO;
             turret.vx += (perpX * strafeDir * strafeSpeed - turret.vx) * Math.min(1, accel / strafeSpeed);
             turret.vy += (perpY * strafeDir * strafeSpeed - turret.vy) * Math.min(1, accel / strafeSpeed);
           }
@@ -508,15 +508,16 @@ export function updateTurrets(delta) {
             turret.isCharging = false;
             if (turret.cooldown <= 0 && turret.attack > 0) {
               this.fireTurret(turret, nearbyPlayerTarget);
-              // Visual lunge: brief push toward the target on hit.
+              // Visual lunge: fixed-speed impulse toward the target.
               const lungeDistance = turret.attackLunge || MELEE_UNIT_CONFIG.ATTACK_LUNGE;
-              turret.vx = (dx / dist) * lungeDistance / delta;
-              turret.vy = (dy / dist) * lungeDistance / delta;
+              const lungeSpeed = lungeDistance / 0.1; // Traverse lunge distance over the lunge duration.
+              turret.vx = (dx / dist) * lungeSpeed;
+              turret.vy = (dy / dist) * lungeSpeed;
               turret.lungeTimer = 0.1;
             } else {
               // Decelerate while waiting for cooldown.
-              turret.vx *= Math.max(0, 1 - 6 * delta);
-              turret.vy *= Math.max(0, 1 - 6 * delta);
+              turret.vx *= Math.max(0, 1 - MELEE_UNIT_CONFIG.COOLDOWN_DECEL_RATE * delta);
+              turret.vy *= Math.max(0, 1 - MELEE_UNIT_CONFIG.COOLDOWN_DECEL_RATE * delta);
             }
           } else if (dist <= chargeThreshold) {
             // Close enough to charge — sprint at the target.
@@ -550,8 +551,8 @@ export function updateTurrets(delta) {
         }
       } else {
         // No target found — decelerate to a stop.
-        turret.vx *= Math.max(0, 1 - 4 * delta);
-        turret.vy *= Math.max(0, 1 - 4 * delta);
+        turret.vx *= Math.max(0, 1 - MELEE_UNIT_CONFIG.IDLE_DECEL_RATE * delta);
+        turret.vy *= Math.max(0, 1 - MELEE_UNIT_CONFIG.IDLE_DECEL_RATE * delta);
         turret.isCharging = false;
         turret.isRetreating = false;
       }

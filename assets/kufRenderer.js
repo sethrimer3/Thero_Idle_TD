@@ -394,8 +394,20 @@ export function drawTurrets() {
       const indicatorLen = turret.radius + 4;
       const tipX = turret.x + Math.cos(turret.facing) * indicatorLen;
       const tipY = turret.y + Math.sin(turret.facing) * indicatorLen;
-      ctx.strokeStyle = turret.isCharging ? 'rgba(255, 200, 80, 0.9)' : 'rgba(255, 255, 255, 0.55)';
-      ctx.lineWidth = turret.isCharging ? 2.5 : 1.5;
+      let facingColor = 'rgba(255, 255, 255, 0.55)';
+      let facingWidth = 1.5;
+      if (turret.isCharging) {
+        facingColor = 'rgba(255, 200, 80, 0.9)';
+        facingWidth = 2.5;
+      } else if (turret.isRetreating) {
+        facingColor = 'rgba(255, 220, 140, 0.65)';
+        facingWidth = 1.8;
+      } else if (turret.isFleeing) {
+        facingColor = 'rgba(180, 255, 230, 0.75)';
+        facingWidth = 2;
+      }
+      ctx.strokeStyle = facingColor;
+      ctx.lineWidth = facingWidth;
       ctx.beginPath();
       ctx.moveTo(turret.x, turret.y);
       ctx.lineTo(tipX, tipY);
