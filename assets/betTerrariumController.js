@@ -443,8 +443,8 @@ export function createBetTerrariumController(deps) {
   }
 
   /**
-   * Add creatures to the Bet terrarium.
-   * Called when achievements are unlocked.
+   * Add creatures to the Bet terrarium state and recreate the visual layer.
+   * Typically called from achievement unlocks to reward the player with new residents.
    * @param {string} creatureType - Type of creature ('slime', 'bird')
    * @param {number} count - Number to add
    */

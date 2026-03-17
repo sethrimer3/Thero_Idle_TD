@@ -1148,7 +1148,7 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
-**Progress Notes (Build 630-631):**
+**Progress Notes (Build 630-632):**
 - betTerrariumController.js created in `assets/`: 806 lines (Phase 1 - Bet Spire Terrarium lifecycle extracted from main.js)
   - Created: createBetTerrariumController({...}) factory function with late-bound getter dependencies
   - Moved: enforceFluidStudyDisabledState, waitForTerrariumSprite, ensureTerrariumSurfacesReady, ensureFluidTerrariumCreatures, ensureFluidTerrariumBirds, ensureFluidTerrariumGrass, ensureFluidTerrariumWater, ensureFluidTerrariumCrystal, ensureFluidTerrariumTrees, handleCelestialPlacement, unlockTerrariumCelestialBody, addTerrariumCreature, addTerrariumItem, ensureFluidTerrariumSkyCycle, ensureFluidTerrariumCelestialBodies, ensureFluidTerrariumShrooms, handleShroomPlacement, handleSlimePlacement, handleBirdPlacement, ensureFluidTerrariumItemsDropdown, getBetTerrariumCreatureCount, setBetTerrariumCreatureCount (22 functions)
