@@ -14,6 +14,7 @@ import {
   drawFloaters,
   drawCrystalBackground,
   drawForegroundCrystalBackground,
+  drawChapter5TetrisBlocks,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -263,6 +264,8 @@ function draw() {
   if (devLayerFlags.background) {
     // Crystal background sprites are drawn first, behind all other background elements.
     this.drawCrystalBackground();
+    // Chapter 5 Tetris-block walking cluster renders immediately after the base background.
+    drawChapter5TetrisBlocks.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
@@ -707,6 +710,7 @@ export {
   drawForegroundCrystallineMosaic,
   drawCrystalBackground,
   drawForegroundCrystalBackground,
+  drawChapter5TetrisBlocks,
   drawSketches,
   drawFloaters,
   drawMoteGems,

@@ -6,6 +6,7 @@
  * - Level sketch overlays (random decorative sketches)
  * - Floater lattice (floating circles with connection lines)
  * - Background swimmer entities
+ * - Chapter 5 Tetris-block walking ambient effect
  *
  * All exported functions are designed to be called with `.call(renderer)` where
  * `renderer` is the CanvasRenderer / SimplePlayfield instance, matching the
@@ -21,6 +22,7 @@ import {
   drawCrystalBackground as _drawCrystalBackground,
   drawForegroundCrystalBackground as _drawForegroundCrystalBackground,
 } from '../CrystalBackgroundRenderer.js';
+import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -519,4 +521,72 @@ export function drawCrystalBackground() {
  */
 export function drawForegroundCrystalBackground() {
   _drawForegroundCrystalBackground.call(this);
+}
+
+// ─── Chapter 5 – Tetris Block Walking Effect ──────────────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _tetrisBlockEffect = null;
+
+// Track the last chapter theme so the effect resets when the player re-enters chapter 5.
+let _tetrisLastChapterTheme = null;
+
+/**
+ * Render the animated Tetris-block walking cluster exclusive to Chapter 5
+ * (the dark-red background chapter).  Grid-aligned blocks fade in and out,
+ * with the connected cluster drifting slowly in a smoothly changing random
+ * direction.  Nothing physically moves – the visible set of cells shifts,
+ * producing the "walking" illusion.
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawChapter5TetrisBlocks() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active while inside Chapter 5 (the red chapter).
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  if (chapterTheme !== 'chapter-5') {
+    // Reset the effect when leaving chapter 5 so it feels fresh on re-entry.
+    if (_tetrisLastChapterTheme === 'chapter-5' && _tetrisBlockEffect) {
+      _tetrisBlockEffect.reset();
+    }
+    _tetrisLastChapterTheme = chapterTheme || null;
+    return;
+  }
+  _tetrisLastChapterTheme = 'chapter-5';
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_tetrisBlockEffect) {
+    _tetrisBlockEffect = createTetrisBlockEffect();
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation.
+  _tetrisBlockEffect.update(nowMs, width, height);
+
+  // Draw in screen space (pixelRatio transform only) so blocks stay fixed to the
+  // viewport regardless of camera pan / zoom.
+  const ctx = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+
+  ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  _tetrisBlockEffect.draw(ctx);
+  ctx.restore();
 }
