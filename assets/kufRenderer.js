@@ -294,18 +294,39 @@ export function drawTurrets() {
       shadowColor = 'rgba(160, 80, 180, 0.8)';
       strokeColor = `rgba(${160 + healthRatio * 60}, ${100 + healthRatio * 100}, 200, 0.9)`;
     } else if (turret.isSupport) {
-      mainColor = 'rgba(120, 255, 200, 0.8)';
-      shadowColor = 'rgba(80, 220, 180, 0.85)';
-      strokeColor = `rgba(120, ${200 + healthRatio * 40}, 210, 0.9)`;
+      // Support drones flash brighter when fleeing from threats.
+      if (turret.isFleeing) {
+        mainColor = 'rgba(180, 255, 230, 0.9)';
+        shadowColor = 'rgba(140, 240, 210, 0.9)';
+        strokeColor = `rgba(180, ${240 + healthRatio * 15}, 255, 0.95)`;
+      } else {
+        mainColor = 'rgba(120, 255, 200, 0.8)';
+        shadowColor = 'rgba(80, 220, 180, 0.85)';
+        strokeColor = `rgba(120, ${200 + healthRatio * 40}, 210, 0.9)`;
+      }
     } else if (turret.isMobile) {
       if (turret.type === 'melee_unit') {
-        mainColor = 'rgba(255, 80, 80, 0.8)';
-        shadowColor = 'rgba(255, 60, 60, 0.8)';
-        strokeColor = `rgba(255, ${80 + healthRatio * 120}, ${80 + healthRatio * 120}, 0.9)`;
+        // Melee raiders glow hotter when charging.
+        if (turret.isCharging) {
+          mainColor = 'rgba(255, 50, 30, 0.95)';
+          shadowColor = 'rgba(255, 30, 10, 0.95)';
+          strokeColor = `rgba(255, ${50 + healthRatio * 130}, ${30 + healthRatio * 80}, 1)`;
+        } else {
+          mainColor = 'rgba(255, 80, 80, 0.8)';
+          shadowColor = 'rgba(255, 60, 60, 0.8)';
+          strokeColor = `rgba(255, ${80 + healthRatio * 120}, ${80 + healthRatio * 120}, 0.9)`;
+        }
       } else {
-        mainColor = 'rgba(255, 180, 80, 0.8)';
-        shadowColor = 'rgba(255, 160, 60, 0.8)';
-        strokeColor = `rgba(255, ${160 + healthRatio * 60}, ${80 + healthRatio * 120}, 0.9)`;
+        // Ranged skirmishers dim slightly when retreating.
+        if (turret.isRetreating) {
+          mainColor = 'rgba(255, 200, 100, 0.65)';
+          shadowColor = 'rgba(255, 180, 80, 0.7)';
+          strokeColor = `rgba(255, ${180 + healthRatio * 50}, ${80 + healthRatio * 100}, 0.85)`;
+        } else {
+          mainColor = 'rgba(255, 180, 80, 0.8)';
+          shadowColor = 'rgba(255, 160, 60, 0.8)';
+          strokeColor = `rgba(255, ${160 + healthRatio * 60}, ${80 + healthRatio * 120}, 0.9)`;
+        }
       }
     } else if (turret.type === 'plasma_turret') {
       mainColor = 'rgba(255, 150, 80, 0.82)';
@@ -367,6 +388,47 @@ export function drawTurrets() {
     const lineWidth = this.renderProfile === 'light' ? 1.5 : turret.type === 'big_turret' ? 3 : 2;
     ctx.lineWidth = lineWidth;
     ctx.stroke();
+
+    // Draw facing direction indicator for mobile units.
+    if (turret.isMobile && turret.facing !== undefined) {
+      const indicatorLen = turret.radius + 4;
+      const tipX = turret.x + Math.cos(turret.facing) * indicatorLen;
+      const tipY = turret.y + Math.sin(turret.facing) * indicatorLen;
+      let facingColor = 'rgba(255, 255, 255, 0.55)';
+      let facingWidth = 1.5;
+      if (turret.isCharging) {
+        facingColor = 'rgba(255, 200, 80, 0.9)';
+        facingWidth = 2.5;
+      } else if (turret.isRetreating) {
+        facingColor = 'rgba(255, 220, 140, 0.65)';
+        facingWidth = 1.8;
+      } else if (turret.isFleeing) {
+        facingColor = 'rgba(180, 255, 230, 0.75)';
+        facingWidth = 2;
+      }
+      ctx.strokeStyle = facingColor;
+      ctx.lineWidth = facingWidth;
+      ctx.beginPath();
+      ctx.moveTo(turret.x, turret.y);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+    }
+
+    // Draw charge trail for charging melee raiders.
+    if (turret.isCharging && glowsEnabled) {
+      ctx.save();
+      const trailGradient = ctx.createRadialGradient(
+        turret.x, turret.y, turret.radius * 0.5,
+        turret.x, turret.y, turret.radius * 3.5
+      );
+      trailGradient.addColorStop(0, 'rgba(255, 120, 50, 0.35)');
+      trailGradient.addColorStop(1, 'rgba(255, 80, 20, 0)');
+      ctx.fillStyle = trailGradient;
+      ctx.beginPath();
+      ctx.arc(turret.x, turret.y, turret.radius * 3.5, 0, TWO_PI);
+      ctx.fill();
+      ctx.restore();
+    }
 
     // Overlay the boss ship sprite on designated large turrets.
     const bossSprite = turret.type === 'big_turret' ? getKufSprite(KUF_SPRITE_PATHS.ENEMY_BOSS) : null;
@@ -456,6 +518,31 @@ export function drawBullets() {
       } else if (bullet.type === 'scatter_turret') {
         color = 'rgba(255, 210, 140, 0.92)';
         shadowColor = 'rgba(255, 190, 120, 0.85)';
+        size = 4;
+      } else if (bullet.type === 'rocket_turret') {
+        // Homing rockets use a saturated magenta to match their turret.
+        color = 'rgba(255, 100, 200, 0.95)';
+        shadowColor = 'rgba(255, 80, 180, 0.9)';
+        size = 6;
+      } else if (bullet.type === 'artillery_turret') {
+        // Artillery shells read as heavier amber-orange rounds.
+        color = 'rgba(255, 190, 100, 0.95)';
+        shadowColor = 'rgba(255, 160, 70, 0.9)';
+        size = 7;
+      } else if (bullet.type === 'laser_turret') {
+        // Laser beams shimmer with icy cyan, matching the tower palette.
+        color = 'rgba(120, 230, 255, 0.95)';
+        shadowColor = 'rgba(90, 210, 255, 0.9)';
+        size = 4;
+      } else if (bullet.type === 'melee_unit') {
+        // Melee strike slash rendered as a small bright red blip.
+        color = 'rgba(255, 100, 80, 0.95)';
+        shadowColor = 'rgba(255, 80, 60, 0.9)';
+        size = 3;
+      } else if (bullet.type === 'ranged_unit') {
+        // Ranged skirmisher shots use a warm amber to differentiate from turrets.
+        color = 'rgba(255, 200, 120, 0.95)';
+        shadowColor = 'rgba(255, 180, 100, 0.9)';
         size = 4;
       } else {
         color = 'rgba(255, 120, 170, 0.95)';

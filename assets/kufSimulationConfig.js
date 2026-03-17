@@ -74,6 +74,12 @@ export const MELEE_UNIT_CONFIG = {
   RANGE: 20,
   SIGHT_RANGE: 150,
   SPEED: 60,
+  CHARGE_SPEED: 100,            // Sprint speed when closing on a target
+  CHARGE_THRESHOLD: 80,         // Begin charging when within this distance
+  ACCELERATION: 140,            // Acceleration for velocity-based steering
+  ATTACK_LUNGE: 6,              // Brief lunge distance on melee strike
+  COOLDOWN_DECEL_RATE: 6,       // Deceleration factor while waiting for attack cooldown
+  IDLE_DECEL_RATE: 4,           // Deceleration factor when no targets are nearby
 };
 
 /**
@@ -84,6 +90,21 @@ export const RANGED_UNIT_CONFIG = {
   RANGE: 120,
   SIGHT_RANGE: 180,
   SPEED: 50,
+  PREFERRED_RANGE: 100,         // Ideal engagement distance to maintain
+  PREFERRED_RANGE_INNER: 0.85,  // Fraction of preferred range that triggers drift-out
+  RETREAT_THRESHOLD: 50,        // Back away when closer than this
+  RETREAT_SPEED: 65,            // Speed when retreating from threats
+  ACCELERATION: 100,            // Acceleration for velocity-based steering
+  DRIFT_SPEED_RATIO: 0.6,      // Fraction of move speed for outward drift
+  STRAFE_SPEED_RATIO: 0.4,     // Fraction of move speed for lateral strafing
+};
+
+/**
+ * Support drone configuration.
+ */
+export const SUPPORT_DRONE_CONFIG = {
+  FLEE_RANGE: 100,              // Start fleeing when player units are this close
+  FLEE_SPEED: 70,               // Speed when fleeing from threats
 };
 
 /**
