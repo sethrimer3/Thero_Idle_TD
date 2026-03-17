@@ -24,6 +24,7 @@ import {
 } from '../CrystalBackgroundRenderer.js';
 import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
 import { createPrologueShapeEffect } from '../PrologueShapeEffect.js';
+import { createVermiculateEffect } from '../VermiculateEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -656,5 +657,72 @@ export function drawPrologueShapes() {
   ctx.save();
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _prologueShapeEffect.draw(ctx);
+  ctx.restore();
+}
+
+// ─── Chapter 1 – Vermiculate Worm-Line Effect ─────────────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _vermiculateEffect = null;
+
+// Track the last chapter theme so the effect resets when the player leaves chapter 1.
+let _vermiculateLastChapterTheme = null;
+
+/**
+ * Render the Chapter 1 "Vermiculate" ambient background decoration.
+ * Glowing worm-like paths (straight and curved) crawl across the viewport,
+ * leaving fading trails and bouncing off each other.  A glowing ball at each
+ * worm's head gives the impression that something is actively drawing the line.
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawChapter1Vermiculate() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active inside Chapter 1.
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  if (chapterTheme !== 'chapter-1') {
+    // Reset the effect when leaving so it feels fresh on re-entry.
+    if (_vermiculateLastChapterTheme === 'chapter-1' && _vermiculateEffect) {
+      _vermiculateEffect.reset();
+    }
+    _vermiculateLastChapterTheme = chapterTheme || null;
+    return;
+  }
+  _vermiculateLastChapterTheme = 'chapter-1';
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width  = this.renderWidth  || (this.canvas ? this.canvas.clientWidth  : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_vermiculateEffect) {
+    _vermiculateEffect = createVermiculateEffect();
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation.
+  _vermiculateEffect.update(nowMs, width, height);
+
+  // Draw in screen space (pixelRatio transform only) so worms stay fixed to the
+  // viewport regardless of camera pan / zoom.
+  const ctx = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+
+  ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  _vermiculateEffect.draw(ctx);
   ctx.restore();
 }
