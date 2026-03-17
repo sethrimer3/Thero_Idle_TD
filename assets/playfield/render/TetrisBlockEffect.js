@@ -326,7 +326,6 @@ export function createTetrisBlockEffect() {
    * so that blocks remain fixed to the viewport.
    *
    * @param {CanvasRenderingContext2D} ctx
-   * @param {number} pixelRatio Device pixel ratio (already applied via setTransform).
    */
   function draw(ctx) {
     if (!ctx || cells.size === 0) {
@@ -358,7 +357,7 @@ export function createTetrisBlockEffect() {
   }
 
   /**
-   * Fully reset the effect state so it re-initialises on the next update call.
+   * Fully reset the effect state so it reinitializes on the next update call.
    * Call when the player leaves Chapter 5 so the cluster is fresh on re-entry.
    */
   function reset() {
