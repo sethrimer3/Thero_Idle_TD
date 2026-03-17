@@ -22,6 +22,9 @@ Coordinates tab caching, overlay visibility toggles, level preview wiring, and s
 that expose sandbox controls. Remaining developer map tools still live in `assets/main.js` until the overlay/editor plumbing is
 extracted.
 
+## Settings Menu Controller
+`assets/settingsMenuController.js` (Build 627) provides a shared `bindCollapsibleMenu({ triggerId, menuId })` factory that eliminates the duplicated expand/collapse/transition logic previously copy-pasted for every collapsible settings menu section in main.js. Each call returns a controller with `expand()`, `collapse()`, and `isOpen()` methods. Main.js now calls `bindCollapsibleMenu` for both the visual-settings and control-settings menus instead of maintaining two identical ~51-line implementations.
+
 ## Aleph Chain Upgrade State Utilities
 `assets/alephUpgradeState.js` now owns the Aleph chain upgrade state, exposing helpers to clone, mutate, reset, and rehydrate upgrades while keeping the playfield synchronized.
 
