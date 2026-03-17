@@ -19,9 +19,9 @@ This document provides a detailed, actionable plan for refactoring the largest m
 
 | File | Lines | Category | Priority |
 |------|-------|----------|----------|
-| `assets/playfield.js` | 11,862 | Core Gameplay | **CRITICAL** |
+| `assets/main.js` | 6,771 | Orchestration | **CRITICAL** |
+| `assets/playfield.js` | 5,422 | Core Gameplay | **CRITICAL** |
 | `scripts/features/towers/cardinalWardenSimulation.js` | 8,015 | Tower Logic | **HIGH** |
-| `assets/main.js` | 7,366 | Orchestration | **CRITICAL** |
 | `assets/playfield/render/CanvasRenderer.js` | 3,987 | Rendering | **HIGH** |
 | `scripts/features/towers/tsadiTower.js` | 3,391 | Tower Logic | **MEDIUM** |
 | `assets/kufSimulation.js` | 3,047 | Spire System | **MEDIUM** |
@@ -29,6 +29,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 | `scripts/features/towers/lamedTower.js` | 2,924 | Tower Logic | **MEDIUM** |
 | `assets/betSpireRender.js` | 2,677 | Rendering | **MEDIUM** |
 | `assets/towerEquations/advancedTowers.js` | 2,435 | UI/Display | **LOW** |
+
+> **Note (Build 628):** `main.js` reduced from 7,905 to 6,771 lines via `levelGridController.js` (Build 626) and `settingsMenuController.js` (Build 627) extractions. `playfield.js` reduced from 11,862 to 5,422 lines through Phase 1 extractions including `WaveQueueSystem.js` (Build 628).
 
 ### Performance Baseline Requirements
 
@@ -1146,6 +1148,16 @@ Track these metrics to measure progress:
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
 
+**Progress Notes (Build 627-628):**
+- settingsMenuController.js created in `assets/`: 74 lines (Phase 1 - shared collapsible menu factory extracted from main.js)
+  - Created: bindCollapsibleMenu({triggerId, menuId}) factory function
+  - Deduplicated: bindVisualSettingsMenu and bindControlSettingsMenu (identical 51-line implementations)
+  - main.js reduced from 6,867 to 6,771 lines (96-line reduction)
+- WaveQueueSystem.js created in `assets/playfield/systems/`: 340 lines (Phase 1 - wave queue building and scaling extracted from SimplePlayfield)
+  - Moved: buildCurrentWaveQueue, buildNextWaveQueue, buildActiveEnemyEntries, createWaveState, scaleWaveConfigForCycle, getCycleMultiplierFor, getCycleSpeedScalarFor (7 methods)
+  - playfield.js reduced from 5,699 to 5,422 lines (277-line reduction); all methods replaced with thin `.call(this)` delegates
+  - WaveQueueSystem.js imports formatCombatNumber from playfield/utils/formatting.js
+
 **Progress Notes (Build 529):**
 - EnemyLifecycleSystem.js created in `assets/playfield/systems/`: 320 lines (Phase 1 - enemy spawn, debuff resolution, defeat/breach, victory/defeat handling extracted from SimplePlayfield)
   - Moved: spawnEnemies, resolveActiveDebuffTypes, syncEnemyDebuffIndicators, handleEnemyBreach, processEnemyDefeat, handleVictory, handleDefeat (7 methods)
@@ -1417,7 +1429,10 @@ Update this section as refactoring progresses:
 - [x] Playfield Tower Menu System extracted (Build 469)
 - [x] Playfield Connection System extracted (Build 470)
 - [ ] Playfield Input Controller enhanced
-- [ ] Main.js Navigation Router extracted
+- [x] Playfield Wave Queue System extracted (Build 628) — `WaveQueueSystem.js` (340 lines): buildCurrentWaveQueue, buildNextWaveQueue, buildActiveEnemyEntries, createWaveState, scaleWaveConfigForCycle, getCycleMultiplierFor, getCycleSpeedScalarFor; playfield.js reduced from 5,699 to 5,422 lines
+- [x] Main.js Navigation Router extracted — completed prior to Build 626 via `uiTabManager.js`, `uiHelpers.js`, `levelOverlayController.js`
+- [x] Main.js Level Grid Controller extracted (Build 626) — `levelGridController.js` (1,043 lines): buildLevelCards, updateLevelCards, updateLevelSetLocks, updateActiveLevelBanner, campaign/set expand/collapse, lock state management, SVG path previews; main.js reduced from 7,905 to 6,864 lines
+- [x] Main.js Settings Menu Controller extracted (Build 627) — `settingsMenuController.js` (74 lines): shared `bindCollapsibleMenu` factory deduplicating identical visual/control settings menu implementations; main.js reduced from 6,867 to 6,771 lines
 - [ ] Main.js Lifecycle Coordinator extracted
 - [ ] Main.js Event Bus implemented
 - [ ] State module pattern documented
