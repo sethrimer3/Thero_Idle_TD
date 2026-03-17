@@ -20,7 +20,7 @@ This document provides a detailed, actionable plan for refactoring the largest m
 | File | Lines | Category | Priority |
 |------|-------|----------|----------|
 | `assets/main.js` | 6,864 | Orchestration | **CRITICAL** |
-| `assets/playfield.js` | ~5,700 | Core Gameplay | **CRITICAL** |
+| `assets/playfield.js` | 5,699 | Core Gameplay | **CRITICAL** |
 | `scripts/features/towers/cardinalWardenSimulation.js` | 8,015 | Tower Logic | **HIGH** |
 | `assets/playfield/render/CanvasRenderer.js` | 3,987 | Rendering | **HIGH** |
 | `scripts/features/towers/tsadiTower.js` | 3,391 | Tower Logic | **MEDIUM** |

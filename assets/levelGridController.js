@@ -330,7 +330,7 @@ export function createLevelGridController({
       return true;
     }
     const stats = getGameStats();
-    if (stats.manualVictories > 0) {
+    if (stats && stats.manualVictories > 0) {
       return true;
     }
     for (const state of levelState.values()) {

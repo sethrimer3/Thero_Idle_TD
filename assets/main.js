@@ -2658,7 +2658,10 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   });
   levelGridCtrl.attachDocumentListeners();
 
-  // Thin delegates so hoisted function names remain available throughout the IIFE.
+  // Thin delegates that forward to the level grid controller so hoisted function names
+  // remain available to callback registrations earlier in the IIFE (e.g. configureDeveloperControls,
+  // createIdleLevelRunManager). Call these wrappers—not the controller directly—when passing
+  // function references so the signatures match what external modules expect.
   function buildLevelCards() { levelGridCtrl.buildLevelCards(); }
   function updateLevelCards() { levelGridCtrl.updateLevelCards(); }
   function updateActiveLevelBanner() { levelGridCtrl.updateActiveLevelBanner(); }
