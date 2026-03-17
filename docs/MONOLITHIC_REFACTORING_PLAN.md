@@ -19,9 +19,9 @@ This document provides a detailed, actionable plan for refactoring the largest m
 
 | File | Lines | Category | Priority |
 |------|-------|----------|----------|
-| `assets/playfield.js` | 11,862 | Core Gameplay | **CRITICAL** |
+| `assets/main.js` | 6,864 | Orchestration | **CRITICAL** |
+| `assets/playfield.js` | ~5,700 | Core Gameplay | **CRITICAL** |
 | `scripts/features/towers/cardinalWardenSimulation.js` | 8,015 | Tower Logic | **HIGH** |
-| `assets/main.js` | 7,366 | Orchestration | **CRITICAL** |
 | `assets/playfield/render/CanvasRenderer.js` | 3,987 | Rendering | **HIGH** |
 | `scripts/features/towers/tsadiTower.js` | 3,391 | Tower Logic | **MEDIUM** |
 | `assets/kufSimulation.js` | 3,047 | Spire System | **MEDIUM** |
@@ -29,6 +29,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 | `scripts/features/towers/lamedTower.js` | 2,924 | Tower Logic | **MEDIUM** |
 | `assets/betSpireRender.js` | 2,677 | Rendering | **MEDIUM** |
 | `assets/towerEquations/advancedTowers.js` | 2,435 | UI/Display | **LOW** |
+
+> **Note (Build 626):** `main.js` reduced from 7,905 to 6,864 lines via `levelGridController.js` extraction. `playfield.js` was previously reduced from 11,862 lines through Phase 1 extractions.
 
 ### Performance Baseline Requirements
 
@@ -1417,7 +1419,8 @@ Update this section as refactoring progresses:
 - [x] Playfield Tower Menu System extracted (Build 469)
 - [x] Playfield Connection System extracted (Build 470)
 - [ ] Playfield Input Controller enhanced
-- [ ] Main.js Navigation Router extracted
+- [x] Main.js Navigation Router extracted — completed prior to Build 626 via `uiTabManager.js`, `uiHelpers.js`, `levelOverlayController.js`
+- [x] Main.js Level Grid Controller extracted (Build 626) — `levelGridController.js` (1,043 lines): buildLevelCards, updateLevelCards, updateLevelSetLocks, updateActiveLevelBanner, campaign/set expand/collapse, lock state management, SVG path previews; main.js reduced from 7,905 to 6,864 lines
 - [ ] Main.js Lifecycle Coordinator extracted
 - [ ] Main.js Event Bus implemented
 - [ ] State module pattern documented

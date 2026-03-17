@@ -14,6 +14,9 @@ Coordinates tab caching, overlay visibility toggles, level preview wiring, and s
 ### Level Overlay Controller
 `assets/levelOverlayController.js` now binds the level-entry overlay DOM, confirmation affordances, and status text refreshes. The controller accepts callbacks that surface `getLevelSummary`, describe the last run, and manage exit warnings so `assets/main.js` only tracks pending levels and delegates show/hide responsibilities. It also supplies overlay state to the tab manager and routes preview renderer bindings, trimming another legacy block out of `assets/main.js`.
 
+### Level Grid Controller
+`assets/levelGridController.js` (Build 626) centralizes the DOM-heavy level card grid: building level cards, campaign diamond construction, set/campaign expansion and collapse, lock state management, SVG path previews, and the active-level banner. The factory accepts dependency-injected data sources (`levelBlueprints`, `levelState`, `levelConfigs`, etc.), level utility functions, formatting helpers, and callbacks. Internal state (expanded sets, campaign buttons, campaign row element, tallest height) is fully encapsulated. Main.js retains thin delegate functions (`buildLevelCards`, `updateLevelCards`, `updateActiveLevelBanner`, `updateLevelSetLocks`) that route to the controller, preserving backward compatibility with existing callback registrations. The extraction also deduplicated level-set DOM creation into a shared `createLevelSetElement` helper.
+
 ## Developer Controls and Sandbox Adjustments
 `assets/developerControls.js` now owns the developer panel bindings, value formatters, mutation handlers, and visibility toggles
 that expose sandbox controls. Remaining developer map tools still live in `assets/main.js` until the overlay/editor plumbing is
