@@ -15,6 +15,7 @@ import {
   drawCrystalBackground,
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
+  drawPrologueShapes,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -266,6 +267,8 @@ function draw() {
     this.drawCrystalBackground();
     // Chapter 5 Tetris-block walking cluster renders immediately after the base background.
     drawChapter5TetrisBlocks.call(this);
+    // Prologue shape-overlap glow effect renders at the same background layer.
+    drawPrologueShapes.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
@@ -711,6 +714,7 @@ export {
   drawCrystalBackground,
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
+  drawPrologueShapes,
   drawSketches,
   drawFloaters,
   drawMoteGems,

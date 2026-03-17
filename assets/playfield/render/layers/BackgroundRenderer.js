@@ -23,6 +23,7 @@ import {
   drawForegroundCrystalBackground as _drawForegroundCrystalBackground,
 } from '../CrystalBackgroundRenderer.js';
 import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
+import { createPrologueShapeEffect } from '../PrologueShapeEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -588,5 +589,72 @@ export function drawChapter5TetrisBlocks() {
   ctx.save();
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _tetrisBlockEffect.draw(ctx);
+  ctx.restore();
+}
+
+// ─── Prologue – Shape Overlap Glow Effect ────────────────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _prologueShapeEffect = null;
+
+// Track the last chapter theme so the effect resets when the player leaves the prologue.
+let _prologueLastChapterTheme = null;
+
+/**
+ * Render the prologue ambient shape-overlap glow effect.
+ * Six invisible shapes (3 circles + 3 squares) drift slowly across the viewport.
+ * Only where at least two shapes overlap does a faint silver-white glow appear.
+ * Squares rotate slowly; circles do not rotate.
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawPrologueShapes() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active inside the Prologue chapter.
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  if (chapterTheme !== 'prologue') {
+    // Reset the effect when leaving so it feels fresh on re-entry.
+    if (_prologueLastChapterTheme === 'prologue' && _prologueShapeEffect) {
+      _prologueShapeEffect.reset();
+    }
+    _prologueLastChapterTheme = chapterTheme || null;
+    return;
+  }
+  _prologueLastChapterTheme = 'prologue';
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width  = this.renderWidth  || (this.canvas ? this.canvas.clientWidth  : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_prologueShapeEffect) {
+    _prologueShapeEffect = createPrologueShapeEffect();
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation.
+  _prologueShapeEffect.update(nowMs, width, height);
+
+  // Draw in screen space (pixelRatio transform only) so shapes stay fixed to the
+  // viewport regardless of camera pan / zoom.
+  const ctx = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+
+  ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  _prologueShapeEffect.draw(ctx);
   ctx.restore();
 }
