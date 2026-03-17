@@ -16,6 +16,7 @@ import {
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
   drawPrologueShapes,
+  drawChapter1Vermiculate,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -269,6 +270,8 @@ function draw() {
     drawChapter5TetrisBlocks.call(this);
     // Prologue shape-overlap glow effect renders at the same background layer.
     drawPrologueShapes.call(this);
+    // Chapter 1 Vermiculate worm-line ambient decoration.
+    drawChapter1Vermiculate.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
@@ -715,6 +718,7 @@ export {
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
   drawPrologueShapes,
+  drawChapter1Vermiculate,
   drawSketches,
   drawFloaters,
   drawMoteGems,

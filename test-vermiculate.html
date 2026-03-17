@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { margin: 0; background: #0a0a12; display: flex; justify-content: center; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="400" height="700"></canvas>
+<script type="module">
+import('/assets/playfield/render/VermiculateEffect.js').then(mod => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const effect = mod.createVermiculateEffect();
+  
+  function frame(now) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    effect.update(now, canvas.width, canvas.height);
+    effect.draw(ctx);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}).catch(err => {
+  document.body.textContent = 'ERROR: ' + err.message;
+});
+</script>
+</body>
+</html>
