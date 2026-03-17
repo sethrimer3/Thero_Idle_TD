@@ -12,6 +12,7 @@ import {
   RANGED_UNIT_CONFIG,
   STRUCTURE_CONFIG,
   PROJECTILE_SPEEDS,
+  SUPPORT_DRONE_CONFIG,
 } from './kufSimulationConfig.js';
 
 // Shared stat labels for the enemy almanac display.
@@ -228,7 +229,7 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   melee_unit: {
     type: 'melee_unit',
     name: 'Melee Raider',
-    description: 'Mobile infantry that rush the front line with blades.',
+    description: 'Mobile infantry that rush the front line with blades. Charges at increased speed when closing distance.',
     iconClass: 'melee',
     stats: {
       radius: MELEE_UNIT_CONFIG.RADIUS,
@@ -242,16 +243,21 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       isMobile: true,
       moveSpeed: MELEE_UNIT_CONFIG.SPEED,
       sightRange: MELEE_UNIT_CONFIG.SIGHT_RANGE,
+      chargeSpeed: MELEE_UNIT_CONFIG.CHARGE_SPEED,
+      chargeThreshold: MELEE_UNIT_CONFIG.CHARGE_THRESHOLD,
+      acceleration: MELEE_UNIT_CONFIG.ACCELERATION,
+      attackLunge: MELEE_UNIT_CONFIG.ATTACK_LUNGE,
     },
     almanacDetails: [
       { label: 'Move Speed', value: `${MELEE_UNIT_CONFIG.SPEED}px/s` },
+      { label: 'Charge Speed', value: `${MELEE_UNIT_CONFIG.CHARGE_SPEED}px/s` },
       { label: 'Sight Range', value: `${MELEE_UNIT_CONFIG.SIGHT_RANGE}px` },
     ],
   },
   ranged_unit: {
     type: 'ranged_unit',
     name: 'Ranged Skirmisher',
-    description: 'Light scouts that kite targets from a distance.',
+    description: 'Light scouts that kite targets from a distance. Retreats when enemies close in.',
     iconClass: 'ranged',
     stats: {
       radius: RANGED_UNIT_CONFIG.RADIUS,
@@ -265,9 +271,14 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       isMobile: true,
       moveSpeed: RANGED_UNIT_CONFIG.SPEED,
       sightRange: RANGED_UNIT_CONFIG.SIGHT_RANGE,
+      preferredRange: RANGED_UNIT_CONFIG.PREFERRED_RANGE,
+      retreatThreshold: RANGED_UNIT_CONFIG.RETREAT_THRESHOLD,
+      retreatSpeed: RANGED_UNIT_CONFIG.RETREAT_SPEED,
+      acceleration: RANGED_UNIT_CONFIG.ACCELERATION,
     },
     almanacDetails: [
       { label: 'Move Speed', value: `${RANGED_UNIT_CONFIG.SPEED}px/s` },
+      { label: 'Preferred Range', value: `${RANGED_UNIT_CONFIG.PREFERRED_RANGE}px` },
       { label: 'Sight Range', value: `${RANGED_UNIT_CONFIG.SIGHT_RANGE}px` },
     ],
   },
@@ -330,7 +341,7 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
   support_drone: {
     type: 'support_drone',
     name: 'Support Drone',
-    description: 'Repair drones that mend nearby fortifications.',
+    description: 'Repair drones that mend nearby fortifications. Flees when player units approach.',
     iconClass: 'support',
     stats: {
       radius: RANGED_UNIT_CONFIG.RADIUS,
@@ -348,10 +359,13 @@ export const KUF_ENEMY_DEFINITIONS = Object.freeze({
       healRange: 80,
       healPerSecond: 6,
       healVisualTimer: 0,
+      fleeRange: SUPPORT_DRONE_CONFIG.FLEE_RANGE,
+      fleeSpeed: SUPPORT_DRONE_CONFIG.FLEE_SPEED,
     },
     almanacDetails: [
       { label: 'Heal Range', value: '80px' },
       { label: 'Heal Rate', value: '6 HP/s' },
+      { label: 'Flee Range', value: `${SUPPORT_DRONE_CONFIG.FLEE_RANGE}px` },
     ],
   },
   stasis_obelisk: {

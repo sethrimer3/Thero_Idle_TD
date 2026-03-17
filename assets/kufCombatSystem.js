@@ -14,6 +14,9 @@ import {
   KUF_CORE_SHIP_COMBAT,
   SPLAYER_SPIN_BOOST_MULTIPLIER,
   SPLAYER_SPIN_BOOST_DURATION,
+  MELEE_UNIT_CONFIG,
+  RANGED_UNIT_CONFIG,
+  SUPPORT_DRONE_CONFIG,
 } from './kufSimulationConfig.js';
 
 // Destructure config constants used by combat methods.
@@ -439,28 +442,123 @@ export function updateTurrets(delta) {
       return;
     }
 
-    // Handle mobile units - always pursue the closest player-controlled target.
+    // Handle mobile units with RTS-style steering and behavior-specific AI.
     if (turret.isMobile) {
+      // Initialize velocity components for velocity-based steering if not already present.
+      if (turret.vx === undefined) { turret.vx = 0; }
+      if (turret.vy === undefined) { turret.vy = 0; }
+
       const nearbyPlayerTarget = this.findClosestPlayerTarget(turret.x, turret.y, Infinity);
       if (nearbyPlayerTarget) {
-        // Move toward the marine if out of attack range
         const dx = nearbyPlayerTarget.x - turret.x;
         const dy = nearbyPlayerTarget.y - turret.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist > turret.range) {
-          // Move toward marine
-          const moveX = (dx / dist) * turret.moveSpeed * delta;
-          const moveY = (dy / dist) * turret.moveSpeed * delta;
-          turret.x += moveX;
-          turret.y += moveY;
-        } else {
-          // In range - attack
-          if (turret.cooldown <= 0 && turret.attack > 0) {
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const accel = (turret.acceleration || MELEE_UNIT_CONFIG.ACCELERATION) * delta;
+
+        if (turret.type === 'ranged_unit') {
+          // --- Ranged Skirmisher: kite behavior ---
+          const preferredRange = turret.preferredRange || RANGED_UNIT_CONFIG.PREFERRED_RANGE;
+          const retreatThreshold = turret.retreatThreshold || RANGED_UNIT_CONFIG.RETREAT_THRESHOLD;
+          const retreatSpeed = turret.retreatSpeed || RANGED_UNIT_CONFIG.RETREAT_SPEED;
+
+          if (dist < retreatThreshold) {
+            // Too close — retreat away from the threat at retreat speed.
+            turret.isRetreating = true;
+            const fleeX = -(dx / dist) * retreatSpeed;
+            const fleeY = -(dy / dist) * retreatSpeed;
+            turret.vx += (fleeX - turret.vx) * Math.min(1, accel / retreatSpeed);
+            turret.vy += (fleeY - turret.vy) * Math.min(1, accel / retreatSpeed);
+          } else if (dist > turret.range) {
+            // Out of range — advance toward the target to close in to preferred range.
+            turret.isRetreating = false;
+            const targetVx = (dx / dist) * turret.moveSpeed;
+            const targetVy = (dy / dist) * turret.moveSpeed;
+            turret.vx += (targetVx - turret.vx) * Math.min(1, accel / turret.moveSpeed);
+            turret.vy += (targetVy - turret.vy) * Math.min(1, accel / turret.moveSpeed);
+          } else if (dist < preferredRange * 0.85) {
+            // Inside preferred range — drift outward to maintain ideal distance.
+            turret.isRetreating = true;
+            const driftSpeed = turret.moveSpeed * 0.6;
+            const driftX = -(dx / dist) * driftSpeed;
+            const driftY = -(dy / dist) * driftSpeed;
+            turret.vx += (driftX - turret.vx) * Math.min(1, accel / driftSpeed);
+            turret.vy += (driftY - turret.vy) * Math.min(1, accel / driftSpeed);
+          } else {
+            // At preferred range — strafe laterally to make a harder target.
+            turret.isRetreating = false;
+            const perpX = -dy / dist;
+            const perpY = dx / dist;
+            const strafeDir = ((turret.x + turret.y) | 0) % 2 === 0 ? 1 : -1;
+            const strafeSpeed = turret.moveSpeed * 0.4;
+            turret.vx += (perpX * strafeDir * strafeSpeed - turret.vx) * Math.min(1, accel / strafeSpeed);
+            turret.vy += (perpY * strafeDir * strafeSpeed - turret.vy) * Math.min(1, accel / strafeSpeed);
+          }
+
+          // Fire while moving (ranged units can fire on the move).
+          if (dist <= turret.range && turret.cooldown <= 0 && turret.attack > 0) {
             this.fireTurret(turret, nearbyPlayerTarget);
           }
+        } else {
+          // --- Melee Raider: charge behavior ---
+          const chargeThreshold = turret.chargeThreshold || MELEE_UNIT_CONFIG.CHARGE_THRESHOLD;
+          const chargeSpeed = turret.chargeSpeed || MELEE_UNIT_CONFIG.CHARGE_SPEED;
+
+          if (dist <= turret.range) {
+            // In melee range — attack and apply brief lunge.
+            turret.isCharging = false;
+            if (turret.cooldown <= 0 && turret.attack > 0) {
+              this.fireTurret(turret, nearbyPlayerTarget);
+              // Visual lunge: brief push toward the target on hit.
+              const lungeDistance = turret.attackLunge || MELEE_UNIT_CONFIG.ATTACK_LUNGE;
+              turret.vx = (dx / dist) * lungeDistance / delta;
+              turret.vy = (dy / dist) * lungeDistance / delta;
+              turret.lungeTimer = 0.1;
+            } else {
+              // Decelerate while waiting for cooldown.
+              turret.vx *= Math.max(0, 1 - 6 * delta);
+              turret.vy *= Math.max(0, 1 - 6 * delta);
+            }
+          } else if (dist <= chargeThreshold) {
+            // Close enough to charge — sprint at the target.
+            turret.isCharging = true;
+            const targetVx = (dx / dist) * chargeSpeed;
+            const targetVy = (dy / dist) * chargeSpeed;
+            turret.vx += (targetVx - turret.vx) * Math.min(1, accel / chargeSpeed);
+            turret.vy += (targetVy - turret.vy) * Math.min(1, accel / chargeSpeed);
+          } else {
+            // Approach at normal speed.
+            turret.isCharging = false;
+            const targetVx = (dx / dist) * turret.moveSpeed;
+            const targetVy = (dy / dist) * turret.moveSpeed;
+            turret.vx += (targetVx - turret.vx) * Math.min(1, accel / turret.moveSpeed);
+            turret.vy += (targetVy - turret.vy) * Math.min(1, accel / turret.moveSpeed);
+          }
         }
+
+        // Decay lunge impulse so it doesn't carry over past its brief window.
+        if (turret.lungeTimer !== undefined && turret.lungeTimer > 0) {
+          turret.lungeTimer -= delta;
+          if (turret.lungeTimer <= 0) {
+            turret.lungeTimer = 0;
+          }
+        }
+
+        // Update facing angle based on velocity for rendering.
+        const speed = Math.sqrt(turret.vx * turret.vx + turret.vy * turret.vy);
+        if (speed > 1) {
+          turret.facing = Math.atan2(turret.vy, turret.vx);
+        }
+      } else {
+        // No target found — decelerate to a stop.
+        turret.vx *= Math.max(0, 1 - 4 * delta);
+        turret.vy *= Math.max(0, 1 - 4 * delta);
+        turret.isCharging = false;
+        turret.isRetreating = false;
       }
+
+      // Apply velocity to position.
+      turret.x += turret.vx * delta;
+      turret.y += turret.vy * delta;
       return;
     }
 
@@ -706,6 +804,30 @@ export function getTurretAttackModifier(turret) {
 }
 
 export function handleSupportDrone(drone, delta) {
+  // Check for nearby player threats and flee if too close.
+  const fleeRange = drone.fleeRange || SUPPORT_DRONE_CONFIG.FLEE_RANGE;
+  const fleeSpeed = drone.fleeSpeed || SUPPORT_DRONE_CONFIG.FLEE_SPEED;
+  const nearestThreat = this.findClosestPlayerTarget(drone.x, drone.y, fleeRange);
+
+  if (nearestThreat) {
+    const threatDx = nearestThreat.x - drone.x;
+    const threatDy = nearestThreat.y - drone.y;
+    const threatDist = Math.sqrt(threatDx * threatDx + threatDy * threatDy) || 1;
+
+    if (threatDist < fleeRange) {
+      // Flee away from the threat.
+      const fleeDirX = -(threatDx / threatDist);
+      const fleeDirY = -(threatDy / threatDist);
+      drone.x += fleeDirX * fleeSpeed * delta;
+      drone.y += fleeDirY * fleeSpeed * delta;
+      drone.isFleeing = true;
+      drone.activeHealTarget = null;
+      return;
+    }
+  }
+
+  drone.isFleeing = false;
+
   const target = this.findDamagedTurret(drone.x, drone.y, drone.sightRange, drone);
   if (!target) {
     return;
