@@ -3,7 +3,7 @@
 // Handles buildCurrentWaveQueue, buildNextWaveQueue, buildActiveEnemyEntries,
 // createWaveState, scaleWaveConfigForCycle, getCycleMultiplierFor, getCycleSpeedScalarFor.
 
-import { formatCombatNumber } from './playfield/utils/formatting.js';
+import { formatCombatNumber } from '../utils/formatting.js';
 
 /**
  * Generate formatted entries for the currently active wave queue.
