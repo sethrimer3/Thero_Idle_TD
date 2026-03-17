@@ -1,2 +1,2 @@
 ﻿// Build metadata surfaced in the startup overlay so testers can verify the loaded version at a glance.
-export const BUILD_NUMBER = 637; // Increment this value by 1 with every committed change.
+export const BUILD_NUMBER = 638; // Increment this value by 1 with every committed change.
