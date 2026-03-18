@@ -9,8 +9,8 @@ import { formatWholeNumber } from '../../scripts/core/formatting.js';
 // Model the Mind Gate's two glyph conduits so it can accept upgrades directly.
 // Export with 'mind-gate' key since that's how it's referenced in the original code
 export const mindGate = {
-  mathSymbol: String.raw`\wp`,
-  baseEquation: String.raw`\( \wp = \text{Life} \times \text{Regeneration} \)`,
+  mathSymbol: String.raw`\mathfrak{G}`,
+  baseEquation: String.raw`\( \mathfrak{G} = \text{Life} \times \text{Regeneration} \)`,
   variables: [
     {
       key: 'life',

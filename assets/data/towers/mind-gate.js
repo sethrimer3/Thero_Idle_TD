@@ -3,7 +3,7 @@
  */
 export const MIND_GATE_TOWER = Object.freeze({
   id: 'mind-gate',
-  symbol: '℘',
+  symbol: '𝔊',
   name: 'Mind Gate',
   tier: 0,
   tierLabel: 'Origin',
