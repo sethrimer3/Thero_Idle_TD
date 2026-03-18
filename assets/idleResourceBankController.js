@@ -80,8 +80,9 @@ export function createIdleResourceBankController(deps) {
 
   /**
    * Deduct Scintillae (fluid idle bank) for interactive Bet Spire upgrades.
-   * @param {number} _amount
-   * @returns {number} - Actual Scintillae spent
+   * Stub — returns 0 until the Bet idle bank economy is implemented.
+   * @param {number} _amount - Ignored while stub.
+   * @returns {number} - Actual Scintillae spent (always 0 while stub)
    */
   function spendFluidSerendipity(_amount) {
     return 0;

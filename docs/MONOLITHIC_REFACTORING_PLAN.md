@@ -2168,7 +2168,7 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 **Key Learnings:**
 - Aleph and Bet camera controls share symmetrical patterns (reset/set/sync) that benefit from co-location
 - Getter pattern for simulation instances avoids Temporal Dead Zone issues
-- `fluidTerrariumTrees` was a dead reference in main.js scope (optional chaining prevented errors); getter returns null cleanly
+- `fluidTerrariumTrees` was a dead reference in main.js scope (optional chaining prevented errors); getter returns null cleanly. The reference existed because `setFluidCameraMode` originally shared scope with the betTerrarium code before its extraction to `betTerrariumController.js`. The terrarium controller now owns the trees instance internally.
 
 ---
 
