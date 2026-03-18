@@ -116,6 +116,7 @@ const TWO_PI = Math.PI * 2;
 // If two consecutive trail points are farther apart than this (px), treat the
 // segment as a wrap-around discontinuity and start a new sub-path.
 const WRAP_GAP_THRESHOLD = 50;
+const WRAP_GAP_THRESHOLD_SQ = WRAP_GAP_THRESHOLD * WRAP_GAP_THRESHOLD;
 
 // ─── Head-dot sprite cache ────────────────────────────────────────────────────
 
@@ -189,7 +190,9 @@ function _createTracer(W, H) {
 
   // Ring buffer: pairs of (x, y) stored in a flat Float64Array.
   const trail = new Float64Array(TRAIL_LENGTH * 2);
-  // Seed the buffer with the initial position.
+  // Seed the buffer with the initial position so the first _step() call has
+  // a valid reference point for distance accumulation.  trailHead=1 means the
+  // next point write goes to index 1; trailLen=1 accounts for this seed entry.
   trail[0] = x;
   trail[1] = y;
 
@@ -336,7 +339,7 @@ export function createVermiculateEffect() {
    */
   function _drawTrail(ctx, t) {
     const len    = t.trailLen;
-    const cap    = TRAIL_LENGTH;
+    const cap    = TRAIL_LENGTH;  // Ring buffer capacity alias for readability.
     const buf    = t.trail;
     const oldest = (t.trailHead - len + cap) % cap;
 
@@ -365,7 +368,7 @@ export function createVermiculateEffect() {
         // Detect wrap-around discontinuity.
         const dx = cx - px;
         const dy = cy - py;
-        if (dx * dx + dy * dy > WRAP_GAP_THRESHOLD * WRAP_GAP_THRESHOLD) {
+        if (dx * dx + dy * dy > WRAP_GAP_THRESHOLD_SQ) {
           ctx.moveTo(cx, cy);  // Start a new sub-path segment.
         } else {
           ctx.lineTo(cx, cy);
