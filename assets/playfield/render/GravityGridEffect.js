@@ -9,7 +9,7 @@
  *
  * Visual style
  * ------------
- * • Grid: thin white lines at 10% opacity at rest; shift toward gold at 20%
+ * • Grid: invisible at rest (0% opacity); shifts toward gold at up to 30%
  *   opacity as gravitational displacement increases.
  * • Balls: cached radial-gradient glowing circles at 20 % opacity.
  * • Explosion particles: small glowing dots that burst outward on collision.
@@ -33,16 +33,16 @@
 // ─── Grid tuning ──────────────────────────────────────────────────────────────
 
 /** Spacing between grid intersections (CSS px). */
-const GRID_SPACING = 40;
+const GRID_SPACING = 10;
 
 /** Grid line width (CSS px). */
 const GRID_LINE_WIDTH = 0.7;
 
 /** Grid alpha at rest (no warp). */
-const GRID_BASE_ALPHA = 0.10;
+const GRID_BASE_ALPHA = 0;
 
 /** Grid alpha at maximum warp. */
-const GRID_WARP_MAX_ALPHA = 0.20;
+const GRID_WARP_MAX_ALPHA = 0.30;
 
 /** Displacement magnitude (px) at which warp colour / alpha reaches maximum. */
 const GRID_WARP_CEILING = 18;
@@ -83,8 +83,13 @@ const SPAWN_SPEED_MAX = 60;
 /** Gravitational constant for ball-to-ball and entity-to-ball forces. */
 const GRAVITY_CONST = 8000;
 
-/** Grid warp strength multiplier. */
-const GRID_WARP_CONST = 12;
+/** Grid warp strength multiplier.
+ * Must be large enough (relative to WARP_SOFTENING) so nearby entities produce
+ * visible grid displacement.  At d=0, displacement = GRID_WARP_CONST * mass /
+ * WARP_SOFTENING; with WARP_SOFTENING=900 and mass≈1–3 this reaches the
+ * GRID_WARP_CEILING range at close–mid distances.
+ */
+const GRID_WARP_CONST = 20000;
 
 /** Softening term added to r² to prevent singularities (≈ 30²). */
 const WARP_SOFTENING = 900;
@@ -128,12 +133,14 @@ const TWO_PI = Math.PI * 2;
 // Built once at module load.  Index 0 → rest colour, last index → full warp.
 
 const _warpPalette = [];
+const _warpPaletteAlpha = [];
 for (let i = 0; i < WARP_PALETTE_SIZE; i++) {
   const t = i / (WARP_PALETTE_SIZE - 1);
   const a = GRID_BASE_ALPHA + (GRID_WARP_MAX_ALPHA - GRID_BASE_ALPHA) * t;
   const r = Math.round(BASE_R + (WARP_R - BASE_R) * t);
   const g = Math.round(BASE_G + (WARP_G - BASE_G) * t);
   const b = Math.round(BASE_B + (WARP_B - BASE_B) * t);
+  _warpPaletteAlpha.push(a);
   _warpPalette.push(`rgba(${r},${g},${b},${a.toFixed(3)})`);
 }
 
@@ -554,10 +561,11 @@ export function createGravityGridEffect() {
       }
     }
 
-    // Stroke each palette batch.
+    // Stroke each palette batch, skipping fully-transparent entries for performance.
     ctx.lineWidth = GRID_LINE_WIDTH;
     ctx.lineCap   = 'round';
     for (let i = 0; i < WARP_PALETTE_SIZE; i++) {
+      if (_warpPaletteAlpha[i] <= 0) continue; // skip invisible rest-state segments
       const segs = batches[i];
       if (!segs.length) continue;
       ctx.strokeStyle = _warpPalette[i];
