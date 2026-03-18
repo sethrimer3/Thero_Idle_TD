@@ -1146,6 +1146,7 @@ import { createSpireCameraController } from './spireCameraController.js';
 
   const lamedSpireUi = createLamedSpireUi({
     formatWholeNumber,
+    formatGameNumber,
   });
 
   const resourceHud = createResourceHud({

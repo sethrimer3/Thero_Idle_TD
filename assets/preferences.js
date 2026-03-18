@@ -133,6 +133,7 @@ let playfieldGetter = () => null;
 const NOTATION_SEQUENCE = [
   GAME_NUMBER_NOTATIONS.LETTERS,
   GAME_NUMBER_NOTATIONS.SCIENTIFIC,
+  GAME_NUMBER_NOTATIONS.ENGINEERING,
   GAME_NUMBER_NOTATIONS.ABC,
 ];
 
@@ -147,6 +148,8 @@ function resolveNotationLabel(notation) {
   switch (notation) {
     case GAME_NUMBER_NOTATIONS.SCIENTIFIC:
       return 'Scientific';
+    case GAME_NUMBER_NOTATIONS.ENGINEERING:
+      return 'Engineering';
     case GAME_NUMBER_NOTATIONS.ABC:
       return 'ABC';
     default:
