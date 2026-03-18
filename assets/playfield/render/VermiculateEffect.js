@@ -2,427 +2,424 @@
  * VermiculateEffect
  *
  * Ambient background effect for Chapter 1.
- * Renders "worm-like" paths – straight and curved – that crawl across the
- * viewport leaving glowing, fading trails.  The effect is inspired by the
- * classic XScreenSaver "Vermiculate".
+ * Renders thin squiggly worm-like paths that move and evolve over time,
+ * inspired by the classic XScreenSaver "Vermiculate" effect but adapted
+ * for a polished in-game ambient background.
  *
- * Behaviour summary
- * -----------------
- * • Two worm types are spawned randomly:
- *     – STRAIGHT worms advance in a direction, occasionally snapping to 90°
- *       or 60° turns (producing square/triangle outlines).
- *     – CURVED worms follow circular arcs (constant radius, either CW or CCW).
- * • When a worm's head comes close to an existing trail it "bounces":
- *     – STRAIGHT: heading reflected 180° and snapped to nearest 45°.
- *     – CURVED: arc direction flipped (CW ↔ CCW); heading reversed 180°.
- * • Trail points are stored per distance-traveled (not per frame) so the
- *   trail always represents real on-screen length.
- * • Each worm has a finite trail length; older segments fade toward transparent.
- * • The head is rendered as a bright radial-gradient glowing ball.
- * • Worms despawn before getting completely boxed-in (stuck-detection).
+ * Visual style
+ * ------------
+ * • Dim glowing light trails in white, pale gold, and pale blue.
+ * • Each active path head is traced by a small glowing dot.
+ * • Overall opacity ~20%, subtle and atmospheric.
+ * • Transparent canvas – no background fill.
  *
- * Colors: random shades of white, gold, and light-blue with canvas glow.
+ * Simulation logic
+ * ----------------
+ * • Multiple independent tracers wander the viewport.
+ * • Each tracer's heading is steered by layered sine-wave angular modulation
+ *   at three incommensurate frequencies.  Random phase offsets per tracer make
+ *   every path unique.  The result is smooth, semi-organic, semi-geometric
+ *   wandering with no sharp angle snaps or chaotic jitter.
+ * • Trail points are stored in a fixed-size Float64Array ring buffer
+ *   (x0,y0, x1,y1, …) for zero per-frame allocation.
+ * • Tracers wrap around screen edges so paths continue seamlessly.
+ *
+ * Glow strategy
+ * -------------
+ * • Trails are rendered in two passes per alpha-band:
+ *     1. A wider, dimmer "halo" stroke provides a soft glow envelope.
+ *     2. A thinner, brighter primary stroke provides crisp line identity.
+ * • Additive compositing ('lighter') causes brightness to accumulate where
+ *   trails overlap, producing natural glow buildup without shadowBlur cost.
+ * • Alpha increases from tail to head across TRAIL_ALPHA_BANDS bands.
+ *
+ * Head-dot cache strategy
+ * -----------------------
+ * • One small offscreen canvas per palette color is created lazily.
+ * • Each sprite contains a pre-rendered radial-gradient glowing dot.
+ * • During draw(), dots are stamped with drawImage() – zero per-frame
+ *   gradient creation.
+ *
+ * Colors: white, pale gold, pale blue at low opacity.
  * All positions are in logical CSS pixel screen-space.
  */
 
-// ─── Tuning constants ─────────────────────────────────────────────────────────
+// ─── Configurable parameters ──────────────────────────────────────────────────
+// All important values are grouped here for easy tuning.
 
-// How many worms run simultaneously.
-const MAX_WORMS = 20;
-// Minimum active worms before a new one is spawned.
-const MIN_WORMS = 8;
+/** Number of simultaneous tracers. */
+const TRACER_COUNT = 14;
 
-// Worm movement speed (CSS pixels per second).
-const WORM_SPEED = 120;
+/** Max trail points per tracer (ring buffer capacity). */
+const TRAIL_LENGTH = 200;
 
-// Distance (px) a worm must travel before a new trail point is recorded.
-// Smaller = smoother curves, more memory. 4-6 is a good balance.
-const POINT_INTERVAL = 5;
+/** Distance (px) a tracer must travel before a new trail point is stored. */
+const POINT_INTERVAL = 4;
 
-// Maximum number of stored trail points per worm.
-// At POINT_INTERVAL = 5 and MAX_TRAIL_POINTS = 180, max trail = 900px.
-const MAX_TRAIL_POINTS = 180;
+/** Thin primary stroke width (px). */
+const LINE_WIDTH = 1.2;
 
-// Minimum trail points before a bounce can trigger (avoids self-collision at spawn).
-const MIN_TRAIL_FOR_BOUNCE = 14;
+/** Base alpha for the newest primary stroke band (tail fades toward 0). */
+const LINE_OPACITY = 0.20;
 
-// Proximity threshold (px) for bounce detection against existing trails.
-const BOUNCE_RADIUS = 12;
+/** Wider halo stroke width (px) drawn under the primary line for soft glow. */
+const GLOW_WIDTH = 3.5;
 
-// Radius range for curved worms' circular arcs (CSS pixels).
-const MIN_CURVE_RADIUS = 45;
-const MAX_CURVE_RADIUS = 100;
+/** Base alpha for the newest halo stroke band. */
+const GLOW_OPACITY = 0.06;
 
-// Base angular velocity for curved worms (radians per second).
-const CURVE_ANG_VEL = 1.1;
+/** Diameter (px) of the cached head-dot sprite. */
+const HEAD_DOT_SIZE = 14;
 
-// Probability [0,1] that a newly spawned worm is curved.
-const CURVED_PROB = 0.45;
+/** Global alpha applied when stamping a head-dot sprite. */
+const HEAD_DOT_OPACITY = 0.50;
 
-// How often a straight worm may attempt a random angular turn (ms).
-const TURN_INTERVAL_MS = 500;
+/** Tracer movement speed (CSS px / s). */
+const SPEED = 55;
 
-// Probability that a scheduled turn actually fires.
-const TURN_PROB = 0.40;
+/**
+ * Angular change magnitude (rad / s).  Multiplied by the layered sine-wave
+ * output to steer each tracer smoothly.
+ */
+const TURN_RATE = 0.8;
 
-// Candidate turn angles for straight worms (90° square + 60° triangle turns).
-const TURN_ANGLES = [
-  Math.PI / 2,   // 90° CW
-  -Math.PI / 2,  // 90° CCW
-  Math.PI / 3,   // 60° CW
-  -Math.PI / 3,  // 60° CCW
+/** Number of opacity bands in the tail-to-head fade gradient. */
+const TRAIL_ALPHA_BANDS = 5;
+
+/** Whether tracers wrap around screen edges (true) or bounce (false). */
+const WRAP_EDGES = true;
+
+/** Canvas globalCompositeOperation used during trail/head rendering. */
+const COMPOSITE_OP = 'lighter';
+
+// ─── Color palette ────────────────────────────────────────────────────────────
+// Suggested starting palette (white, pale gold, pale blue).
+
+const PALETTE = [
+  { r: 255, g: 255, b: 255 },   // white
+  { r: 255, g: 235, b: 190 },   // pale gold
+  { r: 200, g: 225, b: 255 },   // pale blue
 ];
 
-// Stuck detection: despawn if within a tiny box for this many consecutive steps.
-const STUCK_STEPS  = 80;
-const STUCK_BOX_PX = 28;
+// ─── Angular modulation layers ────────────────────────────────────────────────
+// Three incommensurate sine-wave frequencies produce complex, non-repeating
+// wandering without any noise library.
 
-// Spawn margin so worms start inside the viewport.
-const SPAWN_MARGIN = 60;
+const ANGLE_FREQ_1 = 0.37;  // Hz
+const ANGLE_FREQ_2 = 0.83;
+const ANGLE_FREQ_3 = 1.51;
+const ANGLE_AMP_1  = 1.00;  // relative weight
+const ANGLE_AMP_2  = 0.60;
+const ANGLE_AMP_3  = 0.35;
+const TWO_PI = Math.PI * 2;
 
-// Head appearance.
-const HEAD_GLOW_BLUR = 16;
-const HEAD_RADIUS    = 5;
+// If two consecutive trail points are farther apart than this (px), treat the
+// segment as a wrap-around discontinuity and start a new sub-path.
+const WRAP_GAP_THRESHOLD = 50;
+const WRAP_GAP_THRESHOLD_SQ = WRAP_GAP_THRESHOLD * WRAP_GAP_THRESHOLD;
 
-// Trail stroke width (px).
-const TRAIL_WIDTH = 1.8;
-
-// Maximum alpha for the newest trail segment.
-const TRAIL_MAX_ALPHA = 0.80;
-
-// Number of alpha bands to divide the trail into for the fade gradient.
-// More bands = smoother fade but more draw calls.
-const TRAIL_ALPHA_BANDS = 6;
-
-// ─── Spatial grid ─────────────────────────────────────────────────────────────
-
-// Grid cell size for proximity checks (px).
-const GRID_CELL = 14;
-
-// ─── Color palette (white / gold / light-blue) ────────────────────────────────
+// ─── Head-dot sprite cache ────────────────────────────────────────────────────
 
 /**
- * Pick a random color from the white / gold / light-blue range.
- * Returns { r, g, b } in 0–255.
+ * Create a small offscreen canvas containing a pre-blurred radial-gradient dot.
+ * Stamped via drawImage() each frame instead of recreating a radialGradient,
+ * which is far cheaper per frame.
+ *
+ * @param {number} r  Red   (0–255)
+ * @param {number} g  Green (0–255)
+ * @param {number} b  Blue  (0–255)
+ * @param {number} size  Sprite width/height in px.
+ * @returns {HTMLCanvasElement}
  */
-function randomWormColor() {
-  const roll = Math.random();
-  if (roll < 0.33) {
-    // White / near-white
-    const v = 215 + Math.floor(Math.random() * 40);
-    return { r: v, g: v, b: v };
-  } else if (roll < 0.66) {
-    // Gold / warm yellow
-    const g = 185 + Math.floor(Math.random() * 55);
-    return { r: 255, g, b: 20 + Math.floor(Math.random() * 50) };
-  } else {
-    // Light blue / cyan
-    const b = 205 + Math.floor(Math.random() * 50);
-    const g = 185 + Math.floor(Math.random() * 50);
-    return { r: 70 + Math.floor(Math.random() * 70), g, b };
-  }
+function _createDotSprite(r, g, b, size) {
+  const off = document.createElement('canvas');
+  off.width  = size;
+  off.height = size;
+  const c   = off.getContext('2d');
+  const cx  = size / 2;
+  const cy  = size / 2;
+  const rad = size / 2;
+
+  const grad = c.createRadialGradient(cx, cy, 0, cx, cy, rad);
+  grad.addColorStop(0,    'rgba(255,255,255,1)');
+  grad.addColorStop(0.20, `rgba(${r},${g},${b},0.9)`);
+  grad.addColorStop(0.50, `rgba(${r},${g},${b},0.3)`);
+  grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
+
+  c.fillStyle = grad;
+  c.beginPath();
+  c.arc(cx, cy, rad, 0, TWO_PI);
+  c.fill();
+  return off;
 }
 
-// ─── Worm factory ─────────────────────────────────────────────────────────────
+// ─── Tracer factory ───────────────────────────────────────────────────────────
 
 /**
- * Pre-compute the TRAIL_ALPHA_BANDS stroke style strings for a given color so
- * _drawWorm never allocates strings inside the render loop.
+ * Pre-compute TRAIL_ALPHA_BANDS stroke style strings for a given color.
+ * Called once per tracer creation so draw() never allocates strings.
+ *
+ * @returns {{ line: string[], halo: string[] }}
  */
-function buildBandStyles(r, g, b) {
-  const styles = [];
-  for (let band = 0; band < TRAIL_ALPHA_BANDS; band++) {
-    const frac  = (band + 1) / TRAIL_ALPHA_BANDS;
-    const alpha = (frac * TRAIL_MAX_ALPHA).toFixed(3);
-    styles.push(`rgba(${r},${g},${b},${alpha})`);
+function _buildBandStyles(r, g, b) {
+  const line = [];
+  const halo = [];
+  for (let i = 0; i < TRAIL_ALPHA_BANDS; i++) {
+    const frac = (i + 1) / TRAIL_ALPHA_BANDS;
+    line.push(`rgba(${r},${g},${b},${(frac * LINE_OPACITY).toFixed(4)})`);
+    halo.push(`rgba(${r},${g},${b},${(frac * GLOW_OPACITY).toFixed(4)})`);
   }
-  return styles;
+  return { line, halo };
 }
 
-function createWorm(width, height) {
-  const isCurved = Math.random() < CURVED_PROB;
-  const angle    = Math.random() * Math.PI * 2;
-  const color    = randomWormColor();
+/**
+ * Create a new tracer at a random viewport position.
+ */
+function _createTracer(W, H) {
+  const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+  const x     = Math.random() * W;
+  const y     = Math.random() * H;
+  const angle = Math.random() * TWO_PI;
+  const styles = _buildBandStyles(color.r, color.g, color.b);
 
-  const x = SPAWN_MARGIN + Math.random() * (width  - SPAWN_MARGIN * 2);
-  const y = SPAWN_MARGIN + Math.random() * (height - SPAWN_MARGIN * 2);
+  // Unique phase offsets for the three sine-wave layers so every tracer
+  // follows a distinct path.
+  const p0 = Math.random() * TWO_PI;
+  const p1 = Math.random() * TWO_PI;
+  const p2 = Math.random() * TWO_PI;
+
+  // Ring buffer: pairs of (x, y) stored in a flat Float64Array.
+  const trail = new Float64Array(TRAIL_LENGTH * 2);
+  // Seed the buffer with the initial position so the first _step() call has
+  // a valid reference point for distance accumulation.  trailHead=1 means the
+  // next point write goes to index 1; trailLen=1 accounts for this seed entry.
+  trail[0] = x;
+  trail[1] = y;
 
   return {
-    x, y,
-    angle,
-    type:        isCurved ? 'curved' : 'straight',
+    x, y, angle,
     color,
-    // Pre-computed stroke styles for each alpha band (avoids per-frame string allocs).
-    bandStyles:  buildBandStyles(color.r, color.g, color.b),
-    shadowColor: `rgba(${color.r},${color.g},${color.b},0.55)`,
-    headGlow:    `rgba(${color.r},${color.g},${color.b},0.95)`,
-    trail:       [{ x, y }],
-    alive:       true,
-    // Distance accumulator – new point added every POINT_INTERVAL px.
-    distAcc:     0,
-
-    // Curved worm fields.
-    curveDir:    Math.random() < 0.5 ? 1 : -1,  // +1 CCW, -1 CW
-    curveRadius: MIN_CURVE_RADIUS + Math.random() * (MAX_CURVE_RADIUS - MIN_CURVE_RADIUS),
-
-    // Straight worm fields.
-    nextTurnMs:  0,
-
-    // Stuck detection.
-    stuckSteps:  0,
-    bbMinX: x, bbMaxX: x,
-    bbMinY: y, bbMaxY: y,
+    lineStyles:  styles.line,     // Pre-computed primary stroke styles per band.
+    haloStyles:  styles.halo,     // Pre-computed halo stroke styles per band.
+    shadowColor: `rgba(${color.r},${color.g},${color.b},0.4)`,
+    p0, p1, p2,                   // Sine-wave phase offsets.
+    trail,
+    trailHead: 1,                 // Next write index (point units, 0…TRAIL_LENGTH-1).
+    trailLen:  1,                 // Current stored point count.
+    distAcc:   0,                 // Distance accumulator for point recording.
+    age:       0,                 // Elapsed time (s) for sine-wave advancement.
   };
-}
-
-// ─── Spatial occupancy grid ────────────────────────────────────────────────────
-
-/**
- * Build a Set of grid-cell keys from all worm trails (excluding their own tips).
- */
-function buildGrid(worms) {
-  const grid = new Set();
-  for (const w of worms) {
-    if (!w.alive) continue;
-    const safeEnd = w.trail.length - MIN_TRAIL_FOR_BOUNCE;
-    for (let i = 0; i < safeEnd; i++) {
-      const col = Math.floor(w.trail[i].x / GRID_CELL);
-      const row = Math.floor(w.trail[i].y / GRID_CELL);
-      grid.add(`${col},${row}`);
-    }
-  }
-  return grid;
-}
-
-/**
- * Return true if position (px, py) is within BOUNCE_RADIUS of any occupied cell.
- */
-function nearOccupied(grid, px, py) {
-  const r   = Math.ceil(BOUNCE_RADIUS / GRID_CELL);
-  const col = Math.floor(px / GRID_CELL);
-  const row = Math.floor(py / GRID_CELL);
-  for (let dc = -r; dc <= r; dc++) {
-    for (let dr = -r; dr <= r; dr++) {
-      if (grid.has(`${col + dc},${row + dr}`)) return true;
-    }
-  }
-  return false;
-}
-
-// ─── Angle helpers ─────────────────────────────────────────────────────────────
-
-function snap45(a) {
-  const s = Math.PI / 4;
-  return Math.round(a / s) * s;
 }
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 /**
  * Create and return a Vermiculate effect controller.
- * @returns {{ update: Function, draw: Function, reset: Function }}
+ * @returns {{ update: Function, draw: Function, reset: Function, destroy: Function }}
  */
 export function createVermiculateEffect() {
-  let worms     = [];
-  let lastTs    = null;
-  let nowMs     = 0;
+  let tracers = [];
+  let lastTs  = null;
+
+  // Viewport dimensions cached during update() for use in draw().
+  let _viewW = 0;
+  let _viewH = 0;
+
+  // Cached head-dot sprites keyed by "r,g,b".
+  let _dotSprites = null;
+
+  // ── Dot-sprite cache (lazy init) ──────────────────────────────────────────
+
+  function _ensureDotSprites() {
+    if (_dotSprites) return;
+    _dotSprites = new Map();
+    for (const c of PALETTE) {
+      _dotSprites.set(`${c.r},${c.g},${c.b}`,
+        _createDotSprite(c.r, c.g, c.b, HEAD_DOT_SIZE));
+    }
+  }
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
-  function init(w, h) {
-    worms  = [];
-    for (let i = 0; i < MIN_WORMS; i++) worms.push(createWorm(w, h));
+  function _init(W, H) {
+    tracers = [];
+    for (let i = 0; i < TRACER_COUNT; i++) {
+      tracers.push(_createTracer(W, H));
+    }
     lastTs = null;
+  }
+
+  // ── Step a single tracer ──────────────────────────────────────────────────
+
+  function _step(t, dt, W, H) {
+    t.age += dt;
+
+    // Smooth angular modulation: three layered sine waves at incommensurate
+    // frequencies.  The combined signal drives the heading change per frame,
+    // producing semi-organic, non-repeating wandering.
+    const drive =
+      ANGLE_AMP_1 * Math.sin(t.age * ANGLE_FREQ_1 * TWO_PI + t.p0) +
+      ANGLE_AMP_2 * Math.sin(t.age * ANGLE_FREQ_2 * TWO_PI + t.p1) +
+      ANGLE_AMP_3 * Math.sin(t.age * ANGLE_FREQ_3 * TWO_PI + t.p2);
+
+    t.angle += drive * TURN_RATE * dt;
+
+    // Advance position.
+    const dist = SPEED * dt;
+    t.x += Math.cos(t.angle) * dist;
+    t.y += Math.sin(t.angle) * dist;
+
+    // Edge wrapping: tracer re-enters from the opposite side.
+    if (WRAP_EDGES) {
+      if (t.x < 0)  t.x += W;
+      if (t.x >= W) t.x -= W;
+      if (t.y < 0)  t.y += H;
+      if (t.y >= H) t.y -= H;
+    }
+
+    // Record trail point at distance intervals into the ring buffer.
+    const prevIdx = ((t.trailHead - 1 + TRAIL_LENGTH) % TRAIL_LENGTH) * 2;
+    const prevX   = t.trailLen > 0 ? t.trail[prevIdx]     : t.x;
+    const prevY   = t.trailLen > 0 ? t.trail[prevIdx + 1] : t.y;
+    t.distAcc += Math.hypot(t.x - prevX, t.y - prevY);
+
+    if (t.distAcc >= POINT_INTERVAL) {
+      t.distAcc = 0;
+      const wi = t.trailHead * 2;
+      t.trail[wi]     = t.x;
+      t.trail[wi + 1] = t.y;
+      t.trailHead = (t.trailHead + 1) % TRAIL_LENGTH;
+      if (t.trailLen < TRAIL_LENGTH) t.trailLen++;
+    }
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
 
-  function update(now, w, h) {
-    if (!worms.length) init(w, h);
-    nowMs = now;
+  function update(now, W, H) {
+    _viewW = W;
+    _viewH = H;
+
+    if (!tracers.length) _init(W, H);
+    _ensureDotSprites();
+
     const dt = lastTs === null ? 0.016 : Math.min((now - lastTs) / 1000, 0.1);
     lastTs = now;
 
-    const grid = buildGrid(worms);
-
-    for (const worm of worms) {
-      if (worm.alive) _step(worm, dt, grid, w, h);
-    }
-
-    // Remove dead worms.
-    for (let i = worms.length - 1; i >= 0; i--) {
-      if (!worms[i].alive) worms.splice(i, 1);
-    }
-
-    // Maintain population.
-    while (worms.length < MIN_WORMS ||
-           (worms.length < MAX_WORMS && Math.random() < 0.025)) {
-      worms.push(createWorm(w, h));
-    }
-  }
-
-  function _step(worm, dt, grid, W, H) {
-    // ── Rotate heading ──────────────────────────────────────────────────────
-    if (worm.type === 'curved') {
-      worm.angle += CURVE_ANG_VEL * worm.curveDir * dt;
-    } else {
-      if (nowMs >= worm.nextTurnMs) {
-        worm.nextTurnMs = nowMs + TURN_INTERVAL_MS + Math.random() * 400;
-        if (Math.random() < TURN_PROB) {
-          worm.angle += TURN_ANGLES[Math.floor(Math.random() * TURN_ANGLES.length)];
-        }
-      }
-    }
-
-    // ── Candidate position ──────────────────────────────────────────────────
-    const dist = WORM_SPEED * dt;
-    const nx   = worm.x + Math.cos(worm.angle) * dist;
-    const ny   = worm.y + Math.sin(worm.angle) * dist;
-
-    // ── Bounce off existing trails ──────────────────────────────────────────
-    if (nearOccupied(grid, nx, ny)) {
-      if (worm.type === 'curved') {
-        worm.curveDir = -worm.curveDir;
-        worm.angle   += Math.PI;
-      } else {
-        worm.angle = snap45(worm.angle + Math.PI);
-      }
-      // Don't advance; next frame will move in reflected direction.
-    } else {
-      worm.x = nx;
-      worm.y = ny;
-    }
-
-    // ── Bounce off viewport edges ───────────────────────────────────────────
-    const m = 4;
-    if (worm.x < m)     { worm.x = m;     worm.angle = Math.PI - worm.angle; }
-    else if (worm.x > W - m) { worm.x = W - m; worm.angle = Math.PI - worm.angle; }
-    if (worm.y < m)     { worm.y = m;     worm.angle = -worm.angle; }
-    else if (worm.y > H - m) { worm.y = H - m; worm.angle = -worm.angle; }
-
-    // ── Record trail point every POINT_INTERVAL px ─────────────────────────
-    const dx = worm.x - (worm.trail[worm.trail.length - 1]?.x ?? worm.x);
-    const dy = worm.y - (worm.trail[worm.trail.length - 1]?.y ?? worm.y);
-    worm.distAcc += Math.hypot(dx, dy);
-
-    if (worm.distAcc >= POINT_INTERVAL) {
-      worm.distAcc = 0;
-      worm.trail.push({ x: worm.x, y: worm.y });
-      if (worm.trail.length > MAX_TRAIL_POINTS) worm.trail.shift();
-    }
-
-    // ── Stuck detection ─────────────────────────────────────────────────────
-    worm.stuckSteps++;
-    if (worm.x < worm.bbMinX) worm.bbMinX = worm.x;
-    if (worm.x > worm.bbMaxX) worm.bbMaxX = worm.x;
-    if (worm.y < worm.bbMinY) worm.bbMinY = worm.y;
-    if (worm.y > worm.bbMaxY) worm.bbMaxY = worm.y;
-
-    if (worm.stuckSteps >= STUCK_STEPS) {
-      const bw = worm.bbMaxX - worm.bbMinX;
-      const bh = worm.bbMaxY - worm.bbMinY;
-      if (bw < STUCK_BOX_PX && bh < STUCK_BOX_PX) {
-        worm.alive = false;
-        return;
-      }
-      // Reset bounding-box window.
-      worm.stuckSteps = 0;
-      worm.bbMinX = worm.x; worm.bbMaxX = worm.x;
-      worm.bbMinY = worm.y; worm.bbMaxY = worm.y;
+    for (const t of tracers) {
+      _step(t, dt, W, H);
     }
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   /**
-   * Render all worms.
+   * Render all tracers and their trails.
    * @param {CanvasRenderingContext2D} ctx  Already in CSS-pixel space.
    */
   function draw(ctx) {
-    if (!worms.length) return;
+    if (!tracers.length) return;
 
     ctx.save();
-    ctx.lineWidth = TRAIL_WIDTH;
-    ctx.lineCap   = 'round';
-    ctx.lineJoin  = 'round';
+    ctx.globalCompositeOperation = COMPOSITE_OP;
+    ctx.lineCap  = 'round';
+    ctx.lineJoin = 'round';
 
-    for (const worm of worms) {
-      if (worm.alive && worm.trail.length >= 2) _drawWorm(ctx, worm);
+    for (const t of tracers) {
+      if (t.trailLen >= 2) _drawTrail(ctx, t);
+      if (t.trailLen >= 1) _drawHead(ctx, t);
     }
 
     ctx.restore();
   }
 
-  function _drawWorm(ctx, worm) {
-    const trail      = worm.trail;
-    const len        = trail.length;
-    if (len < 2) return;
-
-    // ── Trail rendered in TRAIL_ALPHA_BANDS segments ──────────────────────
-    // Divide trail into bands; each band gets a uniform alpha that increases
-    // from tail (low) to head (high).  Pre-computed band styles avoid per-frame
-    // string allocations.
-    ctx.save();
-    ctx.shadowBlur  = 5;
-    ctx.shadowColor = worm.shadowColor;
+  /**
+   * Render a tracer's trail with a tail-to-head opacity fade.
+   * Two-pass per band: wider dim halo underneath, thinner brighter line on top.
+   * Wrap-around discontinuities are detected and split into separate sub-paths.
+   */
+  function _drawTrail(ctx, t) {
+    const len    = t.trailLen;
+    const cap    = TRAIL_LENGTH;  // Ring buffer capacity alias for readability.
+    const buf    = t.trail;
+    const oldest = (t.trailHead - len + cap) % cap;
 
     const bandSize = Math.ceil(len / TRAIL_ALPHA_BANDS);
 
     for (let band = 0; band < TRAIL_ALPHA_BANDS; band++) {
-      const startIdx = band * bandSize;
-      const endIdx   = Math.min(startIdx + bandSize, len - 1);
-      if (startIdx >= endIdx) continue;
+      const startPt = band * bandSize;
+      const endPt   = Math.min(startPt + bandSize, len - 1);
+      if (startPt >= endPt) continue;
 
-      ctx.strokeStyle = worm.bandStyles[band];
+      // ── Build the sub-path, breaking at wrap-around gaps ──────────────
+      // We pre-scan the points and record moveTo / lineTo commands so both
+      // the halo and primary passes share the same path geometry.
       ctx.beginPath();
-      ctx.moveTo(trail[startIdx].x, trail[startIdx].y);
-      for (let i = startIdx + 1; i <= endIdx; i++) {
-        ctx.lineTo(trail[i].x, trail[i].y);
+      let idx0 = ((oldest + startPt) % cap) * 2;
+      ctx.moveTo(buf[idx0], buf[idx0 + 1]);
+
+      let px = buf[idx0];
+      let py = buf[idx0 + 1];
+
+      for (let i = startPt + 1; i <= endPt; i++) {
+        const idx = ((oldest + i) % cap) * 2;
+        const cx  = buf[idx];
+        const cy  = buf[idx + 1];
+
+        // Detect wrap-around discontinuity.
+        const dx = cx - px;
+        const dy = cy - py;
+        if (dx * dx + dy * dy > WRAP_GAP_THRESHOLD_SQ) {
+          ctx.moveTo(cx, cy);  // Start a new sub-path segment.
+        } else {
+          ctx.lineTo(cx, cy);
+        }
+        px = cx;
+        py = cy;
       }
+
+      // Pass 1: wider dim halo stroke for soft glow.
+      ctx.lineWidth   = GLOW_WIDTH;
+      ctx.strokeStyle = t.haloStyles[band];
+      ctx.stroke();
+
+      // Pass 2: thinner brighter primary stroke for crisp identity.
+      ctx.lineWidth   = LINE_WIDTH;
+      ctx.strokeStyle = t.lineStyles[band];
       ctx.stroke();
     }
+  }
 
-    ctx.restore();
+  /**
+   * Stamp the cached head-dot sprite at the tracer's leading position.
+   */
+  function _drawHead(ctx, t) {
+    const key = `${t.color.r},${t.color.g},${t.color.b}`;
+    const dot = _dotSprites?.get(key);
+    if (!dot) return;
 
-    // ── Glowing head ball ────────────────────────────────────────────────
-    const hx = trail[len - 1].x;
-    const hy = trail[len - 1].y;
+    // The newest trail point is the head position.
+    const lastIdx = ((t.trailHead - 1 + TRAIL_LENGTH) % TRAIL_LENGTH) * 2;
+    const hx = t.trail[lastIdx];
+    const hy = t.trail[lastIdx + 1];
+    const half = HEAD_DOT_SIZE / 2;
 
     ctx.save();
-
-    // Outer glow halo: radial gradient centered on head position.
-    ctx.shadowBlur  = HEAD_GLOW_BLUR;
-    ctx.shadowColor = worm.headGlow;
-
-    const { r, g, b } = worm.color;
-    const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, HEAD_RADIUS * 3);
-    grad.addColorStop(0,    'rgba(255,255,255,0.98)');
-    grad.addColorStop(0.25, `rgba(${r},${g},${b},0.90)`);
-    grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(hx, hy, HEAD_RADIUS * 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Bright core pinpoint.
-    ctx.shadowBlur  = HEAD_GLOW_BLUR * 1.2;
-    ctx.shadowColor = 'rgba(255,255,255,0.9)';
-    ctx.fillStyle   = 'rgba(255,255,255,0.95)';
-    ctx.beginPath();
-    ctx.arc(hx, hy, HEAD_RADIUS * 0.55, 0, Math.PI * 2);
-    ctx.fill();
-
+    ctx.globalAlpha = HEAD_DOT_OPACITY;
+    ctx.drawImage(dot, hx - half, hy - half);
     ctx.restore();
   }
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
+  // ── Reset / Destroy ───────────────────────────────────────────────────────
 
   function reset() {
-    worms  = [];
-    lastTs = null;
-    nowMs  = 0;
+    tracers = [];
+    lastTs  = null;
   }
 
-  return { update, draw, reset };
+  function destroy() {
+    reset();
+    _dotSprites = null;
+  }
+
+  return { update, draw, reset, destroy };
 }
