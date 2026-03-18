@@ -243,6 +243,12 @@ import {
 } from './cardinalWardenUI.js';
 // Shin Grapheme Codex UI for displaying grapheme information.
 import { initializeShinGraphemeCodex } from './shinGraphemeCodexUI.js';
+// Shin Spire ambient golden/orange shape-overlap background effect.
+import {
+  startShinShapeBackground,
+  stopShinShapeBackground,
+  resizeShinShapeBackground,
+} from './shinShapeBackground.js';
 import {
   initializeKufState,
   getKufStateSnapshot,
@@ -2897,6 +2903,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         tsadiSimulationInstance.resize();
       }
       resizeShinFractalCanvases();
+      resizeShinShapeBackground();
     });
   }
 
@@ -4474,6 +4481,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         // Stop Shin (Cardinal Warden) simulation when leaving the Shin tab
         if (previousTabId === 'shin' && tabId !== 'shin') {
           stopCardinalSimulation();
+          stopShinShapeBackground();
         }
 
         // Stop Kuf battlefield simulation when leaving the Kuf tab
@@ -4829,6 +4837,8 @@ import { createSpireCameraController } from './spireCameraController.js';
           }
           // Resize the Cardinal canvas when tab is shown
           resizeCardinalCanvas();
+          // Start the ambient shape background effect for the Shin Spire.
+          startShinShapeBackground();
           // Update display with current state
           updateShinDisplay();
           scheduleSpireResize();

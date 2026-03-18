@@ -15,7 +15,6 @@ import {
   drawCrystalBackground,
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
-  drawPrologueShapes,
   drawChapter1Vermiculate,
   drawChapter6Substrate,
   drawGravityGrid,
@@ -270,8 +269,6 @@ function draw() {
     this.drawCrystalBackground();
     // Chapter 5 Tetris-block walking cluster renders immediately after the base background.
     drawChapter5TetrisBlocks.call(this);
-    // Prologue shape-overlap glow effect renders at the same background layer.
-    drawPrologueShapes.call(this);
     // Chapter 1 Vermiculate worm-line ambient decoration.
     drawChapter1Vermiculate.call(this);
     // Chapter 6 Substrate crystalline crack pattern.
@@ -723,7 +720,6 @@ export {
   drawCrystalBackground,
   drawForegroundCrystalBackground,
   drawChapter5TetrisBlocks,
-  drawPrologueShapes,
   drawChapter1Vermiculate,
   drawSketches,
   drawFloaters,
