@@ -16346,6 +16346,20 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   display: none;
 }
 
+/* Establish a stacking context so the shape background canvas sits behind panel content. */
+#panel-shin {
+  position: relative;
+}
+
+/* Golden/orange shape-overlap ambient background for the Shin Spire.
+   Positioned absolutely so it covers the full panel viewport without scrolling. */
+.shin-shape-bg-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* Match top spacing of non-Aleph spire render wrappers to the Aleph render position. */
 #panel-fluid .fluid-grid:first-of-type,
 #panel-lamed .lamed-grid,

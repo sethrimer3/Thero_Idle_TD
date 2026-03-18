@@ -100,9 +100,20 @@ function addShapePath(ctx, shape) {
 /**
  * Create and return a prologue shape-overlap effect controller.
  *
+ * @param {Object} [options]             Optional overrides for the glow colour.
+ * @param {number} [options.glowR]       Red component   (0–255).  Default 215.
+ * @param {number} [options.glowG]       Green component (0–255).  Default 228.
+ * @param {number} [options.glowB]       Blue component  (0–255).  Default 255.
+ * @param {number} [options.glowAlpha]   Base opacity of each shape fill.  Default 0.07.
  * @returns {{ update: Function, draw: Function, reset: Function }}
  */
-export function createPrologueShapeEffect() {
+export function createPrologueShapeEffect(options = {}) {
+  // Resolve glow colour from caller options with fallback to module-level defaults.
+  const _glowR     = options.glowR     ?? GLOW_R;
+  const _glowG     = options.glowG     ?? GLOW_G;
+  const _glowB     = options.glowB     ?? GLOW_B;
+  const _glowAlpha = options.glowAlpha ?? GLOW_ALPHA;
+  const _fillStyle = `rgba(${_glowR}, ${_glowG}, ${_glowB}, ${_glowAlpha})`;
   // Initialized on first update() call.
   let shapes         = null;
   let lastTimestamp  = null;
@@ -285,7 +296,7 @@ export function createPrologueShapeEffect() {
     // natural overlap gradient from the previous pairwise technique.
     _ctxUnion.globalCompositeOperation = 'source-over';
     _ctxUnion.clearRect(0, 0, _vpW, _vpH);
-    _ctxUnion.fillStyle = `rgba(${GLOW_R}, ${GLOW_G}, ${GLOW_B}, ${GLOW_ALPHA})`;
+    _ctxUnion.fillStyle = _fillStyle;
     for (const shape of shapes) {
       _ctxUnion.beginPath();
       addShapePath(_ctxUnion, shape);
