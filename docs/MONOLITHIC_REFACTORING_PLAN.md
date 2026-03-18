@@ -31,6 +31,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 | `assets/towerEquations/advancedTowers.js` | 2,435 | UI/Display | **LOW** |
 
 > **Note (Build 628):** `main.js` reduced from 7,905 to 6,771 lines via `levelGridController.js` (Build 626) and `settingsMenuController.js` (Build 627) extractions. `playfield.js` reduced from 11,862 to 5,422 lines through Phase 1 extractions including `WaveQueueSystem.js` (Build 628).
+>
+> **Note (Build 642):** `main.js` reduced from 5,823 to 5,444 lines (−379) via three new controller extractions: `playfieldLayoutController.js`, `spireCameraController.js`, and `idleResourceBankController.js`.
 
 ### Performance Baseline Requirements
 
@@ -2077,7 +2079,149 @@ This refactoring plan provides a comprehensive, incremental approach to breaking
 
 ---
 
-**Document Version:** 2.0  
+### Phase 1.2.1: Playfield Layout Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfieldLayoutController.js` (200 lines)
+
+**Responsibilities Extracted:**
+- `getFullscreenElement()` — cross-browser fullscreen element resolution
+- `updatePlayfieldFullscreenButton(isFullscreen)` — toggle button text and ARIA labels
+- `applyPlayfieldFullscreenStyles(isFullscreen)` — CSS class toggling, orientation recalculation
+- `requestPlayfieldFullscreen()` — browser Fullscreen API request
+- `exitPlayfieldFullscreen()` — browser Fullscreen API exit
+- `syncPlayfieldFullscreenState()` — reconcile internal state with browser API
+- `togglePlayfieldFullscreen()` — combined enter/exit with CSS fallback
+- `syncPlayfieldSettingsVisibility()` — settings panel hidden/shown toggle
+- `updateLayoutVisibility()` — swap between level grid and battlefield UI
+- `bindElements()` — DOM caching and event listener setup
+
+**Consolidation:**
+- 10 functions extracted from main.js
+- 5 mutable state variables moved into controller scope (`playfieldWrapper`, `stageControls`, `levelSelectionSection`, `playfieldFullscreenActive`, `playfieldFullscreenButton`)
+- Total code reduction: ~120 lines net in main.js (after delegation wrappers)
+- DOM binding logic consolidated into single `bindElements()` entry point
+
+**Integration Pattern:**
+- Factory function: `createPlayfieldLayoutController(deps)`
+- Dependency injection: `getPlayfield`, `getActiveLevelId`, `getActiveLevelIsInteractive`, `getPlayfieldMenuController`
+- Thin const delegates in main.js forward to controller methods
+- Imports `setElementVisibility` from `./uiHelpers.js` directly
+
+**Dependencies:**
+- External: `setElementVisibility` from `uiHelpers.js`
+- Internal (injected): `playfield`, `activeLevelId`, `activeLevelIsInteractive`, `playfieldMenuController`
+- DOM: `playfield-wrapper`, `stage-controls`, `level-selection`, `playfield-fullscreen-button`, `playfield-settings-wrapper`
+- Browser APIs: `requestFullscreen`, `exitFullscreen`, `fullscreenchange`
+
+**Performance Considerations:**
+- All operations are event-driven (no game loop impact)
+- DOM queries cached in `bindElements()`, not per-frame
+- CSS class toggle is a single DOM write
+
+**Key Learnings:**
+- Fullscreen and layout visibility form a cohesive UI concern separable from game orchestration
+- Browser fullscreen API handling (vendor prefixes, state sync) benefits from encapsulation
+- `bindElements()` pattern cleanly separates DOM discovery from controller logic
+- Mutable DOM references (`playfieldWrapper` etc.) naturally belong in the controller that uses them
+
+---
+
+### Phase 1.2.2: Spire Camera Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/spireCameraController.js` (160 lines)
+
+**Responsibilities Extracted:**
+- `resetPowderCameraTransform()` — Aleph spire camera reset to default zoom/center
+- `setPowderCameraMode(enabled, options)` — toggle Aleph camera controls with optional transform reset
+- `resetFluidCameraTransform()` — Bet spire camera reset to default zoom/center
+- `syncFluidCameraModeUi()` — sync camera toggle UI state with powderState
+- `setFluidCameraMode(enabled, options)` — toggle Bet camera with terrarium tree notification
+- `bindFluidCameraModeToggle()` — wire click event for fluid camera toggle
+- `refreshPowderWallDecorations()` — convenience wrapper for wall metrics refresh
+
+**Consolidation:**
+- 7 functions extracted from main.js
+- Total code reduction: ~130 lines net in main.js (after delegation wrappers)
+- `setPowderCameraModeHandler` callback registration remains in main.js (1 line)
+
+**Integration Pattern:**
+- Factory function: `createSpireCameraController(deps)`
+- Dependency injection: `powderState`, simulation getters, UI element getters, callback functions
+- Late-bound getters for simulation instances (`getPowderSimulation`, `getFluidSimulation`, etc.)
+- Thin const delegates in main.js forward to controller methods
+
+**Dependencies:**
+- Internal (injected): `powderState`, `powderSimulation`, `fluidSimulationInstance`, `sandSimulation`
+- Internal (injected): `fluidElements`, `fluidTerrariumTrees` (via getter)
+- Callbacks: `handlePowderViewTransformChange`, `handlePowderWallMetricsChange`, `schedulePowderBasinSave`
+- No external module dependencies
+
+**Performance Considerations:**
+- Camera operations are event-driven (toggle clicks, mode switches)
+- Zoom/pan math is lightweight (`Math.abs`, division)
+- UI sync touches at most 4 DOM elements per call
+
+**Key Learnings:**
+- Aleph and Bet camera controls share symmetrical patterns (reset/set/sync) that benefit from co-location
+- Getter pattern for simulation instances avoids Temporal Dead Zone issues
+- `fluidTerrariumTrees` was a dead reference in main.js scope (optional chaining prevented errors); getter returns null cleanly
+
+---
+
+### Phase 1.2.3: Idle Resource Bank Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/idleResourceBankController.js` (200 lines)
+
+**Responsibilities Extracted:**
+- `getCurrentIdleMoteBank()` — live Aleph idle mote bank with simulation hydration
+- `getCurrentMoteDispenseRate()` — combined drain rate + ambient fall cadence
+- `getCurrentFluidDropBank()` — Bet fluid bank stub (returns 0)
+- `spendFluidSerendipity(amount)` — Scintillae deduction stub (returns 0)
+- `getCurrentFluidDispenseRate()` — Bet fluid simulation drain rate
+- `addIdleMoteBank(amount, options)` — add to idle bank with spire targeting and persistence
+- `getLamedSparkBank()` / `setLamedSparkBank(amount)` — Lamed spire spark bank
+- `getTsadiParticleBank()` / `setTsadiParticleBank(amount)` — Tsadi spire particle bank
+- `flushPendingMoteDrops()` — drain pending drop queues into active simulation
+
+**Consolidation:**
+- 11 functions extracted from main.js
+- Total code reduction: ~170 lines net in main.js (after delegation wrappers)
+- All idle resource bookkeeping consolidated into single module
+
+**Integration Pattern:**
+- Factory function: `createIdleResourceBankController(deps)`
+- Dependency injection: `powderState`, simulation getters, callback functions
+- Late-bound getters for all three simulation instances
+- Thin const delegates in main.js forward to controller methods
+- Public API surface unchanged (all function names preserved)
+
+**Dependencies:**
+- Internal (injected): `powderState`
+- Internal (injected): `sandSimulation`, `powderSimulation`, `fluidSimulationInstance` (via getters)
+- Callbacks: `schedulePowderBasinSave`, `updateStatusDisplays`
+- No external module dependencies
+
+**Performance Considerations:**
+- Bank queries are lightweight (property reads + Math.max)
+- `flushPendingMoteDrops` iterates pending arrays once per flush (O(n) where n = pending drops)
+- `addIdleMoteBank` triggers save + display update (same as original)
+- No game loop overhead (called on-demand, not per-frame)
+
+**Key Learnings:**
+- Idle resource banks across all spires share a common pattern (get/set/save/sync) that benefits from co-location
+- Stub functions (`getCurrentFluidDropBank`, `spendFluidSerendipity`) documented in-place for future implementation
+- `flushPendingMoteDrops` is the most complex function but fully self-contained with clear simulation routing
+- 11-function extraction demonstrates value of grouping by domain (idle resources) rather than spire (Aleph/Bet/Lamed/Tsadi)
+
+---
+
+**Document Version:** 2.1  
 **Created:** Build 443  
-**Last Updated:** Build 529  
-**Status:** Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction, 9 subsystem modules); Phase 1.1 continued (playfield.js: 7,839→5,664 lines, 7 new system modules Builds 526-529)
+**Last Updated:** Build 642  
+**Status:** Phase 1.2 continued (main.js: 5,823→5,444 lines, 3 new controller modules Build 642); Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction)
