@@ -18,6 +18,7 @@ import {
   drawPrologueShapes,
   drawChapter1Vermiculate,
   drawChapter6Substrate,
+  drawGravityGrid,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -275,6 +276,8 @@ function draw() {
     drawChapter1Vermiculate.call(this);
     // Chapter 6 Substrate crystalline crack pattern.
     drawChapter6Substrate.call(this);
+    // Prologue / Chapter 2 gravity grid with floating balls.
+    drawGravityGrid.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);

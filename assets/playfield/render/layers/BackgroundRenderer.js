@@ -26,6 +26,7 @@ import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
 import { createPrologueShapeEffect } from '../PrologueShapeEffect.js';
 import { createVermiculateEffect } from '../VermiculateEffect.js';
 import { createSubstrateEffect } from '../SubstrateEffect.js';
+import { createGravityGridEffect } from '../GravityGridEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -793,5 +794,124 @@ export function drawChapter6Substrate() {
   ctx.save();
   ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _substrateEffect.draw(ctx);
+  ctx.restore();
+}
+
+// ─── Prologue / Chapter 2 – Gravity Grid Effect ─────────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _gravityGridEffect = null;
+
+// Track the last chapter theme so the effect resets when leaving active chapters.
+let _gravityGridLastTheme = null;
+
+/**
+ * Render the Gravity Grid ambient background decoration.
+ * A faint white grid is warped inward by gravity-well sources (small balls,
+ * towers, enemies, gates) and pushed outward by a large white-hole ball.
+ * Active during the Prologue and Chapter 2.
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawGravityGrid() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active inside the Prologue or Chapter 2.
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  const isActive = chapterTheme === 'prologue' || chapterTheme === 'chapter-2';
+
+  if (!isActive) {
+    // Reset the effect when leaving so it feels fresh on re-entry.
+    if (
+      (_gravityGridLastTheme === 'prologue' || _gravityGridLastTheme === 'chapter-2') &&
+      _gravityGridEffect
+    ) {
+      _gravityGridEffect.reset();
+    }
+    _gravityGridLastTheme = chapterTheme || null;
+    return;
+  }
+  _gravityGridLastTheme = chapterTheme;
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width  = this.renderWidth  || (this.canvas ? this.canvas.clientWidth  : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_gravityGridEffect) {
+    _gravityGridEffect = createGravityGridEffect();
+  }
+
+  // ── Collect game entities as gravity-well sources (screen-space) ──────
+  const sources = [];
+  const scale   = this.viewScale || 1;
+  const center  = this.getViewCenter ? this.getViewCenter() : { x: width * 0.5, y: height * 0.5 };
+
+  // Helper: convert a world-space point to screen-space CSS pixels.
+  const toScreen = (wx, wy) => ({
+    x: width  * 0.5 + (wx - center.x) * scale,
+    y: height * 0.5 + (wy - center.y) * scale,
+  });
+
+  // Towers → gravity wells.
+  if (this.towers) {
+    for (let i = 0; i < this.towers.length; i++) {
+      const t = this.towers[i];
+      if (!t || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
+      const sp = toScreen(t.x, t.y);
+      sources.push({ x: sp.x, y: sp.y, mass: 2, radius: 20 });
+    }
+  }
+
+  // Enemies → gravity wells.
+  if (this.enemies) {
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (!e) continue;
+      const pos = this.getEnemyPosition ? this.getEnemyPosition(e) : null;
+      if (!pos) continue;
+      const sp = toScreen(pos.x, pos.y);
+      sources.push({ x: sp.x, y: sp.y, mass: 1, radius: 12 });
+    }
+  }
+
+  // Gates (first and last path waypoints) → gravity wells.
+  if (this.pathPoints && this.pathPoints.length >= 2) {
+    const first = this.pathPoints[0];
+    const last  = this.pathPoints[this.pathPoints.length - 1];
+    if (first) {
+      const sp = toScreen(first.x, first.y);
+      sources.push({ x: sp.x, y: sp.y, mass: 3, radius: 25 });
+    }
+    if (last) {
+      const sp = toScreen(last.x, last.y);
+      sources.push({ x: sp.x, y: sp.y, mass: 3, radius: 25 });
+    }
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation with game-entity gravity sources.
+  _gravityGridEffect.update(nowMs, width, height, sources);
+
+  // Draw in screen space (pixelRatio transform only) so the grid stays fixed
+  // to the viewport regardless of camera pan / zoom.
+  const ctx = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+
+  ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  _gravityGridEffect.draw(ctx);
   ctx.restore();
 }
