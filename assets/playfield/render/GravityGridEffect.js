@@ -9,7 +9,7 @@
  *
  * Visual style
  * ------------
- * • Grid: thin white lines at 10 % opacity at rest; shift toward gold at 20 %
+ * • Grid: thin white lines at 10% opacity at rest; shift toward gold at 20%
  *   opacity as gravitational displacement increases.
  * • Balls: cached radial-gradient glowing circles at 20 % opacity.
  * • Explosion particles: small glowing dots that burst outward on collision.
@@ -187,7 +187,7 @@ function _spawnBallFromEdge(type, W, H) {
   const radius = type === 'gravity' ? SMALL_BALL_RADIUS : LARGE_BALL_RADIUS;
   const speed  = SPAWN_SPEED_MIN + Math.random() * (SPAWN_SPEED_MAX - SPAWN_SPEED_MIN);
   // ±30° from the inward-facing normal of the chosen edge.
-  const spread = Math.random() * Math.PI * 0.6 - Math.PI * 0.3;
+  const spread = Math.random() * (Math.PI / 3) - (Math.PI / 6);
   const edge   = Math.floor(Math.random() * 4);
 
   let x, y, vx, vy;
@@ -493,7 +493,7 @@ export function createGravityGridEffect() {
     const sources = _frameSources;
 
     // Ensure the re-usable buffer is large enough.
-    const needed = cols * rows * 3; // x, y, warpIntensity per point
+    const needed = cols * rows * 3; // displaced x, displaced y, warp intensity per grid point
     if (!_gridBuf || _gridBufSize < needed) {
       _gridBuf     = new Float64Array(needed);
       _gridBufSize = needed;
