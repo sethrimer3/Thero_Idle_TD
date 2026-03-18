@@ -1948,6 +1948,9 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getDeveloperModeActive: () => developerModeActive,
     getActiveLevelId: () => activeLevelId,
     getGameStats: () => gameStats,
+    // Read current progression data through getters because levels.js swaps these exports after config load.
+    getLevelBlueprints: () => levelBlueprints,
+    getLevelLookup: () => levelLookup,
     onLevelSelect: (level) => handleLevelSelection(level),
     onMenuSelectSfx: () => {
       if (audioManager) {

@@ -38,12 +38,28 @@ export function createLevelGridController({
   getDeveloperModeActive = () => false,
   getActiveLevelId = () => null,
   getGameStats = () => ({}),
+  // Pull current level blueprints via getter so post-load reassignments are reflected.
+  getLevelBlueprints = () => levelBlueprints,
+  // Pull current level lookup via getter so the active-level banner sees refreshed map metadata.
+  getLevelLookup = () => levelLookup,
 
   // ── Callbacks ───────────────────────────────────────────────────────
   onLevelSelect = () => {},
   onMenuSelectSfx = () => {},
   onStoryCampaignExpand = () => {},
 } = {}) {
+  // Resolve blueprints lazily because levels.js replaces the exported array after config load.
+  const readLevelBlueprints = () => {
+    const currentBlueprints = getLevelBlueprints();
+    return Array.isArray(currentBlueprints) ? currentBlueprints : [];
+  };
+
+  // Resolve the level lookup lazily because levels.js rebuilds the map when blueprints are normalized.
+  const readLevelLookup = () => {
+    const lookup = getLevelLookup();
+    return lookup instanceof Map ? lookup : new Map();
+  };
+
   // ── Internal state ──────────────────────────────────────────────────
   let levelGrid = null;
   let activeLevelEl = null;
@@ -651,7 +667,7 @@ export function createLevelGridController({
     levelSetEntries.length = 0;
 
     // Group levels by campaign and set
-    levelBlueprints.forEach((level) => {
+    readLevelBlueprints().forEach((level) => {
       if (level.developerOnly && !developerModeActive) {
         return;
       }
@@ -854,7 +870,7 @@ export function createLevelGridController({
   function updateLevelCards() {
     if (!levelGrid) return;
     const infinityUnlockedOverall = isInfinityModeUnlocked();
-    levelBlueprints.forEach((level) => {
+    readLevelBlueprints().forEach((level) => {
       const card = levelGrid.querySelector(`[data-level="${level.id}"]`);
       if (!card) return;
       const titleEl = card.querySelector('.level-node-title');
@@ -1012,7 +1028,7 @@ export function createLevelGridController({
       return;
     }
 
-    const level = levelLookup.get(activeLevelId);
+    const level = readLevelLookup().get(activeLevelId);
     const state = levelState.get(activeLevelId);
     if (!level || !state) {
       activeLevelEl.textContent = 'None selected';
