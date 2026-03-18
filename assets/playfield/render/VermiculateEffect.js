@@ -247,6 +247,17 @@ export function createVermiculateEffect() {
       tracers.push(_createTracer(W, H));
     }
     lastTs = null;
+
+    // Pre-warm: simulate several seconds of movement so every tracer already
+    // has a full trail by the first rendered frame.  Large dt steps keep the
+    // cost low while the angular modulation still produces smooth paths.
+    const PREWARM_DT    = 0.05;   // simulated seconds per step
+    const PREWARM_STEPS = 250;    // 250 × 0.05 s ≈ 12.5 simulated seconds
+    for (let s = 0; s < PREWARM_STEPS; s++) {
+      for (const t of tracers) {
+        _step(t, PREWARM_DT, W, H);
+      }
+    }
   }
 
   // ── Step a single tracer ──────────────────────────────────────────────────
@@ -296,10 +307,18 @@ export function createVermiculateEffect() {
   // ── Update ────────────────────────────────────────────────────────────────
 
   function update(now, W, H) {
+    // Re-initialize when tracers don't exist yet OR when the viewport has
+    // changed significantly (guards against initial layout at a small size).
+    const dimensionChanged = !tracers.length ||
+      Math.abs(W - _viewW) > 100 ||
+      Math.abs(H - _viewH) > 100;
+
     _viewW = W;
     _viewH = H;
 
-    if (!tracers.length) _init(W, H);
+    if (dimensionChanged) {
+      _init(W, H);
+    }
     _ensureDotSprites();
 
     const dt = lastTs === null ? 0.016 : Math.min((now - lastTs) / 1000, 0.1);

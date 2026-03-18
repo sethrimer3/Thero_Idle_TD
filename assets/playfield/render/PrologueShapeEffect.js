@@ -3,14 +3,25 @@
  *
  * Ambient background effect for the Prologue chapter.
  * Six invisible shapes (3 circles + 3 squares) drift slowly across the viewport.
- * Only where at least two shapes overlap does a faint silver-white glow become visible.
+ * Only where an EVEN number of shapes overlap (2, 4, 6…) does a faint silver-white
+ * glow become visible.  Where an ODD number overlap (1, 3, 5…) the region stays
+ * fully transparent, producing an XOR-style "cut-out" pattern.
  *
  * Circles translate only. Squares translate AND rotate slowly.
  *
- * Rendering technique: for each pair of the six shapes, clip the canvas to one
- * shape and fill the other.  Only the intersection area receives paint, making
- * individual shapes completely transparent while overlaps emit a soft glow.
- * The cost is C(6,2) = 15 clip-and-fill operations per frame – very lightweight.
+ * Rendering technique (XOR compositing):
+ *  1. Draw every shape onto an off-screen XOR canvas using the 'xor' composite
+ *     operation.  This toggles each pixel's opacity with each additional shape
+ *     that covers it: after all six shapes, pixels covered by an ODD number of
+ *     shapes are opaque; pixels covered by an EVEN number are transparent.
+ *  2. Draw every shape onto a union canvas using 'source-over' and the glow
+ *     colour.  This marks every covered pixel with the glow colour (accumulating
+ *     slightly in higher-overlap areas for a natural brightness gradient).
+ *  3. Apply 'destination-out' on the union canvas using the XOR canvas as source.
+ *     This erases the odd-overlap regions, leaving only even-overlap (≥ 2) areas.
+ *  4. Blit the union canvas to the main canvas.
+ *
+ * The two off-screen canvases are cached and only recreated on viewport resize.
  *
  * All positions are in logical CSS pixel screen-space so the effect stays fixed
  * to the viewport regardless of camera pan / zoom.
@@ -97,6 +108,39 @@ export function createPrologueShapeEffect() {
   let lastTimestamp  = null;
   let lastNudgeTime  = 0;
 
+  // Last known viewport dimensions (CSS px).  Used to detect when the canvas
+  // has been resized so we can reinitialize shapes to the new dimensions.
+  let _vpW = 0;
+  let _vpH = 0;
+
+  // Cached off-screen canvases for the XOR rendering technique.
+  // Recreated whenever the viewport dimensions change.
+  let _ocXor    = null;   // Accumulates odd-overlap mask via 'xor' composite.
+  let _ctxXor   = null;
+  let _ocUnion  = null;   // Accumulates all covered areas via 'source-over'.
+  let _ctxUnion = null;
+
+  // ─── Off-screen canvas helpers ───────────────────────────────────────────
+
+  /**
+   * Ensure the two off-screen canvases exist and match the given dimensions.
+   * Called every draw() with the current viewport size.
+   */
+  function _ensureOffscreenCanvases(W, H) {
+    if (_ocXor && _ocXor.width === W && _ocXor.height === H) {
+      return;
+    }
+    _ocXor          = document.createElement('canvas');
+    _ocXor.width    = W;
+    _ocXor.height   = H;
+    _ctxXor         = _ocXor.getContext('2d');
+
+    _ocUnion        = document.createElement('canvas');
+    _ocUnion.width  = W;
+    _ocUnion.height = H;
+    _ctxUnion       = _ocUnion.getContext('2d');
+  }
+
   // ─── Initialization ──────────────────────────────────────────────────────
 
   function init(width, height) {
@@ -142,7 +186,16 @@ export function createPrologueShapeEffect() {
    * @param {number} height  Viewport height in logical CSS pixels.
    */
   function update(nowMs, width, height) {
-    if (!shapes) {
+    // Re-initialize when shapes don't exist yet OR when the viewport dimensions
+    // have changed significantly (e.g. orientation flip or the canvas being
+    // measured at a small intermediate size during initial layout).
+    const dimensionChanged = !shapes ||
+      Math.abs(width  - _vpW) > 100 ||
+      Math.abs(height - _vpH) > 100;
+
+    if (dimensionChanged) {
+      _vpW = width;
+      _vpH = height;
       init(width, height);
       lastTimestamp = nowMs;
       lastNudgeTime = nowMs;
@@ -196,46 +249,75 @@ export function createPrologueShapeEffect() {
   // ─── Draw ────────────────────────────────────────────────────────────────
 
   /**
-   * Render the overlap-glow effect onto the supplied context.
+   * Render the overlap-glow effect onto the supplied context using XOR compositing.
+   *
+   * Pixels covered by an even number of shapes (2, 4, 6…) emit the glow colour.
+   * Pixels covered by an odd number (1, 3, 5…) remain fully transparent.
+   *
    * The context should already be transformed to logical CSS pixel space.
    *
    * @param {CanvasRenderingContext2D} ctx
    */
   function draw(ctx) {
-    if (!shapes) {
+    if (!shapes || !_vpW || !_vpH) {
       return;
     }
 
-    ctx.save();
-    ctx.fillStyle = `rgba(${GLOW_R}, ${GLOW_G}, ${GLOW_B}, ${GLOW_ALPHA})`;
+    _ensureOffscreenCanvases(_vpW, _vpH);
 
-    // For each pair (i, j), clip to shape i and fill shape j.
-    // Only the intersection region receives paint, so single-shape areas remain transparent.
-    for (let i = 0; i < shapes.length; i++) {
-      for (let j = i + 1; j < shapes.length; j++) {
-        ctx.save();
-        // Clipping region: shape i.
-        ctx.beginPath();
-        addShapePath(ctx, shapes[i]);
-        ctx.clip();
-        // Fill: shape j (only the intersection with the clip is rendered).
-        ctx.beginPath();
-        addShapePath(ctx, shapes[j]);
-        ctx.fill();
-        ctx.restore();
-      }
+    // ── Pass 1: XOR canvas ──────────────────────────────────────────────────
+    // Each shape drawn with 'xor' toggles its pixels: transparent → opaque on
+    // the first cover, opaque → transparent on the second (even), and so on.
+    // Result: odd-overlap pixels are opaque; even-overlap pixels are transparent.
+    _ctxXor.globalCompositeOperation = 'source-over';
+    _ctxXor.clearRect(0, 0, _vpW, _vpH);
+    _ctxXor.globalCompositeOperation = 'xor';
+    _ctxXor.fillStyle = 'rgba(255,255,255,1)';
+    for (const shape of shapes) {
+      _ctxXor.beginPath();
+      addShapePath(_ctxXor, shape);
+      _ctxXor.fill();
     }
 
+    // ── Pass 2: Union canvas ────────────────────────────────────────────────
+    // Draw every shape with 'source-over' and the glow colour.  Pixels covered
+    // by more shapes accumulate slightly higher brightness, preserving the
+    // natural overlap gradient from the previous pairwise technique.
+    _ctxUnion.globalCompositeOperation = 'source-over';
+    _ctxUnion.clearRect(0, 0, _vpW, _vpH);
+    _ctxUnion.fillStyle = `rgba(${GLOW_R}, ${GLOW_G}, ${GLOW_B}, ${GLOW_ALPHA})`;
+    for (const shape of shapes) {
+      _ctxUnion.beginPath();
+      addShapePath(_ctxUnion, shape);
+      _ctxUnion.fill();
+    }
+
+    // ── Pass 3: Remove odd-overlap regions ──────────────────────────────────
+    // 'destination-out' erases destination pixels wherever the source is opaque.
+    // The XOR canvas is opaque exactly where odd overlaps exist, so this step
+    // cuts out those regions, leaving only even-count (≥ 2) areas visible.
+    _ctxUnion.globalCompositeOperation = 'destination-out';
+    _ctxUnion.drawImage(_ocXor, 0, 0);
+
+    // ── Blit result onto main canvas ────────────────────────────────────────
+    ctx.save();
+    ctx.drawImage(_ocUnion, 0, 0);
     ctx.restore();
   }
 
   // ─── Reset ───────────────────────────────────────────────────────────────
 
-  /** Reset effect state so it reinitialises cleanly on next update(). */
+  /** Reset effect state so it reinitializes cleanly on next update(). */
   function reset() {
     shapes        = null;
     lastTimestamp = null;
     lastNudgeTime = 0;
+    _vpW          = 0;
+    _vpH          = 0;
+    _ocXor        = null;
+    _ctxXor       = null;
+    _ocUnion      = null;
+    _ctxUnion     = null;
   }
 
   return { update, draw, reset };
