@@ -583,13 +583,10 @@ export function drawChapter5TetrisBlocks() {
   // Advance simulation.
   _tetrisBlockEffect.update(nowMs, width, height);
 
-  // Draw in screen space (pixelRatio transform only) so blocks stay fixed to the
-  // viewport regardless of camera pan / zoom.
+  // Draw in world space: the ctx already carries the camera transform so the
+  // block cluster moves and scales correctly with the player's zoom / pan.
   const ctx = this.ctx;
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-
   ctx.save();
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _tetrisBlockEffect.draw(ctx);
   ctx.restore();
 }
@@ -650,13 +647,10 @@ export function drawChapter1Vermiculate() {
   // Advance simulation.
   _vermiculateEffect.update(nowMs, width, height);
 
-  // Draw in screen space (pixelRatio transform only) so worms stay fixed to the
-  // viewport regardless of camera pan / zoom.
+  // Draw in world space: the ctx already carries the camera transform so the
+  // worm paths move and scale correctly with the player's zoom / pan.
   const ctx = this.ctx;
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-
   ctx.save();
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _vermiculateEffect.draw(ctx);
   ctx.restore();
 }
@@ -718,13 +712,10 @@ export function drawChapter6Substrate() {
   // Advance simulation.
   _substrateEffect.update(nowMs, width, height);
 
-  // Draw in screen space (pixelRatio transform only) so the crack pattern stays
-  // fixed to the viewport regardless of camera pan / zoom.
+  // Draw in world space: the ctx already carries the camera transform so the
+  // crack pattern moves and scales correctly with the player's zoom / pan.
   const ctx = this.ctx;
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-
   ctx.save();
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _substrateEffect.draw(ctx);
   ctx.restore();
 }
@@ -784,24 +775,17 @@ export function drawGravityGrid() {
     _gravityGridEffect = createGravityGridEffect();
   }
 
-  // ── Collect game entities as gravity-well sources (screen-space) ──────
+  // ── Collect game entities as gravity-well sources (world-space) ───────
+  // Sources are passed in world coordinates – no screen-space conversion
+  // needed now that the effect is drawn in the camera's world transform.
   const sources = [];
-  const scale   = this.viewScale || 1;
-  const center  = this.getViewCenter ? this.getViewCenter() : { x: width * 0.5, y: height * 0.5 };
-
-  // Helper: convert a world-space point to screen-space CSS pixels.
-  const toScreen = (wx, wy) => ({
-    x: width  * 0.5 + (wx - center.x) * scale,
-    y: height * 0.5 + (wy - center.y) * scale,
-  });
 
   // Towers → gravity wells.
   if (this.towers) {
     for (let i = 0; i < this.towers.length; i++) {
       const t = this.towers[i];
       if (!t || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
-      const sp = toScreen(t.x, t.y);
-      sources.push({ x: sp.x, y: sp.y, mass: 2, radius: 20 });
+      sources.push({ x: t.x, y: t.y, mass: 2, radius: 20 });
     }
   }
 
@@ -812,8 +796,7 @@ export function drawGravityGrid() {
       if (!e) continue;
       const pos = this.getEnemyPosition ? this.getEnemyPosition(e) : null;
       if (!pos) continue;
-      const sp = toScreen(pos.x, pos.y);
-      sources.push({ x: sp.x, y: sp.y, mass: 1, radius: 12 });
+      sources.push({ x: pos.x, y: pos.y, mass: 1, radius: 12 });
     }
   }
 
@@ -821,14 +804,8 @@ export function drawGravityGrid() {
   if (this.pathPoints && this.pathPoints.length >= 2) {
     const first = this.pathPoints[0];
     const last  = this.pathPoints[this.pathPoints.length - 1];
-    if (first) {
-      const sp = toScreen(first.x, first.y);
-      sources.push({ x: sp.x, y: sp.y, mass: 3, radius: 25 });
-    }
-    if (last) {
-      const sp = toScreen(last.x, last.y);
-      sources.push({ x: sp.x, y: sp.y, mass: 3, radius: 25 });
-    }
+    if (first) sources.push({ x: first.x, y: first.y, mass: 3, radius: 25 });
+    if (last)  sources.push({ x: last.x,  y: last.y,  mass: 3, radius: 25 });
   }
 
   // Current high-resolution timestamp from the frame cache.
@@ -837,13 +814,11 @@ export function drawGravityGrid() {
   // Advance simulation with game-entity gravity sources.
   _gravityGridEffect.update(nowMs, width, height, sources);
 
-  // Draw in screen space (pixelRatio transform only) so the grid stays fixed
-  // to the viewport regardless of camera pan / zoom.
+  // Draw in world space: the ctx already carries the camera transform set by
+  // CanvasRenderer.draw(), so the grid, balls, and particles all move and scale
+  // correctly with the player's zoom / pan.
   const ctx = this.ctx;
-  const pixelRatio = Math.max(1, this.pixelRatio || 1);
-
   ctx.save();
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   _gravityGridEffect.draw(ctx);
   ctx.restore();
 }
