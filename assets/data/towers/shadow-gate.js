@@ -4,7 +4,7 @@
  */
 export const SHADOW_GATE_TOWER = Object.freeze({
   id: 'shadow-gate',
-  symbol: '𝔖',
+  symbol: '℘',
   name: 'Shadow Gate',
   tier: 0,
   tierLabel: 'Origin',

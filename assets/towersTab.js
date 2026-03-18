@@ -1828,6 +1828,10 @@ export function annotateTowerCardsWithCost() {
     if (!towerId) {
       return;
     }
+    // Gate towers are free and intentionally display no cost line.
+    if (towerId === 'mind-gate' || towerId === 'shadow-gate') {
+      return;
+    }
     const definition = getTowerDefinition(towerId);
     if (!definition) {
       return;
