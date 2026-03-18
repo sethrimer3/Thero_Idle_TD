@@ -553,6 +553,9 @@ import {
   formatRelativeTime,
 } from './formatHelpers.js';
 import { clampNormalizedCoordinate } from './geometryHelpers.js';
+import { createIdleResourceBankController } from './idleResourceBankController.js';
+import { createPlayfieldLayoutController } from './playfieldLayoutController.js';
+import { createSpireCameraController } from './spireCameraController.js';
 
 (() => {
   'use strict';
@@ -724,29 +727,39 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   let developerInfiniteTheroEnabled = false;
 
   let playfield = null;
-  // Track layout elements so the UI can swap between the battlefield and level grid.
-  let playfieldWrapper = null;
-  let stageControls = null;
-  let levelSelectionSection = null;
   let activeLevelIsInteractive = false;
   let playfieldMenuController = null;
   let audioManager = null;
-  // Track the current playfield fullscreen state so UI and layout stay in sync.
-  let playfieldFullscreenActive = false;
-  // Cache the fullscreen toggle button once the DOM is available.
-  let playfieldFullscreenButton = null;
 
-  // Keep the playfield visual settings toggle in sync with whether an interactive defense is running.
-  function syncPlayfieldSettingsVisibility() {
-    const playfieldSettingsWrapper = document.getElementById('playfield-settings-wrapper');
-    if (!playfieldSettingsWrapper) {
-      return;
-    }
+  // ── Playfield layout controller (extracted from main.js) ──────────────
+  const layoutCtrl = createPlayfieldLayoutController({
+    getPlayfield: () => playfield,
+    getActiveLevelId: () => activeLevelId,
+    getActiveLevelIsInteractive: () => activeLevelIsInteractive,
+    getPlayfieldMenuController: () => playfieldMenuController,
+  });
 
-    const shouldShowSettings = Boolean(activeLevelId && activeLevelIsInteractive);
-    playfieldSettingsWrapper.hidden = !shouldShowSettings;
-    playfieldSettingsWrapper.setAttribute('aria-hidden', shouldShowSettings ? 'false' : 'true');
-  }
+  // Thin delegates so existing call sites continue to work unchanged.
+  const syncPlayfieldSettingsVisibility = layoutCtrl.syncPlayfieldSettingsVisibility;
+  const togglePlayfieldFullscreen = layoutCtrl.togglePlayfieldFullscreen;
+  const syncPlayfieldFullscreenState = layoutCtrl.syncPlayfieldFullscreenState;
+  const updatePlayfieldFullscreenButton = layoutCtrl.updatePlayfieldFullscreenButton;
+  const updateLayoutVisibility = layoutCtrl.updateLayoutVisibility;
+
+
+  const playfieldElements = {
+    container: null,
+    canvas: null,
+    message: null,
+    wave: null,
+    health: null,
+    energy: null,
+    progress: null,
+    startButton: null,
+    speedButton: null,
+    autoAnchorButton: null,
+    slots: [],
+  };
 
   // Developer layer toggles – bind checkboxes to setDevLayerVisible and update state labels.
   const devLayerToggleConfigs = [
@@ -815,147 +828,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
       });
     }
   }
-
-  /**
-   * Resolve the active fullscreen element across browser implementations.
-   * @returns {Element|null} The fullscreen element, if any.
-   */
-  function getFullscreenElement() {
-    return document.fullscreenElement || document.webkitFullscreenElement || null;
-  }
-
-  /**
-   * Update the fullscreen toggle button text and accessibility labels.
-   * @param {boolean} isFullscreen - Whether fullscreen mode is active.
-   */
-  function updatePlayfieldFullscreenButton(isFullscreen) {
-    if (!playfieldFullscreenButton) {
-      return;
-    }
-    const label = isFullscreen ? 'Exit full screen' : 'Enter full screen';
-    playfieldFullscreenButton.textContent = isFullscreen ? '⤡' : '⤢';
-    playfieldFullscreenButton.setAttribute('aria-label', label);
-    playfieldFullscreenButton.setAttribute('title', label);
-  }
-
-  /**
-   * Apply or clear the fullscreen layout styles for the playfield.
-   * @param {boolean} isFullscreen - Whether fullscreen mode should be active.
-   */
-  function applyPlayfieldFullscreenStyles(isFullscreen) {
-    document.body.classList.toggle('playfield-fullscreen', isFullscreen);
-    updatePlayfieldFullscreenButton(isFullscreen);
-    if (playfield && typeof playfield.determinePreferredOrientation === 'function') {
-      // Recalculate orientation after viewport changes to keep path geometry aligned.
-      playfield.layoutOrientation = playfield.determinePreferredOrientation();
-      playfield.applyLevelOrientation();
-      playfield.applyContainerOrientationClass();
-      playfield.syncCanvasSize();
-    }
-  }
-
-  /**
-   * Request browser fullscreen for the playfield wrapper when supported.
-   * @returns {boolean} True if a fullscreen request was initiated.
-   */
-  function requestPlayfieldFullscreen() {
-    if (!playfieldWrapper) {
-      return false;
-    }
-    const request = playfieldWrapper.requestFullscreen || playfieldWrapper.webkitRequestFullscreen;
-    if (typeof request === 'function') {
-      request.call(playfieldWrapper);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Exit browser fullscreen when supported.
-   * @returns {boolean} True if an exit request was initiated.
-   */
-  function exitPlayfieldFullscreen() {
-    const exit = document.exitFullscreen || document.webkitExitFullscreen;
-    if (typeof exit === 'function') {
-      exit.call(document);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Sync internal fullscreen state with the browser fullscreen API.
-   */
-  function syncPlayfieldFullscreenState() {
-    const isBrowserFullscreen = Boolean(getFullscreenElement());
-    if (playfieldFullscreenActive !== isBrowserFullscreen) {
-      playfieldFullscreenActive = isBrowserFullscreen;
-      applyPlayfieldFullscreenStyles(playfieldFullscreenActive);
-    }
-  }
-
-  /**
-   * Toggle playfield fullscreen and fall back to CSS-only if the API is unavailable.
-   */
-  function togglePlayfieldFullscreen() {
-    const shouldEnter = !playfieldFullscreenActive;
-    playfieldFullscreenActive = shouldEnter;
-    applyPlayfieldFullscreenStyles(shouldEnter);
-    if (shouldEnter) {
-      requestPlayfieldFullscreen();
-    } else {
-      exitPlayfieldFullscreen();
-    }
-  }
-
-  function updateLayoutVisibility() {
-    // Hide the battlefield until an interactive level is in progress.
-    const shouldShowPlayfield = Boolean(activeLevelId && activeLevelIsInteractive);
-    setElementVisibility(playfieldWrapper, shouldShowPlayfield);
-    setElementVisibility(stageControls, shouldShowPlayfield);
-    setElementVisibility(levelSelectionSection, !shouldShowPlayfield);
-
-    // Keep the playfield settings panel aligned with the current layout state.
-    syncPlayfieldSettingsVisibility();
-
-    if (!shouldShowPlayfield) {
-      // Exit fullscreen when leaving the battlefield layout to avoid trapping the UI.
-      if (playfieldFullscreenActive) {
-        playfieldFullscreenActive = false;
-        applyPlayfieldFullscreenStyles(false);
-        exitPlayfieldFullscreen();
-      }
-      if (playfieldMenuController) {
-        playfieldMenuController.closeMenu();
-        playfieldMenuController.resetStatsPanelState();
-      }
-      return;
-    }
-
-    if (playfield && typeof playfield.syncCanvasSize === 'function') {
-      // Refresh the canvas geometry once the battlefield becomes visible again.
-      playfield.syncCanvasSize();
-    }
-
-    if (playfieldMenuController) {
-      playfieldMenuController.syncStatsPanelVisibility();
-    }
-  }
-
-
-  const playfieldElements = {
-    container: null,
-    canvas: null,
-    message: null,
-    wave: null,
-    health: null,
-    energy: null,
-    progress: null,
-    startButton: null,
-    speedButton: null,
-    autoAnchorButton: null,
-    slots: [],
-  };
 
   const levelEditor = createLevelEditorController({
     playfieldElements,
@@ -1374,6 +1246,29 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
   // Surface the active powder simulation so Aleph visual preferences can reapply on swaps.
   setPowderSimulationGetter(() => powderSimulation);
 
+  // ── Idle resource bank controller (extracted from main.js) ────────────
+  const idleBankCtrl = createIdleResourceBankController({
+    powderState,
+    getSandSimulation: () => sandSimulation,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    schedulePowderBasinSave,
+    updateStatusDisplays,
+  });
+
+  // Thin delegates so existing call sites continue to work unchanged.
+  const getCurrentIdleMoteBank = idleBankCtrl.getCurrentIdleMoteBank;
+  const getCurrentMoteDispenseRate = idleBankCtrl.getCurrentMoteDispenseRate;
+  const getCurrentFluidDropBank = idleBankCtrl.getCurrentFluidDropBank;
+  const spendFluidSerendipity = idleBankCtrl.spendFluidSerendipity;
+  const getCurrentFluidDispenseRate = idleBankCtrl.getCurrentFluidDispenseRate;
+  const addIdleMoteBank = idleBankCtrl.addIdleMoteBank;
+  const getLamedSparkBank = idleBankCtrl.getLamedSparkBank;
+  const setLamedSparkBank = idleBankCtrl.setLamedSparkBank;
+  const getTsadiParticleBank = idleBankCtrl.getTsadiParticleBank;
+  const setTsadiParticleBank = idleBankCtrl.setTsadiParticleBank;
+  const flushPendingMoteDrops = idleBankCtrl.flushPendingMoteDrops;
+
   // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
   const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
   const TSADI_STATUS_BASE_MESSAGE = (tsadiStatusNoteElement?.textContent || '').trim()
@@ -1652,113 +1547,32 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     isDeveloperModeActive: () => developerModeActive,
   });
 
-  function resetPowderCameraTransform() {
-    if (!powderSimulation || powderSimulation === fluidSimulationInstance) {
-      return;
-    }
-    // Restore the Aleph spire camera to its default framing when controls are disabled.
-    if (typeof powderSimulation.setZoom === 'function') {
-      powderSimulation.setZoom(1);
-    } else if (typeof powderSimulation.applyZoomFactor === 'function') {
-      const currentScale = powderSimulation.getViewTransform?.()?.scale || 1;
-      if (Math.abs(currentScale - 1) > 0.0001) {
-        powderSimulation.applyZoomFactor(1 / currentScale);
-      }
-    }
-    if (typeof powderSimulation.setViewCenterNormalized === 'function') {
-      powderSimulation.setViewCenterNormalized({ x: 0.5, y: 0.5 });
-    }
-    handlePowderViewTransformChange(powderSimulation.getViewTransform());
-  }
+  // ── Spire camera controller (extracted from main.js) ──────────────────
+  const cameraCtrl = createSpireCameraController({
+    powderState,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    getSandSimulation: () => sandSimulation,
+    getFluidElements: () => fluidElements,
+    getFluidTerrariumTrees: () => null,
+    handlePowderViewTransformChange,
+    handlePowderWallMetricsChange,
+    schedulePowderBasinSave,
+  });
 
-  // Toggle Aleph spire camera controls and optionally reset the view transform.
-  function setPowderCameraMode(enabled, options = {}) {
-    const nextState = Boolean(enabled);
-    const skipTransformReset = Boolean(options.skipTransformReset);
-    powderState.alephCameraMode = nextState;
-    if (!nextState && !skipTransformReset) {
-      if (powderSimulation) {
-        resetPowderCameraTransform();
-      } else {
-        // Cache a default transform so future sessions start centered when camera controls are off.
-        powderState.viewTransform = { scale: 1, normalizedCenter: { x: 0.5, y: 0.5 } };
-      }
-    }
-  }
+  // Thin delegates so existing call sites continue to work unchanged.
+  const resetPowderCameraTransform = cameraCtrl.resetPowderCameraTransform;
+  const setPowderCameraMode = cameraCtrl.setPowderCameraMode;
+  const resetFluidCameraTransform = cameraCtrl.resetFluidCameraTransform;
+  const syncFluidCameraModeUi = cameraCtrl.syncFluidCameraModeUi;
+  const setFluidCameraMode = cameraCtrl.setFluidCameraMode;
+  const bindFluidCameraModeToggle = cameraCtrl.bindFluidCameraModeToggle;
+  const refreshPowderWallDecorations = cameraCtrl.refreshPowderWallDecorations;
 
   // Hook the Aleph spire settings toggle into the camera control handler.
   setPowderCameraModeHandler((enabled) => {
     setPowderCameraMode(enabled);
   });
-
-  function resetFluidCameraTransform() {
-    if (!fluidSimulationInstance || typeof fluidSimulationInstance.getViewTransform !== 'function') {
-      return;
-    }
-    if (typeof fluidSimulationInstance.setViewScale === 'function') {
-      fluidSimulationInstance.setViewScale(1);
-    } else if (typeof fluidSimulationInstance.applyZoomFactor === 'function') {
-      const currentScale = fluidSimulationInstance.getViewTransform()?.scale || 1;
-      if (Math.abs(currentScale - 1) > 0.0001) {
-        fluidSimulationInstance.applyZoomFactor(1 / currentScale);
-      }
-    }
-    if (typeof fluidSimulationInstance.setViewCenterNormalized === 'function') {
-      fluidSimulationInstance.setViewCenterNormalized({ x: 0.5, y: 0.5 });
-    }
-    handlePowderViewTransformChange(fluidSimulationInstance.getViewTransform());
-  }
-
-  function syncFluidCameraModeUi() {
-    const enabled = Boolean(powderState.betTerrarium?.cameraMode);
-    if (fluidElements.viewport) {
-      fluidElements.viewport.classList.toggle('fluid-viewport--camera-locked', !enabled);
-    }
-    if (fluidElements.cameraModeToggle) {
-      fluidElements.cameraModeToggle.classList.toggle('is-active', enabled);
-      fluidElements.cameraModeToggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    }
-    if (fluidElements.cameraModeStateLabel) {
-      fluidElements.cameraModeStateLabel.textContent = enabled ? 'On' : 'Off';
-    }
-    if (fluidElements.cameraModeHint) {
-      fluidElements.cameraModeHint.textContent = '';
-      fluidElements.cameraModeHint.hidden = true;
-    }
-  }
-
-  function setFluidCameraMode(enabled, options = {}) {
-    const nextState = Boolean(enabled);
-    const skipTransformReset = Boolean(options.skipTransformReset);
-    const skipSave = Boolean(options.skipSave);
-    if (!powderState.betTerrarium) {
-      powderState.betTerrarium = {};
-    }
-    powderState.betTerrarium.cameraMode = nextState;
-
-    if (fluidTerrariumTrees?.setCameraMode) {
-      fluidTerrariumTrees.setCameraMode(nextState, { notifyHost: false });
-    }
-
-    syncFluidCameraModeUi();
-
-    if (!nextState && !skipTransformReset) {
-      resetFluidCameraTransform();
-    }
-
-    if (!skipSave) {
-      schedulePowderBasinSave();
-    }
-  }
-
-  function bindFluidCameraModeToggle() {
-    if (!fluidElements.cameraModeToggle) {
-      return;
-    }
-    fluidElements.cameraModeToggle.addEventListener('click', () => {
-      setFluidCameraMode(!powderState.betTerrarium?.cameraMode);
-    });
-  }
 
   const {
     idleLevelRuns,
@@ -1776,14 +1590,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     getActiveLevelId: () => activeLevelId,
     getPlayfieldElements: () => playfieldElements,
   });
-
-  // Convenience helper so developer toggles can refresh the powder walls without duplicating logic.
-  const refreshPowderWallDecorations = () => {
-    handlePowderWallMetricsChange(
-      powderSimulation ? powderSimulation.getWallMetrics() : null,
-      powderSimulation === fluidSimulationInstance ? 'fluid' : 'sand',
-    );
-  };
 
   const { initializeManualDropHandlers } = createManualDropController({
     getActiveTabId,
@@ -3375,178 +3181,6 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
     }, 1000 / 30);
   }
 
-  // Surface the live idle mote bank so developer controls and HUD panels can sync immediately.
-  function getCurrentIdleMoteBank() {
-    if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleBank)) {
-      const bank = Math.max(0, sandSimulation.idleBank);
-      powderState.idleMoteBank = bank;
-      powderState.idleBankHydrated = true;
-      return bank;
-    }
-    return Math.max(0, powderState.idleMoteBank || 0);
-  }
-
-  // Provide the active mote dispense rate exposed by the current simulation profile or powder state.
-  function getCurrentMoteDispenseRate() {
-    if (powderSimulation === sandSimulation && sandSimulation && Number.isFinite(sandSimulation.idleDrainRate)) {
-      if (sandSimulation.spawnEnabled === false) {
-        return 0;
-      }
-      const idleRate = Math.max(0, sandSimulation.idleDrainRate);
-      powderState.idleDrainRate = idleRate;
-
-      // Include ambient fall cadence so the HUD matches the visible mote stream, not just bank conversion throughput.
-      let ambientRate = 0;
-      const ambientCanFlow =
-        Number.isFinite(sandSimulation.idleBank) &&
-        sandSimulation.idleBank > 1e-6 &&
-        Number.isFinite(sandSimulation.flowOffset) &&
-        sandSimulation.flowOffset > 0 &&
-        idleRate > 0;
-      if (ambientCanFlow) {
-        const interval =
-          typeof sandSimulation.getSpawnInterval === 'function'
-            ? sandSimulation.getSpawnInterval()
-            : sandSimulation.baseSpawnInterval;
-        if (Number.isFinite(interval) && interval > 0) {
-          ambientRate = 1000 / Math.max(16, interval);
-        }
-      }
-
-      return idleRate + ambientRate;
-    }
-    return Math.max(0, powderState.idleDrainRate || 0);
-  }
-
-  function getCurrentFluidDropBank() {
-    return 0;
-  }
-
-  /**
-   * Deduct Scintillae (fluid idle bank) for interactive Bet Spire upgrades.
-   * @param {number} amount
-   * @returns {number} - Actual Scintillae spent
-   */
-  function spendFluidSerendipity(amount) {
-    return 0;
-  }
-
-  function getCurrentFluidDispenseRate() {
-    if (fluidSimulationInstance && Number.isFinite(fluidSimulationInstance.idleDrainRate)) {
-      const rate = Math.max(0, fluidSimulationInstance.idleDrainRate);
-      powderState.fluidIdleDrainRate = rate;
-      return rate;
-    }
-    return Math.max(0, powderState.fluidIdleDrainRate || 0);
-  }
-
-  function addIdleMoteBank(amount, options = {}) {
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return;
-    }
-
-    const target = options && typeof options === 'object' ? options.target : undefined;
-    let targetIsFluid;
-    if (target === 'bet') {
-      targetIsFluid = true;
-    } else if (target === 'aleph') {
-      targetIsFluid = false;
-    } else {
-      targetIsFluid =
-        powderSimulation === fluidSimulationInstance ||
-        (!powderSimulation && powderState.simulationMode === 'fluid');
-    }
-
-    const simulationTarget = targetIsFluid ? fluidSimulationInstance : sandSimulation;
-
-    if (simulationTarget && typeof simulationTarget.addIdleMotes === 'function') {
-      simulationTarget.addIdleMotes(amount);
-      if (!targetIsFluid) {
-        powderState.idleMoteBank = Math.max(0, simulationTarget.idleBank);
-        powderState.idleBankHydrated = simulationTarget === powderSimulation;
-      }
-    } else if (!targetIsFluid) {
-      const current = Number.isFinite(powderState.idleMoteBank) ? powderState.idleMoteBank : 0;
-      powderState.idleMoteBank = Math.max(0, current + amount);
-      powderState.idleBankHydrated = false;
-    }
-
-    // Persist idle bank adjustments so offline rewards survive tab closures.
-    schedulePowderBasinSave();
-    updateStatusDisplays();
-  }
-
-  // Lamed spire spark bank getter/setter functions
-  function getLamedSparkBank() {
-    return Math.max(0, powderState.lamedSparkBank || 0);
-  }
-
-  function setLamedSparkBank(amount) {
-    if (!Number.isFinite(amount)) {
-      return;
-    }
-    powderState.lamedSparkBank = Math.max(0, amount);
-    schedulePowderBasinSave();
-    return powderState.lamedSparkBank;
-  }
-
-  // Tsadi spire particle bank getter/setter functions
-  function getTsadiParticleBank() {
-    return Math.max(0, powderState.tsadiParticleBank || 0);
-  }
-
-  function setTsadiParticleBank(amount) {
-    if (!Number.isFinite(amount)) {
-      return;
-    }
-    powderState.tsadiParticleBank = Math.max(0, amount);
-    schedulePowderBasinSave();
-    return powderState.tsadiParticleBank;
-  }
-
-  function flushPendingMoteDrops() {
-    if (!powderSimulation || typeof powderSimulation.queueDrop !== 'function') {
-      return;
-    }
-    const isFluid = powderSimulation === fluidSimulationInstance;
-    const pendingDrops = isFluid ? powderState.pendingFluidDrops : powderState.pendingMoteDrops;
-    if (pendingDrops.length) {
-      pendingDrops.forEach((drop) => {
-        const sizeValue = Number.isFinite(drop?.size) ? drop.size : drop;
-        if (!Number.isFinite(sizeValue)) {
-          return;
-        }
-        const normalized = Math.max(1, Math.round(sizeValue));
-        const payload = drop && typeof drop === 'object' && drop.color && typeof drop.color === 'object'
-          ? { size: normalized, color: { ...drop.color } }
-          : { size: normalized };
-        powderSimulation.queueDrop(payload);
-      });
-      pendingDrops.length = 0;
-    }
-    const bankKey = isFluid ? 'fluidIdleBank' : 'idleMoteBank';
-    const hydratedKey = isFluid ? 'fluidBankHydrated' : 'idleBankHydrated';
-    if (!isFluid) {
-      const pendingBank = Math.max(0, Number.isFinite(powderState[bankKey]) ? powderState[bankKey] : 0);
-      if (pendingBank > 0) {
-        const simulationBank = Number.isFinite(powderSimulation.idleBank)
-          ? Math.max(0, powderSimulation.idleBank)
-          : 0;
-        const shouldInject = !powderState[hydratedKey] || Math.abs(simulationBank - pendingBank) > 0.5;
-        if (shouldInject) {
-          powderSimulation.addIdleMotes(pendingBank);
-          powderState[bankKey] = 0;
-        } else {
-          powderState[bankKey] = simulationBank;
-        }
-        powderState[hydratedKey] = true;
-      }
-    }
-    // Flushes change the basin layout, so capture them for the next resume.
-    schedulePowderBasinSave();
-    updateStatusDisplays();
-  }
-
   function handlePlayfieldCombatStart(levelId) {
     if (!levelId) {
       return;
@@ -4487,21 +4121,8 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
         prompt: document.getElementById('level-story-prompt'),
       });
     }
-    // Cache layout toggles for switching between the level grid and battlefield.
-    playfieldWrapper = document.getElementById('playfield-wrapper');
-    stageControls = document.getElementById('stage-controls');
-    levelSelectionSection = document.getElementById('level-selection');
-    // Bind the playfield fullscreen control once the DOM is available.
-    playfieldFullscreenButton = document.getElementById('playfield-fullscreen-button');
-    if (playfieldFullscreenButton) {
-      playfieldFullscreenButton.addEventListener('click', () => {
-        togglePlayfieldFullscreen();
-      });
-      updatePlayfieldFullscreenButton(playfieldFullscreenActive);
-    }
-    // Keep the fullscreen state synced with browser-level changes (ESC, gesture exit).
-    document.addEventListener('fullscreenchange', syncPlayfieldFullscreenState);
-    document.addEventListener('webkitfullscreenchange', syncPlayfieldFullscreenState);
+    // Bind layout controller DOM references and fullscreen event listeners.
+    layoutCtrl.bindElements();
     if (playfieldMenuController) {
       // Wire the playfield quick menu buttons through the dedicated controller.
       playfieldMenuController.bindMenuElements({
