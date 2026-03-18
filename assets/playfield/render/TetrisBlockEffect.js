@@ -137,6 +137,11 @@ export function createTetrisBlockEffect() {
   let gridCols = 0;
   let gridRows = 0;
 
+  // Last dimensions at which initialize() was called.  Used to detect when
+  // the viewport has changed significantly and a re-initialisation is needed.
+  let _initW = 0;
+  let _initH = 0;
+
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   /** Derive grid dimensions from the current logical-pixel viewport size. */
@@ -201,11 +206,15 @@ export function createTetrisBlockEffect() {
     cells.clear();
     computeGrid(viewWidth, viewHeight);
 
-    const centerCol = Math.floor(gridCols / 2);
-    const centerRow = Math.floor(gridRows / 2);
+    // Choose a random starting position so the cluster does not always appear
+    // at the same spot when entering the chapter.  A margin keeps it away from
+    // the very edges where growth room would be limited.
+    const margin    = 3;
+    const startCol  = margin + Math.floor(Math.random() * Math.max(1, gridCols - 2 * margin));
+    const startRow  = margin + Math.floor(Math.random() * Math.max(1, gridRows - 2 * margin));
 
     const seed = buildSeedCluster(
-      centerCol, centerRow,
+      startCol, startRow,
       TARGET_CLUSTER,
       gridCols, gridRows,
     );
@@ -284,8 +293,14 @@ export function createTetrisBlockEffect() {
    * @param {number} viewHeight Viewport logical height in CSS pixels.
    */
   function update(nowMs, viewWidth, viewHeight) {
-    // Bootstrap on first call or after reset.
-    if (cells.size === 0) {
+    // Re-initialize on first call, after reset, or when the viewport dimensions
+    // have changed significantly (e.g. the canvas was measured at a small interim
+    // size during initial layout before stabilizing at its true dimensions).
+    if (cells.size === 0 ||
+        Math.abs(viewWidth  - _initW) > 100 ||
+        Math.abs(viewHeight - _initH) > 100) {
+      _initW = viewWidth;
+      _initH = viewHeight;
       initialize(viewWidth, viewHeight, nowMs);
     }
 
@@ -362,6 +377,8 @@ export function createTetrisBlockEffect() {
    */
   function reset() {
     cells.clear();
+    _initW = 0;
+    _initH = 0;
     lastStepMs = -1;
     lastDriftChangeMs = -1;
     lastTimestampMs = -1;

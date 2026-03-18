@@ -129,8 +129,13 @@ function createAchievementSparkle(host) {
   const sparkle = document.createElement('span');
   sparkle.className = 'achievement-sparkle';
 
-  const hostWidth = host.clientWidth || 1;
-  const hostHeight = host.clientHeight || 1;
+  const hostWidth = host.clientWidth;
+  const hostHeight = host.clientHeight;
+  // Skip creation when the host element has not yet been laid out (zero or
+  // near-zero dimensions) to prevent sparkles from clustering at (0, 0).
+  if (!hostWidth || !hostHeight) {
+    return;
+  }
   const size = 6;
   const left = Math.random() * Math.max(1, hostWidth - size);
   const top = Math.random() * Math.max(1, hostHeight - size);
