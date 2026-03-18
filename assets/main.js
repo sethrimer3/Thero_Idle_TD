@@ -1088,6 +1088,29 @@ import { createSpireCameraController } from './spireCameraController.js';
     setGlyphCurrency,
   });
 
+  // ── Idle resource bank controller (extracted from main.js) ────────────
+  const idleBankCtrl = createIdleResourceBankController({
+    powderState,
+    getSandSimulation: () => sandSimulation,
+    getPowderSimulation: () => powderSimulation,
+    getFluidSimulation: () => fluidSimulationInstance,
+    schedulePowderBasinSave,
+    updateStatusDisplays,
+  });
+
+  // Thin delegates so existing call sites continue to work unchanged.
+  const getCurrentIdleMoteBank = idleBankCtrl.getCurrentIdleMoteBank;
+  const getCurrentMoteDispenseRate = idleBankCtrl.getCurrentMoteDispenseRate;
+  const getCurrentFluidDropBank = idleBankCtrl.getCurrentFluidDropBank;
+  const spendFluidSerendipity = idleBankCtrl.spendFluidSerendipity;
+  const getCurrentFluidDispenseRate = idleBankCtrl.getCurrentFluidDispenseRate;
+  const addIdleMoteBank = idleBankCtrl.addIdleMoteBank;
+  const getLamedSparkBank = idleBankCtrl.getLamedSparkBank;
+  const setLamedSparkBank = idleBankCtrl.setLamedSparkBank;
+  const getTsadiParticleBank = idleBankCtrl.getTsadiParticleBank;
+  const setTsadiParticleBank = idleBankCtrl.setTsadiParticleBank;
+  const flushPendingMoteDrops = idleBankCtrl.flushPendingMoteDrops;
+
   // Controller that wires the floating spire navigation UI and count displays.
   spireMenuController = createSpireFloatingMenuController({
     formatGameNumber,
@@ -1245,29 +1268,6 @@ import { createSpireCameraController } from './spireCameraController.js';
 
   // Surface the active powder simulation so Aleph visual preferences can reapply on swaps.
   setPowderSimulationGetter(() => powderSimulation);
-
-  // ── Idle resource bank controller (extracted from main.js) ────────────
-  const idleBankCtrl = createIdleResourceBankController({
-    powderState,
-    getSandSimulation: () => sandSimulation,
-    getPowderSimulation: () => powderSimulation,
-    getFluidSimulation: () => fluidSimulationInstance,
-    schedulePowderBasinSave,
-    updateStatusDisplays,
-  });
-
-  // Thin delegates so existing call sites continue to work unchanged.
-  const getCurrentIdleMoteBank = idleBankCtrl.getCurrentIdleMoteBank;
-  const getCurrentMoteDispenseRate = idleBankCtrl.getCurrentMoteDispenseRate;
-  const getCurrentFluidDropBank = idleBankCtrl.getCurrentFluidDropBank;
-  const spendFluidSerendipity = idleBankCtrl.spendFluidSerendipity;
-  const getCurrentFluidDispenseRate = idleBankCtrl.getCurrentFluidDispenseRate;
-  const addIdleMoteBank = idleBankCtrl.addIdleMoteBank;
-  const getLamedSparkBank = idleBankCtrl.getLamedSparkBank;
-  const setLamedSparkBank = idleBankCtrl.setLamedSparkBank;
-  const getTsadiParticleBank = idleBankCtrl.getTsadiParticleBank;
-  const setTsadiParticleBank = idleBankCtrl.setTsadiParticleBank;
-  const flushPendingMoteDrops = idleBankCtrl.flushPendingMoteDrops;
 
   // Track Tsadi status messaging so advanced molecule unlocks surface clearly in the UI.
   const tsadiStatusNoteElement = document.getElementById('tsadi-status-note');
