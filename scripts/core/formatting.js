@@ -26,6 +26,7 @@ const numberSuffixes = [
 export const GAME_NUMBER_NOTATIONS = {
   LETTERS: 'letters',
   SCIENTIFIC: 'scientific',
+  ENGINEERING: 'engineering',
   ABC: 'abc',
 };
 
@@ -119,6 +120,16 @@ export function formatGameNumber(value) {
     const precision = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
     const formattedMantissa = mantissa.toFixed(precision);
     return `${formattedMantissa}e${exponent}`;
+  }
+
+  if (currentGameNumberNotation === GAME_NUMBER_NOTATIONS.ENGINEERING && absolute >= 1000) {
+    // Engineering notation uses exponents that are multiples of 3 (SI-style).
+    const engExponent = Math.floor(Math.log10(absolute) / 3) * 3;
+    const mantissa = value / 10 ** engExponent;
+    const magnitude = Math.abs(mantissa);
+    const precision = magnitude >= 100 ? 0 : magnitude >= 10 ? 1 : 2;
+    const formattedMantissa = mantissa.toFixed(precision);
+    return `${formattedMantissa}e${engExponent}`;
   }
 
   const clampedLetterTier = Math.min(tier, numberSuffixes.length - 1);

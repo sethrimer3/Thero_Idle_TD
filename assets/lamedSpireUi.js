@@ -57,10 +57,12 @@ function toggleDisabledState(button, isDisabled) {
  *
  * @param {Object} options
  * @param {Function} options.formatWholeNumber - Formatting helper provided by main.js.
+ * @param {Function} options.formatGameNumber - Notation-aware formatter for large costs.
  * @param {Document} [options.documentRef] - Optional document reference for testing.
  */
 export function createLamedSpireUi({
   formatWholeNumber,
+  formatGameNumber,
   documentRef = typeof document !== 'undefined' ? document : null,
 }) {
   const resolveElement = createElementResolver(documentRef);
@@ -71,6 +73,8 @@ export function createLamedSpireUi({
       return;
     }
     const stats = simulationInstance.getStatistics();
+    // Use notation-aware formatter for large costs when available.
+    const costFormatter = typeof formatGameNumber === 'function' ? formatGameNumber : formatWholeNumber;
     setTextContent(resolveElement('tier'), stats.currentTier ?? '–');
     const starMass = Number.isFinite(stats.starMass) ? stats.starMass.toFixed(2) : '0.00';
     setTextContent(resolveElement('starMass'), starMass);
@@ -114,7 +118,7 @@ export function createLamedSpireUi({
 
     const dragCostEl = resolveElement('dragCost');
     if (dragCostEl && typeof simulationInstance.getDragUpgradeCost === 'function') {
-      dragCostEl.textContent = formatWholeNumber(simulationInstance.getDragUpgradeCost());
+      dragCostEl.textContent = costFormatter(simulationInstance.getDragUpgradeCost());
     }
     const dragButton = resolveElement('dragButton');
     if (dragButton && typeof simulationInstance.canUpgradeDrag === 'function') {
@@ -127,7 +131,7 @@ export function createLamedSpireUi({
 
     const starMassCostEl = resolveElement('starMassCost');
     if (starMassCostEl && typeof simulationInstance.getStarMassUpgradeCost === 'function') {
-      starMassCostEl.textContent = formatWholeNumber(
+      starMassCostEl.textContent = costFormatter(
         simulationInstance.getStarMassUpgradeCost(),
       );
     }

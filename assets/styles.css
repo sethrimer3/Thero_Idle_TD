@@ -12211,6 +12211,14 @@ body.show-glyph-equations .tower-upgrade-variable-equations {
   max-width: min(calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
 }
 
+/* Center the gravitational metrics card and match it to the render width. */
+.lamed-metrics-card {
+  grid-column: 1 / -1;
+  width: min(100%, calc(100vw - 48px), calc((var(--stable-vh) - 220px) * 0.75));
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
 /* Lamed Spire Options Dropdown Card */
 .lamed-spire-options-card,
 .spire-options-card {
