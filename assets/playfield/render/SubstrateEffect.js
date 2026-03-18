@@ -365,7 +365,8 @@ export function createSubstrateEffect() {
    *
    * Each grain is a 1×1 px dot placed at a random offset along the
    * perpendicular axis.  Alpha falls off quadratically from the crack
-   * line toward the band edges, so the interior texture remains
+   * line toward the band edges, with additional per-grain random
+   * variation (0.3× – 1.0×) for organic texture.  The result remains
    * whisper-faint and restrained.
    */
   function _drawDeposition(cx, cy, angle, r, g, b) {
