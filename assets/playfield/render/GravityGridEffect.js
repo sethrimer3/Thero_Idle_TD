@@ -125,6 +125,24 @@ const PARTICLE_ALPHA = 0.60;
 const SMALL_BALL_MASS = 1.5;
 const LARGE_BALL_MASS = 3.0;
 
+// ─── Source-spring tuning ─────────────────────────────────────────────────────
+
+/** Rate constant (1/s) at which a newly-added external source's effective mass
+ *  springs from 0 toward its target.  At this rate it reaches ~63 % in one time
+ *  constant (≈ 0.35 s) and ~95 % in three (≈ 1.05 s). */
+const SOURCE_SPRING_IN_RATE  = 1 / 0.35;
+
+/** Rate constant (1/s) at which a removed external source's effective mass
+ *  decays back toward zero after the entity disappears. */
+const SOURCE_SPRING_OUT_RATE = 1 / 0.50;
+
+/** Squared pixel radius used when matching an incoming entity to an existing
+ *  smoothed-source entry.  Sources farther apart than this are treated as new. */
+const SOURCE_MATCH_DIST_SQ = 80 * 80;
+
+/** Effective mass below which a dying smoothed source is culled entirely. */
+const SOURCE_CULL_MASS = 0.02;
+
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
 const TWO_PI = Math.PI * 2;
@@ -265,6 +283,11 @@ export function createGravityGridEffect() {
   let _gridBuf     = null;
   let _gridBufSize = 0;
 
+  // Smoothed external sources – each entry tracks a game entity across frames and
+  // spring-interpolates its effective mass so the grid warp eases in/out rather
+  // than snapping instantly when towers are placed or enemies die.
+  let _smoothedSources = [];
+
   // ── Sprite cache ──────────────────────────────────────────────────────────
 
   function _ensureSprites() {
@@ -287,10 +310,11 @@ export function createGravityGridEffect() {
       b.x = W * 0.15 + Math.random() * W * 0.7;
       b.y = H * 0.15 + Math.random() * H * 0.7;
     }
-    particles = [];
-    lastTs    = null;
-    _gridCols = Math.floor(W / GRID_SPACING) + 2;
-    _gridRows = Math.floor(H / GRID_SPACING) + 2;
+    particles        = [];
+    lastTs           = null;
+    _gridCols        = Math.floor(W / GRID_SPACING) + 2;
+    _gridRows        = Math.floor(H / GRID_SPACING) + 2;
+    _smoothedSources = [];
   }
 
   // ── Ball explosion ────────────────────────────────────────────────────────
@@ -336,6 +360,90 @@ export function createGravityGridEffect() {
     }
   }
 
+  // ── Smoothed source reconciliation ───────────────────────────────────────
+
+  /**
+   * Reconcile the incoming raw entity sources with the persistent smoothed-source
+   * list, then advance each entry's spring-interpolated effective mass.
+   *
+   * New sources spring in from mass 0 → target over ~SOURCE_SPRING_IN_RATE⁻¹ s.
+   * Removed sources spring out from current mass → 0 over ~SOURCE_SPRING_OUT_RATE⁻¹ s.
+   *
+   * @param {number} dt              Frame delta-time in seconds.
+   * @param {Array|null} rawSources  Raw `[{x,y,mass,radius}]` from the game state.
+   */
+  function _updateSmoothedSources(dt, rawSources) {
+    // Clear match flags from the previous frame.
+    for (let i = 0; i < _smoothedSources.length; i++) {
+      _smoothedSources[i]._matched = false;
+    }
+
+    // Match each incoming source to the nearest unmatched smoothed entry.
+    if (rawSources) {
+      for (let ri = 0; ri < rawSources.length; ri++) {
+        const rs = rawSources[ri];
+        let bestIdx = -1;
+        let bestDSq = SOURCE_MATCH_DIST_SQ;
+
+        for (let si = 0; si < _smoothedSources.length; si++) {
+          const ss = _smoothedSources[si];
+          if (ss._matched) continue;
+          const ddx = ss.x - rs.x;
+          const ddy = ss.y - rs.y;
+          const dSq = ddx * ddx + ddy * ddy;
+          if (dSq < bestDSq) {
+            bestDSq = dSq;
+            bestIdx = si;
+          }
+        }
+
+        if (bestIdx >= 0) {
+          // Update the matched entry's target state.
+          const ss          = _smoothedSources[bestIdx];
+          ss.x              = rs.x;
+          ss.y              = rs.y;
+          ss.targetMass     = rs.mass || 1;
+          ss.radius         = rs.radius || 10;
+          ss.dying          = false;
+          ss._matched       = true;
+        } else {
+          // No match found – add a fresh entry that springs in from zero.
+          _smoothedSources.push({
+            x:           rs.x,
+            y:           rs.y,
+            targetMass:  rs.mass || 1,
+            radius:      rs.radius || 10,
+            currentMass: 0,
+            dying:       false,
+            _matched:    true,
+          });
+        }
+      }
+    }
+
+    // Any unmatched entries belong to entities that have departed – start spring-out.
+    for (let i = 0; i < _smoothedSources.length; i++) {
+      if (!_smoothedSources[i]._matched) {
+        _smoothedSources[i].dying = true;
+      }
+    }
+
+    // Advance spring interpolation and cull fully-decayed entries.
+    for (let i = _smoothedSources.length - 1; i >= 0; i--) {
+      const ss = _smoothedSources[i];
+      if (ss.dying) {
+        // Exponential decay toward 0.
+        ss.currentMass -= ss.currentMass * SOURCE_SPRING_OUT_RATE * dt;
+        if (ss.currentMass < SOURCE_CULL_MASS) {
+          _smoothedSources.splice(i, 1);
+        }
+      } else {
+        // Exponential approach toward target mass.
+        ss.currentMass += (ss.targetMass - ss.currentMass) * SOURCE_SPRING_IN_RATE * dt;
+      }
+    }
+  }
+
   // ── Update ────────────────────────────────────────────────────────────────
 
   /**
@@ -363,7 +471,10 @@ export function createGravityGridEffect() {
     const dt = lastTs === null ? 0.016 : Math.min((nowMs - lastTs) / 1000, 0.1);
     lastTs = nowMs;
 
-    // ── Build unified source list (balls + external entities) ───────────
+    // ── Update smoothed external sources (spring animation) ────────────
+    _updateSmoothedSources(dt, externalSources);
+
+    // ── Build unified source list (balls + smoothed external entities) ──
     const allSources = [];
     for (const b of balls) {
       if (b.alive) {
@@ -373,17 +484,17 @@ export function createGravityGridEffect() {
         });
       }
     }
-    if (externalSources) {
-      for (let i = 0; i < externalSources.length; i++) {
-        const s = externalSources[i];
-        allSources.push({
-          x: s.x, y: s.y,
-          mass: s.mass || 1,
-          radius: s.radius || 10,
-          type: 'gravity',
-          _ball: null,
-        });
-      }
+    // Use spring-interpolated masses so grid warp eases in/out smoothly.
+    for (let i = 0; i < _smoothedSources.length; i++) {
+      const ss = _smoothedSources[i];
+      if (ss.currentMass <= SOURCE_CULL_MASS) continue;
+      allSources.push({
+        x: ss.x, y: ss.y,
+        mass: ss.currentMass,
+        radius: ss.radius,
+        type: 'gravity',
+        _ball: null,
+      });
     }
     _frameSources = allSources;
 
@@ -612,12 +723,14 @@ export function createGravityGridEffect() {
 
   /** Clear all state so the effect re-initialises on next update(). */
   function reset() {
-    balls         = [];
-    particles     = [];
-    lastTs        = null;
-    _viewW        = 0;
-    _viewH        = 0;
-    _frameSources = [];
+    balls            = [];
+    particles        = [];
+    lastTs           = null;
+    _viewW           = 0;
+    _viewH           = 0;
+    _frameSources    = [];
+    _smoothedSources = [];
+  }
   }
 
   return { update, draw, reset };
