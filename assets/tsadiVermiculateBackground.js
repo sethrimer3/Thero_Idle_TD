@@ -1,27 +1,26 @@
 /**
- * ShinShapeBackground
+ * TsadiVermiculateBackground
  *
- * Manages the Shin Spire ambient background effect.  Uses the Substrate
- * crystalline crack effect (the same visual found in Chapter 6) so that
- * elegant city-like geometric lines grow, undraw from the back, and emit
- * tiny white sparks on spawn.  Replaces the previous golden/orange
- * PrologueShapeEffect overlap glow.
+ * Manages the Tsadi Spire ambient background effect.  Uses the Vermiculate
+ * effect (the same visual found in Chapter 1) so that glowing worm-like
+ * paths crawl across the viewport, leaving fading trails and bouncing off
+ * each other, providing an elegant mathematical ambience behind the
+ * particle-fusion simulation.
  *
  * Lifecycle:
- *   - initShinShapeBackground()  – attach to the panel canvas (call once on first
- *                                   tab visit, or lazily on start).
- *   - startShinShapeBackground() – begin the rAF render loop.
- *   - stopShinShapeBackground()  – cancel the loop and reset effect state.
- *   - resizeShinShapeBackground()– resize the canvas to match the panel.
+ *   - initTsadiVermiculateBackground()  – attach to the panel canvas (call once).
+ *   - startTsadiVermiculateBackground() – begin the rAF render loop.
+ *   - stopTsadiVermiculateBackground()  – cancel the loop and reset effect state.
+ *   - resizeTsadiVermiculateBackground()– resize the canvas to match the panel.
  */
 
-import { createSubstrateEffect } from './playfield/render/SubstrateEffect.js';
+import { createVermiculateEffect } from './playfield/render/VermiculateEffect.js';
 
 // Canvas / context references (resolved from the DOM once).
 let _canvas  = null;
 let _ctx     = null;
 
-// Effect instance (lazy-created with Substrate crystalline crack effect).
+// Effect instance (lazy-created).
 let _effect  = null;
 
 // Animation loop state.
@@ -30,10 +29,10 @@ let _running = false;
 
 // ─── Canvas sizing ────────────────────────────────────────────────────────────
 
-/** Resize the canvas to fill the visible shin panel. */
+/** Resize the canvas to fill the visible tsadi panel. */
 function _resizeCanvas() {
   if (!_canvas) return;
-  const panel = document.getElementById('panel-shin');
+  const panel = document.getElementById('panel-tsadi');
   if (!panel) return;
   const w = panel.clientWidth  || panel.offsetWidth  || 400;
   const h = panel.clientHeight || panel.offsetHeight || 600;
@@ -58,24 +57,23 @@ function _loop(ts) {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Attach the effect to the shin shape background canvas.
+ * Attach the effect to the tsadi vermiculate background canvas.
  * Safe to call multiple times – subsequent calls are no-ops.
  */
-export function initShinShapeBackground() {
-  if (_canvas) return; // Already initialised.
-  _canvas = document.getElementById('shin-shape-bg-canvas');
+export function initTsadiVermiculateBackground() {
+  if (_canvas) return; // Already initialized.
+  _canvas = document.getElementById('tsadi-vermiculate-bg-canvas');
   if (!_canvas) return;
   _ctx = _canvas.getContext('2d');
-  // Use the Substrate crystalline crack effect for the Shin Spire background.
-  _effect = createSubstrateEffect();
+  _effect = createVermiculateEffect();
 }
 
 /**
  * Start (or resume) the background render loop.
  * Lazily initialises on first call if not yet set up.
  */
-export function startShinShapeBackground() {
-  if (!_canvas) initShinShapeBackground();
+export function startTsadiVermiculateBackground() {
+  if (!_canvas) initTsadiVermiculateBackground();
   if (!_canvas || _running) return;
   _resizeCanvas();
   _running = true;
@@ -85,7 +83,7 @@ export function startShinShapeBackground() {
 /**
  * Stop the render loop and reset effect state so re-entry feels fresh.
  */
-export function stopShinShapeBackground() {
+export function stopTsadiVermiculateBackground() {
   _running = false;
   if (_rafId !== null) {
     cancelAnimationFrame(_rafId);
@@ -97,9 +95,9 @@ export function stopShinShapeBackground() {
 }
 
 /**
- * Resize the background canvas to the current shin panel dimensions.
+ * Resize the background canvas to the current tsadi panel dimensions.
  * Call whenever the viewport changes.
  */
-export function resizeShinShapeBackground() {
+export function resizeTsadiVermiculateBackground() {
   _resizeCanvas();
 }

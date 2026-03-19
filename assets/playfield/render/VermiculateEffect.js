@@ -24,8 +24,8 @@
 /** Number of simultaneous background tracers. */
 const TRACER_COUNT = 14;
 
-/** Shorter trail history keeps the interaction field readable. */
-const MAX_SEGMENTS = 22;
+/** Slightly longer trail history for more visible line paths. */
+const MAX_SEGMENTS = 30;
 
 /** Slow movement makes rebounds easier to perceive. */
 const SPEED = 28;
