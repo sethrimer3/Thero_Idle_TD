@@ -418,6 +418,7 @@ import { bindCollapsibleMenu } from './settingsMenuController.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
 import { createUpgradeMatrixOverlay } from './upgradeMatrixOverlay.js';
 import { createLevelSummaryHelpers } from './levelSummary.js';
+import { initializePlayfieldBackgroundVideo } from './playfieldBackgroundVideo.js';
 import { createLamedSpireUi } from './lamedSpireUi.js';
 import {
   bindLamedSpireOptions,
@@ -5024,6 +5025,8 @@ import { createSpireCameraController } from './spireCameraController.js';
     if (leaveLevelBtn) {
       leaveLevelBtn.disabled = true;
     }
+
+    initializePlayfieldBackgroundVideo();
 
     if (playfieldElements.canvas && playfieldElements.container) {
       playfield = new SimplePlayfield({

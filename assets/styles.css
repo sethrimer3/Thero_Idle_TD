@@ -1376,6 +1376,8 @@ body.playfield-fullscreen .playfield canvas {
 
 .playfield {
   /* Prevent wheel chaining so the page doesn't scroll while hovering the battlefield. */
+  --playfield-background-position: 0%;
+  --playfield-background-progress: 0;
   overscroll-behavior: contain;
   position: relative;
   border-radius: 24px;
@@ -1387,6 +1389,46 @@ body.playfield-fullscreen .playfield canvas {
   box-shadow: inset 0 0 30px rgba(139, 247, 255, 0.12), 0 18px 36px rgba(0, 0, 0, 0.5);
   cursor: var(--cursor-crosshair);
   touch-action: none;
+}
+
+/* Stretch the uploaded battlefield video behind the alpha render while preserving interaction on the canvas. */
+.playfield-background-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+/* Reveal the video only after media data arrives so the background swaps in cleanly. */
+.playfield[data-background-video-ready='true'] .playfield-background-media {
+  opacity: 1;
+}
+
+/* Add a subtle dark veil so the gameplay artwork remains legible over the moving footage. */
+.playfield-background-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 6, 12, 0.2), rgba(5, 6, 12, 0.38));
+}
+
+/* Object-position supplies the percentage-based parallax crop without disturbing the gameplay canvas bounds. */
+.playfield-background-media__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% var(--playfield-background-position);
+  transform: scale(1.06);
+  filter: saturate(0.92) brightness(0.8);
+}
+
+/* Ensure interactive layers render above the decorative video sheet. */
+.playfield > :not(.playfield-background-media) {
+  position: relative;
+  z-index: 1;
 }
 
 /* Per-chapter battlefield themes let each chapter carry a distinct ambient color identity. */
