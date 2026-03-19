@@ -731,7 +731,6 @@ export function createGravityGridEffect() {
     _frameSources    = [];
     _smoothedSources = [];
   }
-  }
 
   return { update, draw, reset };
 }
