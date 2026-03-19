@@ -702,6 +702,46 @@ body.graphics-mode-low .control-button {
   box-shadow: var(--shadow);
 }
 
+/* Shared menu video fills the stage shell so every tab panel inherits the same animated backdrop. */
+.menu-background-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+/* Reveal the shared menu video only after media data arrives to avoid a black flash. */
+.main-stage[data-menu-background-video-ready='true'] .menu-background-media {
+  opacity: 1;
+}
+
+/* Keep a dark veil over the footage so text and controls remain readable across all menus. */
+.menu-background-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 6, 12, 0.22), rgba(5, 6, 12, 0.5));
+}
+
+/* Scale the footage slightly so the shared menu background covers all responsive stage sizes cleanly. */
+.menu-background-media__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  transform: scale(1.06);
+  filter: saturate(0.92) brightness(0.8);
+}
+
+/* Keep all interactive tab content above the shared menu video sheet. */
+.main-stage > :not(.menu-background-media) {
+  position: relative;
+  z-index: 1;
+}
+
 .offline-overlay {
   position: fixed;
   inset: 0;
@@ -1376,6 +1416,8 @@ body.playfield-fullscreen .playfield canvas {
 
 .playfield {
   /* Prevent wheel chaining so the page doesn't scroll while hovering the battlefield. */
+  --playfield-background-position: 0%;
+  --playfield-background-progress: 0;
   overscroll-behavior: contain;
   position: relative;
   border-radius: 24px;
