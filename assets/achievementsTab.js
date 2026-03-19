@@ -22,9 +22,9 @@ const ACHIEVEMENT_DATA_URL = new URL(ACHIEVEMENT_DATA_RELATIVE_PATH, import.meta
 
 // Achievement categories with their configuration
 const ACHIEVEMENT_CATEGORIES = [
-  { id: 'campaign-story', name: 'Campaign: Story', icon: 'assets/images/campaign-story.svg', iconType: 'svg', type: 'campaign', campaign: 'Story' },
-  { id: 'campaign-challenges', name: 'Campaign: Challenges', icon: '⚔️', type: 'campaign', campaign: 'Challenges' },
-  { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: 'assets/images/campaign-ladder.svg', iconType: 'svg', type: 'campaign', campaign: 'Ladder' },
+  { id: 'campaign-story', name: 'Campaign: Story', icon: 'assets/sprites/menu/campaignButton_story.png', iconType: 'image', type: 'campaign', campaign: 'Story' },
+  { id: 'campaign-challenges', name: 'Campaign: Challenges', icon: 'assets/sprites/menu/campaignButton_trials.png', iconType: 'image', type: 'campaign', campaign: 'Challenges' },
+  { id: 'campaign-ladder', name: 'Campaign: Ladder', icon: 'assets/sprites/menu/campaignButton_ladder.png', iconType: 'image', type: 'campaign', campaign: 'Ladder' },
   { id: 'spire-powder', name: 'Aleph Spire', icon: 'ℵ', type: 'spire', spireId: 'powder' },
   { id: 'spire-fluid', name: 'Bet Spire', icon: 'בּ', type: 'spire', spireId: 'fluid' },
   { id: 'spire-lamed', name: 'Lamed Spire', icon: 'ל', type: 'spire', spireId: 'lamed' },
@@ -837,8 +837,8 @@ function createIconElement(category) {
   iconContainer.className = 'achievement-category-icon';
   iconContainer.setAttribute('aria-hidden', 'true');
   
-  if (category.iconType === 'svg') {
-    // For SVG icons, create an img element
+  if (category.iconType === 'svg' || category.iconType === 'image') {
+    // For uploaded/raster campaign icons and SVG icons, create an img element
     const img = document.createElement('img');
     img.src = category.icon;
     img.alt = '';

@@ -1720,6 +1720,27 @@ export function injectTowerCardPreviews() {
     if (!iconPath) {
       return;
     }
+    // Add the uploaded looping card animation behind each tower card once so every tower shares the same moving backdrop.
+    if (!card.querySelector('.tower-card-background')) {
+      const backgroundVideo = document.createElement('video');
+      backgroundVideo.className = 'tower-card-background';
+      backgroundVideo.autoplay = true;
+      backgroundVideo.muted = true;
+      backgroundVideo.loop = true;
+      backgroundVideo.playsInline = true;
+      backgroundVideo.preload = 'auto';
+      backgroundVideo.setAttribute('aria-hidden', 'true');
+      const backgroundSource = document.createElement('source');
+      backgroundSource.src = 'assets/animations/cardBackground_animation.mp4';
+      backgroundSource.type = 'video/mp4';
+      backgroundVideo.append(backgroundSource);
+      card.insertBefore(backgroundVideo, card.firstChild);
+      // Best-effort replay keeps the background animated in browsers that gate autoplay until muted playback is explicitly requested.
+      const playPromise = backgroundVideo.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
     // Scale the card face text overlay opacity from tier 1 (transparent) to max tier (50%).

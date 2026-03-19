@@ -749,8 +749,10 @@ export function createLevelGridController({
       campaignGlyph.className = 'campaign-button-glyph';
       campaignGlyph.setAttribute('aria-hidden', 'true');
       const campaignIcons = {
-        Story: 'assets/images/campaign-story.svg',
-        Ladder: 'assets/images/campaign-ladder.svg',
+        // Use the uploaded illustrated button art so the level rail matches the latest campaign branding.
+        Story: 'assets/sprites/menu/campaignButton_story.png',
+        Ladder: 'assets/sprites/menu/campaignButton_ladder.png',
+        Challenges: 'assets/sprites/menu/campaignButton_trials.png',
       };
       const iconPath = campaignIcons[campaignName] || null;
       let glyphSymbol = '⚔';
