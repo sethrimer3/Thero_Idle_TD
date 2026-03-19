@@ -425,8 +425,8 @@ export function drawFloaters() {
     }
     const sprite = this._swimmerSpriteCache.canvas;
     const spriteRadius = this._swimmerSpriteCache.radius;
-    // Determine a speed reference so opacity maps 0-1 across the expected range.
-    const speedRef = Math.max(1, minDimension * 0.12);
+    // Lower speed reference so swimmers become visible at gentler velocities.
+    const speedRef = Math.max(1, minDimension * 0.035);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < swimmers.length; i += 1) {

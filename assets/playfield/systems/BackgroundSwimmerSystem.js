@@ -232,11 +232,11 @@ function updateBackgroundSwimmers(delta) {
   const currentWidthPx = metersToPixels(PATH_CURRENT_WIDTH_METERS, minDimension);
 
   const speedCap = minDimension * 0.38;
-  const wanderStrength = minDimension * 0.04;
+  const wanderStrength = minDimension * 0.08;
   const projectileInfluence = minDimension * 0.16;
   const activityMargin = Math.max(24, currentWidthPx);
-  // Damping lets particles gradually settle toward stillness.
-  const damping = dt > 0 ? Math.exp(-dt * 2.8) : 1;
+  // Gentler damping so swimmers retain velocity longer and stay visible.
+  const damping = dt > 0 ? Math.exp(-dt * 1.6) : 1;
   const activeBounds = resolveSwimmerActiveBounds.call(this, width, height, activityMargin);
   const activeSwimmers = [];
 

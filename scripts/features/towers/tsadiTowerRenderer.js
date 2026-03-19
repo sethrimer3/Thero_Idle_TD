@@ -33,7 +33,9 @@ export function renderTsadiSimulation() {
     ctx.fillText('צ', glyph.x, glyph.y);
   }
 
-  renderBackgroundMolecules(ctx, this);
+  // Background parallax molecules disabled — replaced by the Vermiculate
+  // worm-line ambient background rendered on a separate canvas layer.
+  // renderBackgroundMolecules(ctx, this);
   
   // Draw spawn effects
   if (this.visualSettings.renderSpawnEffects) {

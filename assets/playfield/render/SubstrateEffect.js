@@ -121,6 +121,35 @@ const ARC_RATE_RANGE = 0.012;
 /** Grid sentinel: no growth front has claimed this cell yet. */
 const GRID_EMPTY = -10001;
 
+// ─── Undraw (tail-erase) parameters ──────────────────────────────────────────
+
+/** Maximum simultaneously visible trail pixels before the tail starts erasing. */
+const TRAIL_MAX_VISIBLE = 400;
+
+/** Radius (px) of the destination-out eraser brush at each trail point. */
+const ERASE_RADIUS = 2.5;
+
+/** Speed multiplier for undraw relative to the front's growth speed. */
+const UNDRAW_SPEED_FACTOR = 1.2;
+
+// ─── Spark (spawn flash) parameters ─────────────────────────────────────────
+
+/** Number of sparks emitted when a new growth front spawns. */
+const SPARK_COUNT_MIN = 5;
+const SPARK_COUNT_MAX = 10;
+
+/** Base speed (px / s) of spark particles. */
+const SPARK_SPEED = 110;
+
+/** Lifetime (seconds) of a spark particle. */
+const SPARK_LIFETIME = 0.35;
+
+/** Radius (px) of a rendered spark particle. */
+const SPARK_SIZE = 1.2;
+
+/** Directional bias: fraction of velocity aligned with the front's direction. */
+const SPARK_DIRECTION_BIAS = 0.55;
+
 // ─── Color palette ────────────────────────────────────────────────────────────
 // Restricted to pale, restrained white / grey / gold values.
 // No saturated pastels, no bright metallic golds.
@@ -179,6 +208,12 @@ function _createFront(x, y, angle, mode) {
     // Arc curvature (rad / pixel step), random sign for CW/CCW arcs.
     arcRate: (Math.random() - 0.5) * 2 * ARC_RATE_RANGE,
     alive: true,
+    // Whether the front is still actively growing (drawing new pixels).
+    growing: true,
+    // Trail of drawn pixel positions for tail-erase ("undraw") animation.
+    trail: [],
+    // Index into trail[] of the next point to erase from the back.
+    undrawIndex: 0,
     // Last integer grid cell – avoids self-collision when sub-pixel
     // movement keeps the front inside the same cell.
     lastGx: Math.round(x),
@@ -206,11 +241,14 @@ export function createSubstrateEffect() {
 
   let fronts = [];
 
-  let lastTs       = null;
-  let cycleStartMs = null;
+  // Ephemeral spark particles emitted when a new front spawns.
+  let sparks = [];
 
-  // Per-cycle fade-in alpha multiplier (0 → 1).
+  let lastTs       = null;
+
+  // Initial fade-in alpha multiplier (0 → 1).
   let compositeAlpha = 0;
+  let initStartMs    = null;
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -230,6 +268,7 @@ export function createSubstrateEffect() {
     cgrid.fill(GRID_EMPTY);
 
     fronts = [];
+    sparks = [];
 
     for (let i = 0; i < SEED_COUNT; i++) {
       _spawnRandom();
@@ -246,6 +285,7 @@ export function createSubstrateEffect() {
     const angle = _quantisedAngle();
     const mode  = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(x, y, angle, mode));
+    _emitSparks(x, y, angle);
   }
 
   /**
@@ -261,6 +301,7 @@ export function createSubstrateEffect() {
     if (ox < 0 || ox >= W || oy < 0 || oy >= H) return;
     const mode = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(ox, oy, perp, mode));
+    _emitSparks(ox, oy, perp);
   }
 
   // ── Growth front simulation ───────────────────────────────────────────────
@@ -271,10 +312,12 @@ export function createSubstrateEffect() {
    * edge rendering, and interior deposition.
    */
   function _stepFront(front, steps, dt) {
-    // Age the front; kill it if it exceeds its lifespan.
+    if (!front.growing) return;
+
+    // Age the front; stop growing if it exceeds its lifespan.
     front.age += dt;
     if (front.age >= front.maxAge) {
-      front.alive = false;
+      front.growing = false;
       return;
     }
 
@@ -304,9 +347,9 @@ export function createSubstrateEffect() {
       const xi = Math.round(front.x);
       const yi = Math.round(front.y);
 
-      // Out of viewport → kill.
+      // Out of viewport → stop growing.
       if (xi < 0 || xi >= W || yi < 0 || yi >= H) {
-        front.alive = false;
+        front.growing = false;
         return;
       }
 
@@ -321,7 +364,7 @@ export function createSubstrateEffect() {
 
       // Collision: hit an existing structure → stop and possibly branch.
       if (cgrid[idx] !== GRID_EMPTY) {
-        front.alive = false;
+        front.growing = false;
         // Primary perpendicular branch.
         if (Math.random() < BRANCH_PROBABILITY) {
           _spawnPerp(xi, yi, cgrid[idx]);
@@ -343,6 +386,9 @@ export function createSubstrateEffect() {
       // Scatter faint interior deposition perpendicular to the front.
       _drawDeposition(front.x, front.y, front.angle,
         front.colorR, front.colorG, front.colorB);
+
+      // Record position for the tail-erase undraw animation.
+      front.trail.push({ x: front.x, y: front.y });
     }
   }
 
@@ -393,10 +439,111 @@ export function createSubstrateEffect() {
     }
   }
 
+  // ── Tail-erase ("undraw") ────────────────────────────────────────────────
+
+  /**
+   * Erase trail pixels from the back of a growth front, clearing both the
+   * off-screen canvas and the occupancy grid.  This produces the gradual
+   * "undrawn from behind" disappearance instead of a sudden full-canvas wipe.
+   */
+  function _undrawFront(front, steps) {
+    if (!offCtx || front.undrawIndex >= front.trail.length) return;
+
+    offCtx.save();
+    offCtx.globalCompositeOperation = 'destination-out';
+    offCtx.fillStyle = 'rgba(0,0,0,1)';
+
+    const limit = Math.min(front.undrawIndex + steps, front.trail.length);
+    for (let i = front.undrawIndex; i < limit; i++) {
+      const pt = front.trail[i];
+      // Erase a small circular region covering the edge pixel and nearby grains.
+      offCtx.beginPath();
+      offCtx.arc(pt.x, pt.y, ERASE_RADIUS, 0, Math.PI * 2);
+      offCtx.fill();
+
+      // Free the occupancy grid cell so new fronts can reclaim this area.
+      const xi = Math.round(pt.x);
+      const yi = Math.round(pt.y);
+      if (xi >= 0 && xi < W && yi >= 0 && yi < H) {
+        cgrid[yi * W + xi] = GRID_EMPTY;
+      }
+    }
+
+    offCtx.restore();
+    front.undrawIndex = limit;
+  }
+
+  // ── Spark (spawn flash) system ───────────────────────────────────────────
+
+  /**
+   * Emit a burst of tiny white sparks at the given position, biased toward
+   * the growth direction.  Called whenever a new front spawns.
+   */
+  function _emitSparks(x, y, angle) {
+    const count = SPARK_COUNT_MIN +
+      Math.floor(Math.random() * (SPARK_COUNT_MAX - SPARK_COUNT_MIN + 1));
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+
+    for (let i = 0; i < count; i++) {
+      // Random spread with a directional bias toward the front's heading.
+      const randAngle = Math.random() * Math.PI * 2;
+      const randSpeed = SPARK_SPEED * (0.3 + Math.random() * 0.7);
+      let vx = Math.cos(randAngle) * randSpeed;
+      let vy = Math.sin(randAngle) * randSpeed;
+      // Blend toward the biased direction.
+      vx = vx * (1 - SPARK_DIRECTION_BIAS) + dirX * randSpeed * SPARK_DIRECTION_BIAS;
+      vy = vy * (1 - SPARK_DIRECTION_BIAS) + dirY * randSpeed * SPARK_DIRECTION_BIAS;
+
+      sparks.push({
+        x,
+        y,
+        vx,
+        vy,
+        life: SPARK_LIFETIME * (0.5 + Math.random() * 0.5),
+        maxLife: SPARK_LIFETIME,
+      });
+    }
+  }
+
+  /** Advance spark positions and cull expired ones. */
+  function _updateSparks(dt) {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const sp = sparks[i];
+      sp.x += sp.vx * dt;
+      sp.y += sp.vy * dt;
+      // Gentle deceleration so sparks fizzle out.
+      sp.vx *= 0.92;
+      sp.vy *= 0.92;
+      sp.life -= dt;
+      if (sp.life <= 0) {
+        sparks.splice(i, 1);
+      }
+    }
+  }
+
+  /** Render active sparks onto the main canvas. */
+  function _drawSparks(ctx) {
+    if (!sparks.length) return;
+    ctx.save();
+    for (const sp of sparks) {
+      const alpha = Math.max(0, sp.life / sp.maxLife);
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, SPARK_SIZE, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // ── Update ────────────────────────────────────────────────────────────────
 
   /**
    * Advance the simulation by one frame.
+   * Growth fronts extend while their tails gradually undraw from behind.
+   * No sudden full-canvas reset; individual fronts clean up after themselves.
+   *
    * @param {number} now  High-resolution timestamp (ms), e.g. performance.now().
    * @param {number} w    Viewport width in CSS pixels.
    * @param {number} h    Viewport height in CSS pixels.
@@ -406,38 +553,49 @@ export function createSubstrateEffect() {
     const needsInit = !offCanvas || W !== Math.ceil(w) || H !== Math.ceil(h);
     if (needsInit) {
       _init(w, h);
-      cycleStartMs   = now;
       compositeAlpha = 0;
+      initStartMs    = now;
       lastTs         = null;
     }
 
-    if (cycleStartMs === null) cycleStartMs = now;
+    if (initStartMs === null) initStartMs = now;
 
     const dt = lastTs === null ? 0.016 : Math.min((now - lastTs) / 1000, 0.1);
     lastTs   = now;
 
-    // Gentle fade-in at the start of each cycle.
-    const cycleAge  = now - cycleStartMs;
-    compositeAlpha  = Math.min(1, cycleAge / FADE_IN_MS);
+    // Gentle fade-in after initialisation.
+    compositeAlpha = Math.min(1, (now - initStartMs) / FADE_IN_MS);
 
-    // Reset once the cycle duration has elapsed – fresh crystal growth.
-    if (cycleAge >= CYCLE_DURATION_MS) {
-      offCtx.clearRect(0, 0, W, H);
-      cgrid.fill(GRID_EMPTY);
-      fronts       = [];
-      cycleStartMs = now;
-      compositeAlpha = 0;
-      for (let i = 0; i < SEED_COUNT; i++) {
-        _spawnRandom();
-      }
-      return;
-    }
-
-    // Advance each active front by the appropriate number of pixel steps.
+    // Advance each growing front by the appropriate number of pixel steps.
     for (const front of fronts) {
       if (!front.alive) continue;
-      const steps = Math.max(1, Math.round(front.speed * dt));
-      _stepFront(front, steps, dt);
+      if (front.growing) {
+        const steps = Math.max(1, Math.round(front.speed * dt));
+        _stepFront(front, steps, dt);
+      }
+    }
+
+    // Process tail-erase for every front whose visible trail exceeds the limit
+    // or that has stopped growing.
+    for (const front of fronts) {
+      if (!front.alive) continue;
+      const visibleCount = front.trail.length - front.undrawIndex;
+
+      if (front.growing && visibleCount > TRAIL_MAX_VISIBLE) {
+        // Erase just enough to stay at the limit while growing.
+        const excess = visibleCount - TRAIL_MAX_VISIBLE;
+        _undrawFront(front, excess);
+      } else if (!front.growing && visibleCount > 0) {
+        // Front stopped growing — erase from the back at its growth speed.
+        const undrawSteps = Math.max(1,
+          Math.round(front.speed * UNDRAW_SPEED_FACTOR * dt));
+        _undrawFront(front, undrawSteps);
+      }
+
+      // Mark fully erased fronts as dead.
+      if (!front.growing && front.undrawIndex >= front.trail.length) {
+        front.alive = false;
+      }
     }
 
     // Remove dead fronts.
@@ -449,14 +607,16 @@ export function createSubstrateEffect() {
     while (fronts.length < SEED_COUNT && fronts.length < MAX_FRONTS) {
       _spawnRandom();
     }
+
+    // Advance spark particles.
+    _updateSparks(dt);
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   /**
-   * Composite the accumulated crystalline pattern onto the main canvas.
-   * The overall effect opacity is COMPOSITE_ALPHA (~20%), modulated by the
-   * per-cycle fade-in multiplier.
+   * Composite the accumulated crystalline pattern onto the main canvas,
+   * then overlay any active spark particles.
    *
    * @param {CanvasRenderingContext2D} ctx  Already in CSS-pixel space.
    */
@@ -467,6 +627,9 @@ export function createSubstrateEffect() {
     ctx.globalAlpha = compositeAlpha * COMPOSITE_ALPHA;
     ctx.drawImage(offCanvas, 0, 0);
     ctx.restore();
+
+    // Sparks render at full canvas alpha on top of the composite.
+    _drawSparks(ctx);
   }
 
   // ── Reset ─────────────────────────────────────────────────────────────────
@@ -477,10 +640,11 @@ export function createSubstrateEffect() {
     offCtx         = null;
     cgrid          = null;
     fronts         = [];
+    sparks         = [];
     W              = 0;
     H              = 0;
     lastTs         = null;
-    cycleStartMs   = null;
+    initStartMs    = null;
     compositeAlpha = 0;
   }
 

@@ -243,12 +243,18 @@ import {
 } from './cardinalWardenUI.js';
 // Shin Grapheme Codex UI for displaying grapheme information.
 import { initializeShinGraphemeCodex } from './shinGraphemeCodexUI.js';
-// Shin Spire ambient golden/orange shape-overlap background effect.
+// Shin Spire ambient substrate crystalline background effect.
 import {
   startShinShapeBackground,
   stopShinShapeBackground,
   resizeShinShapeBackground,
 } from './shinShapeBackground.js';
+// Tsadi Spire ambient vermiculate worm-line background effect.
+import {
+  startTsadiVermiculateBackground,
+  stopTsadiVermiculateBackground,
+  resizeTsadiVermiculateBackground,
+} from './tsadiVermiculateBackground.js';
 import {
   initializeKufState,
   getKufStateSnapshot,
@@ -2904,6 +2910,7 @@ import { createSpireCameraController } from './spireCameraController.js';
       }
       resizeShinFractalCanvases();
       resizeShinShapeBackground();
+      resizeTsadiVermiculateBackground();
     });
   }
 
@@ -4454,6 +4461,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         }
         if (previousTabId === 'tsadi' && tabId !== 'tsadi') {
           captureTsadiSimulationSnapshot();
+          stopTsadiVermiculateBackground();
         }
 
         // -------------------------------------------------------------------
@@ -4816,6 +4824,8 @@ import { createSpireCameraController } from './spireCameraController.js';
 
           // Update upgrade UI every time the tab is shown
           updateTsadiUpgradeUI();
+          // Start the ambient vermiculate background effect for the Tsadi Spire.
+          startTsadiVermiculateBackground();
         } else if (tabId === 'shin') {
           // Initialize Cardinal Warden reverse danmaku game when tab is first opened
           if (!cardinalWardenInitialized) {
