@@ -188,6 +188,20 @@
                 role="img"
                 aria-label="Interactive glyph defense lane"
               >
+                <!-- Decorative background video fills the battlefield shell behind the alpha render and follows scroll percentage. -->
+                <div class="playfield-background-media" aria-hidden="true">
+                  <video
+                    class="playfield-background-media__video"
+                    data-playfield-background-video
+                    autoplay
+                    muted
+                    loop
+                    playsinline
+                    preload="auto"
+                  >
+                    <source src="./assets/animations/menuBackground_animation.mp4" type="video/mp4" />
+                  </video>
+                </div>
                 <!-- Playfield menu surfaces layout toggles when a level is active. -->
                 <!-- Fullscreen toggle sits beside the playfield menu for quick access. -->
                 <button
