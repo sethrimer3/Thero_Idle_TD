@@ -26,6 +26,7 @@ import { createTetrisBlockEffect } from '../TetrisBlockEffect.js';
 import { createVermiculateEffect } from '../VermiculateEffect.js';
 import { createSubstrateEffect } from '../SubstrateEffect.js';
 import { createGravityGridEffect } from '../GravityGridEffect.js';
+import { createEulerFluidEffect } from '../EulerFluidEffect.js';
 
 // Pre-calculated constants shared across background rendering functions
 const TWO_PI = Math.PI * 2;
@@ -820,5 +821,85 @@ export function drawGravityGrid() {
   const ctx = this.ctx;
   ctx.save();
   _gravityGridEffect.draw(ctx);
+  ctx.restore();
+}
+
+// ─── Chapter 3 – Euler Fluid Effect ─────────────────────────────────────────
+
+// Module-level singleton so state persists across frames.
+let _eulerFluidEffect = null;
+
+// Track the last chapter theme so the effect resets when the player leaves chapter 3.
+let _eulerFluidLastChapterTheme = null;
+
+/**
+ * Render the Chapter 3 "Euler Fluid" ambient background decoration.
+ * Tracer particles advect through an analytically-defined velocity field with:
+ *   - A gentle current following the level path (river-like channel flow).
+ *   - A clockwise vortex sink at the Mind Gate (path end).
+ *   - A counter-clockwise vortex source at the Shadow Gate (path start).
+ *   - Soft repulsion around each tower so the flow parts around obstacles.
+ * Rendered at approximately 20 % peak opacity in a blue-to-violet palette.
+ * Inspired by the "Euler 2D" XScreenSaver (Stephen Montgomery-Smith, 2002).
+ *
+ * Called with `.call(renderer)` so `this` is the CanvasRenderer instance.
+ */
+export function drawChapter3Fluid() {
+  if (!this.ctx) {
+    return;
+  }
+
+  // Only active inside Chapter 3.
+  const chapterTheme = this.container?.dataset?.chapterTheme;
+  if (chapterTheme !== 'chapter-3') {
+    // Reset the effect when leaving chapter 3 so it feels fresh on re-entry.
+    if (_eulerFluidLastChapterTheme === 'chapter-3' && _eulerFluidEffect) {
+      _eulerFluidEffect.reset();
+    }
+    _eulerFluidLastChapterTheme = chapterTheme || null;
+    return;
+  }
+  _eulerFluidLastChapterTheme = 'chapter-3';
+
+  // Skip when background particles preference is off.
+  if (!areBackgroundParticlesEnabled()) {
+    return;
+  }
+
+  // Logical viewport dimensions in CSS pixels.
+  const width  = this.renderWidth  || (this.canvas ? this.canvas.clientWidth  : 0) || 0;
+  const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
+  if (!width || !height) {
+    return;
+  }
+
+  // Lazy-create the effect singleton.
+  if (!_eulerFluidEffect) {
+    _eulerFluidEffect = createEulerFluidEffect();
+  }
+
+  // ── Collect tower positions for the velocity-field obstacle model ──────────
+  // Tower positions act as flow obstacles (world-space coordinates).
+  const towers = [];
+  if (this.towers) {
+    for (let i = 0; i < this.towers.length; i++) {
+      const t = this.towers[i];
+      if (!t || !Number.isFinite(t.x) || !Number.isFinite(t.y)) continue;
+      towers.push({ x: t.x, y: t.y });
+    }
+  }
+
+  // Current high-resolution timestamp from the frame cache.
+  const nowMs = this._frameCache?.timestamp ?? performance.now();
+
+  // Advance simulation with the current path and tower positions.
+  _eulerFluidEffect.update(nowMs, width, height, this.pathPoints || null, towers);
+
+  // Draw in world space: the ctx already carries the camera transform set by
+  // CanvasRenderer.draw(), so the fluid trails move and scale correctly with
+  // the player's zoom / pan.
+  const ctx = this.ctx;
+  ctx.save();
+  _eulerFluidEffect.draw(ctx);
   ctx.restore();
 }

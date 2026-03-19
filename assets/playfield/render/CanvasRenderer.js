@@ -18,6 +18,7 @@ import {
   drawChapter1Vermiculate,
   drawChapter6Substrate,
   drawGravityGrid,
+  drawChapter3Fluid,
 } from './layers/BackgroundRenderer.js';
 import {
   drawTowerConnectionParticles,
@@ -275,6 +276,8 @@ function draw() {
     drawChapter6Substrate.call(this);
     // Prologue / Chapter 2 gravity grid with floating balls.
     drawGravityGrid.call(this);
+    // Chapter 3 Euler fluid dynamics tracer-particle effect.
+    drawChapter3Fluid.call(this);
     this.drawCrystallineMosaic();
     // Draw cached sketch layer when available to minimize per-frame raster work.
     const sketchLayerDrawn = drawSketchLayerCache.call(this);
