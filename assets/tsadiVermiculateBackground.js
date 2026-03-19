@@ -61,7 +61,7 @@ function _loop(ts) {
  * Safe to call multiple times – subsequent calls are no-ops.
  */
 export function initTsadiVermiculateBackground() {
-  if (_canvas) return; // Already initialised.
+  if (_canvas) return; // Already initialized.
   _canvas = document.getElementById('tsadi-vermiculate-bg-canvas');
   if (!_canvas) return;
   _ctx = _canvas.getContext('2d');

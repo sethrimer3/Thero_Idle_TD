@@ -147,6 +147,9 @@ const SPARK_LIFETIME = 0.35;
 /** Radius (px) of a rendered spark particle. */
 const SPARK_SIZE = 1.2;
 
+/** Per-frame velocity multiplier for spark deceleration. */
+const SPARK_DECELERATION = 0.92;
+
 /** Directional bias: fraction of velocity aligned with the front's direction. */
 const SPARK_DIRECTION_BIAS = 0.55;
 
@@ -513,8 +516,8 @@ export function createSubstrateEffect() {
       sp.x += sp.vx * dt;
       sp.y += sp.vy * dt;
       // Gentle deceleration so sparks fizzle out.
-      sp.vx *= 0.92;
-      sp.vy *= 0.92;
+      sp.vx *= SPARK_DECELERATION;
+      sp.vy *= SPARK_DECELERATION;
       sp.life -= dt;
       if (sp.life <= 0) {
         sparks.splice(i, 1);
