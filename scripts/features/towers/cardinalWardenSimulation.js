@@ -121,6 +121,7 @@ import {
   renderWarden as renderCwWarden,
   renderAimTarget as renderCwAimTarget,
   renderWeaponTargets as renderCwWeaponTargets,
+  renderShipShadows as renderCwShipShadows,
   renderFriendlyShips as renderCwFriendlyShips,
   renderEnemies as renderCwEnemies,
   renderBosses as renderCwBosses,
@@ -1256,6 +1257,11 @@ export class CardinalWardenSimulation {
    * Render target indicators for enemies targeted by the eighth grapheme (Theta).
    */
   renderWeaponTargets() { renderCwWeaponTargets.call(this); }
+
+  /**
+   * Render long ship shadows cast by the Cardinal Warden's sunlight.
+   */
+  renderShipShadows() { renderCwShipShadows.call(this); }
 
   /**
    * Render all friendly ships.
