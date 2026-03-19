@@ -3278,11 +3278,11 @@ body.playfield-fullscreen .playfield canvas {
 .campaign-button-glyph__image {
   width: 62px;
   height: 62px;
-  border-radius: 14px;
-  box-shadow: 0 0 18px rgba(255, 215, 100, 0.38), inset 0 0 6px rgba(255, 255, 255, 0.18);
-  background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.08), transparent 60%),
-    linear-gradient(140deg, rgba(255, 215, 100, 0.16), rgba(140, 90, 20, 0.24));
-  object-fit: cover;
+  /* Keep the uploaded campaign art unframed so icons render without the glowing rounded square. */
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  object-fit: contain;
 }
 
 .campaign-button-title {
@@ -5049,13 +5049,15 @@ body.playfield-fullscreen .playfield canvas {
 .tower-card-background {
   position: absolute;
   inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   opacity: 0.34;
   pointer-events: none;
   filter: saturate(0.88) brightness(0.62);
-  z-index: 0;
+  /* Pin the looping media to the card floor so it never inserts layout height above the content stack. */
+  z-index: -2;
 }
 
 /* Add a darkened veil above the animation so formula text and upgrade copy stay readable. */
@@ -5067,7 +5069,8 @@ body.playfield-fullscreen .playfield canvas {
     linear-gradient(180deg, rgba(8, 8, 14, 0.2), rgba(8, 8, 14, 0.58)),
     radial-gradient(circle at top, rgba(255, 228, 150, 0.12), transparent 52%);
   pointer-events: none;
-  z-index: 0;
+  /* Keep the readability veil above the video while still behind every card element. */
+  z-index: -1;
 }
 
 /* Keep interactive card content above the video and veil layers. */
