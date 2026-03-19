@@ -48,6 +48,89 @@ function lightenHexColor(hex, amount = 0.2) {
     .padStart(2, '0')}`;
 }
 
+// The Shin Spire now borrows the Mind Gate's warm sunlight treatment so the warden reads as a radiant focal point.
+const WARDEN_SUNLIGHT_RADIUS = 240;
+const WARDEN_SUNLIGHT_BLOOM_RADIUS = 126;
+const WARDEN_SUNLIGHT_SHADOW_LENGTH = 11;
+const WARDEN_SUNLIGHT_SHADOW_COLOR = 'rgba(46, 22, 6, 0.22)';
+
+/**
+ * Draw a warm sunlight bloom behind the Cardinal Warden to mirror the Mind Gate's playing-field glow.
+ * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+ * @param {{x:number, y:number}} warden - Cardinal Warden anchor position
+ */
+function renderWardenSunlightGlow(ctx, warden) {
+  const outerGradient = ctx.createRadialGradient(warden.x, warden.y, 0, warden.x, warden.y, WARDEN_SUNLIGHT_RADIUS);
+  outerGradient.addColorStop(0, 'rgba(255, 245, 212, 0.36)');
+  outerGradient.addColorStop(0.2, 'rgba(255, 214, 134, 0.28)');
+  outerGradient.addColorStop(0.48, 'rgba(255, 166, 88, 0.16)');
+  outerGradient.addColorStop(1, 'rgba(255, 134, 54, 0)');
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.fillStyle = outerGradient;
+  ctx.beginPath();
+  ctx.arc(warden.x, warden.y, WARDEN_SUNLIGHT_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Layer a smaller bloom on top so the center stays bright enough to sell the warm sunlight source.
+  const innerGradient = ctx.createRadialGradient(warden.x, warden.y, 0, warden.x, warden.y, WARDEN_SUNLIGHT_BLOOM_RADIUS);
+  innerGradient.addColorStop(0, 'rgba(255, 242, 196, 0.62)');
+  innerGradient.addColorStop(0.24, 'rgba(255, 206, 120, 0.34)');
+  innerGradient.addColorStop(0.55, 'rgba(255, 160, 79, 0.14)');
+  innerGradient.addColorStop(1, 'rgba(255, 120, 45, 0)');
+  ctx.fillStyle = innerGradient;
+  ctx.beginPath();
+  ctx.arc(warden.x, warden.y, WARDEN_SUNLIGHT_BLOOM_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Project a long trapezoidal shadow away from the Cardinal Warden's sunlight.
+ * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+ * @param {{x:number, y:number}} warden - Light source position
+ * @param {{x:number, y:number}} ship - Ship position
+ * @param {number} radius - Approximate occluder radius used to size the shadow base
+ */
+function renderWardenLightShadow(ctx, warden, ship, radius) {
+  const dx = ship.x - warden.x;
+  const dy = ship.y - warden.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1) {
+    return;
+  }
+
+  const ux = dx / distance;
+  const uy = dy / distance;
+  const px = -uy;
+  const py = ux;
+  const shadowBaseRadius = Math.max(3, radius);
+  const shadowLength = shadowBaseRadius * WARDEN_SUNLIGHT_SHADOW_LENGTH * Math.max(0.7, distance / WARDEN_SUNLIGHT_RADIUS);
+  const v1 = { x: ship.x + px * shadowBaseRadius, y: ship.y + py * shadowBaseRadius };
+  const v2 = { x: ship.x - px * shadowBaseRadius, y: ship.y - py * shadowBaseRadius };
+  const s1 = { x: v1.x + ux * shadowLength, y: v1.y + uy * shadowLength };
+  const s2 = { x: v2.x + ux * shadowLength, y: v2.y + uy * shadowLength };
+  const nearMidX = (v1.x + v2.x) * 0.5;
+  const nearMidY = (v1.y + v2.y) * 0.5;
+  const farMidX = (s1.x + s2.x) * 0.5;
+  const farMidY = (s1.y + s2.y) * 0.5;
+
+  const shadowGradient = ctx.createLinearGradient(nearMidX, nearMidY, farMidX, farMidY);
+  shadowGradient.addColorStop(0, WARDEN_SUNLIGHT_SHADOW_COLOR);
+  shadowGradient.addColorStop(0.58, 'rgba(46, 22, 6, 0.09)');
+  shadowGradient.addColorStop(1, 'rgba(46, 22, 6, 0)');
+
+  ctx.beginPath();
+  ctx.moveTo(v1.x, v1.y);
+  ctx.lineTo(v2.x, v2.y);
+  ctx.lineTo(s2.x, s2.y);
+  ctx.lineTo(s1.x, s1.y);
+  ctx.closePath();
+  ctx.fillStyle = shadowGradient;
+  ctx.fill();
+}
+
 /**
  * Render a character from the individual grapheme sprites.
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -197,12 +280,16 @@ export function render() {
       break;
     case 'playing':
     default:
+      // Draw the Mind-Gate-inspired sunlight bloom first so the warden becomes the warm light source for Shin Spire ships.
+      renderWardenSunlightGlow(this.ctx, this.warden);
       // Draw Cardinal Warden
       this.renderWarden();
       // Draw aim target symbol if set
       this.renderAimTarget();
       // Draw weapon targets for eighth grapheme (Theta)
       this.renderWeaponTargets();
+      // Draw ship shadows before the sprites themselves so the sunlight reads as a back-lit scene.
+      this.renderShipShadows();
       // Draw friendly ships
       this.renderFriendlyShips();
       // Draw swarm ships and lasers
@@ -551,8 +638,42 @@ export function renderWeaponTargets() {
 }
 
 /**
- * Render all friendly ships.
+ * Render long ship shadows cast by the Cardinal Warden's warm sunlight.
  */
+export function renderShipShadows() {
+  if (!this.ctx || !this.warden) return;
+
+  const ctx = this.ctx;
+  ctx.save();
+  ctx.globalCompositeOperation = 'multiply';
+
+  // Enemy ships use their rendered sprite size so the long shadow footprint matches the visible hull.
+  for (const enemy of this.enemies || []) {
+    if (!enemy || !Number.isFinite(enemy.x) || !Number.isFinite(enemy.y)) continue;
+    renderWardenLightShadow(ctx, this.warden, enemy, Math.max(5, enemy.size * 1.55));
+  }
+
+  // Boss carriers are still ship silhouettes, so keep them grounded with the same stretched shadow treatment.
+  for (const boss of this.bosses || []) {
+    if (!boss || !Number.isFinite(boss.x) || !Number.isFinite(boss.y)) continue;
+    renderWardenLightShadow(ctx, this.warden, boss, Math.max(10, (boss.size || 18) * 0.95));
+  }
+
+  // Friendly escort ships should also throw long shadows so they feel embedded in the same warm beam.
+  for (const ship of this.friendlyShips || []) {
+    if (!ship || !Number.isFinite(ship.x) || !Number.isFinite(ship.y)) continue;
+    renderWardenLightShadow(ctx, this.warden, ship, Math.max(4, ship.size * 1.2));
+  }
+
+  // Swarm triangles are smaller, so use a compact radius while preserving the same stretched silhouette.
+  for (const ship of this.swarmShips || []) {
+    if (!ship || !Number.isFinite(ship.x) || !Number.isFinite(ship.y)) continue;
+    renderWardenLightShadow(ctx, this.warden, ship, Math.max(3, ship.size));
+  }
+
+  ctx.restore();
+}
+
 export function renderFriendlyShips() {
   if (!this.ctx) return;
   
