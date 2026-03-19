@@ -425,8 +425,6 @@ export function drawFloaters() {
     }
     const sprite = this._swimmerSpriteCache.canvas;
     const spriteRadius = this._swimmerSpriteCache.radius;
-    // Lower speed reference so swimmers become visible at gentler velocities.
-    const speedRef = Math.max(1, minDimension * 0.035);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < swimmers.length; i += 1) {
@@ -447,9 +445,11 @@ export function drawFloaters() {
       ) {
         continue;
       }
-      // Opacity driven by speed: still particles are invisible, fast ones fully opaque.
-      const swimmerSpeed = Number.isFinite(swimmer.speed) ? swimmer.speed : 0;
-      const speedAlpha = Math.min(1, swimmerSpeed / speedRef);
+      // Opacity driven by speed above the hidden baseline drift: moderate motion tops out around 40% alpha.
+      const visibility = typeof this.computeSwimmerVisibility === 'function'
+        ? this.computeSwimmerVisibility(swimmer)
+        : 0;
+      const speedAlpha = Math.min(0.4, visibility * 0.4);
       if (speedAlpha < 0.005) {
         continue;
       }

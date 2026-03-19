@@ -5191,6 +5191,7 @@ Object.assign(SimplePlayfield.prototype, {
   updateBackgroundSwimmers: BackgroundSwimmerSystem.updateBackgroundSwimmers,
   createBackgroundSwimmer: BackgroundSwimmerSystem.createBackgroundSwimmer,
   computeSwimmerCount: BackgroundSwimmerSystem.computeSwimmerCount,
+  computeSwimmerVisibility: BackgroundSwimmerSystem.computeSwimmerVisibility,
 });
 
 // Projectile update system methods

@@ -15,6 +15,8 @@ const REPULSION_RADIUS_METERS = 0.5;
 const GATE_INFLUENCE_METERS = 2.0;
 const GATE_WARP_RADIUS_METERS = 0.25;
 const PATH_CURRENT_WIDTH_METERS = 0.35;
+const SWIMMER_MIN_SPEED_FACTOR = 0.018;
+const SWIMMER_VISIBLE_SPEED_FACTOR = 0.11;
 
 /**
  * Resolve an expanded viewport bounds object so decorative swimmers only spend CPU
@@ -93,6 +95,7 @@ function createBackgroundSwimmer(width, height) {
   const usableHeight = Math.max(1, boundsHeight - margin * 2);
   // Start with very low velocity — swimmers are invisible until pushed.
   const angle = Math.random() * TWO_PI;
+  // Seed swimmers with a tiny baseline drift so they keep a faint sense of motion without becoming visible.
   const drift = Math.random() * 2;
   return {
     x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
@@ -105,7 +108,54 @@ function createBackgroundSwimmer(width, height) {
     speed: drift,
     flicker: Math.random() * TWO_PI,
     sizeScale: 0.5 + Math.random() * 0.8,
+    minSpeed: 0,
+    visibleSpeed: 0,
   };
+}
+
+/**
+ * Keep swimmers gliding at a tiny floor speed so the current can immediately amplify them.
+ * This floor stays invisible because the renderer fades in only above the minimum speed.
+ *
+ * @param {Object} swimmer - Background swimmer state being normalized
+ * @param {number} fallbackDirectionX - Direction used when the swimmer is almost still
+ * @param {number} fallbackDirectionY - Direction used when the swimmer is almost still
+ */
+function enforceMinimumSwimmerSpeed(swimmer, fallbackDirectionX, fallbackDirectionY) {
+  const minSpeed = Number.isFinite(swimmer?.minSpeed) ? swimmer.minSpeed : 0;
+  if (minSpeed <= 0) {
+    return;
+  }
+  const speed = Math.hypot(swimmer.vx, swimmer.vy);
+  if (speed >= minSpeed) {
+    return;
+  }
+  const fallbackLength = Math.hypot(fallbackDirectionX, fallbackDirectionY);
+  const dirX = speed > 1e-4
+    ? swimmer.vx / speed
+    : (fallbackLength > 1e-4 ? fallbackDirectionX / fallbackLength : Math.cos(swimmer.flicker || 0));
+  const dirY = speed > 1e-4
+    ? swimmer.vy / speed
+    : (fallbackLength > 1e-4 ? fallbackDirectionY / fallbackLength : Math.sin(swimmer.flicker || 0));
+  swimmer.vx = dirX * minSpeed;
+  swimmer.vy = dirY * minSpeed;
+}
+
+/**
+ * Convert swimmer speed into a 0-1 visibility ratio.
+ * Minimum-speed drift stays hidden while moderate motion reaches the configured cap.
+ *
+ * @param {Object} swimmer - Background swimmer state sampled by the renderer
+ * @returns {number} Visibility scalar before renderer-side alpha clamping
+ */
+function computeSwimmerVisibility(swimmer) {
+  const speed = Number.isFinite(swimmer?.speed) ? swimmer.speed : 0;
+  const minSpeed = Number.isFinite(swimmer?.minSpeed) ? swimmer.minSpeed : 0;
+  const visibleSpeed = Math.max(minSpeed + 1e-4, Number.isFinite(swimmer?.visibleSpeed) ? swimmer.visibleSpeed : minSpeed + 1);
+  if (speed <= minSpeed) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, (speed - minSpeed) / (visibleSpeed - minSpeed)));
 }
 
 /**
@@ -194,8 +244,8 @@ function applyWakeForce(swimmer, objX, objY, moveVx, moveVy, influenceRadius, st
  * - Projectile displacement (wake-like push)
  * - Mind gate suction (2 m radius) with warp-to-shadow-gate teleportation
  * - Shadow gate repulsion (2 m radius)
- * - Speed-based opacity (still = invisible, fast = opaque)
- * - Velocity damping that lets particles settle to stillness
+ * - Speed-based opacity (minimum drift = invisible, moderate motion = 40% visible)
+ * - Velocity damping that keeps the flow readable without freezing swimmers
  *
  * @param {number} delta - Time delta in seconds for frame-independent animation
  */
@@ -231,9 +281,11 @@ function updateBackgroundSwimmers(delta) {
   const gateWarpDist = metersToPixels(GATE_WARP_RADIUS_METERS, minDimension);
   const currentWidthPx = metersToPixels(PATH_CURRENT_WIDTH_METERS, minDimension);
 
-  const speedCap = minDimension * 0.38;
-  const wanderStrength = minDimension * 0.08;
-  const projectileInfluence = minDimension * 0.16;
+  const speedCap = minDimension * 0.42;
+  const minSpeed = minDimension * SWIMMER_MIN_SPEED_FACTOR;
+  const visibleSpeed = minDimension * SWIMMER_VISIBLE_SPEED_FACTOR;
+  const wanderStrength = minDimension * 0.03;
+  const projectileInfluence = minDimension * 0.2;
   const activityMargin = Math.max(24, currentWidthPx);
   // Gentler damping so swimmers retain velocity longer and stay visible.
   const damping = dt > 0 ? Math.exp(-dt * 1.6) : 1;
@@ -307,10 +359,14 @@ function updateBackgroundSwimmers(delta) {
   }
 
   // Current strength scales with the min dimension so the feel is consistent across resolutions.
-  const currentStrength = minDimension * 0.06;
+  const currentStrength = minDimension * 0.14;
 
   activeSwimmers.forEach((swimmer) => {
-    // Start with a gentle random wander.
+    // Store the invisible baseline speed range used by the renderer.
+    swimmer.minSpeed = minSpeed;
+    swimmer.visibleSpeed = visibleSpeed;
+
+    // Start with a gentle random wander so the larger currents can dominate the motion language.
     swimmer.ax = (Math.random() - 0.5) * wanderStrength;
     swimmer.ay = (Math.random() - 0.5) * wanderStrength;
 
@@ -328,7 +384,7 @@ function updateBackgroundSwimmers(delta) {
           continue;
         }
         const proximity = 1 - dist / repulsionRadius;
-        const repelForce = minDimension * 0.12 * proximity * proximity;
+        const repelForce = minDimension * 0.07 * proximity * proximity;
         swimmer.ax += (dx / dist) * repelForce;
         swimmer.ay += (dy / dist) * repelForce;
       }
@@ -354,7 +410,7 @@ function updateBackgroundSwimmers(delta) {
 
     if (flowDirection && closestDistance < currentWidthPx) {
       const influence = 1 - closestDistance / currentWidthPx;
-      const push = currentStrength * influence;
+      const push = currentStrength * influence * influence;
       swimmer.ax += flowDirection.x * push;
       swimmer.ay += flowDirection.y * push;
     }
@@ -363,20 +419,20 @@ function updateBackgroundSwimmers(delta) {
     const enemyWakeRadius = minDimension * 0.18;
     for (let e = 0; e < enemyStates.length; e += 1) {
       const es = enemyStates[e];
-      applyWakeForce(swimmer, es.x, es.y, es.vx, es.vy, enemyWakeRadius, 0.35);
+      applyWakeForce(swimmer, es.x, es.y, es.vx, es.vy, enemyWakeRadius, 0.8);
     }
 
     // --- Projectile displacement (wake push) ---
     for (let p = 0; p < projectileStates.length; p += 1) {
       const ps = projectileStates[p];
-      applyWakeForce(swimmer, ps.x, ps.y, ps.vx, ps.vy, projectileInfluence, 0.25);
+      applyWakeForce(swimmer, ps.x, ps.y, ps.vx, ps.vy, projectileInfluence, 0.5);
       // Also apply a radial push so nearby particles scatter even from slow projectiles.
       const dx = swimmer.x - ps.x;
       const dy = swimmer.y - ps.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0 && dist < projectileInfluence) {
         const proximity = 1 - dist / projectileInfluence;
-        const radialForce = minDimension * 0.08 * proximity;
+        const radialForce = minDimension * 0.13 * proximity * proximity;
         swimmer.ax += (dx / dist) * radialForce;
         swimmer.ay += (dy / dist) * radialForce;
       }
@@ -390,7 +446,7 @@ function updateBackgroundSwimmers(delta) {
       if (dist > 0 && dist < gateInfluence) {
         const proximity = 1 - dist / gateInfluence;
         // Gentle cubic pull that strengthens close to the gate.
-        const pullForce = minDimension * 0.05 * proximity * proximity * proximity;
+        const pullForce = minDimension * 0.16 * proximity * proximity * proximity;
         swimmer.ax += (dx / dist) * pullForce;
         swimmer.ay += (dy / dist) * pullForce;
       }
@@ -408,7 +464,7 @@ function updateBackgroundSwimmers(delta) {
       const dist = Math.hypot(dx, dy);
       if (dist > 0 && dist < gateInfluence) {
         const proximity = 1 - dist / gateInfluence;
-        const repelForce = minDimension * 0.04 * proximity * proximity;
+        const repelForce = minDimension * 0.14 * proximity * proximity;
         swimmer.ax += (dx / dist) * repelForce;
         swimmer.ay += (dy / dist) * repelForce;
       }
@@ -424,7 +480,10 @@ function updateBackgroundSwimmers(delta) {
       swimmer.vx *= s;
       swimmer.vy *= s;
     }
-    // No speed floor — particles settle to stillness (invisible when still).
+    // Keep a hidden baseline drift so currents can immediately bloom into visible motion.
+    const flowDirectionX = flowDirection?.x || swimmer.ax || 0;
+    const flowDirectionY = flowDirection?.y || swimmer.ay || 0;
+    enforceMinimumSwimmerSpeed(swimmer, flowDirectionX, flowDirectionY);
 
     // Store speed for the renderer to use as opacity.
     swimmer.speed = Math.hypot(swimmer.vx, swimmer.vy);
@@ -449,4 +508,4 @@ function updateBackgroundSwimmers(delta) {
   });
 }
 
-export { updateBackgroundSwimmers, createBackgroundSwimmer, computeSwimmerCount };
+export { updateBackgroundSwimmers, createBackgroundSwimmer, computeSwimmerCount, computeSwimmerVisibility };
