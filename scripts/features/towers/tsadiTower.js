@@ -78,7 +78,7 @@ const TSADI_PARTICLE_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiS
 // Sprite asset for Waals binding agents to match the new Tsadi spire art drop.
 const TSADI_WAALS_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/waalsParticle.png', import.meta.url).href;
 // New Tsadi spire painted background art used behind all particles.
-const TSADI_BACKGROUND_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/tsadi_background_5.png', import.meta.url).href;
+const TSADI_BACKGROUND_SPRITE_URL = new URL('../../../assets/sprites/spires/tsadiSpire/tsadi_background.png', import.meta.url).href;
 
 /**
  * ParticleFusionSimulation for the Tsadi Spire.
