@@ -172,7 +172,21 @@
     <div class="app-shell">
       <!-- FPS counter displayed in the top-left corner regardless of active tab. -->
       <div class="fps-counter" id="fps-counter" hidden aria-hidden="true" aria-label="Frames per second">--</div>
-      <main class="main-stage">
+      <main class="main-stage" id="main-stage">
+        <!-- Shared looping video textures the entire menu surface behind every tab panel. -->
+        <div class="menu-background-media" aria-hidden="true">
+          <video
+            class="menu-background-media__video"
+            data-menu-background-video
+            autoplay
+            muted
+            loop
+            playsinline
+            preload="auto"
+          >
+            <source src="./assets/animations/menuBackground_animation.mp4" type="video/mp4" />
+          </video>
+        </div>
         <section
           class="panel active"
           data-panel="tower"
@@ -188,20 +202,6 @@
                 role="img"
                 aria-label="Interactive glyph defense lane"
               >
-                <!-- Decorative background video fills the battlefield shell behind the alpha render and follows scroll percentage. -->
-                <div class="playfield-background-media" aria-hidden="true">
-                  <video
-                    class="playfield-background-media__video"
-                    data-playfield-background-video
-                    autoplay
-                    muted
-                    loop
-                    playsinline
-                    preload="auto"
-                  >
-                    <source src="./assets/animations/menuBackground_animation.mp4" type="video/mp4" />
-                  </video>
-                </div>
                 <!-- Playfield menu surfaces layout toggles when a level is active. -->
                 <!-- Fullscreen toggle sits beside the playfield menu for quick access. -->
                 <button
