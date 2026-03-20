@@ -5042,6 +5042,7 @@ body.playfield-fullscreen .playfield canvas {
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(255, 215, 0, 0.4);
+  background: rgba(10, 10, 16, 0.46);
   opacity: 0;
 }
 
@@ -5056,8 +5057,8 @@ body.playfield-fullscreen .playfield canvas {
   opacity: 0.34;
   pointer-events: none;
   filter: saturate(0.88) brightness(0.62);
-  /* Pin the looping media to the card floor so it never inserts layout height above the content stack. */
-  z-index: -2;
+  /* Keep the loop inside the card's composited stack so it fills the full card background instead of slipping behind the shell. */
+  z-index: 0;
 }
 
 /* Add a darkened veil above the animation so formula text and upgrade copy stay readable. */
@@ -5070,7 +5071,7 @@ body.playfield-fullscreen .playfield canvas {
     radial-gradient(circle at top, rgba(255, 228, 150, 0.12), transparent 52%);
   pointer-events: none;
   /* Keep the readability veil above the video while still behind every card element. */
-  z-index: -1;
+  z-index: 0;
 }
 
 /* Keep interactive card content above the video and veil layers. */

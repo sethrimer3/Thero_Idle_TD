@@ -222,6 +222,11 @@ const towerTabState = {
   discoveredVariables: new Map(),
   discoveredVariableListeners: new Set(),
   dynamicContext: null,
+  // Track recovery timers so hidden tower panels do not leave decorative video loops stalled after tab swaps.
+  backgroundMediaRecovery: {
+    resumeTimeoutId: null,
+    visibilityBound: false,
+  },
 };
 
 // Default palette values ensure tower icons remain legible before the active scheme resolves.
@@ -1735,11 +1740,7 @@ export function injectTowerCardPreviews() {
       backgroundSource.type = 'video/mp4';
       backgroundVideo.append(backgroundSource);
       card.insertBefore(backgroundVideo, card.firstChild);
-      // Best-effort replay keeps the background animated in browsers that gate autoplay until muted playback is explicitly requested.
-      const playPromise = backgroundVideo.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {});
-      }
+      configureTowerCardBackgroundVideo(backgroundVideo);
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
@@ -1769,6 +1770,96 @@ export function injectTowerCardPreviews() {
       card.insertBefore(preview, card.firstChild);
     }
   });
+}
+
+/**
+ * Best-effort resume keeps decorative tower card loops alive across tab switches and browser autoplay quirks.
+ * Hidden cards are skipped so background media does not waste work while the Towers panel is off-screen.
+ */
+function safelyPlayTowerCardBackground(video) {
+  if (!(video instanceof HTMLVideoElement) || document.hidden) {
+    return;
+  }
+  const card = video.closest(TOWER_CARD_SELECTOR);
+  if (card instanceof HTMLElement) {
+    if (card.hidden || card.getAttribute('aria-hidden') === 'true') {
+      return;
+    }
+  }
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    video.load();
+  }
+  if (video.ended) {
+    video.currentTime = 0;
+  }
+  const playPromise = video.play();
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(() => {});
+  }
+}
+
+/**
+ * Attach replay guards so each decorative card loop re-arms itself after the Towers tab becomes visible.
+ */
+function configureTowerCardBackgroundVideo(video) {
+  if (!(video instanceof HTMLVideoElement) || video.dataset.backgroundConfigured === 'true') {
+    return;
+  }
+  video.dataset.backgroundConfigured = 'true';
+  ['loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'suspend', 'stalled'].forEach((eventName) => {
+    video.addEventListener(eventName, () => safelyPlayTowerCardBackground(video));
+  });
+  video.addEventListener('ended', () => {
+    video.currentTime = 0;
+    safelyPlayTowerCardBackground(video);
+  });
+  video.addEventListener('pause', () => {
+    // Decorative media should not remain paused while the Towers panel is visible.
+    const towersPanel = document.getElementById('panel-towers');
+    const towersVisible = towersPanel instanceof HTMLElement && !towersPanel.hidden;
+    if (towersVisible) {
+      safelyPlayTowerCardBackground(video);
+    }
+  });
+  safelyPlayTowerCardBackground(video);
+}
+
+/**
+ * Resume every tower card background after visibility changes and delayed tab-layout updates.
+ */
+export function refreshTowerCardBackgroundAnimations() {
+  const backgrounds = document.querySelectorAll('.tower-card-background');
+  backgrounds.forEach((background) => {
+    if (background instanceof HTMLVideoElement) {
+      safelyPlayTowerCardBackground(background);
+    }
+  });
+
+  if (towerTabState.backgroundMediaRecovery.resumeTimeoutId !== null) {
+    window.clearTimeout(towerTabState.backgroundMediaRecovery.resumeTimeoutId);
+  }
+  // Re-run once layout settles because some mobile browsers only honor autoplay after the panel has painted.
+  towerTabState.backgroundMediaRecovery.resumeTimeoutId = window.setTimeout(() => {
+    const delayedBackgrounds = document.querySelectorAll('.tower-card-background');
+    delayedBackgrounds.forEach((background) => {
+      if (background instanceof HTMLVideoElement) {
+        safelyPlayTowerCardBackground(background);
+      }
+    });
+    towerTabState.backgroundMediaRecovery.resumeTimeoutId = null;
+  }, 180);
+
+  if (!towerTabState.backgroundMediaRecovery.visibilityBound) {
+    towerTabState.backgroundMediaRecovery.visibilityBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        refreshTowerCardBackgroundAnimations();
+      }
+    });
+    window.addEventListener('pageshow', () => {
+      refreshTowerCardBackgroundAnimations();
+    });
+  }
 }
 
 export function simplifyTowerCards() {
@@ -2182,4 +2273,3 @@ initializeBlueprintContext({
   getTowerDefinition,
   computeTowerVariableValue,
 });
-
