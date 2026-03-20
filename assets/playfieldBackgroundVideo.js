@@ -32,6 +32,9 @@ export function initializePlayfieldBackgroundVideo() {
 
   let playbackRetryCount = 0;
   let interactionUnlockBound = false;
+  let stallWatchdogId = null;
+  let lastObservedTime = -1;
+  let stalledFrameCount = 0;
 
   /**
    * Re-issue play() requests across browser lifecycle events because some mobile engines ignore the first autoplay attempt.
@@ -74,6 +77,34 @@ export function initializePlayfieldBackgroundVideo() {
   };
 
   /**
+   * Periodically verify that the decorative menu loop is still advancing; some mobile browsers pause it silently.
+   */
+  const startPlaybackWatchdog = () => {
+    if (stallWatchdogId !== null) {
+      window.clearInterval(stallWatchdogId);
+    }
+    stallWatchdogId = window.setInterval(() => {
+      if (document.hidden) {
+        lastObservedTime = video.currentTime;
+        stalledFrameCount = 0;
+        return;
+      }
+      const timeDelta = Math.abs(video.currentTime - lastObservedTime);
+      const effectivelyPaused = video.paused || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA;
+      if (effectivelyPaused || timeDelta < 0.001) {
+        stalledFrameCount += 1;
+      } else {
+        stalledFrameCount = 0;
+      }
+      lastObservedTime = video.currentTime;
+      if (stalledFrameCount >= 3) {
+        stalledFrameCount = 0;
+        ensurePlayback();
+      }
+    }, 400);
+  };
+
+  /**
    * Retry a few times while metadata arrives because Safari occasionally resolves layout before honoring autoplay.
    */
   const schedulePlaybackRetry = () => {
@@ -99,6 +130,10 @@ export function initializePlayfieldBackgroundVideo() {
     ensurePlayback();
   });
   video.addEventListener('canplaythrough', ensurePlayback);
+  video.addEventListener('pause', ensurePlayback);
+  video.addEventListener('stalled', ensurePlayback);
+  video.addEventListener('suspend', ensurePlayback);
+  video.addEventListener('waiting', ensurePlayback);
   video.addEventListener('ended', () => {
     // Force a manual restart as a safety net for engines that occasionally ignore the loop attribute on inline video.
     video.currentTime = 0;
@@ -115,11 +150,16 @@ export function initializePlayfieldBackgroundVideo() {
   }
   ensurePlayback();
   schedulePlaybackRetry();
+  startPlaybackWatchdog();
 
   return {
     destroy() {
       document.removeEventListener('visibilitychange', ensurePlayback);
       window.removeEventListener('pageshow', ensurePlayback);
+      if (stallWatchdogId !== null) {
+        window.clearInterval(stallWatchdogId);
+        stallWatchdogId = null;
+      }
     },
   };
 }

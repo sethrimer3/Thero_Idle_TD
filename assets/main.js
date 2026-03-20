@@ -376,6 +376,7 @@ import {
   bindTowerCardUpgradeInteractions,
   updateTowerCardVisibility,
   injectTowerCardPreviews,
+  refreshTowerCardBackgroundAnimations,
   simplifyTowerCards,
   annotateTowerCardsWithCost,
   stageTowerCardEntrance,
@@ -4521,6 +4522,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         if (tabId === 'towers') {
           // Refresh visibility state first (fast, no rendering work).
           updateTowerCardVisibility();
+          refreshTowerCardBackgroundAnimations();
           // Stagger the card entrance so the browser renders them incrementally
           // rather than painting all cards synchronously in one frame.
           requestAnimationFrame(() => {
@@ -5311,6 +5313,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     markLastActive();
 
     injectTowerCardPreviews();
+    refreshTowerCardBackgroundAnimations();
     simplifyTowerCards();
     annotateTowerCardsWithCost();
     synchronizeTowerCardMasterEquations();
