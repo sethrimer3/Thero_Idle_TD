@@ -1,7 +1,7 @@
 // Shared level configuration helpers for Thero Idle.
 // This module stores the interactive and idle level blueprints alongside utility functions for progression logic.
 
-import { parseCompactWaveString } from './waveEncoder.js';
+import { parseCompactWaveString, ENEMY_TYPES } from './waveEncoder.js';
 
 export let levelBlueprints = [];
 export let levelLookup = new Map();
@@ -14,6 +14,24 @@ export const levelSetEntries = [];
 
 const LEVEL_PROGRESS_VERSION = 1;
 const PROLOGUE_STORY_ID = 'Prologue - Story';
+const DEVELOPER_TEST_RANGE_ID = 'Developer - Test Range';
+const DEVELOPER_TEST_RANGE_BASE_HP = 10000;
+const DEVELOPER_TEST_RANGE_INTERVAL = 5;
+
+// Build the developer sandbox wave ladder from the canonical enemy registry so new enemy archetypes
+// automatically appear in the endless test rotation without hand-editing the JSON every time.
+function createDeveloperTestRangeWaves() {
+  return Object.values(ENEMY_TYPES).map((enemyType) => ({
+    label: `${enemyType.label} calibration`,
+    count: 1,
+    interval: DEVELOPER_TEST_RANGE_INTERVAL,
+    hp: DEVELOPER_TEST_RANGE_BASE_HP,
+    speed: enemyType.speed / 1000,
+    reward: 0,
+    color: enemyType.color,
+    codexId: enemyType.id,
+  }));
+}
 
 let developerTheroMultiplierOverride = null;
 // Flag to bypass level locks when developer mode is active so the UI always treats maps as available.
@@ -95,13 +113,25 @@ export function setLevelConfigs(levels = []) {
       waves = parseCompactWaveString(waves);
     }
 
-    levelConfigs.set(level.id, {
+    const normalizedLevel = {
       ...level,
       isStoryLevel: Boolean(level?.isStoryLevel),
       waves: cloneWaveArray(waves),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
-    });
+    };
+
+    // Keep the developer trial sandbox synchronized with the full enemy roster while making the core
+    // invulnerable and scaling each full enemy-type rotation by ×100 from a 10,000 HP baseline.
+    if (normalizedLevel.id === DEVELOPER_TEST_RANGE_ID) {
+      normalizedLevel.lives = Number.POSITIVE_INFINITY;
+      normalizedLevel.preventDefeat = true;
+      normalizedLevel.ignoreBreachDamage = true;
+      normalizedLevel.endlessCycleHpMultiplier = 100;
+      normalizedLevel.waves = createDeveloperTestRangeWaves();
+    }
+
+    levelConfigs.set(level.id, normalizedLevel);
   });
   return levelConfigs;
 }

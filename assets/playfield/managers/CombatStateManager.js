@@ -92,7 +92,10 @@ export function createCombatStateManager(config) {
    * @returns {number} Multiplier (1, 10, 100, 1000, ...)
    */
   function getCycleMultiplier(cycle = endlessCycle) {
-    return Math.pow(10, Math.max(0, cycle));
+    const configuredBase = Number.isFinite(levelConfig.endlessCycleHpMultiplier)
+      ? Math.max(1, levelConfig.endlessCycleHpMultiplier)
+      : 10;
+    return Math.pow(configuredBase, Math.max(0, cycle));
   }
 
   /**
@@ -395,13 +398,16 @@ export function createCombatStateManager(config) {
       if (enemy.progress >= 1.0) {
         // Apply breach damage
         const breachDamage = Math.max(0, enemy.hp);
-        lives -= breachDamage;
+        if (!levelConfig.ignoreBreachDamage) {
+          lives -= breachDamage;
+        }
         
         // Remove enemy
         enemies.splice(i, 1);
+        enemyById.delete(enemy.id);
 
         // Check for defeat
-        if (lives <= 0) {
+        if (!levelConfig.preventDefeat && lives <= 0) {
           resolvedOutcome = 'defeat';
           combatActive = false;
           if (audio) {
