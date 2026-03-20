@@ -15,7 +15,7 @@ import {
   initWeierstrass,
   initAnchors,
   updateWeierstrass,
-} from './WeierstrasBossSystem.js';
+} from './WeierstrassBossSystem.js';
 
 // Scale factor applied to a derivative-shield enemy's visual radius to determine coverage area.
 const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;

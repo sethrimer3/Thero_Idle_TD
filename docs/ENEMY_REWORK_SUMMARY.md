@@ -165,10 +165,10 @@ Scaled by distortion intensity (fewer anchors alive = less distortion).
 | `INTEGRAL_CURVE_POWER` | 0.8 | IntegralEnemySystem.js |
 
 **Behaviour:**
-- At start of path (progress=0): 95% damage reduction
-- At 25% progress: ~80% damage taken
+- At start of path (progress=0): 95% damage reduction (5% gets through)
+- At 25% progress: ~30% damage taken
 - At 50% progress: ~57% damage taken
-- At 75% progress: ~82% damage taken
+- At 75% progress: ~81% damage taken
 - At end of path (progress=1): full damage
 
 **Files created:**
