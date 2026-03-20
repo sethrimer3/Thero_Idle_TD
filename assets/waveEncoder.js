@@ -20,7 +20,8 @@ export const ENEMY_TYPES = {
   'L': { id: 'imaginary-strider', speed: 75, color: '#3498db', label: 'Imaginary Strider' },
   'M': { id: 'combination-cohort', speed: 44, color: '#e67e22', label: 'Combination Cohort' },
   'N': { id: 'polygon-splitter', speed: 58, color: '#00bfa5', label: 'Polygonal Splitter' },
-  'O': { id: 'derivative-shield', speed: 46, color: '#7f8c8d', label: 'Derivative Shield' }
+  'O': { id: 'derivative-shield', speed: 46, color: '#7f8c8d', label: 'Derivative Shield' },
+  'P': { id: 'decimal-swarm', speed: 35, color: '#ffffff', label: 'Decimal Swarm' }
 };
 
 // Reverse mapping for encoding
