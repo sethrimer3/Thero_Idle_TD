@@ -8,6 +8,28 @@ const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
 // Milliseconds the shield effect lingers on a target after the shielder moves out of range.
 const DERIVATIVE_SHIELD_LINGER_MS = 160;
 
+// ─── Partial Wraith speed-ramp constants ──────────────────────────────────────
+// The wraith accelerates as its HP drops: v = vBase + (vMax - vBase) * sqrt(missing)
+// where missing = 1 - HP/maxHP. At full HP it moves at normal speed; near death it
+// reaches up to PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX times its base speed.
+const PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX = 2.8;
+
+import {
+  initDirectionalSaturation,
+  decayDirectionalSaturation,
+} from './DirectionalSaturationSystem.js';
+
+import {
+  initQuantumProjection,
+  updateQuantumProjection,
+} from './QuantumProjectionSystem.js';
+
+import {
+  initWeierstrass,
+  initAnchors,
+  updateWeierstrass,
+} from './WeierstrasBossSystem.js';
+
 // Compute the combined slow multiplier for an enemy from all active slow effects.
 export function resolveEnemySlowMultiplier(enemy) {
   if (!enemy) {
@@ -223,7 +245,41 @@ export function updateEnemies(delta) {
       : 1;
     // Apply stun - stunned enemies cannot move
     const stunMultiplier = this.isEnemyStunned(enemy) ? 0 : 1;
-    const effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier * stunMultiplier);
+    let effectiveSpeed = Math.max(0, baseSpeed * speedMultiplier * pathSpeedMultiplier * mapSpeedMultiplier * stunMultiplier);
+
+    // Partial Wraith speed ramp: v = vBase + (vMax - vBase) * sqrt(missingFraction)
+    // The wraith accelerates as its HP drops, encouraging players to finish it quickly.
+    if ((enemy.codexId || enemy.typeId) === 'partial-wraith') {
+      const maxHp = Number.isFinite(enemy.maxHp) && enemy.maxHp > 0 ? enemy.maxHp : 1;
+      const currentHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
+      const missingFraction = Math.max(0, Math.min(1, 1 - currentHp / maxHp));
+      const speedRamp = 1 + (PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX - 1) * Math.sqrt(missingFraction);
+      effectiveSpeed *= speedRamp;
+      // Store for debug/render access
+      enemy._partialWraithSpeedRamp = speedRamp;
+    }
+
+    // Directional Saturation: initialise sector tracking and decay resistance each frame.
+    if ((enemy.codexId || enemy.typeId) === 'gradient-sapper') {
+      initDirectionalSaturation(enemy);
+      decayDirectionalSaturation(enemy, delta);
+    }
+
+    // Quantum Tunneler: initialise and update multi-projection state.
+    if ((enemy.codexId || enemy.typeId) === 'tunneler') {
+      initQuantumProjection(enemy);
+      updateQuantumProjection(enemy, delta);
+    }
+
+    // Weierstrass Prism: initialise fractal boss state and update oscillation/intrusions.
+    if ((enemy.codexId || enemy.typeId) === 'weierstrass-prism') {
+      initWeierstrass(enemy);
+      if (enemy.isBoss && !enemy._weierstrass.anchorsInitialised) {
+        initAnchors(enemy, enemy.maxHp || 1);
+      }
+      updateWeierstrass(enemy, delta);
+    }
+
     enemy.speed = effectiveSpeed;
     enemy.progress += enemy.speed * delta;
     if (enemy.progress >= 1) {

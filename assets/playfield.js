@@ -4278,14 +4278,72 @@ export class SimplePlayfield {
     }
     
     const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
+
+    // Directional saturation: enemies with sector-based resistance reduce damage
+    // from repeatedly attacked directions. Import is dynamic to avoid circular deps.
+    let dirSatMultiplier = 1;
+    if (enemy._dirSat && sourceTower) {
+      const enemyPos = this.getEnemyPosition(enemy);
+      const sourcePos = { x: sourceTower.x, y: sourceTower.y };
+      if (enemyPos && Number.isFinite(sourcePos.x) && Number.isFinite(sourcePos.y)) {
+        // Inline sector resolution to avoid import overhead
+        const sectors = enemy._dirSat.sectors;
+        const sectorCount = sectors.length;
+        const dx = sourcePos.x - enemyPos.x;
+        const dy = sourcePos.y - enemyPos.y;
+        let angle = Math.atan2(dy, dx);
+        if (angle < 0) angle += Math.PI * 2;
+        const sectorSize = (Math.PI * 2) / sectorCount;
+        const sectorIdx = Math.min(sectorCount - 1, Math.floor(angle / sectorSize));
+        dirSatMultiplier = Math.max(0, 1 - sectors[sectorIdx]);
+        // Build up resistance in this sector
+        const buildup = enemy.isBoss ? 0.072 : 0.12; // DIR_SAT_BUILDUP_PER_HIT * optional boss scale
+        sectors[sectorIdx] = Math.min(1.0, sectors[sectorIdx] + buildup);
+        enemy._dirSat.totalHits++;
+      }
+    }
+
+    // Weierstrass Prism: fractal vulnerability window reduces damage outside vulnerable phases.
+    const weierMult = (enemy._weierstrass && !enemy._weierstrass.vulnerable) ? 0.15 : 1;
+
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier;
+    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult;
     const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
     } else {
       enemy.hp = -applied;
     }
+
+    // Quantum Tunneler: check if a projection layer should collapse after damage.
+    if (enemy._quantum && !enemy._quantum.collapsed && Number.isFinite(enemy.maxHp) && enemy.maxHp > 0) {
+      const hpFraction = Math.max(0, enemy.hp) / enemy.maxHp;
+      const layerFraction = 0.2; // QUANTUM_LAYER_HP_FRACTION
+      const collapseThreshold = 3; // QUANTUM_COLLAPSE_THRESHOLD
+      const nextCollapseAt = 1 - (enemy._quantum.collapses + 1) * layerFraction;
+      if (hpFraction <= nextCollapseAt && enemy._quantum.collapses < collapseThreshold) {
+        enemy._quantum.collapses++;
+        if (!enemy._quantum._collapsedIndices) {
+          enemy._quantum._collapsedIndices = new Set();
+        }
+        enemy._quantum._collapsedIndices.add(enemy._quantum.activeIndex);
+        enemy._quantum.switchTimer = 0;
+        const remaining = enemy._quantum.projections - enemy._quantum.collapses;
+        if (remaining <= 0 || enemy._quantum.collapses >= collapseThreshold) {
+          enemy._quantum.collapsed = true;
+          const collapsedScale = 0.4; // QUANTUM_COLLAPSED_HP_SCALE
+          enemy.hp = Math.max(0, enemy.hp) * collapsedScale;
+          enemy.maxHp = Math.max(1, enemy.hp);
+        } else {
+          enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
+          let safety = enemy._quantum.projections;
+          while (enemy._quantum._collapsedIndices.has(enemy._quantum.activeIndex) && safety-- > 0) {
+            enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
+          }
+        }
+      }
+    }
+
     if (sourceTower) {
       this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }
