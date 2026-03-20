@@ -5075,7 +5075,7 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 /* Keep interactive card content above the video and veil layers. */
-.card[data-tower-id] > * {
+.card[data-tower-id] > *:not(.tower-card-background) {
   position: relative;
   z-index: 1;
 }
