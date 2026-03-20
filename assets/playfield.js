@@ -4278,14 +4278,84 @@ export class SimplePlayfield {
     }
     
     const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
+
+    // Directional saturation: enemies with sector-based resistance reduce damage
+    // from repeatedly attacked directions. Constants inlined from
+    // DirectionalSaturationSystem.js to avoid import in this hot path.
+    // ⚠ Keep in sync: DIR_SAT_BUILDUP_PER_HIT (0.12), DIR_SAT_BOSS_BUILDUP_SCALE (0.6)
+    let dirSatMultiplier = 1;
+    if (enemy._dirSat && sourceTower) {
+      const enemyPos = this.getEnemyPosition(enemy);
+      const sourcePos = { x: sourceTower.x, y: sourceTower.y };
+      if (enemyPos && Number.isFinite(sourcePos.x) && Number.isFinite(sourcePos.y)) {
+        const sectors = enemy._dirSat.sectors;
+        const sectorCount = sectors.length;
+        const dx = sourcePos.x - enemyPos.x;
+        const dy = sourcePos.y - enemyPos.y;
+        let angle = Math.atan2(dy, dx);
+        if (angle < 0) angle += Math.PI * 2;
+        const sectorSize = (Math.PI * 2) / sectorCount;
+        const sectorIdx = Math.min(sectorCount - 1, Math.floor(angle / sectorSize));
+        dirSatMultiplier = Math.max(0, 1 - sectors[sectorIdx]);
+        // Build up resistance: 0.12 normal, 0.12 * 0.6 = 0.072 for bosses
+        const buildup = enemy.isBoss ? 0.072 : 0.12;
+        sectors[sectorIdx] = Math.min(1.0, sectors[sectorIdx] + buildup);
+        enemy._dirSat.totalHits++;
+      }
+    }
+
+    // Weierstrass Prism: fractal vulnerability window reduces damage outside vulnerable phases.
+    const weierMult = (enemy._weierstrass && !enemy._weierstrass.vulnerable) ? 0.15 : 1;
+
+    // Integral Accumulator: damage resistance decreases with path progress.
+    // ⚠ Keep in sync: INTEGRAL_MIN_MULTIPLIER (0.05), INTEGRAL_CURVE_POWER (0.8)
+    // from IntegralEnemySystem.js. Inlined here to avoid import in the hot damage path.
+    let integralMult = 1;
+    if ((enemy.codexId || enemy.typeId) === 'integral-accumulator' && Number.isFinite(enemy.progress)) {
+      const p = Math.max(0, Math.min(1, enemy.progress));
+      integralMult = Math.max(0.05, Math.pow(p, 0.8));
+    }
+
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier;
+    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult;
     const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
     } else {
       enemy.hp = -applied;
     }
+
+    // Quantum Tunneler: check if a projection layer should collapse after damage.
+    // ⚠ Keep in sync: QUANTUM_LAYER_HP_FRACTION (0.2), QUANTUM_COLLAPSE_THRESHOLD (3),
+    // QUANTUM_COLLAPSED_HP_SCALE (0.4) from QuantumProjectionSystem.js.
+    if (enemy._quantum && !enemy._quantum.collapsed && Number.isFinite(enemy.maxHp) && enemy.maxHp > 0) {
+      const hpFraction = Math.max(0, enemy.hp) / enemy.maxHp;
+      const layerFraction = 0.2;
+      const collapseThreshold = 3;
+      const nextCollapseAt = 1 - (enemy._quantum.collapses + 1) * layerFraction;
+      if (hpFraction <= nextCollapseAt && enemy._quantum.collapses < collapseThreshold) {
+        enemy._quantum.collapses++;
+        if (!enemy._quantum._collapsedIndices) {
+          enemy._quantum._collapsedIndices = new Set();
+        }
+        enemy._quantum._collapsedIndices.add(enemy._quantum.activeIndex);
+        enemy._quantum.switchTimer = 0;
+        const remaining = enemy._quantum.projections - enemy._quantum.collapses;
+        if (remaining <= 0 || enemy._quantum.collapses >= collapseThreshold) {
+          enemy._quantum.collapsed = true;
+          const collapsedScale = 0.4;
+          enemy.hp = Math.max(0, enemy.hp) * collapsedScale;
+          enemy.maxHp = Math.max(1, enemy.hp);
+        } else {
+          enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
+          let safety = enemy._quantum.projections;
+          while (enemy._quantum._collapsedIndices.has(enemy._quantum.activeIndex) && safety-- > 0) {
+            enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
+          }
+        }
+      }
+    }
+
     if (sourceTower) {
       this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
     }

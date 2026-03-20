@@ -64,7 +64,7 @@ This creates 3 waves:
 | E | tunneler | Tunneler | 60 | #f39c12 |
 | F | aleph-swarm | Aleph Swarm | 65 | #e91e63 |
 | G | partial-wraith | Partial Wraith | 48 | #34495e |
-| H | gradient-sapper | Gradient Sapper | 52 | #16a085 |
+| H | gradient-sapper | Gradient Sapper *(deprecated → Directional Saturation)* | 52 | #16a085 |
 | I | weierstrass-prism | Weierstrass Prism | 42 | #8e44ad |
 | J | planck-shade | Planck Shade | 70 | #2c3e50 |
 | K | null-husk | Null Husk | 38 | #95a5a6 |
@@ -73,6 +73,7 @@ This creates 3 waves:
 | N | polygon-splitter | Polygonal Splitter | 58 | #00bfa5 |
 | O | derivative-shield | Derivative Shield | 46 | #7f8c8d |
 | P | decimal-swarm | Decimal Swarm | 35 | #ffffff |
+| Q | integral-accumulator | Integral Accumulator | 47 | #6c5ce7 |
 
 ## Design Considerations
 

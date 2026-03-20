@@ -77,12 +77,13 @@
       "id": "tunneler",
       "symbol": "⇥",
       "name": "Quantum Tunnelers",
-      "summary": "Phase-shifted glyphs that refuse to follow etched rails, boring a straight tunnel toward the core regardless of your lattice work.",
+      "summary": "Phase-shifted glyphs that exist as multiple superposed projections, only one of which is vulnerable at any moment.",
       "traits": [
         "Advance along the direct vector from spawn gate to core nexus, bypassing every bend, choke point, and slow field etched onto the lane.",
-        "Treat their displacement as (\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t); only raw damage intersecting that ray can arrest their collapse."
+        "Manifest as multiple simultaneous projections; only the active projection takes damage. The active projection cycles every few seconds.",
+        "After enough projection layers are collapsed, the tunneler enters a final vulnerable phase with reduced remaining HP."
       ],
-      "counter": "Predict the tunnel vector and anchor lattices near the core or directly on that line—positioning, not crowd control, halts their breach.",
+      "counter": "Time burst damage to hit the active projection, then finish the tunneler quickly during the collapsed phase before it reaches the core.",
       "lore": "Archivists describe them as qubits gone feral: collapse their waveform before it resolves inside the heart of your proof.",
       "formula": "(\\vec{r}(t) = \\vec{r}_0 + \\vec{v} t)",
       "formulaLabel": "Tunnel Vector"
@@ -105,42 +106,47 @@
       "id": "partial-wraith",
       "symbol": "∂",
       "name": "Partial Wraith",
-      "summary": "Spectral siphons that leech tower stats until slowed, modelling derivatives that refuse to settle.",
+      "summary": "Spectral siphons that accelerate as their HP drops, modelling derivatives that refuse to settle.",
       "traits": [
         "Stride in (∂^{k}) forms—the exponent glows fiercely while the wraith hoards stolen power tied to its (10^{k}) reserve.",
+        "Speed increases as HP decreases: v = vBase + (vMax − vBase) · √(1 − HP/maxHP). Near death the wraith moves up to 2.8× its base speed.",
         "Absorb a fraction of nearby tower modifiers as (\\Delta S = \\alpha \\cdot S_{tower}); rooting them freezes the derivative at zero and returns the loss."
       ],
-      "counter": "Leverage stuns or heavy slows to pin the wraith, forcing it to disgorge the stolen bonuses.",
+      "counter": "Burst the wraith down quickly before its speed ramps out of control, or use stuns to lock it in place regardless of speed.",
       "lore": "Their edges blur like chalk dust in motion, only resolving when the battlefield stands perfectly still.",
-      "formula": "(\\Delta S = \\alpha \\cdot S_{tower})",
-      "formulaLabel": "Siphon Rate"
+      "formula": "(v = v_0 + (v_{max} - v_0) \\cdot \\sqrt{1 - \\frac{HP}{HP_{max}}})",
+      "formulaLabel": "Speed Ramp"
     },
     {
       "id": "gradient-sapper",
       "symbol": "∇",
-      "name": "Gradient Sapper",
-      "summary": "Vector-chasing saboteurs that accelerate toward downhill buffs while draining everything in their path.",
+      "name": "Directional Saturation",
+      "summary": "Sector-shielded entities that build damage resistance from repeated attacks in the same direction.",
       "traits": [
-        "Marked as (∇^{k}); the exponent's red glow tilts in the direction of greatest descent, mirroring the sapper's chosen gradient.",
-        "Gain speed according to (v = v_0 + \beta \\|\nabla B\\|), with B representing nearby buff intensity."
+        "Marked as (∇^{k}); the exponent's glow shifts to indicate which sectors are saturated.",
+        "The circle around the enemy is divided into 6 angular sectors. Hits from a sector build 12% resistance per hit (6% for bosses) up to 100% block.",
+        "Sector resistance decays slowly over time at 2% per second, rewarding varied attack angles."
       ],
-      "counter": "Rotate support zones or erect knockback fields to flatten the gradient before they sprint through your defenses.",
+      "counter": "Position towers around the path to attack from multiple angles, or rotate fire to let saturated sectors decay.",
       "lore": "Powder traces roll downhill after them, sketching the invisible slopes they follow.",
-      "formula": "(v = v_0 + \beta \\|\nabla B\\|)",
-      "formulaLabel": "Descent Rule"
+      "formula": "(R_s = \\min(1, R_s + 0.12))",
+      "formulaLabel": "Sector Buildup",
+      "deprecated_note": "Replaces the original Gradient Sapper enemy type"
     },
     {
       "id": "weierstrass-prism",
       "symbol": "℘",
       "name": "Weierstrass Prism",
-      "summary": "Fractal shifters that jitter between vulnerable and invulnerable states at nowhere-differentiable intervals.",
+      "summary": "Fractal boss that oscillates between vulnerable and resistant states using a nowhere-differentiable Weierstrass function, while spawning dimensional intrusion attacks.",
       "traits": [
         "Manifest as (℘^{k}); the exponent flickers chaotically, hinting at the fractal rhythm governing their (10^{k}) shell.",
-        "Toggle immunity on a schedule approximating (f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t)) with (0 < a < 1, b \\in \\mathbb{N})."
+        "Vulnerability follows f(t) = Σ aⁿ cos(bⁿ π t). When f(t) > 0.3 the boss takes full damage; otherwise damage is reduced to 15%.",
+        "Periodically spawns circular intrusion telegraphs on the battlefield that spike after 1.8 seconds.",
+        "Four anchors appear around the battlefield; destroying them reduces visual distortion and stabilises the fight."
       ],
-      "counter": "Sync burst damage to the brief windows when the prism's glow steadies, or lock them down with perfectly timed stasis.",
+      "counter": "Time burst damage to vulnerability windows and destroy anchors to stabilise the battlefield before focusing the boss.",
       "lore": "Each shard refracts whole proofs, scattering fragments of color across the monochrome battlefield.",
-      "formula": "(f(t) = \\sum_{n=0}^{\\infty} a^n \\cos(b^n \\pi t))",
+      "formula": "(f(t) = \\sum_{n=0}^{N} a^n \\cos(b^n \\pi t))",
       "formulaLabel": "Fractal Pulse"
     },
     {
@@ -243,6 +249,21 @@
       "lore": "An ancient decimal notation symbol that attracted swirling numeric dust over aeons until the cloud took on a life of its own.",
       "formula": "(ω(r) = Ω_0 \\cdot \\sqrt{R_{\\min}/r})",
       "formulaLabel": "Keplerian Orbit"
+    },
+    {
+      "id": "integral-accumulator",
+      "symbol": "∫",
+      "name": "Integral Accumulator",
+      "summary": "An enemy whose damage resistance decreases as it progresses along the path, accumulating exposure like an integral over distance.",
+      "traits": [
+        "Near the start of the path the enemy is nearly invulnerable (95% damage reduction).",
+        "Resistance fades as a power curve: multiplier = progress^0.8, ramping from 5% to 100% damage taken.",
+        "Conceptually accumulates exposure like ∫₀ˣ dx, becoming fully vulnerable only near the end of the path."
+      ],
+      "counter": "Position heavy damage towers near the end of the path where the enemy is fully exposed, and use slows to extend time in the vulnerable zone.",
+      "lore": "It arrives wrapped in the certainty of zero, but each step adds a sliver of doubt until the integral converges to its doom.",
+      "formula": "(m(x) = \\max(0.05,\\; x^{0.8}))",
+      "formulaLabel": "Exposure Curve"
     }
   ],
   "maps": [

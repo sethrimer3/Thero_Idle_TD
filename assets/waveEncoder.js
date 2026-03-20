@@ -13,7 +13,7 @@ export const ENEMY_TYPES = {
   'E': { id: 'tunneler', speed: 60, color: '#f39c12', label: 'Tunneler' },
   'F': { id: 'aleph-swarm', speed: 65, color: '#e91e63', label: 'Aleph Swarm' },
   'G': { id: 'partial-wraith', speed: 48, color: '#34495e', label: 'Partial Wraith' },
-  'H': { id: 'gradient-sapper', speed: 52, color: '#16a085', label: 'Gradient Sapper' },
+  'H': { id: 'gradient-sapper', speed: 52, color: '#16a085', label: 'Gradient Sapper', deprecated: true, fallbackType: 'A' },
   'I': { id: 'weierstrass-prism', speed: 42, color: '#8e44ad', label: 'Weierstrass Prism' },
   'J': { id: 'planck-shade', speed: 70, color: '#2c3e50', label: 'Planck Shade' },
   'K': { id: 'null-husk', speed: 38, color: '#95a5a6', label: 'Null Husk' },
@@ -21,7 +21,8 @@ export const ENEMY_TYPES = {
   'M': { id: 'combination-cohort', speed: 44, color: '#e67e22', label: 'Combination Cohort' },
   'N': { id: 'polygon-splitter', speed: 58, color: '#00bfa5', label: 'Polygonal Splitter' },
   'O': { id: 'derivative-shield', speed: 46, color: '#7f8c8d', label: 'Derivative Shield' },
-  'P': { id: 'decimal-swarm', speed: 35, color: '#ffffff', label: 'Decimal Swarm' }
+  'P': { id: 'decimal-swarm', speed: 35, color: '#ffffff', label: 'Decimal Swarm' },
+  'Q': { id: 'integral-accumulator', speed: 47, color: '#6c5ce7', label: 'Integral Accumulator' }
 };
 
 // Reverse mapping for encoding
