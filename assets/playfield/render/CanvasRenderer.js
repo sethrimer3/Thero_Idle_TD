@@ -43,6 +43,7 @@ import {
   drawEnemies,
   drawEnemyDeathParticles,
   drawSwarmClouds,
+  drawDecimalSwarmParticles,
 } from './layers/EnemyRenderer.js';
 import {
   drawDamageNumbers,
@@ -320,6 +321,7 @@ function draw() {
     this.drawEnemies();
     this.drawEnemyDeathParticles();
     this.drawSwarmClouds();
+    this.drawDecimalSwarmParticles();
   }
   if (devLayerFlags.projectiles) {
     this.drawProjectiles();
@@ -750,6 +752,7 @@ export {
   drawEnemies,
   drawEnemyDeathParticles,
   drawSwarmClouds,
+  drawDecimalSwarmParticles,
   drawDamageNumbers,
   drawFloatingFeedback,
   drawWaveTallies,

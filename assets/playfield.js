@@ -66,6 +66,7 @@ import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
 import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
+import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
@@ -425,6 +426,8 @@ export class SimplePlayfield {
     this.nuBursts = [];
     // Track swarm clouds from stored shot particles
     this.swarmClouds = [];
+    // Free-flying particles from defeated decimal-swarm enemies
+    this.decimalSwarmFreeParticles = [];
     this.chiThralls = [];
     this.chiLightTrails = [];
     this.chiThrallIdCounter = 0;
@@ -3192,6 +3195,7 @@ export class SimplePlayfield {
     this.gammaStarBursts = [];
     this.nuBursts = [];
     this.swarmClouds = [];
+    this.decimalSwarmFreeParticles = [];
     this.startCombatStatsSession();
 
     if (this.startButton) {
@@ -3698,6 +3702,8 @@ export class SimplePlayfield {
         this.updateEnemies(speedDelta);
         this.updateChiThralls(speedDelta);
         this.updateChiLightTrails(speedDelta);
+        this.updateDecimalSwarmOrbitalParticles(speedDelta);
+        this.updateDecimalSwarmFreeParticles(speedDelta);
       } finally {
         finishEnemySegment();
       }
@@ -5420,4 +5426,15 @@ Object.assign(SimplePlayfield.prototype, {
   spawnTowerHoldIndicators: TowerInteractionSystem.spawnTowerHoldIndicators,
   spawnTowerEquationScribble: TowerInteractionSystem.spawnTowerEquationScribble,
   validatePlacement: TowerInteractionSystem.validatePlacement,
+});
+
+// Decimal swarm system methods
+Object.assign(SimplePlayfield.prototype, {
+  initDecimalSwarmParticles: DecimalSwarmSystem.initDecimalSwarmParticles,
+  updateDecimalSwarmOrbitalParticles: DecimalSwarmSystem.updateDecimalSwarmOrbitalParticles,
+  updateDecimalSwarmFreeParticles: DecimalSwarmSystem.updateDecimalSwarmFreeParticles,
+  flingDecimalSwarmParticles: DecimalSwarmSystem.flingDecimalSwarmParticles,
+  removeDecimalSwarmParticlesInRadius: DecimalSwarmSystem.removeDecimalSwarmParticlesInRadius,
+  tryInterceptDecimalSwarmParticle: DecimalSwarmSystem.tryInterceptDecimalSwarmParticle,
+  drawDecimalSwarmParticles: DecimalSwarmSystem.drawDecimalSwarmParticles,
 });

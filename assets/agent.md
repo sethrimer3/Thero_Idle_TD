@@ -495,6 +495,9 @@ J = Planck Shade (planck-shade)
 K = Null Husk (null-husk)
 L = Imaginary Strider (imaginary-strider)
 M = Combination Cohort (combination-cohort)
+N = Polygonal Splitter (polygon-splitter)
+O = Derivative Shield (derivative-shield)
+P = Decimal Swarm (decimal-swarm)
 ```
 
 ### Developer Mode Wave Editor

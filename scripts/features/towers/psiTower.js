@@ -369,6 +369,11 @@ export function triggerPsiClusterAoE(playfield, cluster, deathPosition) {
     playfield.audio.playSfx('psi_aoe');
   }
 
+  // Area-type attack: strip decimal-swarm particles within the AoE radius.
+  if (typeof playfield.removeDecimalSwarmParticlesInRadius === 'function') {
+    playfield.removeDecimalSwarmParticlesInRadius(deathPosition.x, deathPosition.y, aoeRadiusPixels);
+  }
+
   // Apply damage to all enemies in range
   playfield.enemies.forEach((enemy) => {
     if (!enemy || enemy === cluster) {

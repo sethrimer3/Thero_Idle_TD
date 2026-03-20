@@ -59,6 +59,12 @@ export function spawnEnemies(delta) {
         enemy.radialSpawnY = spawnY;
         enemy.pathMode = 'direct';
       }
+
+      // Initialise galaxy particle cloud for decimal-swarm enemies.
+      if ((enemy.codexId || enemy.typeId) === 'decimal-swarm'
+          && typeof this.initDecimalSwarmParticles === 'function') {
+        this.initDecimalSwarmParticles(enemy);
+      }
       
       this.scheduleStatsPanelRefresh();
     },
@@ -199,6 +205,11 @@ export function processEnemyDefeat(enemy) {
   }
 
   this.handlePolygonSplitOnDefeat(enemy);
+
+  // Fling orbital particles outward when a decimal-swarm enemy is defeated.
+  if (typeof this.flingDecimalSwarmParticles === 'function') {
+    this.flingDecimalSwarmParticles(enemy);
+  }
 
   const baseGain =
     (this.levelConfig?.theroPerKill ?? this.levelConfig?.energyPerKill ?? 0) +

@@ -9,6 +9,7 @@
  * - Rho sparkle ring effect
  * - Enemy death particle fragments
  * - Swarm cloud visual effects
+ * - Decimal swarm galaxy particle cloud
  *
  * All exported functions are designed to be called with `.call(renderer)` where
  * `renderer` is the CanvasRenderer / SimplePlayfield instance, matching the
@@ -22,6 +23,7 @@ import { samplePaletteGradient } from '../../../colorSchemeUtils.js';
 import { colorToRgbaString } from '../../../../scripts/features/towers/powderTower.js';
 import { getEnemyShellSprites } from '../../../enemies.js';
 import { areEnemyParticlesEnabled } from '../../../preferences.js';
+export { drawDecimalSwarmParticles } from '../../systems/DecimalSwarmSystem.js';
 
 // Enemy particle sprite for swirl ring (star particle sprites are more
 // visually distinct than plain circles at low resolution).

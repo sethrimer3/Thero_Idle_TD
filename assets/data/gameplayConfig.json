@@ -226,6 +226,23 @@
       "lore": "Their sigils sketch partial derivatives across the lane, bending trajectories until only an infinitesimal puncture remains.",
       "formula": "(D_{n+1} = 0.5^{n+1} D_0)",
       "formulaLabel": "Diminishing Derivative"
+    },
+    {
+      "id": "decimal-swarm",
+      "symbol": "⊙",
+      "name": "Decimal Swarm",
+      "summary": "A dense mini-boss wreathed in a swirling galaxy of white dot particles that absorb incoming attacks.",
+      "traits": [
+        "Spawns surrounded by 100 orbiting dot particles distributed in a galaxy-like cloud with higher density near the centre.",
+        "Inner particles orbit faster than outer ones following Keplerian scaling: ω ∝ r^{-0.5}.",
+        "Each particle absorbs one attack of any power, destroying both the projectile and the dot.",
+        "Area-type attacks (such as ι pulse and ψ AoE) strip all particles within their blast radius.",
+        "θ (theta) fields halve the rotational speed of particles within range, slowing the cloud."
+      ],
+      "counter": "Deploy area-of-effect towers (ι pulse, ψ AoE) to clear the particle shield en masse before targeting the core with sustained fire.",
+      "lore": "An ancient decimal notation symbol that attracted swirling numeric dust over aeons until the cloud took on a life of its own.",
+      "formula": "(ω(r) = Ω_0 \\cdot \\sqrt{R_{\\min}/r})",
+      "formulaLabel": "Keplerian Orbit"
     }
   ],
   "maps": [

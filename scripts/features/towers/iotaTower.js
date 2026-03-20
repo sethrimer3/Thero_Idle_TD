@@ -202,6 +202,11 @@ export function fireIotaPulse(playfield, tower, targetInfo = {}) {
   const damagePerTarget = totalDamage / affected.length;
   spawnIotaPulseVisual(playfield, tower, radius);
 
+  // Area-type attack: strip decimal-swarm particles within the pulse radius.
+  if (typeof playfield.removeDecimalSwarmParticlesInRadius === 'function') {
+    playfield.removeDecimalSwarmParticlesInRadius(tower.x, tower.y, radius);
+  }
+
   affected.forEach(({ enemy, position }) => {
     if (!enemy) {
       return;

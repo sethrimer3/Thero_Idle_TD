@@ -3,6 +3,11 @@
 
 // Import helper function for epsilon tower hit stacking
 import { applyEpsilonHit as applyEpsilonHitHelper } from '../../../scripts/features/towers/epsilonTower.js';
+// Shared interception constants from the decimal swarm system.
+import {
+  PARTICLE_HIT_RADIUS as DECIMAL_SWARM_PARTICLE_HIT_RADIUS,
+  DEFAULT_PROJECTILE_HIT_RADIUS as DECIMAL_SWARM_DEFAULT_PROJ_HIT_RADIUS,
+} from './DecimalSwarmSystem.js';
 
 // Pre-calculated constants for performance
 const PI = Math.PI;
@@ -60,6 +65,44 @@ function updateProjectiles(delta) {
   for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
     const projectile = this.projectiles[index];
     projectile.lifetime += delta;
+
+    // For combat projectiles that carry a position, check free decimal-swarm
+    // particles (flung after host death) before any pattern-specific handling.
+    // Orbital particle checks are deferred to each pattern's collision block so
+    // we can compute the current interpolated position correctly.
+    if (projectile.patternType !== 'supply'
+        && projectile.patternType !== 'etaLaser'
+        && projectile.patternType !== 'iotaPulse'
+        && projectile.patternType !== 'omegaWave'
+        && projectile.position
+        && Array.isArray(this.decimalSwarmFreeParticles)
+        && this.decimalSwarmFreeParticles.length > 0
+        && typeof this.tryInterceptDecimalSwarmParticle === 'function') {
+      // Only pass free-particle check — the orbital check is handled per-pattern below.
+      const pos = projectile.position;
+      const px = pos.x;
+      const py = pos.y;
+      const intercept = DECIMAL_SWARM_PARTICLE_HIT_RADIUS + Math.max(0, Number.isFinite(projectile.hitRadius) ? projectile.hitRadius : DECIMAL_SWARM_DEFAULT_PROJ_HIT_RADIUS);
+      const r2 = intercept * intercept;
+      let intercepted = false;
+      for (let fi = this.decimalSwarmFreeParticles.length - 1; fi >= 0; fi--) {
+        const fp = this.decimalSwarmFreeParticles[fi];
+        if (!fp) {
+          continue;
+        }
+        const fdx = fp.x - px;
+        const fdy = fp.y - py;
+        if (fdx * fdx + fdy * fdy <= r2) {
+          this.decimalSwarmFreeParticles.splice(fi, 1);
+          intercepted = true;
+          break;
+        }
+      }
+      if (intercepted) {
+        this.projectiles.splice(index, 1);
+        continue;
+      }
+    }
 
     if (projectile.patternType === 'supply') {
       const distance = Number.isFinite(projectile.distance) ? Math.max(1, projectile.distance) : 1;
@@ -526,6 +569,12 @@ function updateProjectiles(delta) {
       }
 
       if (didHit) {
+        // Check whether a decimal-swarm particle absorbs this needle first.
+        if (typeof this.tryInterceptDecimalSwarmParticle === 'function'
+            && this.tryInterceptDecimalSwarmParticle(projectile, projectile.position)) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
         // find source tower for stacking
         const tower = this.getTowerById(projectile.towerId);
         let stacks = 0;
@@ -592,6 +641,12 @@ function updateProjectiles(delta) {
 
       // Apply damage on collision
       if (separation <= combinedRadius) {
+        // Check whether a decimal-swarm particle absorbs this projectile first.
+        if (typeof this.tryInterceptDecimalSwarmParticle === 'function'
+            && this.tryInterceptDecimalSwarmParticle(projectile, { x: currentX, y: currentY })) {
+          this.projectiles.splice(index, 1);
+          continue;
+        }
         const tower = this.getTowerById(projectile.towerId);
         this.applyDamageToEnemy(enemy, projectile.damage, { sourceTower: tower });
         this.projectiles.splice(index, 1);

@@ -72,6 +72,7 @@ This creates 3 waves:
 | M | combination-cohort | Combination Cohort | 44 | #e67e22 |
 | N | polygon-splitter | Polygonal Splitter | 58 | #00bfa5 |
 | O | derivative-shield | Derivative Shield | 46 | #7f8c8d |
+| P | decimal-swarm | Decimal Swarm | 35 | #ffffff |
 
 ## Design Considerations
 
