@@ -489,7 +489,7 @@ D = Reversal (reversal)
 E = Tunneler (tunneler)
 F = Aleph Swarm (aleph-swarm)
 G = Partial Wraith (partial-wraith)
-H = Gradient Sapper (gradient-sapper)
+H = Gradient Sapper (gradient-sapper) [deprecated → Directional Saturation]
 I = Weierstrass Prism (weierstrass-prism)
 J = Planck Shade (planck-shade)
 K = Null Husk (null-husk)
@@ -498,6 +498,7 @@ M = Combination Cohort (combination-cohort)
 N = Polygonal Splitter (polygon-splitter)
 O = Derivative Shield (derivative-shield)
 P = Decimal Swarm (decimal-swarm)
+Q = Integral Accumulator (integral-accumulator)
 ```
 
 ### Developer Mode Wave Editor

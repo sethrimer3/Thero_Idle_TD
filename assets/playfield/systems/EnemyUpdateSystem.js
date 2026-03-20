@@ -1,19 +1,6 @@
 // Enemy update system extracted from SimplePlayfield.
 // These functions use 'this' (the SimplePlayfield instance) via prototype assignment.
 
-// Scale factor applied to a derivative-shield enemy's visual radius to determine coverage area.
-const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
-// Minimum pixel radius for the derivative shield coverage zone regardless of enemy size.
-const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
-// Milliseconds the shield effect lingers on a target after the shielder moves out of range.
-const DERIVATIVE_SHIELD_LINGER_MS = 160;
-
-// ─── Partial Wraith speed-ramp constants ──────────────────────────────────────
-// The wraith accelerates as its HP drops: v = vBase + (vMax - vBase) * sqrt(missing)
-// where missing = 1 - HP/maxHP. At full HP it moves at normal speed; near death it
-// reaches up to PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX times its base speed.
-const PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX = 2.8;
-
 import {
   initDirectionalSaturation,
   decayDirectionalSaturation,
@@ -29,6 +16,19 @@ import {
   initAnchors,
   updateWeierstrass,
 } from './WeierstrasBossSystem.js';
+
+// Scale factor applied to a derivative-shield enemy's visual radius to determine coverage area.
+const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
+// Minimum pixel radius for the derivative shield coverage zone regardless of enemy size.
+const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
+// Milliseconds the shield effect lingers on a target after the shielder moves out of range.
+const DERIVATIVE_SHIELD_LINGER_MS = 160;
+
+// ─── Partial Wraith speed-ramp constants ──────────────────────────────────────
+// The wraith accelerates as its HP drops: v = vBase + (vMax - vBase) * sqrt(missing)
+// where missing = 1 - HP/maxHP. At full HP it moves at normal speed; near death it
+// reaches up to PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX times its base speed.
+const PARTIAL_WRAITH_SPEED_MULTIPLIER_MAX = 2.8;
 
 // Compute the combined slow multiplier for an enemy from all active slow effects.
 export function resolveEnemySlowMultiplier(enemy) {

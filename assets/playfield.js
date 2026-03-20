@@ -4306,8 +4306,16 @@ export class SimplePlayfield {
     // Weierstrass Prism: fractal vulnerability window reduces damage outside vulnerable phases.
     const weierMult = (enemy._weierstrass && !enemy._weierstrass.vulnerable) ? 0.15 : 1;
 
+    // Integral Accumulator: damage resistance decreases with path progress.
+    // Near the start the enemy blocks ~95% of damage; near the end it takes full damage.
+    let integralMult = 1;
+    if ((enemy.codexId || enemy.typeId) === 'integral-accumulator' && Number.isFinite(enemy.progress)) {
+      const p = Math.max(0, Math.min(1, enemy.progress));
+      integralMult = Math.max(0.05, Math.pow(p, 0.8)); // INTEGRAL_MIN_MULTIPLIER, INTEGRAL_CURVE_POWER
+    }
+
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult;
+    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult;
     const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
