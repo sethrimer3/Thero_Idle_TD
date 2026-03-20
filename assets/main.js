@@ -5319,6 +5319,15 @@ import { createSpireCameraController } from './spireCameraController.js';
     synchronizeTowerCardMasterEquations();
     initializeTowerEquipmentInterface();
     updateTowerCardVisibility();
+    // If the player loaded directly into the towers tab, the entrance animation
+    // was scheduled before injectTowerCardPreviews/updateTowerCardVisibility ran,
+    // so cards were still hidden at that point. Re-run the entrance now that all
+    // cards are properly injected and their visibility is up-to-date.
+    if (getActiveTabId() === 'towers') {
+      requestAnimationFrame(() => {
+        stageTowerCardEntrance({ delayBetweenMs: 40 });
+      });
+    }
     initializeTowerTreeMap({
       toggleButton: document.getElementById('tower-tree-map-toggle'),
       mapContainer: document.getElementById('tower-tree-map'),
