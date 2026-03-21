@@ -54,6 +54,8 @@ const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in wi
 const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
 const EQUATION_TOOLTIP_ID = 'tower-upgrade-equation-tooltip'; // Stable id so aria-describedby wiring stays deterministic.
 const TOWER_CARD_SELECTOR = '.card[data-tower-id]'; // Limit tower card queries so loadout buttons stay compact.
+// Resolve the decorative tower-card video through the module URL so the browser receives the correct asset path in every runtime.
+const TOWER_CARD_BACKGROUND_VIDEO_URL = new URL('./animations/cardBackground_animation.mp4', import.meta.url).href;
 
 const UNIVERSAL_VARIABLE_LIBRARY = new Map([
   [
@@ -1735,10 +1737,8 @@ export function injectTowerCardPreviews() {
       backgroundVideo.playsInline = true;
       backgroundVideo.preload = 'auto';
       backgroundVideo.setAttribute('aria-hidden', 'true');
-      const backgroundSource = document.createElement('source');
-      backgroundSource.src = 'assets/animations/cardBackground_animation.mp4';
-      backgroundSource.type = 'video/mp4';
-      backgroundVideo.append(backgroundSource);
+      // Assign the asset directly on the video element so browsers do not defer source selection behind an empty <source> stack.
+      backgroundVideo.src = TOWER_CARD_BACKGROUND_VIDEO_URL;
       card.insertBefore(backgroundVideo, card.firstChild);
       configureTowerCardBackgroundVideo(backgroundVideo);
     }
@@ -1806,12 +1806,20 @@ function configureTowerCardBackgroundVideo(video) {
     return;
   }
   video.dataset.backgroundConfigured = 'true';
-  ['loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'suspend', 'stalled'].forEach((eventName) => {
+  ['loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'stalled'].forEach((eventName) => {
     video.addEventListener(eventName, () => safelyPlayTowerCardBackground(video));
+  });
+  video.addEventListener('loadeddata', () => {
+    // Mark ready state so CSS can fade from the static fallback into the real moving texture.
+    video.dataset.mediaReady = 'true';
   });
   video.addEventListener('ended', () => {
     video.currentTime = 0;
     safelyPlayTowerCardBackground(video);
+  });
+  video.addEventListener('error', () => {
+    // Surface load failures on the element itself so debugging the decorative media remains possible from DevTools.
+    video.dataset.mediaReady = 'error';
   });
   video.addEventListener('pause', () => {
     // Decorative media should not remain paused while the Towers panel is visible.
