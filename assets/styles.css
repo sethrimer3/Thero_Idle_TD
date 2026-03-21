@@ -16477,13 +16477,24 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   position: relative;
 }
 
-/* Golden/orange shape-overlap ambient background for the Shin Spire.
-   Positioned absolutely so it covers the full panel viewport without scrolling. */
+/* Ambient background overlay canvas for the Shin and Tsadi Spires.
+   Positioned absolutely so it covers the full panel viewport without scrolling.
+   z-index: 2 places it above the main render canvas (z-index 0–1) so the
+   low-opacity effect is always visible, while pointer-events: none ensures
+   the game/simulation canvas beneath still receives all input. */
 .shin-shape-bg-canvas {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: 2;
+}
+
+/* Inside .powder-basin the generic .powder-basin canvas rule sets
+   position: relative (higher specificity 0,1,1 vs 0,1,0).  This more-specific
+   override restores the intended position: absolute so the canvas overlays
+   the basin correctly. */
+.powder-basin .shin-shape-bg-canvas {
+  position: absolute;
 }
 
 /* Match top spacing of non-Aleph spire render wrappers to the Aleph render position. */
