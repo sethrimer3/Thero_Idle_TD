@@ -405,6 +405,8 @@ import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js'
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Bring in drag-scroll support so hidden scrollbars remain usable.
 import { enableDragScroll } from './dragScroll.js';
+// Particle-based visual scrollbar for reliable touch scrolling on Android.
+import { initParticleScrollbar, notifyParticleScrollbarTabChanged } from './particleScrollbar.js';
 import { createLevelEditorController } from './levelEditor.js';
 import { createLevelPreviewRenderer, getPreviewPointsForLevel } from './levelPreviewRenderer.js';
 import { createLevelOverlayController } from './levelOverlayController.js';
@@ -4182,6 +4184,9 @@ import { createSpireCameraController } from './spireCameraController.js';
       selectors: ['.field-notes-page', '.upgrade-matrix-grid'],
     });
 
+    // Attach the particle scrollbar canvas to the right edge for reliable touch scrolling on Android.
+    initParticleScrollbar();
+
     initializeLevelEditorElements();
     initializeDeveloperMapElements();
 
@@ -4910,6 +4915,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         }
 
         previousTabId = tabId;
+        notifyParticleScrollbarTabChanged();
       },
       onTowerTabActivated: () => {
         updateActiveLevelBanner();
