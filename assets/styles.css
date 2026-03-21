@@ -5054,11 +5054,20 @@ body.playfield-fullscreen .playfield canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.34;
+  /* Start from a brighter static layer so the backdrop remains visible even before the video decodes its first frame. */
+  opacity: 0.52;
   pointer-events: none;
-  filter: saturate(0.88) brightness(0.62);
+  filter: saturate(0.96) brightness(0.9);
+  mix-blend-mode: screen;
+  transform: scale(1.02);
+  transition: opacity 220ms ease;
   /* Keep the loop inside the card's composited stack so it fills the full card background instead of slipping behind the shell. */
   z-index: 0;
+}
+
+.tower-card-background[data-media-ready='true'] {
+  /* Let the decoded video read a touch stronger than the fallback so the movement is obvious behind the card chrome. */
+  opacity: 0.62;
 }
 
 /* Add a darkened veil above the animation so formula text and upgrade copy stay readable. */
@@ -5067,8 +5076,8 @@ body.playfield-fullscreen .playfield canvas {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(8, 8, 14, 0.2), rgba(8, 8, 14, 0.58)),
-    radial-gradient(circle at top, rgba(255, 228, 150, 0.12), transparent 52%);
+    linear-gradient(180deg, rgba(8, 8, 14, 0.12), rgba(8, 8, 14, 0.42)),
+    radial-gradient(circle at top, rgba(255, 228, 150, 0.09), transparent 52%);
   pointer-events: none;
   /* Keep the readability veil above the video while still behind every card element. */
   z-index: 0;
