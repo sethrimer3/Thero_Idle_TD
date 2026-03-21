@@ -5130,7 +5130,7 @@ body.playfield-fullscreen .playfield canvas {
   pointer-events: none;
 }
 
-.card--mind-gate > * {
+.card--mind-gate > *:not(.tower-card-background) {
   position: relative;
   z-index: 1;
 }
@@ -5317,7 +5317,7 @@ body.playfield-fullscreen .playfield canvas {
   pointer-events: none;
 }
 
-.card--shadow-gate > * {
+.card--shadow-gate > *:not(.tower-card-background) {
   position: relative;
   z-index: 1;
 }
