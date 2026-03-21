@@ -280,6 +280,51 @@ export function updateEnemies(delta) {
       updateWeierstrass(enemy, delta);
     }
 
+    // Imaginary Strider: temporary placeholder invulnerability after each hit (3-second window).
+    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
+      if (enemy.isInvulnerable && Number.isFinite(enemy.invulnerabilityTimer)) {
+        enemy.invulnerabilityTimer = Math.max(0, enemy.invulnerabilityTimer - delta);
+        if (enemy.invulnerabilityTimer <= 0) {
+          enemy.isInvulnerable = false;
+          delete enemy.invulnerabilityTimer;
+        }
+      }
+    }
+
+    // Superposition: toggles between state 0 (high resistance, slow) and state 1 (low resistance, fast)
+    // every 1.5 seconds.
+    if ((enemy.codexId || enemy.typeId) === 'superposition') {
+      if (!Number.isFinite(enemy.superpositionTimer)) {
+        // Initialise state machine on first update
+        enemy.currentState = 0;
+        enemy.superpositionTimer = 0;
+      }
+      enemy.superpositionTimer += delta;
+      if (enemy.superpositionTimer >= 1.5) {
+        enemy.superpositionTimer -= 1.5;
+        enemy.currentState = enemy.currentState === 0 ? 1 : 0;
+        // State 0: high resistance, slow; State 1: low resistance, faster
+        enemy._superpositionFlashTimer = 0.4; // Trigger flash transition visual
+        // Debug logging — can be removed without affecting gameplay
+        console.log(`[Superposition State Switched] enemy id=${enemy.id} → state=${enemy.currentState}`);
+      }
+      // Update flash transition timer
+      if (Number.isFinite(enemy._superpositionFlashTimer) && enemy._superpositionFlashTimer > 0) {
+        enemy._superpositionFlashTimer = Math.max(0, enemy._superpositionFlashTimer - delta);
+      }
+      // Apply speed modifier: state 0 = 60% speed, state 1 = 130% speed
+      if (enemy.currentState === 0) {
+        effectiveSpeed *= 0.6;
+      } else {
+        effectiveSpeed *= 1.3;
+      }
+    }
+
+    // Quantum-Tunneler: update active tunnel zones created by this enemy type.
+    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
+      // Tunnel zone lifecycle is managed separately via updateTunnelZones
+    }
+
     enemy.speed = effectiveSpeed;
     enemy.progress += enemy.speed * delta;
     if (enemy.progress >= 1) {
@@ -359,4 +404,64 @@ export function updateDerivativeShieldStates(delta) {
       delete enemy.derivativeShield;
     }
   });
+}
+
+// ─── Quantum-Tunneler tunnel zone update ────────────────────────────────────
+// Advances the lifetime of each active TunnelZone and applies forward-teleport
+// to any enemy that enters the zone radius.  Each zone persists for exactly
+// 4 seconds.  Enemies are teleported forward along the path by teleportDistance
+// (5–10% of total path) while clamping progress to [0, 0.99] to prevent
+// instant breach.  Zones are created in applyDamageToEnemy / processEnemyDefeat.
+
+// Radius within which an enemy is affected by a TunnelZone (normalised coords).
+const TUNNEL_ZONE_AFFECT_RADIUS = 0.06;
+
+export function updateTunnelZones(delta) {
+  if (!Array.isArray(this.tunnelZones) || this.tunnelZones.length === 0) {
+    return;
+  }
+
+  const remainingZones = [];
+  for (const zone of this.tunnelZones) {
+    if (!zone) {
+      continue;
+    }
+    zone.elapsed = (zone.elapsed || 0) + delta;
+    // Expire zones after 4 seconds
+    if (zone.elapsed >= 4.0) {
+      continue;
+    }
+    remainingZones.push(zone);
+
+    // Affect any enemy that enters the zone radius
+    if (Array.isArray(this.enemies)) {
+      for (const enemy of this.enemies) {
+        if (!enemy) {
+          continue;
+        }
+        const pos = this.getEnemyPosition(enemy);
+        if (!pos) {
+          continue;
+        }
+        const dx = pos.x - zone.position.x;
+        const dy = pos.y - zone.position.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > TUNNEL_ZONE_AFFECT_RADIUS) {
+          continue;
+        }
+        // Only teleport each enemy through a given zone once per visit
+        if (!zone._teleportedIds) {
+          zone._teleportedIds = new Set();
+        }
+        if (zone._teleportedIds.has(enemy.id)) {
+          continue;
+        }
+        zone._teleportedIds.add(enemy.id);
+        // Clamp teleport so enemies cannot breach instantly
+        const newProgress = Math.min(0.99, (enemy.progress || 0) + zone.teleportDistance);
+        enemy.progress = newProgress;
+      }
+    }
+  }
+  this.tunnelZones = remainingZones;
 }

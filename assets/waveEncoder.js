@@ -9,7 +9,8 @@ export const ENEMY_TYPES = {
   'A': { id: 'etype', speed: 50, color: '#4a90e2', label: 'Epsilon Type' },
   'B': { id: 'divisor', speed: 45, color: '#e24a4a', label: 'Divisor' },
   'C': { id: 'prime', speed: 55, color: '#50c878', label: 'Prime' },
-  'D': { id: 'reversal', speed: 40, color: '#9b59b6', label: 'Reversal' },
+  // D was 'reversal' — replaced by recursive-relay (recursive spawn mechanic)
+  'D': { id: 'recursive-relay', speed: 40, color: '#c39bd3', label: 'Recursive Relay' },
   'E': { id: 'tunneler', speed: 60, color: '#f39c12', label: 'Tunneler' },
   'F': { id: 'aleph-swarm', speed: 65, color: '#e91e63', label: 'Aleph Swarm' },
   'G': { id: 'partial-wraith', speed: 48, color: '#34495e', label: 'Partial Wraith' },
@@ -22,7 +23,11 @@ export const ENEMY_TYPES = {
   'N': { id: 'polygon-splitter', speed: 58, color: '#00bfa5', label: 'Polygonal Splitter' },
   'O': { id: 'derivative-shield', speed: 46, color: '#7f8c8d', label: 'Derivative Shield' },
   'P': { id: 'decimal-swarm', speed: 35, color: '#ffffff', label: 'Decimal Swarm' },
-  'Q': { id: 'integral-accumulator', speed: 47, color: '#6c5ce7', label: 'Integral Accumulator' }
+  'Q': { id: 'integral-accumulator', speed: 47, color: '#6c5ce7', label: 'Integral Accumulator' },
+  // New enemy types
+  'R': { id: 'nullifier', speed: 42, color: '#1a1a2e', label: 'Nullifier' },
+  'S': { id: 'superposition', speed: 58, color: '#00d2ff', label: 'Superposition' },
+  'T': { id: 'quantum-tunneler', speed: 50, color: '#7fff00', label: 'Quantum Tunneler' },
 };
 
 // Reverse mapping for encoding

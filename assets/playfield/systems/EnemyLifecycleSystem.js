@@ -190,7 +190,12 @@ export function processEnemyDefeat(enemy) {
   if (enemy.isPsiCluster) {
     this.triggerPsiClusterAoE(enemy, defeatPosition);
   }
-  
+
+  // ─── Quantum-Tunneler: create a TunnelZone when it dies ───────────────
+  if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler' && typeof this.createTunnelZone === 'function') {
+    this.createTunnelZone(enemy);
+  }
+
   // Emit a burst of collapse motes before removing the enemy from active lists.
   this.spawnEnemyDeathParticles(enemy);
   this.captureEnemyHistory(enemy);

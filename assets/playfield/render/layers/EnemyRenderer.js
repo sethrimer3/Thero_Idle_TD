@@ -1043,6 +1043,119 @@ export function drawEnemies() {
 
     drawEnemyDebuffBar(ctx, metrics, debuffIndicators);
 
+    // ─── Integral Accumulator: progress-based shield ring visual ─────────
+    // The shield fades from full opacity+thickness at progress=0 to invisible
+    // at progress=1, clearly communicating increasing vulnerability.
+    if ((enemy.codexId || enemy.typeId) === 'integral-accumulator' && Number.isFinite(enemy.progress)) {
+      const prog = Math.max(0, Math.min(1, enemy.progress));
+      const shieldStrength = 1 - prog;
+      if (shieldStrength > 0.01) {
+        const shieldRadius = (metrics.ringRadius || 16) + 6;
+        const shieldAlpha = shieldStrength * 0.75;
+        const shieldWidth = 1.5 + shieldStrength * 4;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, shieldRadius, 0, TWO_PI);
+        ctx.strokeStyle = `rgba(108, 92, 231, ${shieldAlpha})`;
+        ctx.lineWidth = shieldWidth;
+        ctx.stroke();
+        // Inner glow ring
+        ctx.beginPath();
+        ctx.arc(0, 0, shieldRadius - 3, 0, TWO_PI);
+        ctx.strokeStyle = `rgba(180, 160, 255, ${shieldAlpha * 0.4})`;
+        ctx.lineWidth = shieldWidth * 0.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // ─── Imaginary Strider: invulnerability shimmer/ghost effect ─────────
+    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider' && enemy.isInvulnerable) {
+      const flickerRate = 8; // Hz
+      const flickerPhase = Math.floor((timestamp / 1000) * flickerRate) % 2;
+      const ghostAlpha = flickerPhase === 0 ? 0.25 : 0.6;
+      const ghostRadius = (metrics.ringRadius || 16) + 10;
+      ctx.save();
+      ctx.globalAlpha *= ghostAlpha;
+      ctx.beginPath();
+      ctx.arc(0, 0, ghostRadius, 0, TWO_PI);
+      ctx.fillStyle = 'rgba(52, 152, 219, 0.35)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(174, 214, 241, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ─── Superposition: 0/1 state label with fade transition ─────────────
+    if ((enemy.codexId || enemy.typeId) === 'superposition' && Number.isFinite(enemy.currentState)) {
+      const stateLabel = enemy.currentState === 0 ? '0' : '1';
+      const flashT = Number.isFinite(enemy._superpositionFlashTimer) ? (enemy._superpositionFlashTimer / 0.4) : 0;
+      const labelAlpha = Math.max(0.55, 1 - flashT);
+      const labelRadius = (metrics.ringRadius || 16) + 14;
+      ctx.save();
+      ctx.globalAlpha *= labelAlpha;
+      ctx.font = `bold ${Math.round(metrics.scale * 10 + 8)}px monospace`;
+      ctx.fillStyle = enemy.currentState === 0 ? 'rgba(180, 220, 255, 0.9)' : 'rgba(255, 255, 180, 0.9)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(stateLabel, 0, -labelRadius);
+      ctx.restore();
+    }
+
+    // ─── Nullifier: ∅ symbol display ──────────────────────────────────────
+    if ((enemy.codexId || enemy.typeId) === 'nullifier') {
+      // Ensure the main symbol is the ∅ glyph (override via label if needed)
+      const nullRadius = (metrics.ringRadius || 16) + 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, nullRadius, 0, TWO_PI);
+      ctx.strokeStyle = 'rgba(26, 26, 46, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ─── Quantum-Tunneler: portal ring indicator ───────────────────────────
+    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
+      const portalRadius = (metrics.ringRadius || 16) + 8;
+      const rotAngle = ((timestamp || 0) / 1000) * Math.PI;
+      ctx.save();
+      ctx.rotate(rotAngle);
+      ctx.beginPath();
+      ctx.arc(0, 0, portalRadius, 0, Math.PI);
+      ctx.strokeStyle = 'rgba(127, 255, 0, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0, portalRadius, Math.PI, TWO_PI);
+      ctx.strokeStyle = 'rgba(0, 210, 255, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ─── Prime-Counter: segmented hit-count ring ───────────────────────────
+    if ((enemy.codexId || enemy.typeId) === 'prime' && Number.isFinite(enemy.requiredHitCount)) {
+      const total = enemy.requiredHitCount;
+      const current = enemy.currentHitCount || 0;
+      const remaining = Math.max(0, total - current);
+      const ringRadius = (metrics.ringRadius || 16) + 7;
+      const segGap = 0.08; // radians gap between segments
+      const segSpan = (TWO_PI / total) - segGap;
+      ctx.save();
+      for (let s = 0; s < total; s += 1) {
+        const startAngle = (s / total) * TWO_PI - PI / 2;
+        const filled = s < remaining;
+        ctx.beginPath();
+        ctx.arc(0, 0, ringRadius, startAngle + segGap / 2, startAngle + segSpan + segGap / 2);
+        ctx.strokeStyle = filled ? 'rgba(80, 200, 120, 0.85)' : 'rgba(60, 60, 60, 0.5)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     // Draw front shell sprite in front of enemy
     if (shellSprites?.front) {
       drawEnemyShellSprite(ctx, shellSprites.front, metrics);

@@ -322,6 +322,7 @@ function draw() {
     this.drawEnemyDeathParticles();
     this.drawSwarmClouds();
     this.drawDecimalSwarmParticles();
+    this.drawTunnelZones();
   }
   if (devLayerFlags.projectiles) {
     this.drawProjectiles();
@@ -714,6 +715,62 @@ function drawDeveloperCrystals() {
 }
 
 
+// ─── Tunnel Zone visual: paired portal rings with spatial distortion ─────────
+// Each active TunnelZone is drawn as two concentric arc rings in complementary
+// colors. Opacity fades out over the 4-second lifetime.
+const TWO_PI_LOCAL = Math.PI * 2;
+
+function drawTunnelZones() {
+  if (!this.ctx || !Array.isArray(this.tunnelZones) || !this.tunnelZones.length) {
+    return;
+  }
+  const ctx = this.ctx;
+  ctx.save();
+  for (const zone of this.tunnelZones) {
+    if (!zone || !zone.position) {
+      continue;
+    }
+    const elapsed = zone.elapsed || 0;
+    const lifetime = 4.0;
+    const t = Math.min(1, elapsed / lifetime);
+    const alpha = Math.max(0, (1 - t) * 0.8);
+    const x = zone.position.x;
+    const y = zone.position.y;
+    const outerR = 14 + t * 8;
+    const innerR = outerR - 4;
+    const spinAngle = elapsed * Math.PI * 1.5;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spinAngle);
+
+    // Outer ring — green
+    ctx.beginPath();
+    ctx.arc(0, 0, outerR, 0, Math.PI);
+    ctx.strokeStyle = `rgba(127, 255, 0, ${alpha})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Outer ring — cyan
+    ctx.beginPath();
+    ctx.arc(0, 0, outerR, Math.PI, TWO_PI_LOCAL);
+    ctx.strokeStyle = `rgba(0, 210, 255, ${alpha})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Inner ring — complementary
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, 0, TWO_PI_LOCAL);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+
 export {
   applyCanvasShadow,
   clearCanvasShadow,
@@ -764,4 +821,5 @@ export {
   drawNuBursts,
   drawOmegaParticles,
   drawTowerMenu,
+  drawTunnelZones,
 };
