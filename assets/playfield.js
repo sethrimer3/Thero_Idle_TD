@@ -217,6 +217,10 @@ const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 // Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
 const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
+// Allowed required hit counts for prime-counter enemies.  Only small primes are
+// used to keep tower hit demands realistic (max 17 hits).
+const PRIME_HIT_LIST = [2, 3, 5, 7, 11, 13, 17];
+
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
   theroSymbol: 'þ',
@@ -4295,8 +4299,7 @@ export class SimplePlayfield {
     // Only counts discrete hits; each hit increments currentHitCount by 1.
     if ((enemy.codexId || enemy.typeId) === 'prime') {
       if (!Number.isFinite(enemy.requiredHitCount)) {
-        // Initialise hit-count health using a random prime from the allowed list
-        const PRIME_HIT_LIST = [2, 3, 5, 7, 11, 13, 17];
+        // Initialise hit-count health using a random prime from the module-scope PRIME_HIT_LIST
         const idx = Math.floor(Math.random() * PRIME_HIT_LIST.length);
         enemy.requiredHitCount = PRIME_HIT_LIST[idx];
         enemy.currentHitCount = 0;
@@ -4373,6 +4376,8 @@ export class SimplePlayfield {
     // ─── Recursive Relay: spawn one additional standard enemy on first hit ─
     if ((enemy.codexId || enemy.typeId) === 'recursive-relay' && !enemy.hasTriggeredRelaySpawn) {
       enemy.hasTriggeredRelaySpawn = true;
+      // baseSpawnType can be set by a wave configuration to override the spawned type.
+      // It defaults to 'etype' (the basic Epsilon Type enemy) when not explicitly specified.
       const spawnType = enemy.baseSpawnType || 'etype';
       this.spawnRelayEnemy(enemy, spawnType);
     }
@@ -4475,7 +4480,7 @@ export class SimplePlayfield {
       speed: 50,
       baseSpeed: 50,
       hp: relay.hp > 0 ? Math.max(1, relay.hp * 0.5) : 1,
-      maxHp: relay.maxHp ? Math.max(1, relay.maxHp * 0.5) : 1,
+      maxHp: relay.maxHp > 0 ? Math.max(1, relay.maxHp * 0.5) : 1,
       progress: Math.max(0, relay.progress || 0),
       reward: 0,
       x: pos.x,

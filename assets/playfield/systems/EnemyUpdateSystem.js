@@ -320,10 +320,8 @@ export function updateEnemies(delta) {
       }
     }
 
-    // Quantum-Tunneler: update active tunnel zones created by this enemy type.
-    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
-      // Tunnel zone lifecycle is managed separately via updateTunnelZones
-    }
+    // Quantum-Tunneler: tunnel zone lifecycle is managed separately via updateTunnelZones.
+    // No per-enemy update logic is needed here.
 
     enemy.speed = effectiveSpeed;
     enemy.progress += enemy.speed * delta;
@@ -457,8 +455,8 @@ export function updateTunnelZones(delta) {
           continue;
         }
         zone._teleportedIds.add(enemy.id);
-        // Clamp teleport so enemies cannot breach instantly
-        const newProgress = Math.min(0.99, (enemy.progress || 0) + zone.teleportDistance);
+        // Clamp teleport so enemies cannot breach instantly and cannot go below 0
+        const newProgress = Math.max(0, Math.min(0.99, (enemy.progress || 0) + zone.teleportDistance));
         enemy.progress = newProgress;
       }
     }

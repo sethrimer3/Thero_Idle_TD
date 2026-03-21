@@ -1146,7 +1146,8 @@ export function drawEnemies() {
       ctx.save();
       for (let s = 0; s < total; s += 1) {
         const startAngle = (s / total) * TWO_PI - PI / 2;
-        const filled = s < remaining;
+        // A segment is 'filled' (hit) when its index is below the current hit count
+        const filled = s < current;
         ctx.beginPath();
         ctx.arc(0, 0, ringRadius, startAngle + segGap / 2, startAngle + segSpan + segGap / 2);
         ctx.strokeStyle = filled ? 'rgba(80, 200, 120, 0.85)' : 'rgba(60, 60, 60, 0.5)';

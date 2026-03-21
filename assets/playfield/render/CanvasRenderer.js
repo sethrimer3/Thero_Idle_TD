@@ -718,7 +718,6 @@ function drawDeveloperCrystals() {
 // ─── Tunnel Zone visual: paired portal rings with spatial distortion ─────────
 // Each active TunnelZone is drawn as two concentric arc rings in complementary
 // colors. Opacity fades out over the 4-second lifetime.
-const TWO_PI_LOCAL = Math.PI * 2;
 
 function drawTunnelZones() {
   if (!this.ctx || !Array.isArray(this.tunnelZones) || !this.tunnelZones.length) {
@@ -753,14 +752,14 @@ function drawTunnelZones() {
 
     // Outer ring — cyan
     ctx.beginPath();
-    ctx.arc(0, 0, outerR, Math.PI, TWO_PI_LOCAL);
+    ctx.arc(0, 0, outerR, Math.PI, TWO_PI);
     ctx.strokeStyle = `rgba(0, 210, 255, ${alpha})`;
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
     // Inner ring — complementary
     ctx.beginPath();
-    ctx.arc(0, 0, innerR, 0, TWO_PI_LOCAL);
+    ctx.arc(0, 0, innerR, 0, TWO_PI);
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
     ctx.lineWidth = 1;
     ctx.stroke();
