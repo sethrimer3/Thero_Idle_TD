@@ -205,6 +205,12 @@ function _createFront(x, y, angle, mode) {
     colorR: col.r,
     colorG: col.g,
     colorB: col.b,
+    // Pre-built fill-style strings so they are not reconstructed every
+    // pixel step.  edgeFillStyle is used for the crack-line pixel;
+    // baseColorStyle is the opaque RGB string used with globalAlpha
+    // for the interior deposition grains.
+    edgeFillStyle:   `rgba(${col.r},${col.g},${col.b},${EDGE_OPACITY})`,
+    baseColorStyle:  `rgb(${col.r},${col.g},${col.b})`,
     // 'straight': fixed heading with occasional perpendicular snaps.
     // 'arc': continuously curving heading for circular-segment boundaries.
     mode: mode || 'straight',
@@ -228,9 +234,30 @@ function _createFront(x, y, angle, mode) {
 
 /**
  * Create and return a Substrate effect controller.
+ *
+ * @param {Object}  [opts]               Optional configuration.
+ * @param {string}  [opts.quality='high'] Graphics quality tier: 'low' | 'medium' | 'high'.
+ *                                        Lower tiers reduce active front count and interior
+ *                                        grain deposition to improve performance on modest hardware.
  * @returns {{ update: Function, draw: Function, reset: Function }}
  */
-export function createSubstrateEffect() {
+export function createSubstrateEffect({ quality = 'high' } = {}) {
+  // ── Quality-scaled workload parameters ──────────────────────────────────
+  // These override the module-level constants when lower quality tiers are
+  // requested, reducing canvas draw calls and JS work per frame.
+  const isLow    = quality === 'low';
+  const isMedium = quality === 'medium';
+
+  /** Seed count: fewer starting fronts on lower tiers. */
+  const effectSeedCount    = isLow ? 3  : isMedium ? 4  : SEED_COUNT;
+  /** Hard cap on simultaneously active fronts. */
+  const effectMaxFronts    = isLow ? 20 : isMedium ? 35 : MAX_FRONTS;
+  /**
+   * Interior deposition grains per pixel step.
+   * Set to 0 on LOW to skip deposition entirely (biggest per-frame saving).
+   */
+  const effectGrainDensity = isLow ? 0  : isMedium ? 3  : GRAIN_DENSITY;
+
   // Off-screen canvas accumulates the crystalline pattern over time.
   let offCanvas = null;
   let offCtx    = null;
@@ -253,6 +280,17 @@ export function createSubstrateEffect() {
   let compositeAlpha = 0;
   let initStartMs    = null;
 
+  // ── Spark draw buckets (pre-allocated once per effect instance) ──────────
+  // 20 opacity buckets × 5% each.  Arrays are cleared at the start of each
+  // _drawSparks call to avoid per-frame allocation/GC churn.
+  const _SPARK_BUCKET_COUNT  = 20;
+  const _sparkBuckets        = new Array(_SPARK_BUCKET_COUNT).fill(null).map(() => []);
+  // Pre-computed mid-point alpha per bucket to avoid repeated division in the render loop.
+  const _sparkBucketAlphas   = new Array(_SPARK_BUCKET_COUNT);
+  for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
+    _sparkBucketAlphas[b] = (b + 0.5) / _SPARK_BUCKET_COUNT;
+  }
+
   // ── Initialisation ────────────────────────────────────────────────────────
 
   function _init(w, h) {
@@ -273,7 +311,7 @@ export function createSubstrateEffect() {
     fronts = [];
     sparks = [];
 
-    for (let i = 0; i < SEED_COUNT; i++) {
+    for (let i = 0; i < effectSeedCount; i++) {
       _spawnRandom();
     }
   }
@@ -282,7 +320,7 @@ export function createSubstrateEffect() {
 
   /** Seed a new front at a random viewport position with quantised angle. */
   function _spawnRandom() {
-    if (fronts.length >= MAX_FRONTS) return;
+    if (fronts.length >= effectMaxFronts) return;
     const x     = 10 + Math.random() * (W - 20);
     const y     = 10 + Math.random() * (H - 20);
     const angle = _quantisedAngle();
@@ -296,7 +334,7 @@ export function createSubstrateEffect() {
    * The child direction is ±90° relative to the hit structure's angle.
    */
   function _spawnPerp(xi, yi, hitAngle) {
-    if (fronts.length >= MAX_FRONTS) return;
+    if (fronts.length >= effectMaxFronts) return;
     const perp = hitAngle + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
     // Offset 2 px along the new direction to avoid immediate re-collision.
     const ox = xi + Math.cos(perp) * 2;
@@ -383,12 +421,13 @@ export function createSubstrateEffect() {
       cgrid[idx] = front.angle;
 
       // Draw the thin edge pixel on the off-screen canvas.
-      _drawEdgePixel(front.x, front.y,
-        front.colorR, front.colorG, front.colorB);
+      _drawEdgePixel(front.x, front.y, front.edgeFillStyle);
 
       // Scatter faint interior deposition perpendicular to the front.
-      _drawDeposition(front.x, front.y, front.angle,
-        front.colorR, front.colorG, front.colorB);
+      // Skipped when effectGrainDensity is 0 (LOW quality).
+      if (effectGrainDensity > 0) {
+        _drawDeposition(front.x, front.y, front.angle, front.baseColorStyle);
+      }
 
       // Record position for the tail-erase undraw animation.
       front.trail.push({ x: front.x, y: front.y });
@@ -399,10 +438,11 @@ export function createSubstrateEffect() {
 
   /**
    * Draw a single thin edge pixel for a growth front line.
-   * Uses the front's palette color at EDGE_OPACITY.
+   * Accepts the pre-built fillStyle string stored on the front to avoid
+   * repeated rgba() string construction.
    */
-  function _drawEdgePixel(x, y, r, g, b) {
-    offCtx.fillStyle = `rgba(${r},${g},${b},${EDGE_OPACITY})`;
+  function _drawEdgePixel(x, y, fillStyle) {
+    offCtx.fillStyle = fillStyle;
     offCtx.fillRect(x - LINE_WIDTH / 2, y - LINE_WIDTH / 2,
       LINE_WIDTH, LINE_WIDTH);
   }
@@ -417,13 +457,21 @@ export function createSubstrateEffect() {
    * line toward the band edges, with additional per-grain random
    * variation (0.3× – 1.0×) for organic texture.  The result remains
    * whisper-faint and restrained.
+   *
+   * Performance note: fillStyle is set once per invocation to the
+   * pre-built RGB string; per-grain alpha variation is applied via
+   * globalAlpha so only a number property is mutated (faster than
+   * constructing a new rgba() string for every grain).
    */
-  function _drawDeposition(cx, cy, angle, r, g, b) {
+  function _drawDeposition(cx, cy, angle, baseColorStyle) {
     // Perpendicular direction to the front's heading.
     const px = -Math.sin(angle);
     const py =  Math.cos(angle);
 
-    for (let i = 0; i < GRAIN_DENSITY; i++) {
+    // Set color once for all grains in this invocation.
+    offCtx.fillStyle = baseColorStyle;
+
+    for (let i = 0; i < effectGrainDensity; i++) {
       // Random offset along the perpendicular axis.
       const t  = (Math.random() * 2 - 1) * DEPOSITION_WIDTH;
       const gx = cx + px * t;
@@ -437,9 +485,14 @@ export function createSubstrateEffect() {
       const alpha = INTERIOR_OPACITY * fade * fade *
         (0.3 + Math.random() * 0.7);
 
-      offCtx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(4)})`;
+      // Use globalAlpha for per-grain variation – mutating a numeric
+      // property is faster than building a new rgba() string each grain.
+      offCtx.globalAlpha = alpha;
       offCtx.fillRect(gx, gy, 1, 1);
     }
+
+    // Restore globalAlpha to avoid bleeding into subsequent draw calls.
+    offCtx.globalAlpha = 1;
   }
 
   // ── Tail-erase ("undraw") ────────────────────────────────────────────────
@@ -448,6 +501,10 @@ export function createSubstrateEffect() {
    * Erase trail pixels from the back of a growth front, clearing both the
    * off-screen canvas and the occupancy grid.  This produces the gradual
    * "undrawn from behind" disappearance instead of a sudden full-canvas wipe.
+   *
+   * Performance note: all erase circles for this batch are accumulated into
+   * a single compound path and flushed with one fill() call, which is
+   * significantly cheaper than one beginPath/arc/fill per trail point.
    */
   function _undrawFront(front, steps) {
     if (!offCtx || front.undrawIndex >= front.trail.length) return;
@@ -457,12 +514,15 @@ export function createSubstrateEffect() {
     offCtx.fillStyle = 'rgba(0,0,0,1)';
 
     const limit = Math.min(front.undrawIndex + steps, front.trail.length);
+
+    // Batch all erase arcs into a single compound path to minimise GPU
+    // state flushes (one fill() instead of N fill() calls).
+    offCtx.beginPath();
     for (let i = front.undrawIndex; i < limit; i++) {
       const pt = front.trail[i];
       // Erase a small circular region covering the edge pixel and nearby grains.
-      offCtx.beginPath();
+      offCtx.moveTo(pt.x + ERASE_RADIUS, pt.y);
       offCtx.arc(pt.x, pt.y, ERASE_RADIUS, 0, Math.PI * 2);
-      offCtx.fill();
 
       // Free the occupancy grid cell so new fronts can reclaim this area.
       const xi = Math.round(pt.x);
@@ -471,6 +531,7 @@ export function createSubstrateEffect() {
         cgrid[yi * W + xi] = GRID_EMPTY;
       }
     }
+    offCtx.fill();
 
     offCtx.restore();
     front.undrawIndex = limit;
@@ -525,18 +586,44 @@ export function createSubstrateEffect() {
     }
   }
 
-  /** Render active sparks onto the main canvas. */
+  /**
+   * Render active sparks onto the main canvas.
+   *
+   * Performance note: sparks are grouped into pre-allocated opacity buckets
+   * and drawn with a single compound path per bucket, reducing draw calls
+   * from O(N sparks) to O(N buckets ≤ 20).  Bucket arrays and alpha values
+   * are pre-allocated at effect-creation time to eliminate per-frame GC churn.
+   */
   function _drawSparks(ctx) {
     if (!sparks.length) return;
-    ctx.save();
+
+    // Clear bucket arrays from the previous frame without reallocating.
+    for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
+      _sparkBuckets[b].length = 0;
+    }
+
     for (const sp of sparks) {
-      const alpha = Math.max(0, sp.life / sp.maxLife);
-      ctx.globalAlpha = alpha * 0.85;
-      ctx.fillStyle = '#fff';
+      const alpha = Math.max(0, sp.life / sp.maxLife) * 0.85;
+      const bucketIdx = Math.min(_SPARK_BUCKET_COUNT - 1,
+        Math.floor(alpha * _SPARK_BUCKET_COUNT));
+      _sparkBuckets[bucketIdx].push(sp);
+    }
+
+    ctx.save();
+    ctx.fillStyle = '#fff';
+
+    for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
+      const group = _sparkBuckets[b];
+      if (!group.length) continue;
+      ctx.globalAlpha = _sparkBucketAlphas[b];
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, SPARK_SIZE, 0, Math.PI * 2);
+      for (const sp of group) {
+        ctx.moveTo(sp.x + SPARK_SIZE, sp.y);
+        ctx.arc(sp.x, sp.y, SPARK_SIZE, 0, Math.PI * 2);
+      }
       ctx.fill();
     }
+
     ctx.restore();
   }
 
@@ -607,7 +694,7 @@ export function createSubstrateEffect() {
     }
 
     // Re-seed if active count drops below the seed threshold.
-    while (fronts.length < SEED_COUNT && fronts.length < MAX_FRONTS) {
+    while (fronts.length < effectSeedCount && fronts.length < effectMaxFronts) {
       _spawnRandom();
     }
 
