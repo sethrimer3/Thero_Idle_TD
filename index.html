@@ -1408,16 +1408,19 @@
           </div>
           <div class="panel-grid" id="tower-card-grid">
             <article class="card card--mind-gate" data-tower-id="mind-gate" aria-hidden="false">
-              <header class="tower-header">
+              <header class="tower-header tower-header--gate">
                 <h3>
-                  <span class="mind-gate-symbol" aria-hidden="true">
-                    <span class="gate-particle-ring gate-particle-ring--inner" aria-hidden="true"></span>
-                    <span class="gate-particle-ring gate-particle-ring--outer" aria-hidden="true"></span>
-                    <img src="assets/sprites/gates&amp;track/mindGate/mindGateSymbol.png" alt="" />
-                  </span>
-                  Mind Gate
+                  <span class="tower-name-prefix tower-name-prefix--mind" aria-hidden="true">𝒢</span>
+                  <span class="tower-name-text">Mind Gate</span>
                 </h3>
               </header>
+              <div class="tower-preview tower-preview--gate" aria-hidden="true">
+                <span class="mind-gate-symbol tower-preview-symbol" aria-hidden="true">
+                  <span class="gate-particle-ring gate-particle-ring--inner" aria-hidden="true"></span>
+                  <span class="gate-particle-ring gate-particle-ring--outer" aria-hidden="true"></span>
+                  <img src="assets/sprites/gates&amp;track/mindGate/mindGateSymbol.png" alt="" />
+                </span>
+              </div>
               <div class="formula-block">
                 <p class="formula-line">\( \mathfrak{G} = \text{Life} \times \text{Regeneration} \)</p>
                 <ul class="formula-definition">
@@ -1434,16 +1437,19 @@
               </footer>
             </article>
             <article class="card card--shadow-gate" data-tower-id="shadow-gate" aria-hidden="false">
-              <header class="tower-header">
+              <header class="tower-header tower-header--gate">
                 <h3>
-                  <span class="shadow-gate-symbol" aria-hidden="true">
-                    <span class="gate-particle-ring gate-particle-ring--inner shadow" aria-hidden="true"></span>
-                    <span class="gate-particle-ring gate-particle-ring--outer shadow" aria-hidden="true"></span>
-                    <img src="assets/sprites/gates&amp;track/enemyGate/enemyGateSymbol.png" alt="" />
-                  </span>
-                  Shadow Gate
+                  <span class="tower-name-prefix tower-name-prefix--shadow" aria-hidden="true">𝒫</span>
+                  <span class="tower-name-text">Shadow Gate</span>
                 </h3>
               </header>
+              <div class="tower-preview tower-preview--gate" aria-hidden="true">
+                <span class="shadow-gate-symbol tower-preview-symbol" aria-hidden="true">
+                  <span class="gate-particle-ring gate-particle-ring--inner shadow" aria-hidden="true"></span>
+                  <span class="gate-particle-ring gate-particle-ring--outer shadow" aria-hidden="true"></span>
+                  <img src="assets/sprites/gates&amp;track/enemyGate/enemyGateSymbol.png" alt="" />
+                </span>
+              </div>
               <div class="formula-block">
                 <p class="formula-line">\( \wp = x \)</p>
               </div>
@@ -1458,7 +1464,7 @@
             <article class="card" data-tower-id="alpha" aria-hidden="false">
               <header class="tower-header">
                 <span class="tower-tier">Tier I</span>
-                <h3>α alpha tower</h3>
+                <h3>α alpha</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \alpha = \text{Atk} \times \text{Spd} \)</p>
@@ -1481,7 +1487,7 @@
             <article class="card" data-tower-id="beta" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier II</span>
-                <h3>β beta tower</h3>
+                <h3>β beta</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \beta = \text{Atk} \times \text{Spd} \times \text{Rng} \)</p>
@@ -1507,7 +1513,7 @@
             <article class="card" data-tower-id="gamma" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier III</span>
-                <h3>γ gamma tower</h3>
+                <h3>γ gamma</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \gamma = \text{Atk} \times \text{Spd} \times \text{Rng} \times \text{Prc} \)</p>
@@ -1532,7 +1538,7 @@
             <article class="card" data-tower-id="delta" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier IV</span>
-                <h3>δ delta tower</h3>
+                <h3>δ delta</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \delta = \gamma \cdot \ln(\gamma + 1) \)</p>
@@ -1554,7 +1560,7 @@
             <article class="card" data-tower-id="epsilon" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier V</span>
-                <h3>ε epsilon tower</h3>
+                <h3>ε epsilon</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \varepsilon = \delta^{2} \)</p>
@@ -1575,7 +1581,7 @@
             <article class="card" data-tower-id="zeta" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier VI</span>
-                <h3>ζ zeta tower</h3>
+                <h3>ζ zeta</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \zeta = \sqrt{\varepsilon} \)</p>
@@ -1596,7 +1602,7 @@
             <article class="card" data-tower-id="eta" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier VII</span>
-                <h3>η eta tower</h3>
+                <h3>η eta</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \eta = \ln(\zeta + 1) \)</p>
@@ -1617,7 +1623,7 @@
             <article class="card" data-tower-id="theta" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier VIII</span>
-                <h3>θ theta tower</h3>
+                <h3>θ theta</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \theta = \eta^{2} \)</p>
@@ -1638,7 +1644,7 @@
             <article class="card" data-tower-id="iota" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier IX</span>
-                <h3>ι iota tower</h3>
+                <h3>ι iota</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \iota = \sqrt{\theta} \)</p>
@@ -1659,7 +1665,7 @@
             <article class="card" data-tower-id="kappa" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier X</span>
-                <h3>κ kappa tower</h3>
+                <h3>κ kappa</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \kappa = \iota + \sin(\iota) \)</p>
@@ -1681,7 +1687,7 @@
             <article class="card" data-tower-id="lambda" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XI</span>
-                <h3>λ lambda tower</h3>
+                <h3>λ lambda</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \lambda = \kappa \times N_{\text{eff}} \)</p>
@@ -1704,7 +1710,7 @@
             <article class="card" data-tower-id="mu" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XII</span>
-                <h3>μ mu tower</h3>
+                <h3>μ mu</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \mu = X \)</p>
@@ -1724,7 +1730,7 @@
             <article class="card" data-tower-id="nu" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XIII</span>
-                <h3>ν nu tower</h3>
+                <h3>ν nu</h3>
               </header>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
@@ -1737,7 +1743,7 @@
             <article class="card" data-tower-id="xi" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XIV</span>
-                <h3>ξ xi tower</h3>
+                <h3>ξ xi</h3>
               </header>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
@@ -1750,7 +1756,7 @@
             <article class="card" data-tower-id="omicron" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XV</span>
-                <h3>ο omicron tower</h3>
+                <h3>ο omicron</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( ο = X \)</p>
@@ -1770,7 +1776,7 @@
             <article class="card" data-tower-id="pi" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XVI</span>
-                <h3>π pi tower</h3>
+                <h3>π pi</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \pi = X \)</p>
@@ -1790,7 +1796,7 @@
             <article class="card" data-tower-id="rho" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XVII</span>
-                <h3>ρ rho tower</h3>
+                <h3>ρ rho</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \rho = X \)</p>
@@ -1810,7 +1816,7 @@
             <article class="card" data-tower-id="sigma" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XVIII</span>
-                <h3>σ sigma tower</h3>
+                <h3>σ sigma</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \sigma = X \)</p>
@@ -1830,7 +1836,7 @@
             <article class="card" data-tower-id="tau" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XIX</span>
-                <h3>τ tau tower</h3>
+                <h3>τ tau</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \tau = X \)</p>
@@ -1850,7 +1856,7 @@
             <article class="card" data-tower-id="upsilon" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XX</span>
-                <h3>υ upsilon tower</h3>
+                <h3>υ upsilon</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \upsilon = atk \times tot \times spd \)</p>
@@ -1877,7 +1883,7 @@
             <article class="card" data-tower-id="phi" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XXI</span>
-                <h3>φ phi tower</h3>
+                <h3>φ phi</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \varphi = X \)</p>
@@ -1897,7 +1903,7 @@
             <article class="card" data-tower-id="chi" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XXII</span>
-                <h3>χ chi tower</h3>
+                <h3>χ chi</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \chi = X \)</p>
@@ -1917,7 +1923,7 @@
             <article class="card" data-tower-id="psi" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XXIII</span>
-                <h3>ψ psi tower</h3>
+                <h3>ψ psi</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \psi = X \)</p>
@@ -1937,7 +1943,7 @@
             <article class="card" data-tower-id="omega" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XXIV</span>
-                <h3>Ω omega tower</h3>
+                <h3>Ω omega</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \Omega = X \)</p>
@@ -1958,7 +1964,7 @@
             <article class="card" data-tower-id="infinity" hidden aria-hidden="true">
               <header class="tower-header">
                 <span class="tower-tier">Tier XXV</span>
-                <h3>∞ infinity tower</h3>
+                <h3>∞ infinity</h3>
               </header>
               <div class="formula-block">
                 <p class="formula-line">\( \infty = \text{Exp} \times \text{Rng} \)</p>
