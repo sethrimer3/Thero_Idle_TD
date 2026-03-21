@@ -1003,6 +1003,29 @@ export function drawTowers() {
       ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
       ctx.stroke();
     }
+
+    // ─── Nullifier disable visual: darken + ∅ symbol ──────────────────
+    if (Number.isFinite(tower.disabledUntil)) {
+      const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now()) / 1000;
+      if (now < tower.disabledUntil) {
+        // Dark overlay circle to visually mute the tower
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, bodyRadius + 4, 0, TWO_PI);
+        ctx.fillStyle = 'rgba(8, 8, 16, 0.72)';
+        ctx.fill();
+        // ∅ symbol above the tower
+        const symbolSize = Math.round(bodyRadius * 0.85);
+        ctx.font = `${symbolSize}px "Cormorant Garamond", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(220, 80, 80, 0.95)';
+        ctx.fillText('∅', tower.x, tower.y - bodyRadius - 4);
+        ctx.restore();
+      }
+    }
   });
 
   ctx.restore();

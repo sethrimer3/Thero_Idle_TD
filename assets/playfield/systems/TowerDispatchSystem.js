@@ -25,6 +25,23 @@ export function updateTowers(delta) {
     const finishTowerSample = beginTowerPerformanceSegment(tower?.type || 'unknown');
     try {
       tower.cooldown = Math.max(0, tower.cooldown - delta);
+
+      // ─── Nullifier disable: skip all fire/ability logic while disabled ───
+      if (Number.isFinite(tower.disabledUntil)) {
+        const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+          ? performance.now()
+          : Date.now()) / 1000;
+        if (now < tower.disabledUntil) {
+          // Tower is disabled — advance cooldown but do not fire or activate abilities
+          return;
+        }
+        // Disable period has ended — clear the flag
+        delete tower.disabledUntil;
+        if (Array.isArray(tower._nullifierEffects)) {
+          delete tower._nullifierEffects;
+        }
+      }
+
       if (tower.linkTargetId) {
         this.updateConnectionSupplier(tower, delta);
         return;

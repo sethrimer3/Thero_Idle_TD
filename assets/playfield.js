@@ -217,6 +217,10 @@ const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 // Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
 const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
+// Allowed required hit counts for prime-counter enemies.  Only small primes are
+// used to keep tower hit demands realistic (max 17 hits).
+const PRIME_HIT_LIST = [2, 3, 5, 7, 11, 13, 17];
+
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
   theroSymbol: 'þ',
@@ -3700,6 +3704,7 @@ export class SimplePlayfield {
       try {
         this.spawnEnemies(speedDelta);
         this.updateEnemies(speedDelta);
+        this.updateTunnelZones(speedDelta);
         this.updateChiThralls(speedDelta);
         this.updateChiLightTrails(speedDelta);
         this.updateDecimalSwarmOrbitalParticles(speedDelta);
@@ -4210,7 +4215,12 @@ export class SimplePlayfield {
   }
 
   // Apply mitigation from derivative shield carriers before other multipliers modify the strike.
-  applyDerivativeShieldMitigation(enemy, baseDamage) {
+  // When attackType is 'melee', shields are bypassed entirely (universal melee-vs-shield rule).
+  applyDerivativeShieldMitigation(enemy, baseDamage, { attackType } = {}) {
+    // Melee attacks bypass all shield layers and apply damage directly to health.
+    if (attackType === 'melee') {
+      return baseDamage;
+    }
     if (!enemy || !enemy.derivativeShield || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return baseDamage;
     }
@@ -4264,7 +4274,7 @@ export class SimplePlayfield {
     }));
   }
 
-  applyDamageToEnemy(enemy, baseDamage, { sourceTower } = {}) {
+  applyDamageToEnemy(enemy, baseDamage, { sourceTower, attackType } = {}) {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
@@ -4276,8 +4286,40 @@ export class SimplePlayfield {
       this.spawnMissText(enemy);
       return 0;
     }
-    
-    const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage);
+
+    // ─── Imaginary Strider: post-hit invulnerability window ────────────────
+    // While isInvulnerable is true all incoming damage is ignored entirely.
+    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
+      if (enemy.isInvulnerable) {
+        return 0;
+      }
+    }
+
+    // ─── Prime-Counter: hit-count-based health — ignore damage magnitude ──
+    // Only counts discrete hits; each hit increments currentHitCount by 1.
+    if ((enemy.codexId || enemy.typeId) === 'prime') {
+      if (!Number.isFinite(enemy.requiredHitCount)) {
+        // Initialise hit-count health using a random prime from the module-scope PRIME_HIT_LIST
+        const idx = Math.floor(Math.random() * PRIME_HIT_LIST.length);
+        enemy.requiredHitCount = PRIME_HIT_LIST[idx];
+        enemy.currentHitCount = 0;
+      }
+      enemy.currentHitCount = (enemy.currentHitCount || 0) + 1;
+      // Debug log — removable without affecting gameplay
+      console.log(`[Prime Hit Count Updated] id=${enemy.id} hits=${enemy.currentHitCount}/${enemy.requiredHitCount}`);
+      if (sourceTower) {
+        this.recordDamageEvent({ tower: sourceTower, enemy, damage: 1 });
+      }
+      if (enemy.currentHitCount >= enemy.requiredHitCount) {
+        if (sourceTower) {
+          this.recordKillEvent(sourceTower);
+        }
+        this.processEnemyDefeat(enemy);
+      }
+      return 1;
+    }
+
+    const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage, { attackType });
 
     // Directional saturation: enemies with sector-based resistance reduce damage
     // from repeatedly attacked directions. Constants inlined from
@@ -4316,8 +4358,14 @@ export class SimplePlayfield {
       integralMult = Math.max(0.05, Math.pow(p, 0.8));
     }
 
+    // Superposition: state 0 has higher damage resistance (0.3x damage taken).
+    let superpositionMult = 1;
+    if ((enemy.codexId || enemy.typeId) === 'superposition') {
+      superpositionMult = enemy.currentState === 0 ? 0.3 : 1.0;
+    }
+
     const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult;
+    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult * superpositionMult;
     const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
     if (Number.isFinite(enemy.hp)) {
       enemy.hp -= applied;
@@ -4325,7 +4373,27 @@ export class SimplePlayfield {
       enemy.hp = -applied;
     }
 
-    // Quantum Tunneler: check if a projection layer should collapse after damage.
+    // ─── Recursive Relay: spawn one additional standard enemy on first hit ─
+    if ((enemy.codexId || enemy.typeId) === 'recursive-relay' && !enemy.hasTriggeredRelaySpawn) {
+      enemy.hasTriggeredRelaySpawn = true;
+      // baseSpawnType can be set by a wave configuration to override the spawned type.
+      // It defaults to 'etype' (the basic Epsilon Type enemy) when not explicitly specified.
+      const spawnType = enemy.baseSpawnType || 'etype';
+      this.spawnRelayEnemy(enemy, spawnType);
+    }
+
+    // ─── Imaginary Strider: enter invulnerable state after receiving damage ─
+    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
+      enemy.isInvulnerable = true;
+      enemy.invulnerabilityTimer = 3.0;
+    }
+
+    // ─── Quantum-Tunneler: create a TunnelZone on damage ──────────────────
+    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
+      this.createTunnelZone(enemy);
+    }
+
+    // Quantum Tunneler projection: check if a projection layer should collapse after damage.
     // ⚠ Keep in sync: QUANTUM_LAYER_HP_FRACTION (0.2), QUANTUM_COLLAPSE_THRESHOLD (3),
     // QUANTUM_COLLAPSED_HP_SCALE (0.4) from QuantumProjectionSystem.js.
     if (enemy._quantum && !enemy._quantum.collapsed && Number.isFinite(enemy.maxHp) && enemy.maxHp > 0) {
@@ -4379,12 +4447,118 @@ export class SimplePlayfield {
           spawnNuKillParticleHelper(this, sourceTower, enemyPos);
         }
       }
+      // ─── Nullifier: disable the killing tower for 5 seconds ───────────
+      if ((enemy.codexId || enemy.typeId) === 'nullifier' && sourceTower) {
+        this.disableTower(sourceTower, 5.0);
+      }
       if (sourceTower) {
         this.recordKillEvent(sourceTower);
       }
       this.processEnemyDefeat(enemy);
     }
     return applied;
+  }
+
+  // ─── Recursive Relay: spawn one standard enemy at the relay's current position ──
+  // Spawning is one-shot; the relay flag prevents infinite recursion.
+  spawnRelayEnemy(relay, spawnTypeId) {
+    if (!relay || !spawnTypeId) {
+      return;
+    }
+    const pos = this.getEnemyPosition(relay);
+    if (!pos) {
+      return;
+    }
+    // Build a minimal enemy object inheriting from the relay's wave context
+    const nextId = (this._nextEnemyId = ((this._nextEnemyId || 0) + 1));
+    const spawnEnemy = {
+      id: nextId,
+      typeId: spawnTypeId,
+      codexId: spawnTypeId,
+      label: spawnTypeId,
+      color: '#4a90e2',
+      speed: 50,
+      baseSpeed: 50,
+      hp: relay.hp > 0 ? Math.max(1, relay.hp * 0.5) : 1,
+      maxHp: relay.maxHp > 0 ? Math.max(1, relay.maxHp * 0.5) : 1,
+      progress: Math.max(0, relay.progress || 0),
+      reward: 0,
+      x: pos.x,
+      y: pos.y,
+      hpExponent: this.calculateHealthExponent ? this.calculateHealthExponent(1) : 0,
+      gemDropMultiplier: 1,
+      moteFactor: 1,
+      symbol: spawnTypeId[0] || 'ε',
+      polygonSides: 0,
+    };
+    this.enemies.push(spawnEnemy);
+    this.combatStateManager?.registerEnemy?.(spawnEnemy);
+    // Visual feedback: radial pulse at relay position
+    if (typeof this.spawnRelaySpawnEffect === 'function') {
+      this.spawnRelaySpawnEffect(pos);
+    }
+    // Debug log — removable without affecting gameplay
+    console.log(`[Relay Spawn Triggered] relay id=${relay.id} spawned typeId=${spawnTypeId} at progress=${relay.progress?.toFixed(3)}`);
+  }
+
+  // ─── Quantum-Tunneler: create a 4-second TunnelZone at the enemy's position ──
+  // teleportDistance is 7.5% of total path length (mid-range of 5–10%).
+  createTunnelZone(enemy) {
+    if (!enemy) {
+      return;
+    }
+    const pos = this.getEnemyPosition(enemy);
+    if (!pos) {
+      return;
+    }
+    if (!Array.isArray(this.tunnelZones)) {
+      this.tunnelZones = [];
+    }
+    const zone = {
+      position: { x: pos.x, y: pos.y },
+      elapsed: 0,
+      teleportDistance: 0.075, // 7.5% of normalised path length
+      _teleportedIds: new Set(),
+    };
+    this.tunnelZones.push(zone);
+    // Debug log — removable without affecting gameplay
+    console.log(`[Quantum Tunnel Created] at (${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) teleportDist=0.075`);
+  }
+
+  // ─── Nullifier: disable a tower for a fixed duration ──────────────────────
+  // Uses tower.disabledUntil (epoch seconds) so multiple nullifier hits don't stack
+  // indefinitely — only extends if the new expiry is later.
+  disableTower(tower, durationSeconds) {
+    if (!tower || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      return;
+    }
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now()) / 1000;
+    const newExpiry = now + durationSeconds;
+    // Do not stack: only extend if the new expiry is later than the existing one
+    if (Number.isFinite(tower.disabledUntil) && tower.disabledUntil >= newExpiry) {
+      return;
+    }
+    tower.disabledUntil = newExpiry;
+    // Visual feedback: show ∅ symbol and darken the tower sprite
+    if (!Array.isArray(tower._nullifierEffects)) {
+      tower._nullifierEffects = [];
+    }
+    tower._nullifierEffects.push({ startedAt: now, duration: durationSeconds });
+    // Debug log — removable without affecting gameplay
+    console.log(`[Nullifier Disabled Tower] tower id=${tower.id} type=${tower.type} for ${durationSeconds}s`);
+  }
+
+  // ─── Visual feedback: radial pulse + ripple for relay spawn ───────────────
+  spawnRelaySpawnEffect(position) {
+    if (!position) {
+      return;
+    }
+    if (typeof this.spawnPsiAoeEffect === 'function') {
+      // Reuse the existing radial pulse effect at a small radius
+      this.spawnPsiAoeEffect(position, 40);
+    }
   }
 
   // Helper to create a damage projectile with travel time for towers that use particle bursts
@@ -5241,6 +5415,13 @@ export class SimplePlayfield {
   drawTowerMenu() {
     return CanvasRenderer.drawTowerMenu.call(this);
   }
+
+  /**
+   * Render active quantum-tunneler TunnelZone portals.
+   */
+  drawTunnelZones() {
+    return CanvasRenderer.drawTunnelZones.call(this);
+  }
 }
 
 Object.assign(SimplePlayfield.prototype, TowerSelectionWheel);
@@ -5285,6 +5466,7 @@ Object.assign(SimplePlayfield.prototype, {
   clearEnemyStunEffects: EnemyUpdateSystem.clearEnemyStunEffects,
   updateDerivativeShieldStates: EnemyUpdateSystem.updateDerivativeShieldStates,
   updateEnemies: EnemyUpdateSystem.updateEnemies,
+  updateTunnelZones: EnemyUpdateSystem.updateTunnelZones,
 });
 
 // Visual effects system methods (damage numbers, particles, PSI effects)

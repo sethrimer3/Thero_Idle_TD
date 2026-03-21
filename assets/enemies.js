@@ -282,7 +282,8 @@ const ENEMY_GEM_MULTIPLIERS = new Map([
   ['etype', 1],
   ['divisor', 2],
   ['prime', 2.5],
-  ['reversal', 3],
+  // 'reversal' removed — replaced by recursive-relay
+  ['recursive-relay', 3.2],
   ['tunneler', 3.4],
   ['aleph-swarm', 3.8],
   ['partial-wraith', 4.1],
@@ -296,6 +297,9 @@ const ENEMY_GEM_MULTIPLIERS = new Map([
   ['derivative-shield', 6],
   ['decimal-swarm', 6.5],
   ['integral-accumulator', 5.0],
+  ['nullifier', 6.8],
+  ['superposition', 5.5],
+  ['quantum-tunneler', 6.2],
 ]);
 
 // Radius used when sweeping the battlefield for mote gem pickups.
