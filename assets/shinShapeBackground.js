@@ -16,6 +16,7 @@
  */
 
 import { createSubstrateEffect } from './playfield/render/SubstrateEffect.js';
+import { getShinVisualSettings } from './shinSpirePreferences.js';
 
 // Canvas / context references (resolved from the DOM once).
 let _canvas  = null;
@@ -27,6 +28,15 @@ let _effect  = null;
 // Animation loop state.
 let _rafId   = null;
 let _running = false;
+
+// ─── Frame throttle ───────────────────────────────────────────────────────────
+// The substrate background is purely decorative; 30 fps is visually
+// indistinguishable from 60 fps but halves the sustained CPU/GPU cost on
+// high-refresh-rate displays and lower-end mobile devices.
+
+const _TARGET_FPS         = 30;
+const _FRAME_INTERVAL_MS  = 1000 / _TARGET_FPS;
+let   _lastRenderTs       = 0;
 
 // ─── Canvas sizing ────────────────────────────────────────────────────────────
 
@@ -50,6 +60,11 @@ function _loop(ts) {
   if (!_running) return;
   _rafId = requestAnimationFrame(_loop);
   if (!_ctx || !_canvas || !_canvas.width || !_canvas.height) return;
+
+  // Throttle to _TARGET_FPS – skip rendering frames that arrive too quickly.
+  if (ts - _lastRenderTs < _FRAME_INTERVAL_MS) return;
+  _lastRenderTs = ts;
+
   _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
   _effect.update(ts, _canvas.width, _canvas.height);
   _effect.draw(_ctx);
@@ -66,8 +81,10 @@ export function initShinShapeBackground() {
   _canvas = document.getElementById('shin-shape-bg-canvas');
   if (!_canvas) return;
   _ctx = _canvas.getContext('2d');
-  // Use the Substrate crystalline crack effect for the Shin Spire background.
-  _effect = createSubstrateEffect();
+  // Pass the player's chosen graphics quality so the Substrate effect can
+  // scale its workload (fewer fronts, less grain deposition) on modest hardware.
+  const { graphicsLevel } = getShinVisualSettings();
+  _effect = createSubstrateEffect({ quality: graphicsLevel });
 }
 
 /**
