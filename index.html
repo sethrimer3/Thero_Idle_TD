@@ -3285,8 +3285,6 @@
           aria-labelledby="tab-tsadi"
           hidden
         >
-          <!-- Vermiculate worm-line ambient background (aria-hidden: decorative only) -->
-          <canvas id="tsadi-vermiculate-bg-canvas" class="shin-shape-bg-canvas" aria-hidden="true"></canvas>
           <!-- Floating toggle button for spire menu (mobile) -->
           <button
             class="spire-menu-toggle"
@@ -3371,6 +3369,8 @@
             <div class="tsadi-simulation-slot" id="tsadi-simulation-host">
               <article class="card powder-simulation tsadi-simulation-card" id="tsadi-simulation-card">
                 <div class="powder-basin tsadi-basin" id="tsadi-basin">
+                  <!-- Vermiculate worm-line ambient background (aria-hidden: decorative only) -->
+                  <canvas id="tsadi-vermiculate-bg-canvas" class="shin-shape-bg-canvas" aria-hidden="true"></canvas>
                   <!-- Corner spire options popover for the Tsadi spire render. -->
                   <div class="spire-options-popover spire-options-popover--tsadi">
                     <button
@@ -3663,8 +3663,6 @@
           aria-labelledby="tab-shin"
           hidden
         >
-          <!-- Golden/orange shape-overlap ambient background (aria-hidden: decorative only) -->
-          <canvas id="shin-shape-bg-canvas" class="shin-shape-bg-canvas" aria-hidden="true"></canvas>
           <!-- Floating toggle button for spire menu (mobile) -->
           <button
             class="spire-menu-toggle"
@@ -3750,7 +3748,9 @@
           <section class="shin-game-content" id="shin-game-content" aria-label="Shin Spire game area">
             <!-- Cardinal Warden Reverse Danmaku Game -->
             <article class="card shin-cardinal-card" id="shin-cardinal-card">
-              <div class="shin-cardinal-viewport">
+              <div class="shin-cardinal-viewport" id="shin-cardinal-viewport">
+                <!-- Golden/orange shape-overlap ambient background (aria-hidden: decorative only) -->
+                <canvas id="shin-shape-bg-canvas" class="shin-shape-bg-canvas" aria-hidden="true"></canvas>
                 <!-- Corner spire options popover for the Shin spire render. -->
                 <div class="spire-options-popover spire-options-popover--shin">
                   <button

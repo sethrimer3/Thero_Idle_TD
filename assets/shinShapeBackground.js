@@ -30,13 +30,13 @@ let _running = false;
 
 // ─── Canvas sizing ────────────────────────────────────────────────────────────
 
-/** Resize the canvas to fill the visible shin panel. */
+/** Resize the canvas to fill the visible shin cardinal viewport. */
 function _resizeCanvas() {
   if (!_canvas) return;
-  const panel = document.getElementById('panel-shin');
-  if (!panel) return;
-  const w = panel.clientWidth  || panel.offsetWidth  || 400;
-  const h = panel.clientHeight || panel.offsetHeight || 600;
+  const container = document.getElementById('shin-cardinal-viewport');
+  if (!container) return;
+  const w = container.clientWidth  || container.offsetWidth  || 400;
+  const h = container.clientHeight || container.offsetHeight || 600;
   // Only reallocate backing store when dimensions actually change.
   if (_canvas.width !== w || _canvas.height !== h) {
     _canvas.width  = w;

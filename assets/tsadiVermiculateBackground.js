@@ -29,13 +29,13 @@ let _running = false;
 
 // ─── Canvas sizing ────────────────────────────────────────────────────────────
 
-/** Resize the canvas to fill the visible tsadi panel. */
+/** Resize the canvas to fill the visible tsadi basin. */
 function _resizeCanvas() {
   if (!_canvas) return;
-  const panel = document.getElementById('panel-tsadi');
-  if (!panel) return;
-  const w = panel.clientWidth  || panel.offsetWidth  || 400;
-  const h = panel.clientHeight || panel.offsetHeight || 600;
+  const container = document.getElementById('tsadi-basin');
+  if (!container) return;
+  const w = container.clientWidth  || container.offsetWidth  || 400;
+  const h = container.clientHeight || container.offsetHeight || 600;
   // Only reallocate backing store when dimensions actually change.
   if (_canvas.width !== w || _canvas.height !== h) {
     _canvas.width  = w;
