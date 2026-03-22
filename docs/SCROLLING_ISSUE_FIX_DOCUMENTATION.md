@@ -268,7 +268,7 @@ in the stylesheet overriding `pan-y` with `none`.
 
 | File | Change |
 |---|---|
-| `assets/styles.css` | Move `.app-shell` height/overflow and `.main-stage height` out of desktop media query into base rules; change `.fluid-tree-store-list` from `touch-action: none` to `pan-y` |
+| `assets/styles.css` | Move `.app-shell` height/overflow and `.main-stage` height out of desktop media query into base rules; change `.fluid-tree-store-list` from `touch-action: none` to `pan-y` |
 | `assets/towerLoadoutController.js` | Guard `setPointerCapture` and `preventDefault` with `event.pointerType !== 'touch'` |
 | `assets/fluidTerrariumStoreSystem.js` | Early-return for touch pointers in `fttssHandleStoreListPointerDown` |
 | `assets/playfield/ui/TowerSelectionWheel.js` | Guard `setPointerCapture` and `preventDefault` with `event.pointerType !== 'touch'` |
