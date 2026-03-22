@@ -244,11 +244,15 @@ body.graphics-mode-low .control-button {
 
 .app-shell {
   width: min(960px, 100%);
-  min-height: var(--stable-vh);
+  /* Lock the shell to the viewport so the inner panel — not the page — scrolls.
+     Previously gated behind @media (hover:hover) which excluded all touch devices. */
+  height: var(--stable-vh);
+  max-height: var(--stable-vh);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   padding: 24px clamp(16px, 4vw, 36px) 16px;
   gap: 16px;
+  overflow: hidden;
 }
 
 /* FPS counter overlay pinned to the top-left corner, visible regardless of active tab. */
@@ -681,6 +685,8 @@ body.graphics-mode-low .control-button {
 .main-stage {
   position: relative;
   display: grid;
+  /* Fill the grid track so panels inherit a definite height for overflow-y. */
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   border-radius: 24px;
@@ -1122,18 +1128,6 @@ body.graphics-mode-low .control-button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Lock the desktop shell to the viewport so wheel gestures target the active panel. */
-  .app-shell {
-    height: var(--stable-vh);
-    max-height: var(--stable-vh);
-    overflow: hidden;
-  }
-
-  /* Stretch the main stage to fill the viewport so panel scroll assistance can engage. */
-  .main-stage {
-    height: 100%;
-  }
-
   /* Restore visible scrollbars on desktop to support click-and-drag scrolling. */
   .panel {
     scrollbar-width: auto;
@@ -6691,7 +6685,7 @@ body.playfield-fullscreen .playfield canvas {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
-  touch-action: none;
+  touch-action: pan-y;
   cursor: grab;
 }
 

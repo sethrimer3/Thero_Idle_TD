@@ -128,7 +128,67 @@ global pointer listeners) continue to interfere with touch gesture detection.
    `-webkit-overflow-scrolling`, and `touch-action` overrides previously limited
    to `#panel-towers` and `#panel-options` now apply to every `.panel` element.
 
+**Result:** ❌ Scrolling still broken on Android for all panels. The
+touch-action and event handler fixes addressed one vector, but the
+fundamental CSS layout chain that enables overflow scrolling was still
+desktop-only.
+
+### Attempt 3 — Layout chain + touch-guard fix (Build 680)
+
+**Root cause discovery:** The `.app-shell` height constraints
+(`height: var(--stable-vh)`, `max-height`, `overflow: hidden`) and the
+`.main-stage { height: 100% }` rule were gated behind a desktop-only
+media query `@media (hover: hover) and (pointer: fine)`. On mobile/touch
+devices this media query never matched, so:
+
+- `.app-shell` had only `min-height: var(--stable-vh)` (no `height` cap)
+  → the grid container grew with its content beyond the viewport.
+- `.main-stage` had no `height: 100%` → it expanded to fit all panel
+  content instead of being constrained to the grid track.
+- `.panel { height: 100%; overflow-y: auto }` resolved to the full
+  content height → no overflow → **no native scroll container**.
+
+Without an overflowing scroll container, `touch-action: pan-y` and
+passive event listeners are irrelevant — there is nothing for the
+browser to scroll.
+
+**Approach — six changes:**
+
+1. **CSS — make `.app-shell` height universal.** Moved `height`,
+   `max-height`, and `overflow: hidden` from the desktop media query into
+   the base `.app-shell` rule so the viewport-height lock applies to all
+   devices. Removed the now-redundant `min-height`.
+
+2. **CSS — make `.main-stage { height: 100% }` universal.** Moved into the
+   base rule so panels receive a definite height for `overflow-y: auto`.
+
+3. **CSS — change `.fluid-tree-store-list` touch-action.** Replaced
+   `touch-action: none` with `touch-action: pan-y` so the nested list
+   permits native vertical scroll on touch devices.
+
+4. **JS — guard `setPointerCapture` for touch in
+   `towerLoadoutController.js`.** Both `startTowerDrag` and the
+   document-level `pointermove` drag handler now skip capture and
+   `preventDefault` when `event.pointerType === 'touch'`.
+
+5. **JS — skip custom drag-scroll for touch in
+   `fluidTerrariumStoreSystem.js`.** `fttssHandleStoreListPointerDown`
+   returns early for touch pointers so the window-level non-passive
+   `pointermove` handler is never attached during touch interactions.
+
+6. **JS — guard `setPointerCapture` and `preventDefault` for touch in
+   `TowerSelectionWheel.js`.** The carousel drag handler now skips pointer
+   capture and `preventDefault` for touch events.
+
 **Result:** Pending testing on Android device.
+
+**Why this should work:** The previous attempts only addressed secondary
+factors (touch-action specificity, passive listeners, pointer capture).
+This attempt fixes the **primary factor** — the layout chain that
+produces the scroll container on which all other scroll logic depends.
+With a properly constrained height chain (`app-shell → main-stage →
+panel`), the browser creates a native scroll container that `pan-y`
+touch-action can target.
 
 ---
 
@@ -208,7 +268,9 @@ in the stylesheet overriding `pan-y` with `none`.
 
 | File | Change |
 |---|---|
-| `assets/dragScroll.js` | Skip touch pointers in `handlePointerDown` |
-| `assets/styles.css` | Remove `.panel *` wildcard; extend Android fixes to all panels |
-| `assets/cardinalWardenUI.js` | Passive global pointer handlers; passive carousel touchmove |
+| `assets/styles.css` | Move `.app-shell` height/overflow and `.main-stage height` out of desktop media query into base rules; change `.fluid-tree-store-list` from `touch-action: none` to `pan-y` |
+| `assets/towerLoadoutController.js` | Guard `setPointerCapture` and `preventDefault` with `event.pointerType !== 'touch'` |
+| `assets/fluidTerrariumStoreSystem.js` | Early-return for touch pointers in `fttssHandleStoreListPointerDown` |
+| `assets/playfield/ui/TowerSelectionWheel.js` | Guard `setPointerCapture` and `preventDefault` with `event.pointerType !== 'touch'` |
+| `assets/cardinalWardenUI.js` | Passive global pointer handlers; passive carousel touchmove (Attempt 2) |
 | `docs/SCROLLING_ISSUE_FIX_DOCUMENTATION.md` | This document |
