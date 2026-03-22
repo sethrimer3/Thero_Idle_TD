@@ -245,7 +245,10 @@ export function openTowerSelectionWheel(tower) {
       wheel.dragState.isDragging = true;
       wheel.dragState.suppressClick = true;
       try {
-        wheel.container.setPointerCapture(event.pointerId);
+        // Skip pointer capture for touch events so native panel scrolling is not blocked.
+        if (event.pointerType !== 'touch') {
+          wheel.container.setPointerCapture(event.pointerId);
+        }
       } catch (error) {
         // Ignore pointer-capture errors to keep scrolling responsive.
       }
@@ -257,7 +260,9 @@ export function openTowerSelectionWheel(tower) {
       // Adjust the baseline so each step is discrete instead of continuous.
       wheel.dragState.startY += stepDelta * DRAG_STEP_PIXELS;
     }
-    event.preventDefault();
+    if (event.pointerType !== 'touch') {
+      event.preventDefault();
+    }
   };
 
   const handlePointerUp = (event) => {

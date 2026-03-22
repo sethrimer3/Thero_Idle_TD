@@ -627,7 +627,7 @@ export function createTowerLoadoutController({
         shiftLoadoutWheel(direction);
         wheelState.dragAccumulated -= direction * LOADOUT_SCROLL_STEP_PX;
       }
-      if (typeof event.preventDefault === 'function') {
+      if (event.pointerType !== 'touch' && typeof event.preventDefault === 'function') {
         event.preventDefault();
       }
     };
@@ -829,12 +829,15 @@ export function createTowerLoadoutController({
     playfield.setDraggingTower?.(towerId);
 
     try {
-      element.setPointerCapture(event.pointerId);
+      // Skip pointer capture for touch events so native panel scrolling is not hijacked.
+      if (event.pointerType !== 'touch') {
+        element.setPointerCapture(event.pointerId);
+      }
     } catch (error) {
       // Ignore pointer capture errors while still keeping drag state active.
     }
 
-    if (typeof event.preventDefault === 'function') {
+    if (event.pointerType !== 'touch' && typeof event.preventDefault === 'function') {
       event.preventDefault();
     }
 

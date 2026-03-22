@@ -679,6 +679,10 @@ export function fttssHandleStoreListPointerDown(event) {
   if ((event.pointerType === 'mouse' && event.button !== 0) || event.target.closest('.fluid-tree-store-item__stub')) {
     return;
   }
+  // Let native touch scrolling handle vertical pan; custom drag-scroll is mouse-only.
+  if (event.pointerType === 'touch') {
+    return;
+  }
   this.storeListDragState = {
     pointerId: event.pointerId,
     startY: event.clientY,
