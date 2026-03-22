@@ -482,48 +482,140 @@ function drawPathBase(ctx, points, paletteStops, trackMode) {
   }
   const start = points[0];
   const end = points[points.length - 1];
-  const baseGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  const highlightGradient = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
-  const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
-  const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
-  paletteStops.forEach((entry) => {
-    baseGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, baseAlpha));
-    highlightGradient.addColorStop(entry.stop, colorToRgbaString(entry.color, highlightAlpha));
-  });
+
+  // Build a start→end linear gradient at the requested alpha in one call.
+  const makeGradient = (alpha) => {
+    const g = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    paletteStops.forEach((entry) => {
+      g.addColorStop(entry.stop, colorToRgbaString(entry.color, alpha));
+    });
+    return g;
+  };
 
   const tracePath = () => {
     ctx.moveTo(start.x, start.y);
     for (let index = 1; index < points.length; index += 1) {
-      const point = points[index];
-      ctx.lineTo(point.x, point.y);
+      ctx.lineTo(points[index].x, points[index].y);
     }
   };
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
-  const shadowColor = colorToRgbaString(
-    paletteStops[0]?.color || { r: 88, g: 160, b: 255 },
-    trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2,
-  );
-  this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
-  tracePath();
-  ctx.strokeStyle = baseGradient;
-  ctx.stroke();
-  ctx.restore();
+  // Mid-palette sample used as the glow/shadow hue for all passes.
+  const glowColor = paletteStops[Math.floor(paletteStops.length * HALF)]?.color
+    || paletteStops[0]?.color
+    || { r: 88, g: 160, b: 255 };
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 : 1;
-  ctx.lineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
-  tracePath();
-  ctx.strokeStyle = highlightGradient;
-  ctx.stroke();
-  ctx.restore();
+  if (trackMode === TRACK_RENDER_MODES.GRADIENT) {
+    // --- Gradient track: richly-layered magical stone path ---
+
+    // Pass 1: dark substrate — defines sharp track borders against terrain.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = 'rgba(5, 5, 9, 0.58)';
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 2: main palette-gradient body with a soft colour halo.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 10;
+    this.applyCanvasShadow(ctx, colorToRgbaString(glowColor, 0.45), 14);
+    ctx.strokeStyle = makeGradient(0.82);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 3: bright inner vein — the flowing magical energy seam.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = makeGradient(0.93);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 4: specular sheen — catches light across the polished surface.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.38;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.80)';
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    // --- Blur track: concentric-bloom glowing energy conduit ---
+
+    // Pass 1: wide outer luminous aura — the conduit's ambient field.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 24;
+    this.applyCanvasShadow(ctx, colorToRgbaString(glowColor, 0.18), 32);
+    ctx.strokeStyle = makeGradient(0.14);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 2: mid-range atmospheric glow — bridges aura and core.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 15;
+    this.applyCanvasShadow(ctx, colorToRgbaString(glowColor, 0.28), 20);
+    ctx.strokeStyle = makeGradient(0.32);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 3: main glowing core — the conduit's primary energy channel.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 9;
+    this.applyCanvasShadow(ctx, colorToRgbaString(glowColor, 0.48), 14);
+    ctx.strokeStyle = makeGradient(0.72);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 4: bright saturated inner conduit — intense energy concentration.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4.5;
+    this.applyCanvasShadow(ctx, colorToRgbaString(glowColor, 0.62), 8);
+    ctx.globalAlpha = 0.97;
+    ctx.strokeStyle = makeGradient(0.96);
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass 5: white-hot center spark — the conduit's brightest ignition thread.
+    ctx.save();
+    ctx.beginPath();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 1.8;
+    ctx.globalAlpha = 0.82;
+    ctx.strokeStyle = 'rgba(255, 252, 245, 0.92)';
+    tracePath();
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // Build a cache key for the tunnel path precomputations so we reuse opacity and color arrays.
@@ -603,10 +695,16 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
     return;
   }
 
-  const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.78 : 0.55;
-  const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.32 : 0.18;
-  const baseLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 7;
-  const highlightLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 3.8 : 2;
+  // Match the dominant passes used by drawPathBase for visual consistency in tunnels.
+  // Gradient: body (layer 0) + bright vein (layer 1).
+  // Blur: main glowing core (layer 0, matching drawPathBase pass 3) + bright inner conduit (layer 1, pass 4).
+  const baseAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.72 : 0.82;
+  const highlightAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.96 : 0.93;
+  const baseLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 9 : 10;
+  const highlightLineWidth = trackMode === TRACK_RENDER_MODES.BLUR ? 4.5 : 3.5;
+  const baseShadowBlur = trackMode === TRACK_RENDER_MODES.BLUR ? 22 : 14;
+  const baseShadowAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.48 : 0.45;
+  const highlightShadowBlur = trackMode === TRACK_RENDER_MODES.BLUR ? 8 : 0;
   // Reuse precomputed opacity/color arrays so each segment renders with minimal per-frame work.
   const tunnelCache = buildTunnelPathCache.call(this, points, paletteStops, trackMode);
   const opacityByPoint = tunnelCache?.opacityByPoint;
@@ -646,10 +744,14 @@ function drawPathWithTunnels(ctx, points, paletteStops, trackMode) {
       ctx.beginPath();
       if (isBase) {
         ctx.globalAlpha = 1;
-        const shadowColor = colorToRgbaString(color, (trackMode === TRACK_RENDER_MODES.BLUR ? 0.35 : 0.2) * segmentOpacity);
-        this.applyCanvasShadow(ctx, shadowColor, trackMode === TRACK_RENDER_MODES.BLUR ? 26 : 12);
+        const shadowColor = colorToRgbaString(color, baseShadowAlpha * segmentOpacity);
+        this.applyCanvasShadow(ctx, shadowColor, baseShadowBlur);
       } else {
-        ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.95 * segmentOpacity : segmentOpacity;
+        ctx.globalAlpha = trackMode === TRACK_RENDER_MODES.BLUR ? 0.97 * segmentOpacity : segmentOpacity;
+        if (highlightShadowBlur > 0) {
+          const shadowColor = colorToRgbaString(color, 0.62 * segmentOpacity);
+          this.applyCanvasShadow(ctx, shadowColor, highlightShadowBlur);
+        }
       }
 
       ctx.moveTo(point.x, point.y);
