@@ -1,6 +1,6 @@
 // Canvas-based particle scrollbar for mobile touch scrolling on Android.
 // Renders a glowing particle "thumb" with orbiting satellite particles along the right edge.
-// Tapping expands satellites into a vertical scrollbar track; dragging scrolls the active panel.
+// Holding the thumb expands satellites into a vertical scrollbar track; dragging scrolls the active panel.
 
 import { samplePaletteGradient } from './colorSchemeUtils.js';
 
@@ -21,14 +21,8 @@ const CANVAS_CSS_WIDTH = 60;
 // Duration in seconds for the expand/collapse transition.
 const EXPAND_DURATION = 0.38;
 
-// Milliseconds of inactivity before the scrollbar auto-collapses.
-const AUTO_COLLAPSE_MS = 3200;
-
 // Pointer movement threshold (CSS px) to distinguish a tap from a drag.
 const TAP_THRESHOLD_PX = 9;
-
-// Maximum pointer-down duration (ms) for a touch to be registered as a tap.
-const TAP_MAX_MS = 320;
 
 // Vertical gap (CSS px) between adjacent satellite centres in linear mode.
 const LINEAR_SPACING = 21;
@@ -64,7 +58,6 @@ let lastTimestamp = null;
 // 0 = fully collapsed (swirling), 1 = fully expanded (linear scrollbar track).
 let expandProgress = 0;
 let isExpanded = false;
-let collapseTimer = null;
 
 // Pointer-event bookkeeping.
 const pointer = {
@@ -72,7 +65,6 @@ const pointer = {
   id: null,
   startY: 0,
   currentY: 0,
-  startTime: 0,
   isDrag: false,
   startScrollRatio: 0,
 };
@@ -127,20 +119,65 @@ function buildSatellites() {
 
 // ─── Scroll helpers ───────────────────────────────────────────────────────────
 
-// Refresh the reference to whichever panel is currently active.
+// Prefer the topmost visible scroll container so overlays like Field Notes and upgrade grids
+// stay in sync with the particle thumb instead of falling back to the underlying tab panel.
+function resolveActiveScrollableElement() {
+  const candidates = [
+    '.field-notes-page.field-notes-page--active',
+    '.field-notes-list-view:not(.field-notes-view--hidden)',
+    '.upgrade-matrix-grid',
+    '.panel.active',
+  ];
+
+  for (const selector of candidates) {
+    const elements = Array.from(document.querySelectorAll(selector));
+    for (let index = elements.length - 1; index >= 0; index -= 1) {
+      const element = elements[index];
+      if (!(element instanceof HTMLElement)) {
+        continue;
+      }
+
+      const style = window.getComputedStyle(element);
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        continue;
+      }
+
+      if (element.closest('[hidden], [aria-hidden="true"]')) {
+        continue;
+      }
+
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        continue;
+      }
+
+      return element;
+    }
+  }
+
+  return null;
+}
+
+// Refresh the reference to whichever scrollable surface is currently visible.
 function refreshActivePanel() {
-  activePanel = document.querySelector('.panel.active') || null;
+  activePanel = resolveActiveScrollableElement();
+}
+
+// Calculate the maximum scroll range for the current panel.
+function getActivePanelMaxScroll() {
+  if (!activePanel) {
+    return 0;
+  }
+  return Math.max(0, activePanel.scrollHeight - activePanel.clientHeight);
 }
 
 // Read the current scroll position as a 0–1 ratio.
 function readScrollRatio() {
-  if (!activePanel) {
-    refreshActivePanel();
-  }
+  refreshActivePanel();
   if (!activePanel) {
     return 0;
   }
-  const max = activePanel.scrollHeight - activePanel.clientHeight;
+  const max = getActivePanelMaxScroll();
   if (max <= 1) {
     return 0;
   }
@@ -149,10 +186,11 @@ function readScrollRatio() {
 
 // Set the active panel's scroll position using a 0–1 ratio.
 function applyScrollRatio(ratio) {
+  refreshActivePanel();
   if (!activePanel) {
     return;
   }
-  const max = activePanel.scrollHeight - activePanel.clientHeight;
+  const max = getActivePanelMaxScroll();
   if (max <= 1) {
     return;
   }
@@ -315,14 +353,14 @@ function handlePointerDown(event) {
   pointer.id = event.pointerId;
   pointer.startY = event.clientY;
   pointer.currentY = event.clientY;
-  pointer.startTime = performance.now();
   pointer.isDrag = false;
+
+  // Expand immediately while the thumb is held so the track behaves like a hold-to-scrub control.
+  isExpanded = true;
 
   // Snapshot scroll position for proportional drag mapping.
   refreshActivePanel();
   pointer.startScrollRatio = readScrollRatio();
-
-  clearAutoCollapse();
 }
 
 function handlePointerMove(event) {
@@ -362,45 +400,12 @@ function handlePointerUp(event) {
   }
   event.preventDefault();
 
-  const elapsed = performance.now() - pointer.startTime;
-  const dy = Math.abs(event.clientY - pointer.startY);
-  const wasTap = !pointer.isDrag && elapsed < TAP_MAX_MS && dy < TAP_THRESHOLD_PX;
-
   pointer.active = false;
   pointer.id = null;
   pointer.isDrag = false;
 
-  if (wasTap) {
-    toggleExpanded();
-  } else if (isExpanded) {
-    scheduleAutoCollapse();
-  }
-}
-
-// ─── Expand / collapse helpers ────────────────────────────────────────────────
-
-function toggleExpanded() {
-  isExpanded = !isExpanded;
-  if (isExpanded) {
-    scheduleAutoCollapse();
-  } else {
-    clearAutoCollapse();
-  }
-}
-
-function scheduleAutoCollapse() {
-  clearAutoCollapse();
-  collapseTimer = setTimeout(() => {
-    isExpanded = false;
-    collapseTimer = null;
-  }, AUTO_COLLAPSE_MS);
-}
-
-function clearAutoCollapse() {
-  if (collapseTimer !== null) {
-    clearTimeout(collapseTimer);
-    collapseTimer = null;
-  }
+  // Collapse as soon as the hold ends so the scrollbar no longer behaves like a toggle.
+  isExpanded = false;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

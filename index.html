@@ -173,19 +173,16 @@
       <!-- FPS counter displayed in the top-left corner regardless of active tab. -->
       <div class="fps-counter" id="fps-counter" hidden aria-hidden="true" aria-label="Frames per second">--</div>
       <main class="main-stage" id="main-stage">
-        <!-- Shared looping video textures the entire menu surface behind every tab panel. -->
+        <!-- Shared looping animation textures the entire menu surface behind every tab panel. -->
         <div class="menu-background-media" aria-hidden="true">
-          <video
+          <img
             class="menu-background-media__video"
             data-menu-background-video
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="auto"
-          >
-            <source src="./assets/animations/menuBackground_animation.mp4" type="video/mp4" />
-          </video>
+            src="./assets/animations/menuBackground_animation.webp"
+            alt=""
+            decoding="async"
+            fetchpriority="high"
+          />
         </div>
         <section
           class="panel active"
