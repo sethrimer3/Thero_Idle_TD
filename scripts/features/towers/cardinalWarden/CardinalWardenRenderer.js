@@ -97,7 +97,8 @@ function renderWardenLightShadow(ctx, warden, ship, radius) {
   const dx = ship.x - warden.x;
   const dy = ship.y - warden.y;
   const distance = Math.hypot(dx, dy);
-  if (distance < 1) {
+  // Skip ships beyond the visible sunlight radius so distant enemies do not darken unlit parts of the arena.
+  if (distance < 1 || distance > WARDEN_SUNLIGHT_RADIUS) {
     return;
   }
 
@@ -286,8 +287,6 @@ export function render() {
       this.renderWarden();
       // Draw aim target symbol if set
       this.renderAimTarget();
-      // Draw weapon targets for eighth grapheme (Theta)
-      this.renderWeaponTargets();
       // Draw ship shadows before the sprites themselves so the sunlight reads as a back-lit scene.
       this.renderShipShadows();
       // Draw friendly ships
@@ -299,6 +298,8 @@ export function render() {
       this.renderEnemies();
       // Draw bosses
       this.renderBosses();
+      // Draw weapon targets after the shadow pass so Theta lock indicators stay readable above lit ships.
+      this.renderWeaponTargets();
       // Draw bullets
       this.renderBullets();
       // Draw beams
