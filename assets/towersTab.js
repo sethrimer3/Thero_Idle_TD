@@ -54,8 +54,8 @@ const HAS_POINTER_EVENTS = typeof window !== 'undefined' && 'PointerEvent' in wi
 const EQUATION_TOOLTIP_MARGIN_PX = 12; // Maintain consistent spacing between the tooltip and the hovered variable.
 const EQUATION_TOOLTIP_ID = 'tower-upgrade-equation-tooltip'; // Stable id so aria-describedby wiring stays deterministic.
 const TOWER_CARD_SELECTOR = '.card[data-tower-id]'; // Limit tower card queries so loadout buttons stay compact.
-// Resolve the decorative tower-card video through the module URL so the browser receives the correct asset path in every runtime.
-const TOWER_CARD_BACKGROUND_VIDEO_URL = new URL('./animations/cardBackground_animation.mp4', import.meta.url).href;
+// Resolve the decorative tower-card animated WebP through the module URL so the browser receives the correct asset path in every runtime.
+const TOWER_CARD_BACKGROUND_IMG_URL = new URL('./animations/cardBackground_animation.webp', import.meta.url).href;
 
 const UNIVERSAL_VARIABLE_LIBRARY = new Map([
   [
@@ -224,7 +224,7 @@ const towerTabState = {
   discoveredVariables: new Map(),
   discoveredVariableListeners: new Set(),
   dynamicContext: null,
-  // Track recovery timers so hidden tower panels do not leave decorative video loops stalled after tab swaps.
+  // Track tab-switch visibility binding so the listener is only registered once.
   backgroundMediaRecovery: {
     resumeTimeoutId: null,
     visibilityBound: false,
@@ -1729,18 +1729,15 @@ export function injectTowerCardPreviews() {
     }
     // Add the uploaded looping card animation behind each tower card once so every tower shares the same moving backdrop.
     if (!card.querySelector('.tower-card-background')) {
-      const backgroundVideo = document.createElement('video');
-      backgroundVideo.className = 'tower-card-background';
-      backgroundVideo.autoplay = true;
-      backgroundVideo.muted = true;
-      backgroundVideo.loop = true;
-      backgroundVideo.playsInline = true;
-      backgroundVideo.preload = 'auto';
-      backgroundVideo.setAttribute('aria-hidden', 'true');
-      // Assign the asset directly on the video element so browsers do not defer source selection behind an empty <source> stack.
-      backgroundVideo.src = TOWER_CARD_BACKGROUND_VIDEO_URL;
-      card.insertBefore(backgroundVideo, card.firstChild);
-      configureTowerCardBackgroundVideo(backgroundVideo);
+      const backgroundImg = document.createElement('img');
+      backgroundImg.className = 'tower-card-background';
+      backgroundImg.setAttribute('aria-hidden', 'true');
+      backgroundImg.setAttribute('alt', '');
+      backgroundImg.setAttribute('decoding', 'async');
+      // Assign the animated WebP directly so the browser starts streaming and playing it immediately.
+      backgroundImg.src = TOWER_CARD_BACKGROUND_IMG_URL;
+      card.insertBefore(backgroundImg, card.firstChild);
+      configureTowerCardBackgroundImg(backgroundImg);
     }
     const preview = document.createElement('figure');
     preview.className = 'tower-preview';
@@ -1773,90 +1770,36 @@ export function injectTowerCardPreviews() {
 }
 
 /**
- * Best-effort resume keeps decorative tower card loops alive across tab switches and browser autoplay quirks.
- * Hidden cards are skipped so background media does not waste work while the Towers panel is off-screen.
+ * Attach a load listener so the ready-state CSS fade-in triggers once the animated WebP first frame arrives.
  */
-function safelyPlayTowerCardBackground(video) {
-  if (!(video instanceof HTMLVideoElement) || document.hidden) {
+function configureTowerCardBackgroundImg(img) {
+  if (!(img instanceof HTMLImageElement) || img.dataset.backgroundConfigured === 'true') {
     return;
   }
-  const card = video.closest(TOWER_CARD_SELECTOR);
-  if (card instanceof HTMLElement) {
-    if (card.hidden || card.getAttribute('aria-hidden') === 'true') {
-      return;
-    }
-  }
-  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-    video.load();
-  }
-  if (video.ended) {
-    video.currentTime = 0;
-  }
-  const playPromise = video.play();
-  if (playPromise && typeof playPromise.catch === 'function') {
-    playPromise.catch(() => {});
-  }
-}
+  img.dataset.backgroundConfigured = 'true';
 
-/**
- * Attach replay guards so each decorative card loop re-arms itself after the Towers tab becomes visible.
- */
-function configureTowerCardBackgroundVideo(video) {
-  if (!(video instanceof HTMLVideoElement) || video.dataset.backgroundConfigured === 'true') {
-    return;
-  }
-  video.dataset.backgroundConfigured = 'true';
-  ['loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'stalled'].forEach((eventName) => {
-    video.addEventListener(eventName, () => safelyPlayTowerCardBackground(video));
-  });
-  video.addEventListener('loadeddata', () => {
+  const markReady = () => {
     // Mark ready state so CSS can fade from the static fallback into the real moving texture.
-    video.dataset.mediaReady = 'true';
-  });
-  video.addEventListener('ended', () => {
-    video.currentTime = 0;
-    safelyPlayTowerCardBackground(video);
-  });
-  video.addEventListener('error', () => {
-    // Surface load failures on the element itself so debugging the decorative media remains possible from DevTools.
-    video.dataset.mediaReady = 'error';
-  });
-  video.addEventListener('pause', () => {
-    // Decorative media should not remain paused while the Towers panel is visible.
-    const towersPanel = document.getElementById('panel-towers');
-    const towersVisible = towersPanel instanceof HTMLElement && !towersPanel.hidden;
-    if (towersVisible) {
-      safelyPlayTowerCardBackground(video);
-    }
-  });
-  safelyPlayTowerCardBackground(video);
+    img.dataset.mediaReady = 'true';
+  };
+
+  if (img.complete && img.naturalWidth > 0) {
+    // Image already loaded from cache — mark ready immediately.
+    markReady();
+  } else {
+    img.addEventListener('load', markReady, { once: true });
+    img.addEventListener('error', () => {
+      // Surface load failures on the element itself so debugging the decorative media remains possible from DevTools.
+      img.dataset.mediaReady = 'error';
+    }, { once: true });
+  }
 }
 
 /**
- * Resume every tower card background after visibility changes and delayed tab-layout updates.
+ * Animated WebP backgrounds play automatically — this function is kept for API compatibility.
+ * Visibility binding is still useful so future logic can hook into tab-switch events if needed.
  */
 export function refreshTowerCardBackgroundAnimations() {
-  const backgrounds = document.querySelectorAll('.tower-card-background');
-  backgrounds.forEach((background) => {
-    if (background instanceof HTMLVideoElement) {
-      safelyPlayTowerCardBackground(background);
-    }
-  });
-
-  if (towerTabState.backgroundMediaRecovery.resumeTimeoutId !== null) {
-    window.clearTimeout(towerTabState.backgroundMediaRecovery.resumeTimeoutId);
-  }
-  // Re-run once layout settles because some mobile browsers only honor autoplay after the panel has painted.
-  towerTabState.backgroundMediaRecovery.resumeTimeoutId = window.setTimeout(() => {
-    const delayedBackgrounds = document.querySelectorAll('.tower-card-background');
-    delayedBackgrounds.forEach((background) => {
-      if (background instanceof HTMLVideoElement) {
-        safelyPlayTowerCardBackground(background);
-      }
-    });
-    towerTabState.backgroundMediaRecovery.resumeTimeoutId = null;
-  }, 180);
-
   if (!towerTabState.backgroundMediaRecovery.visibilityBound) {
     towerTabState.backgroundMediaRecovery.visibilityBound = true;
     document.addEventListener('visibilitychange', () => {
