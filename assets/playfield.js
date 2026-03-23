@@ -152,6 +152,11 @@ import {
   teardownT1Tower as teardownT1TowerHelper,
 } from '../scripts/features/towers/t1Tower.js';
 import {
+  updateT2Tower as updateT2TowerHelper,
+  ensureT2State as ensureT2StateHelper,
+  teardownT2Tower as teardownT2TowerHelper,
+} from '../scripts/features/towers/t2Tower.js';
+import {
   updateEtaTower as updateEtaTowerHelper,
   fireEtaLaser as fireEtaLaserHelper,
   applyEtaDamage as applyEtaDamageHelper,
@@ -2179,6 +2184,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Initialise or refresh T₂ parametric tracer state.
+   */
+  ensureT2State(tower) {
+    return ensureT2StateHelper(this, tower);
+  }
+
+  /**
+   * Clean up T₂ state when the tower is removed or retyped.
+   */
+  teardownT2Tower(tower) {
+    teardownT2TowerHelper(this, tower);
+  }
+
+  /**
    * Spawn a τ spiral projectile toward the current target.
    */
   spawnTauProjectile(tower, targetInfo) {
@@ -3751,6 +3770,11 @@ export class SimplePlayfield {
             this.updateT1Tower(tower, speedDelta);
             return;
           }
+          if (tower.type === 't2') {
+            // Keep the parametric tracer animating while combat is paused.
+            this.updateT2Tower(tower, speedDelta);
+            return;
+          }
           if (tower.type === 'eta') {
             this.updateEtaTower(tower, speedDelta);
             return;
@@ -4114,6 +4138,13 @@ export class SimplePlayfield {
    */
   updateT1Tower(tower, delta) {
     updateT1TowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Advance T₂ parametric tracer, update trail, and apply contact damage.
+   */
+  updateT2Tower(tower, delta) {
+    updateT2TowerHelper(this, tower, delta);
   }
 
   /**
