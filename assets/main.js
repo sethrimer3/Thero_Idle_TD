@@ -2584,6 +2584,9 @@ import { createSpireCameraController } from './spireCameraController.js';
         unlocked: Boolean(kufState.unlocked),
         storySeen: Boolean(kufState.storySeen),
       },
+      achievements: {
+        storySeen: Boolean((spireResourceState.achievements || {}).storySeen),
+      },
       moteGems: {
         inventory: moteGems,
         autoCollectUnlocked: Boolean(moteGemState.autoCollectUnlocked),
@@ -2609,6 +2612,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     const tsadiBranch = snapshot.tsadi || {};
     const shinBranch = snapshot.shin || {};
     const kufBranch = snapshot.kuf || {};
+    const achievementsBranch = snapshot.achievements || {};
     const moteGemBranch = snapshot.moteGems || {};
 
     const powderStoryState = spireResourceState.powder || {};
@@ -2668,6 +2672,10 @@ import { createSpireCameraController } from './spireCameraController.js';
     const kufState = spireResourceState.kuf || {};
     kufState.unlocked = Boolean(kufBranch.unlocked || kufState.unlocked);
     kufState.storySeen = Boolean(kufBranch.storySeen || kufState.storySeen);
+
+    const achievementsState = spireResourceState.achievements || {};
+    achievementsState.storySeen = Boolean(achievementsBranch.storySeen || achievementsState.storySeen);
+    spireResourceState.achievements = achievementsState;
 
     moteGemState.inventory.clear();
     if (Array.isArray(moteGemBranch.inventory)) {
@@ -2789,6 +2797,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     tsadi: { id: 'spire-tsadi', title: 'Tsadi Spire' },
     shin: { id: 'spire-shin', title: 'Shin Spire' },
     kuf: { id: 'spire-kuf', title: 'Kuf Spire' },
+    achievements: { id: 'achievements', title: 'Achievements' },
   };
 
   /**
