@@ -393,6 +393,7 @@ import {
   addDiscoveredVariablesListener,
   getDiscoveredVariables,
   getTowerUpgradeStateSnapshot,
+  initializeT2Toggles,
   applyTowerUpgradeStateSnapshot,
   calculateInvestedGlyphs,
   clearTowerUpgradeState,
@@ -5348,6 +5349,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     initializeTowerSelection();
     initializeTowerVisibilityToggle();
     initializeTowerElementDebugControls();
+    initializeT2Toggles();
     bindTowerCardUpgradeInteractions();
     syncLoadoutToPlayfield();
     renderEnemyCodex();

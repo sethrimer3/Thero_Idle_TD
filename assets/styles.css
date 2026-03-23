@@ -8385,6 +8385,56 @@ body.playfield-fullscreen .playfield canvas {
   font-style: italic;
 }
 
+/* ── T₂ parametric function toggle controls ─────────────────────────── */
+.t2-param-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.t2-param-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.t2-axis-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  color: rgba(200, 160, 255, 0.9);
+  min-width: 54px;
+  flex-shrink: 0;
+}
+
+.t2-fn-toggle {
+  appearance: none;
+  background: rgba(160, 80, 220, 0.12);
+  border: 1px solid rgba(180, 100, 255, 0.4);
+  border-radius: 6px;
+  color: rgba(220, 180, 255, 0.75);
+  cursor: pointer;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.88rem;
+  padding: 4px 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  touch-action: manipulation;
+}
+
+.t2-fn-toggle:hover {
+  background: rgba(160, 80, 220, 0.3);
+  border-color: rgba(200, 130, 255, 0.7);
+  color: rgba(240, 210, 255, 0.95);
+}
+
+.t2-fn-toggle.active {
+  background: rgba(160, 80, 220, 0.55);
+  border-color: rgba(210, 150, 255, 0.9);
+  color: #f0d0ff;
+  box-shadow: 0 0 8px rgba(180, 100, 255, 0.5);
+}
+
 .achievement-note {
   margin: 0;
   font-size: 0.95rem;

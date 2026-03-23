@@ -2033,6 +2033,51 @@
               </button>
             </article>
 
+            <article class="card" data-tower-id="t2" aria-hidden="false">
+              <header class="tower-header">
+                <span class="tower-tier">Test</span>
+                <h3>T₂ parametric graph</h3>
+              </header>
+              <div class="formula-block">
+                <p class="formula-line">\( \vec{p}(t) = \bigl(\,x(t),\; y(t)\,\bigr) \cdot R \)</p>
+                <ul class="formula-definition">
+                  <li>\(x(t)\) — sum of enabled x-axis functions applied to \(t\)</li>
+                  <li>\(y(t)\) — sum of enabled y-axis functions applied to \(t\)</li>
+                  <li>Default \((cos\,t,\; sin\,t)\) traces a circle of radius \(R = 8\) m</li>
+                </ul>
+                <p class="formula-line result" id="t2-formula-display">x = cos(t) &nbsp;·&nbsp; y = sin(t)</p>
+              </div>
+
+              <!-- Parametric function toggles -->
+              <div class="t2-param-controls">
+                <div class="t2-param-row">
+                  <span class="t2-axis-label">x(t) =</span>
+                  <button class="t2-fn-toggle" type="button" data-t2-toggle="sinX">sin(t)</button>
+                  <button class="t2-fn-toggle active" type="button" data-t2-toggle="cosX">cos(t)</button>
+                  <button class="t2-fn-toggle" type="button" data-t2-toggle="tanX">tan(t)</button>
+                </div>
+                <div class="t2-param-row">
+                  <span class="t2-axis-label">y(t) =</span>
+                  <button class="t2-fn-toggle active" type="button" data-t2-toggle="sinY">sin(t)</button>
+                  <button class="t2-fn-toggle" type="button" data-t2-toggle="cosY">cos(t)</button>
+                  <button class="t2-fn-toggle" type="button" data-t2-toggle="tanY">tan(t)</button>
+                </div>
+              </div>
+
+              <ul class="upgrade-list">
+                <li>Toggle trig functions to reshape the tracer curve in real-time.</li>
+                <li>Multiple active functions on the same axis are <em>additive</em>.</li>
+                <li>tan(t) is clamped to ±1.5 to prevent the tracer leaving the arena.</li>
+              </ul>
+              <footer class="card-footer">
+                Plots a parametric curve; the luminous trail deals ongoing damage.
+                Cost: 1 \(\Theta\).
+              </footer>
+              <button class="tower-equip-button" type="button" data-tower-toggle="t2">
+                Equip T₂
+              </button>
+            </article>
+
           
           <!-- Developer mode toggle for tower card visibility -->
           <div class="tower-visibility-controls" id="tower-visibility-controls">
