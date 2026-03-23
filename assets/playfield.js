@@ -147,6 +147,11 @@ import {
   applyZetaDamage as applyZetaDamageHelper,
 } from '../scripts/features/towers/zetaTower.js';
 import {
+  updateT1Tower as updateT1TowerHelper,
+  ensureT1State as ensureT1StateHelper,
+  teardownT1Tower as teardownT1TowerHelper,
+} from '../scripts/features/towers/t1Tower.js';
+import {
   updateEtaTower as updateEtaTowerHelper,
   fireEtaLaser as fireEtaLaserHelper,
   applyEtaDamage as applyEtaDamageHelper,
@@ -2160,6 +2165,20 @@ export class SimplePlayfield {
   }
 
   /**
+   * Initialise or refresh T₁ polar tracer state.
+   */
+  ensureT1State(tower) {
+    return ensureT1StateHelper(this, tower);
+  }
+
+  /**
+   * Clean up T₁ state when the tower is removed or retyped.
+   */
+  teardownT1Tower(tower) {
+    teardownT1TowerHelper(this, tower);
+  }
+
+  /**
    * Spawn a τ spiral projectile toward the current target.
    */
   spawnTauProjectile(tower, targetInfo) {
@@ -3727,6 +3746,11 @@ export class SimplePlayfield {
             this.updateZetaTower(tower, speedDelta);
             return;
           }
+          if (tower.type === 't1') {
+            // Keep the polar tracer animating while combat is paused.
+            this.updateT1Tower(tower, speedDelta);
+            return;
+          }
           if (tower.type === 'eta') {
             this.updateEtaTower(tower, speedDelta);
             return;
@@ -4083,6 +4107,13 @@ export class SimplePlayfield {
    */
   updateZetaTower(tower, delta) {
     updateZetaTowerHelper(this, tower, delta);
+  }
+
+  /**
+   * Advance T₁ polar tracer, update trail, and apply contact damage.
+   */
+  updateT1Tower(tower, delta) {
+    updateT1TowerHelper(this, tower, delta);
   }
 
   /**
