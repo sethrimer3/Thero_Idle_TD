@@ -1,6 +1,7 @@
 /**
  * Tower definition registry composed of individually sourced tower modules.
  */
+import T1_TOWER from './t1.js';
 import MIND_GATE_TOWER from './mind-gate.js';
 import SHADOW_GATE_TOWER from './shadow-gate.js';
 import ALPHA_TOWER from './alpha.js';
@@ -30,6 +31,7 @@ import OMEGA_TOWER from './omega.js';
 import INFINITY_TOWER from './infinity.js';
 
 export {
+  T1_TOWER as t1Tower,
   MIND_GATE_TOWER as mind_gateTower,
   SHADOW_GATE_TOWER as shadow_gateTower,
   ALPHA_TOWER as alphaTower,
@@ -60,6 +62,8 @@ export {
 };
 
 export const towers = [
+  // T₁ test tower — available from the start for rapid experimentation.
+  T1_TOWER,
   // Surface the Mind Gate first so upgrade systems can treat it as the foundation lattice.
   MIND_GATE_TOWER,
   // Shadow Gate follows immediately — the enemy spawn nexus with debuff upgrades.

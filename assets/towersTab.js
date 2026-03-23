@@ -169,7 +169,7 @@ const towerTabState = {
   towerPreviousTierMap: new Map(),
   towerLoadoutLimit: 4,
   loadoutState: { selected: ['alpha'] },
-  unlockState: { unlocked: new Set(['alpha']) },
+  unlockState: { unlocked: new Set(['alpha', 't1']) },
   mergeProgress: { mergingLogicUnlocked: false },
   mergingLogicElements: { card: null },
   loadoutElements: { shell: null, container: null, grid: null, note: null, toggle: null },

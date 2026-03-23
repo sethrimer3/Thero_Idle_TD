@@ -42,6 +42,7 @@ import {
 import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../../scripts/features/towers/tauTower.js';
 import { drawUpsilonFleet as drawUpsilonFleetHelper } from '../../../../scripts/features/towers/upsilonTower.js';
 import { drawPhiTower as drawPhiTowerHelper } from '../../../../scripts/features/towers/phiTower.js';
+import { drawT1Graph as drawT1GraphHelper } from '../../../../scripts/features/towers/t1Tower.js';
 
 // Pre-calculated constants used across tower rendering functions
 const TWO_PI = Math.PI * 2;
@@ -104,6 +105,7 @@ const TOWER_TYPE_HANDLERS = {
   tau: (renderer, tower) => drawTauProjectilesHelper(renderer, tower),
   upsilon: (renderer, tower) => drawUpsilonFleetHelper(renderer, tower),
   phi: (renderer, tower) => drawPhiTowerHelper(renderer, tower),
+  t1: (renderer, tower) => drawT1GraphHelper(renderer, tower),
 };
 
 // Cache pre-rendered golden bloom glow circles keyed by rounded body radius.

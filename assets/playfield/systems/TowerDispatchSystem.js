@@ -50,6 +50,10 @@ export function updateTowers(delta) {
         this.updateZetaTower(tower, delta);
         return;
       }
+      if (tower.type === 't1') {
+        this.updateT1Tower(tower, delta);
+        return;
+      }
       if (tower.type === 'eta') {
         this.updateEtaTower(tower, delta);
         return;
