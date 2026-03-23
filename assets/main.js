@@ -1743,6 +1743,9 @@ import { createSpireCameraController } from './spireCameraController.js';
     getObservedPowderResizeElements,
     updateTabLockStates,
     isTutorialCompleted,
+    unlockCognitiveRealm,
+    unlockCognitiveRealmRendering,
+    updateCognitiveRealmVisibility,
   });
 
   // ── Level Grid Controller ───────────────────────────────────────────

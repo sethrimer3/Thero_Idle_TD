@@ -1729,10 +1729,20 @@
                 <span class="tower-tier">Tier XIII</span>
                 <h3>ν nu</h3>
               </header>
+              <div class="formula-block">
+                <p class="formula-line">\( \nu = \mu \times (\text{kills} + 1)^{\ln\left(\frac{\text{dmgtot}}{1000 / \text{Lamed}_{1}}\right)} \)</p>
+                <ul class="formula-definition">
+                  <li>μ → base attack from μ tower upgrades</li>
+                  <li>kills → total enemies finished by ν beams</li>
+                  <li>dmgtot → accumulated damage dealt (overkill included)</li>
+                  <li>Lamed₁ → π beam limit that normalizes damage accumulation in the exponent</li>
+                </ul>
+                <p class="formula-line result">Scales ν kill damage logarithmically using accumulated damage and μ attack.</p>
+              </div>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
               </ul>
-              <footer class="card-footer">Not defined yet.</footer>
+              <footer class="card-footer">Logarithmic beam that scales with kill count and total damage dealt.</footer>
               <button class="tower-equip-button" type="button" data-tower-toggle="nu">
                 Equip ν
               </button>
@@ -1742,10 +1752,19 @@
                 <span class="tower-tier">Tier XIV</span>
                 <h3>ξ xi</h3>
               </header>
+              <div class="formula-block">
+                <p class="formula-line">\( \xi = \nu \times (\text{numChain}^{\text{numChnExp}}) \)</p>
+                <ul class="formula-definition">
+                  <li>ν → base damage per chain from ν tower</li>
+                  <li>numChain → active chain count (3 + ℵ₄)</li>
+                  <li>numChnExp → chain exponent (1 + 0.1 × ℵ₅)</li>
+                </ul>
+                <p class="formula-line result">Chains ν power through exponential jump sequences.</p>
+              </div>
               <ul class="upgrade-list">
                 <li>Not defined yet.</li>
               </ul>
-              <footer class="card-footer">Not defined yet.</footer>
+              <footer class="card-footer">Chains ν power exponentially across multiple enemies per strike.</footer>
               <button class="tower-equip-button" type="button" data-tower-toggle="xi">
                 Equip ξ
               </button>
