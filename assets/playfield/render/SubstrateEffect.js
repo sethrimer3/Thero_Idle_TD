@@ -89,7 +89,7 @@ const PERPENDICULAR_TURN_PROBABILITY = 0.008;
 const ARC_PROBABILITY = 0.15;
 
 /** Maximum age (seconds) before a front expires. Actual age varies ×0.5–1.5. */
-const MAX_AGE = 12;
+const MAX_AGE = 120;
 
 /** Number of interior deposition striation dots per growth pixel. */
 const GRAIN_DENSITY = 6;
@@ -124,7 +124,7 @@ const GRID_EMPTY = -10001;
 // ─── Undraw (tail-erase) parameters ──────────────────────────────────────────
 
 /** Maximum simultaneously visible trail pixels before the tail starts erasing. */
-const TRAIL_MAX_VISIBLE = 400;
+const TRAIL_MAX_VISIBLE = 4000;
 
 /** Radius (px) of the destination-out eraser brush at each trail point. */
 const ERASE_RADIUS = 2.5;

@@ -1,6 +1,6 @@
-// Canvas-based particle scrollbar for mobile touch scrolling on Android.
-// Renders a glowing particle "thumb" with orbiting satellite particles along the right edge.
-// Holding the thumb expands satellites into a vertical scrollbar track; dragging scrolls the active panel.
+// Canvas-based particle scrollbars for mobile touch scrolling on Android.
+// Renders glowing particle thumbs with orbiting satellite particles along the viewport edge.
+// Holding a thumb expands its satellites into a vertical scrollbar track; dragging scrolls the active panel.
 
 import { samplePaletteGradient } from './colorSchemeUtils.js';
 
@@ -18,8 +18,8 @@ const NUM_SATELLITES = SATELLITE_SIZES.length * 2;
 // CSS pixel width of the scrollbar canvas strip.
 const CANVAS_CSS_WIDTH = 60;
 
-// Duration in seconds for the expand/collapse transition.
-const EXPAND_DURATION = 0.38;
+// Shorter transition makes particles move into and out of position twice as fast.
+const EXPAND_DURATION = 0.19;
 
 // Pointer movement threshold (CSS px) to distinguish a tap from a drag.
 const TAP_THRESHOLD_PX = 9;
@@ -35,71 +35,36 @@ const TRACK_PAD = 36;
 const ORBIT_COPY_OFFSET = 3.5;
 
 // Multiplier applied to the particle core radius to determine the outer halo radius.
-// A value of 2.6× gives a soft, diffuse bloom that fades smoothly to transparent.
 const HALO_RADIUS_MULTIPLIER = 2.6;
 
 // Compression factors for the elliptical swirl orbit.
-// Reducing the horizontal axis keeps particles within the narrow canvas strip while
-// the vertical axis retains enough depth to look dynamic rather than flat.
 const ORBIT_HORIZONTAL_COMPRESSION = 0.6;
 const ORBIT_VERTICAL_COMPRESSION = 0.5;
 
-// Instant boost applied to expandProgress when a drag begins without a preceding tap-expand,
-// giving immediate visual feedback that the track has activated before the transition finishes.
+// Instant boost applied to expandProgress when a drag begins without a preceding tap-expand.
 const DRAG_EXPAND_BOOST = 0.2;
 
-// ─── Module-level state ───────────────────────────────────────────────────────
+// Idle particles should be only slightly faded when not actively in use.
+const IDLE_ALPHA = 0.8;
 
-let canvas = null;
-let ctx = null;
-let rafHandle = null;
-let lastTimestamp = null;
+// Moving particles leave behind a fiery trail while sliding into or out of position.
+const TRAIL_POINT_LIMIT = 14;
+const TRAIL_MIN_MOVEMENT = 1.4;
+const TRAIL_DECAY_PER_SECOND = 2.6;
 
-// 0 = fully collapsed (swirling), 1 = fully expanded (linear scrollbar track).
-let expandProgress = 0;
-let isExpanded = false;
-
-// Pointer-event bookkeeping.
-const pointer = {
-  active: false,
-  id: null,
-  startY: 0,
-  currentY: 0,
-  isDrag: false,
-  startScrollRatio: 0,
-};
-
-// Current scroll position as a 0–1 ratio.
-let scrollRatio = 0;
-
-// The DOM panel that is currently scrollable.
-let activePanel = null;
-
-// ─── Satellite definitions ────────────────────────────────────────────────────
-
-// Each entry describes one satellite particle.
-// {radius, palettePos, orbitAngle, orbitRadius, orbitSpeed, linearIndex, above}
-const satellites = [];
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function buildSatellites() {
-  satellites.length = 0;
+  const satellites = [];
   SATELLITE_SIZES.forEach((size, sizeIndex) => {
     for (let copy = 0; copy < 2; copy++) {
       const globalIndex = sizeIndex * 2 + copy;
-
-      // Distribute palette positions evenly across the full gradient.
       const palettePos = globalIndex / (NUM_SATELLITES - 1);
-
-      // Orbit radius: larger particles orbit closer to the thumb for a denser core cluster.
       const baseOrbitRadius = 12 + (SATELLITE_SIZES.length - sizeIndex) * 2.2;
       const orbitRadius = baseOrbitRadius + copy * ORBIT_COPY_OFFSET;
-
-      // Alternate orbit direction between the two copies of each size.
       const dirSign = copy % 2 === 0 ? 1 : -1;
       const speedMagnitude = 0.55 + (globalIndex % 7) * 0.12;
       const orbitSpeed = speedMagnitude * dirSign;
-
-      // Spread initial angles so particles do not start clumped together.
       const orbitAngle = (Math.PI * 2 * globalIndex) / NUM_SATELLITES;
 
       satellites.push({
@@ -108,20 +73,376 @@ function buildSatellites() {
         orbitAngle,
         orbitRadius,
         orbitSpeed,
-        // In linear mode: position index from the thumb outward (0 = nearest).
         linearIndex: sizeIndex,
-        // One copy goes above the thumb, the other below.
         above: copy === 0,
+        lastX: null,
+        lastY: null,
+        trail: [],
       });
     }
   });
+  return satellites;
 }
 
-// ─── Scroll helpers ───────────────────────────────────────────────────────────
+function isVisibleElement(element) {
+  if (!(element instanceof HTMLElement)) {
+    return false;
+  }
+  const style = window.getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden') {
+    return false;
+  }
+  if (element.closest('[hidden], [aria-hidden="true"]')) {
+    return false;
+  }
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
 
-// Prefer the topmost visible scroll container so overlays like Field Notes and upgrade grids
-// stay in sync with the particle thumb instead of falling back to the underlying tab panel.
-function resolveActiveScrollableElement() {
+function drawGlowDot(ctx, x, y, radius, color, alpha) {
+  const { r, g, b } = color;
+  const haloR = radius * HALO_RADIUS_MULTIPLIER;
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+  halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`);
+  halo.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alpha * 0.12})`);
+  halo.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+  ctx.beginPath();
+  ctx.arc(x, y, haloR, 0, Math.PI * 2);
+  ctx.fillStyle = halo;
+  ctx.fill();
+
+  const core = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  core.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+  core.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+  core.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alpha * 0.55})`);
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = core;
+  ctx.fill();
+}
+
+function drawFieryTrail(ctx, trail, radius, alpha) {
+  if (!Array.isArray(trail) || trail.length < 2) {
+    return;
+  }
+
+  trail.forEach((point, index) => {
+    const progress = (index + 1) / trail.length;
+    const warm = {
+      r: Math.round(255 - progress * 10),
+      g: Math.round(150 - progress * 80),
+      b: Math.round(30 + progress * 20),
+    };
+    drawGlowDot(ctx, point.x, point.y, Math.max(1.2, radius * (0.45 + progress * 0.25)), warm, alpha * point.life * 0.55);
+  });
+}
+
+function resolveOverlayActive() {
+  const overlay = document.getElementById('tower-upgrade-overlay');
+  return Boolean(overlay && overlay.classList.contains('active') && overlay.getAttribute('aria-hidden') !== 'true');
+}
+
+function createScrollbarInstance({
+  id,
+  ariaLabel,
+  right = 0,
+  resolveActiveScrollableElement,
+  isVisible,
+}) {
+  const state = {
+    id,
+    ariaLabel,
+    right,
+    resolveActiveScrollableElement,
+    isVisible,
+    canvas: null,
+    ctx: null,
+    expandProgress: 0,
+    isExpanded: false,
+    pointer: {
+      active: false,
+      id: null,
+      startY: 0,
+      currentY: 0,
+      isDrag: false,
+      startScrollRatio: 0,
+    },
+    scrollRatio: 0,
+    activePanel: null,
+    satellites: buildSatellites(),
+  };
+
+  function refreshActivePanel() {
+    state.activePanel = state.resolveActiveScrollableElement();
+  }
+
+  function getActivePanelMaxScroll() {
+    if (!state.activePanel) {
+      return 0;
+    }
+    return Math.max(0, state.activePanel.scrollHeight - state.activePanel.clientHeight);
+  }
+
+  function readScrollRatio() {
+    refreshActivePanel();
+    if (!state.activePanel) {
+      return 0;
+    }
+    const max = getActivePanelMaxScroll();
+    if (max <= 1) {
+      return 0;
+    }
+    return Math.min(1, Math.max(0, state.activePanel.scrollTop / max));
+  }
+
+  function applyScrollRatio(ratio) {
+    refreshActivePanel();
+    if (!state.activePanel) {
+      return;
+    }
+    const max = getActivePanelMaxScroll();
+    if (max <= 1) {
+      return;
+    }
+    state.activePanel.scrollTop = ratio * max;
+  }
+
+  function resizeCanvas() {
+    if (!state.canvas || !state.ctx) {
+      return;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    const cssH = window.innerHeight;
+    state.canvas.style.height = `${cssH}px`;
+    state.canvas.width = Math.round(CANVAS_CSS_WIDTH * dpr);
+    state.canvas.height = Math.round(cssH * dpr);
+    state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function updateSatelliteTrail(satellite, x, y, dt, shouldLeaveTrail) {
+    if (!Number.isFinite(satellite.lastX) || !Number.isFinite(satellite.lastY)) {
+      satellite.lastX = x;
+      satellite.lastY = y;
+    }
+
+    const movement = Math.hypot(x - satellite.lastX, y - satellite.lastY);
+    if (shouldLeaveTrail && movement >= TRAIL_MIN_MOVEMENT) {
+      satellite.trail.push({ x: satellite.lastX, y: satellite.lastY, life: 1 });
+      if (satellite.trail.length > TRAIL_POINT_LIMIT) {
+        satellite.trail.shift();
+      }
+    }
+
+    satellite.trail = satellite.trail.filter((point) => {
+      point.life -= dt * TRAIL_DECAY_PER_SECOND;
+      return point.life > 0;
+    });
+
+    satellite.lastX = x;
+    satellite.lastY = y;
+  }
+
+  function handlePointerDown(event) {
+    if (event.button !== 0 && event.button !== undefined) {
+      return;
+    }
+    if (!state.isVisible()) {
+      return;
+    }
+    event.preventDefault();
+    try {
+      state.canvas.setPointerCapture(event.pointerId);
+    } catch (_) {
+      // Pointer capture is best-effort.
+    }
+
+    state.pointer.active = true;
+    state.pointer.id = event.pointerId;
+    state.pointer.startY = event.clientY;
+    state.pointer.currentY = event.clientY;
+    state.pointer.isDrag = false;
+    state.isExpanded = true;
+    refreshActivePanel();
+    state.pointer.startScrollRatio = readScrollRatio();
+  }
+
+  function handlePointerMove(event) {
+    if (!state.pointer.active || event.pointerId !== state.pointer.id) {
+      return;
+    }
+    event.preventDefault();
+    state.pointer.currentY = event.clientY;
+
+    const dy = Math.abs(event.clientY - state.pointer.startY);
+    if (dy > TAP_THRESHOLD_PX) {
+      state.pointer.isDrag = true;
+    }
+
+    if (state.pointer.isDrag) {
+      const trackH = window.innerHeight - TRACK_PAD * 2;
+      if (trackH <= 0) {
+        return;
+      }
+      const dragDelta = event.clientY - state.pointer.startY;
+      const ratioDelta = dragDelta / trackH;
+      const newRatio = Math.min(1, Math.max(0, state.pointer.startScrollRatio + ratioDelta));
+      applyScrollRatio(newRatio);
+      if (!state.isExpanded) {
+        state.isExpanded = true;
+        state.expandProgress = Math.min(state.expandProgress + DRAG_EXPAND_BOOST, 1);
+      }
+    }
+  }
+
+  function handlePointerUp(event) {
+    if (!state.pointer.active || event.pointerId !== state.pointer.id) {
+      return;
+    }
+    event.preventDefault();
+    state.pointer.active = false;
+    state.pointer.id = null;
+    state.pointer.isDrag = false;
+    state.isExpanded = false;
+  }
+
+  function initialize() {
+    if (state.canvas) {
+      return;
+    }
+
+    state.canvas = document.createElement('canvas');
+    state.canvas.id = id;
+    state.canvas.setAttribute('aria-hidden', 'true');
+    state.canvas.dataset.scrollbarRole = ariaLabel;
+    state.canvas.style.cssText = [
+      'position: fixed',
+      `${right === 0 ? 'right' : 'right'}: ${right}px`,
+      'top: 0',
+      `width: ${CANVAS_CSS_WIDTH}px`,
+      'z-index: 100',
+      'pointer-events: auto',
+      'touch-action: none',
+      'cursor: pointer',
+      'opacity: 0',
+      'transition: opacity 160ms ease',
+    ].join('; ') + ';';
+
+    document.body.appendChild(state.canvas);
+    state.ctx = state.canvas.getContext('2d');
+    resizeCanvas();
+
+    state.canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
+    state.canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
+    state.canvas.addEventListener('pointerup', handlePointerUp, { passive: false });
+    state.canvas.addEventListener('pointercancel', handlePointerUp, { passive: false });
+  }
+
+  function update(dt) {
+    const shouldShow = state.isVisible();
+    refreshActivePanel();
+    const maxScroll = getActivePanelMaxScroll();
+    const canScroll = maxScroll > 1;
+
+    if (!shouldShow || !canScroll) {
+      state.isExpanded = false;
+      state.expandProgress = Math.max(0, state.expandProgress - (dt / EXPAND_DURATION));
+      if (state.canvas) {
+        state.canvas.style.opacity = '0';
+        state.canvas.style.pointerEvents = 'none';
+      }
+      return;
+    }
+
+    if (state.canvas) {
+      state.canvas.style.opacity = '1';
+      state.canvas.style.pointerEvents = 'auto';
+    }
+
+    const transitionSpeed = 1 / EXPAND_DURATION;
+    if (state.isExpanded) {
+      state.expandProgress = Math.min(1, state.expandProgress + transitionSpeed * dt);
+    } else {
+      state.expandProgress = Math.max(0, state.expandProgress - transitionSpeed * dt);
+    }
+
+    state.scrollRatio = readScrollRatio();
+    state.satellites.forEach((satellite) => {
+      satellite.orbitAngle += satellite.orbitSpeed * dt;
+    });
+  }
+
+  function draw() {
+    if (!state.canvas || !state.ctx) {
+      return;
+    }
+
+    const W = CANVAS_CSS_WIDTH;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const trackH = H - TRACK_PAD * 2;
+    const thumbY = TRACK_PAD + trackH * state.scrollRatio;
+    const ep = state.expandProgress;
+    const inUse = state.pointer.active || ep > 0.02;
+    const baseAlpha = inUse ? 1 : IDLE_ALPHA;
+
+    state.ctx.clearRect(0, 0, W, H);
+
+    if (ep > 0.02) {
+      const lineColor = samplePaletteGradient(0.5);
+      state.ctx.save();
+      state.ctx.globalAlpha = ep * 0.28;
+      state.ctx.strokeStyle = `rgb(${lineColor.r}, ${lineColor.g}, ${lineColor.b})`;
+      state.ctx.lineWidth = 2;
+      state.ctx.lineCap = 'round';
+      state.ctx.beginPath();
+      state.ctx.moveTo(cx, TRACK_PAD);
+      state.ctx.lineTo(cx, H - TRACK_PAD);
+      state.ctx.stroke();
+      state.ctx.restore();
+    }
+
+    const thumbColor = samplePaletteGradient(0.5);
+    const trailActive = state.pointer.active || (ep > 0.02 && ep < 0.98);
+
+    state.satellites.forEach((satellite) => {
+      const orbitX = cx + Math.cos(satellite.orbitAngle) * satellite.orbitRadius * ORBIT_HORIZONTAL_COMPRESSION;
+      const orbitY = thumbY + Math.sin(satellite.orbitAngle) * satellite.orbitRadius * ORBIT_VERTICAL_COMPRESSION;
+      const offset = (satellite.linearIndex + 1) * LINEAR_SPACING;
+      const linearY = satellite.above ? thumbY - offset : thumbY + offset;
+      const x = orbitX + (cx - orbitX) * ep;
+      const y = orbitY + (linearY - orbitY) * ep;
+
+      updateSatelliteTrail(satellite, x, y, 1 / 60, trailActive);
+
+      if (y < -30 || y > H + 30) {
+        return;
+      }
+
+      const swirlColor = samplePaletteGradient(satellite.palettePos);
+      const r = Math.round(swirlColor.r + (thumbColor.r - swirlColor.r) * ep);
+      const g = Math.round(swirlColor.g + (thumbColor.g - swirlColor.g) * ep);
+      const b = Math.round(swirlColor.b + (thumbColor.b - swirlColor.b) * ep);
+      drawFieryTrail(state.ctx, satellite.trail, satellite.radius, baseAlpha);
+      drawGlowDot(state.ctx, x, y, satellite.radius, { r, g, b }, baseAlpha * 0.88);
+    });
+
+    drawGlowDot(state.ctx, cx, thumbY, MAIN_SIZE / 2, thumbColor, baseAlpha);
+  }
+
+  return {
+    initialize,
+    resizeCanvas,
+    update,
+    draw,
+    refreshActivePanel: () => {
+      refreshActivePanel();
+      state.scrollRatio = readScrollRatio();
+    },
+  };
+}
+
+// Prefer the topmost visible scroll container so overlays stay in sync with the correct thumb.
+function resolvePrimaryScrollableElement() {
   const candidates = [
     '.field-notes-page.field-notes-page--active',
     '.field-notes-list-view:not(.field-notes-view--hidden)',
@@ -133,24 +454,12 @@ function resolveActiveScrollableElement() {
     const elements = Array.from(document.querySelectorAll(selector));
     for (let index = elements.length - 1; index >= 0; index -= 1) {
       const element = elements[index];
-      if (!(element instanceof HTMLElement)) {
+      if (!isVisibleElement(element)) {
         continue;
       }
-
-      const style = window.getComputedStyle(element);
-      if (style.display === 'none' || style.visibility === 'hidden') {
+      if (element.closest('#tower-upgrade-overlay.active')) {
         continue;
       }
-
-      if (element.closest('[hidden], [aria-hidden="true"]')) {
-        continue;
-      }
-
-      const rect = element.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
-        continue;
-      }
-
       return element;
     }
   }
@@ -158,303 +467,70 @@ function resolveActiveScrollableElement() {
   return null;
 }
 
-// Refresh the reference to whichever scrollable surface is currently visible.
-function refreshActivePanel() {
-  activePanel = resolveActiveScrollableElement();
+// Tower upgrade cards get their own scrollbar while the overlay is open.
+function resolveTowerCardScrollableElement() {
+  const overlay = document.getElementById('tower-upgrade-overlay');
+  if (!overlay || !overlay.classList.contains('active')) {
+    return null;
+  }
+  const panel = overlay.querySelector('.tower-upgrade-panel');
+  return isVisibleElement(panel) ? panel : null;
 }
 
-// Calculate the maximum scroll range for the current panel.
-function getActivePanelMaxScroll() {
-  if (!activePanel) {
-    return 0;
-  }
-  return Math.max(0, activePanel.scrollHeight - activePanel.clientHeight);
+const scrollbarInstances = [];
+let rafHandle = null;
+let lastTimestamp = null;
+
+function resizeCanvases() {
+  scrollbarInstances.forEach((instance) => instance.resizeCanvas());
 }
-
-// Read the current scroll position as a 0–1 ratio.
-function readScrollRatio() {
-  refreshActivePanel();
-  if (!activePanel) {
-    return 0;
-  }
-  const max = getActivePanelMaxScroll();
-  if (max <= 1) {
-    return 0;
-  }
-  return Math.min(1, Math.max(0, activePanel.scrollTop / max));
-}
-
-// Set the active panel's scroll position using a 0–1 ratio.
-function applyScrollRatio(ratio) {
-  refreshActivePanel();
-  if (!activePanel) {
-    return;
-  }
-  const max = getActivePanelMaxScroll();
-  if (max <= 1) {
-    return;
-  }
-  activePanel.scrollTop = ratio * max;
-}
-
-// ─── Canvas resize ────────────────────────────────────────────────────────────
-
-function resizeCanvas() {
-  if (!canvas || !ctx) {
-    return;
-  }
-  const dpr = window.devicePixelRatio || 1;
-  const cssH = window.innerHeight;
-
-  // Update CSS dimensions.
-  canvas.style.height = `${cssH}px`;
-
-  // Update physical pixel dimensions and reset the DPR scale transform.
-  canvas.width = Math.round(CANVAS_CSS_WIDTH * dpr);
-  canvas.height = Math.round(cssH * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-// ─── Drawing primitives ───────────────────────────────────────────────────────
-
-// Draw a single glowing particle at (x, y) with the given CSS-pixel radius, RGB colour, and opacity.
-function drawGlowDot(x, y, radius, color, alpha) {
-  const { r, g, b } = color;
-
-  // Outer diffuse halo.
-  const haloR = radius * HALO_RADIUS_MULTIPLIER;
-  const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
-  halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`);
-  halo.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alpha * 0.12})`);
-  halo.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-  ctx.beginPath();
-  ctx.arc(x, y, haloR, 0, Math.PI * 2);
-  ctx.fillStyle = halo;
-  ctx.fill();
-
-  // Bright particle core.
-  const core = ctx.createRadialGradient(x, y, 0, x, y, radius);
-  core.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-  core.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${alpha})`);
-  core.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alpha * 0.55})`);
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = core;
-  ctx.fill();
-}
-
-// ─── Animation loop ───────────────────────────────────────────────────────────
 
 function frame(timestamp) {
-  if (!canvas || !ctx) {
-    rafHandle = null;
-    return;
-  }
-
-  // Cap dt to 50 ms to avoid jumps after tab-switch pauses.
   const dt = lastTimestamp !== null ? Math.min((timestamp - lastTimestamp) / 1000, 0.05) : 0;
   lastTimestamp = timestamp;
 
-  // Advance expand/collapse transition.
-  const transitionSpeed = 1 / EXPAND_DURATION;
-  if (isExpanded) {
-    expandProgress = Math.min(1, expandProgress + transitionSpeed * dt);
-  } else {
-    expandProgress = Math.max(0, expandProgress - transitionSpeed * dt);
-  }
-
-  // Sync scroll ratio from the active panel every frame.
-  scrollRatio = readScrollRatio();
-
-  // Advance satellite orbit angles.
-  satellites.forEach((sat) => {
-    sat.orbitAngle += sat.orbitSpeed * dt;
+  scrollbarInstances.forEach((instance) => {
+    instance.update(dt);
+    instance.draw();
   });
-
-  const W = CANVAS_CSS_WIDTH;
-  const H = window.innerHeight;
-  // Horizontal centre of the canvas where the thumb sits.
-  const cx = W / 2;
-
-  // Thumb Y in CSS pixels, clamped within the track.
-  const trackH = H - TRACK_PAD * 2;
-  const thumbY = TRACK_PAD + trackH * scrollRatio;
-
-  // Clear canvas for this frame.
-  ctx.clearRect(0, 0, W, H);
-
-  const ep = expandProgress;
-
-  // Faint track line, visible only while (partially) expanded.
-  if (ep > 0.02) {
-    const lineColor = samplePaletteGradient(0.5);
-    ctx.save();
-    ctx.globalAlpha = ep * 0.28;
-    ctx.strokeStyle = `rgb(${lineColor.r}, ${lineColor.g}, ${lineColor.b})`;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(cx, TRACK_PAD);
-    ctx.lineTo(cx, H - TRACK_PAD);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // Draw satellites, blending between orbit and linear positions.
-  const thumbColor = samplePaletteGradient(0.5);
-  satellites.forEach((sat) => {
-    // Elliptical orbit: compress axes to keep the swirl within the narrow canvas strip.
-    const orbitX = cx + Math.cos(sat.orbitAngle) * sat.orbitRadius * ORBIT_HORIZONTAL_COMPRESSION;
-    const orbitY = thumbY + Math.sin(sat.orbitAngle) * sat.orbitRadius * ORBIT_VERTICAL_COMPRESSION;
-
-    // Linear target: aligned above or below the thumb.
-    const offset = (sat.linearIndex + 1) * LINEAR_SPACING;
-    const linearY = sat.above ? thumbY - offset : thumbY + offset;
-
-    // Interpolate between orbit and linear positions.
-    const x = orbitX + (cx - orbitX) * ep;
-    const y = orbitY + (linearY - orbitY) * ep;
-
-    // Skip particles that have scrolled entirely off-canvas.
-    if (y < -30 || y > H + 30) {
-      return;
-    }
-
-    // Blend palette colour toward thumb colour as the scrollbar expands.
-    const swirlColor = samplePaletteGradient(sat.palettePos);
-    const r = Math.round(swirlColor.r + (thumbColor.r - swirlColor.r) * ep);
-    const g = Math.round(swirlColor.g + (thumbColor.g - swirlColor.g) * ep);
-    const b = Math.round(swirlColor.b + (thumbColor.b - swirlColor.b) * ep);
-
-    drawGlowDot(x, y, sat.radius, { r, g, b }, 0.88);
-  });
-
-  // Draw the main thumb particle on top.
-  drawGlowDot(cx, thumbY, MAIN_SIZE / 2, thumbColor, 1.0);
 
   rafHandle = requestAnimationFrame(frame);
 }
 
-// ─── Pointer event handlers ───────────────────────────────────────────────────
-
-function handlePointerDown(event) {
-  // Only respond to primary button / first touch.
-  if (event.button !== 0 && event.button !== undefined) {
-    return;
-  }
-  event.preventDefault();
-  try {
-    canvas.setPointerCapture(event.pointerId);
-  } catch (_) {
-    // Pointer capture is best-effort.
-  }
-
-  pointer.active = true;
-  pointer.id = event.pointerId;
-  pointer.startY = event.clientY;
-  pointer.currentY = event.clientY;
-  pointer.isDrag = false;
-
-  // Expand immediately while the thumb is held so the track behaves like a hold-to-scrub control.
-  isExpanded = true;
-
-  // Snapshot scroll position for proportional drag mapping.
-  refreshActivePanel();
-  pointer.startScrollRatio = readScrollRatio();
-}
-
-function handlePointerMove(event) {
-  if (!pointer.active || event.pointerId !== pointer.id) {
-    return;
-  }
-  event.preventDefault();
-  pointer.currentY = event.clientY;
-
-  const dy = Math.abs(event.clientY - pointer.startY);
-  if (dy > TAP_THRESHOLD_PX) {
-    pointer.isDrag = true;
-  }
-
-  if (pointer.isDrag) {
-    // Scroll the active panel proportionally to the drag distance on the track.
-    const trackH = window.innerHeight - TRACK_PAD * 2;
-    if (trackH <= 0) {
-      return;
-    }
-    const dragDelta = event.clientY - pointer.startY;
-    const ratioDelta = dragDelta / trackH;
-    const newRatio = Math.min(1, Math.max(0, pointer.startScrollRatio + ratioDelta));
-    applyScrollRatio(newRatio);
-
-    // Ensure the track is visible while the user is actively dragging.
-    if (!isExpanded) {
-      isExpanded = true;
-      expandProgress = Math.min(expandProgress + DRAG_EXPAND_BOOST, 1);
-    }
-  }
-}
-
-function handlePointerUp(event) {
-  if (!pointer.active || event.pointerId !== pointer.id) {
-    return;
-  }
-  event.preventDefault();
-
-  pointer.active = false;
-  pointer.id = null;
-  pointer.isDrag = false;
-
-  // Collapse as soon as the hold ends so the scrollbar no longer behaves like a toggle.
-  isExpanded = false;
-}
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-// Call this when the active tab changes so the scrollbar tracks the new panel.
 export function notifyParticleScrollbarTabChanged() {
-  refreshActivePanel();
-  scrollRatio = readScrollRatio();
+  scrollbarInstances.forEach((instance) => instance.refreshActivePanel());
 }
 
-// Create the canvas, attach it to the document, and start the animation loop.
 export function initParticleScrollbar() {
   if (typeof document === 'undefined') {
     return;
   }
+  if (scrollbarInstances.length) {
+    return;
+  }
 
-  buildSatellites();
+  // The primary scrollbar hides whenever the player is inside a tower card overlay.
+  const primaryScrollbar = createScrollbarInstance({
+    id: 'particle-scrollbar',
+    ariaLabel: 'primary',
+    right: 0,
+    resolveActiveScrollableElement: resolvePrimaryScrollableElement,
+    isVisible: () => !resolveOverlayActive(),
+  });
 
-  // Create and style the canvas element.
-  canvas = document.createElement('canvas');
-  canvas.id = 'particle-scrollbar';
-  canvas.setAttribute('aria-hidden', 'true');
-  canvas.style.cssText = [
-    'position: fixed',
-    'right: 0',
-    'top: 0',
-    `width: ${CANVAS_CSS_WIDTH}px`,
-    'z-index: 100',
-    'pointer-events: auto',
-    'touch-action: none',
-    'cursor: pointer',
-  ].join('; ') + ';';
+  // The secondary scrollbar appears only for the tower upgrade cards.
+  const towerCardScrollbar = createScrollbarInstance({
+    id: 'particle-scrollbar-tower-cards',
+    ariaLabel: 'tower-cards',
+    right: 0,
+    resolveActiveScrollableElement: resolveTowerCardScrollableElement,
+    isVisible: () => resolveOverlayActive(),
+  });
 
-  document.body.appendChild(canvas);
+  scrollbarInstances.push(primaryScrollbar, towerCardScrollbar);
+  scrollbarInstances.forEach((instance) => instance.initialize());
 
-  ctx = canvas.getContext('2d');
-  resizeCanvas();
-
-  // Pointer event listeners — all non-passive so preventDefault() works on mobile.
-  canvas.addEventListener('pointerdown', handlePointerDown, { passive: false });
-  canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
-  canvas.addEventListener('pointerup', handlePointerUp, { passive: false });
-  canvas.addEventListener('pointercancel', handlePointerUp, { passive: false });
-
-  // Resize canvas when the viewport changes (e.g. virtual keyboard appears on Android).
-  window.addEventListener('resize', resizeCanvas, { passive: true });
-
-  // Kick off the render loop.
+  window.addEventListener('resize', resizeCanvases, { passive: true });
   rafHandle = requestAnimationFrame(frame);
-
-  refreshActivePanel();
+  notifyParticleScrollbarTabChanged();
 }
