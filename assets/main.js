@@ -415,6 +415,7 @@ import { createSpireFloatingMenuController } from './spireFloatingMenu.js';
 import { createSpireGemMenuController } from './spireGemMenu.js';
 import { createPlayfieldMenuController } from './playfieldMenu.js';
 import { createManualDropController } from './manualDropController.js';
+import { createSpireStoryManager } from './spireStoryManager.js';
 import { bindPageLifecycleEvents } from './pageLifecycle.js';
 import { bindCollapsibleMenu } from './settingsMenuController.js';
 import { createVariableLibraryController } from './variableLibraryController.js';
@@ -961,11 +962,15 @@ import { createSpireCameraController } from './spireCameraController.js';
   audioManager = new AudioManager(DEFAULT_AUDIO_MANIFEST);
   setTowersAudioManager(audioManager);
 
+  // Will be assigned once levelStoryScreen is available (see createSpireStoryManager call below).
+  let spireStoryManager = null;
+
   configureFieldNotesOverlay({
     revealOverlay,
     scheduleOverlayHide,
     audioManager,
-    getStoryEntries: buildSeenStoryEntries,
+    // Lazy proxy so the field notes overlay can be configured before the story manager is created.
+    getStoryEntries: () => spireStoryManager ? spireStoryManager.buildSeenStoryEntries() : Promise.resolve([]),
   });
 
   const {
@@ -2793,112 +2798,16 @@ import { createSpireCameraController } from './spireCameraController.js';
       commitAutoSave();
     },
   });
-  // Narrative targets for each spire tab so the shared story overlay can surface their briefings.
-  const spireStoryTargets = {
-    powder: { id: 'spire-powder', title: 'Aleph Spire' },
-    fluid: { id: 'spire-fluid', title: 'Bet Spire' },
-    lamed: { id: 'spire-lamed', title: 'Lamed Spire' },
-    tsadi: { id: 'spire-tsadi', title: 'Tsadi Spire' },
-    shin: { id: 'spire-shin', title: 'Shin Spire' },
-    kuf: { id: 'spire-kuf', title: 'Kuf Spire' },
-    achievements: { id: 'achievements', title: 'Achievements' },
-  };
+  // Spire story manager handles narrative reveal state for each spire tab.
+  spireStoryManager = createSpireStoryManager({
+    spireResourceState,
+    getLevelStoryScreen: () => levelStoryScreen,
+    levelBlueprints,
+    getLevelState: (id) => levelState.get(id),
+    isStoryOnlyLevel,
+    commitAutoSave,
+  });
 
-  /**
-   * Retrieve or initialize the persistent story branch for a spire so unlock flow and autosave share state.
-   * @param {string} spireId - Identifier for the spire tab (powder, fluid, lamed, tsadi, shin, kuf).
-   * @returns {Object|null} Reference to the spire story state branch.
-   */
-  function getSpireStoryBranch(spireId) {
-    if (!spireId) {
-      return null;
-    }
-    if (!Object.prototype.hasOwnProperty.call(spireResourceState, spireId)) {
-      spireResourceState[spireId] = { storySeen: false };
-    }
-    const branch = spireResourceState[spireId] || {};
-    if (typeof branch.storySeen !== 'boolean') {
-      branch.storySeen = false;
-    }
-    return branch;
-  }
-
-  /**
-   * Mark a spire briefing as viewed and persist the change to storage.
-   * @param {string} spireId - Identifier for the spire tab.
-   */
-  function markSpireStorySeen(spireId) {
-    const branch = getSpireStoryBranch(spireId);
-    if (!branch || branch.storySeen) {
-      return;
-    }
-    branch.storySeen = true;
-    commitAutoSave();
-  }
-
-  /**
-   * Build the ordered list of story screens the player has unlocked for the codex field notes view.
-   * Story-only levels are listed in campaign order, followed by any spire briefings that have been read.
-   * @returns {Promise<Array<{id:string,title:string,sections:string[]}>>} Authored story entries the player has seen.
-   */
-  async function buildSeenStoryEntries() {
-    if (!levelStoryScreen || typeof levelStoryScreen.getStoryEntry !== 'function') {
-      return [];
-    }
-
-    const storyIds = [];
-
-    levelBlueprints.forEach((level) => {
-      if (!isStoryOnlyLevel(level.id)) {
-        return;
-      }
-      const state = levelState.get(level.id);
-      if (state?.storySeen) {
-        storyIds.push(level.id);
-      }
-    });
-
-    Object.entries(spireStoryTargets).forEach(([spireId, storyTarget]) => {
-      const branch = getSpireStoryBranch(spireId);
-      if (storyTarget?.id && branch?.storySeen) {
-        storyIds.push(storyTarget.id);
-      }
-    });
-
-    const uniqueStoryIds = [...new Set(storyIds)];
-    const seenEntries = [];
-    for (const storyId of uniqueStoryIds) {
-      try {
-        const entry = await levelStoryScreen.getStoryEntry(storyId);
-        if (entry) {
-          seenEntries.push(entry);
-        }
-      } catch (error) {
-        console.warn('Unable to load story entry for field notes', storyId, error);
-      }
-    }
-
-    return seenEntries;
-  }
-
-  /**
-   * Trigger the shared story overlay when a spire tab opens for the first time.
-   * @param {string} spireId - Identifier for the spire tab being opened.
-   */
-  function maybeShowSpireStory(spireId) {
-    if (!levelStoryScreen) {
-      return;
-    }
-    const storyTarget = spireStoryTargets[spireId];
-    const branch = getSpireStoryBranch(spireId);
-    if (!storyTarget || !branch || branch.storySeen) {
-      return;
-    }
-    levelStoryScreen.maybeShowStory(storyTarget, {
-      shouldShow: () => !branch.storySeen,
-      onComplete: () => markSpireStorySeen(spireId),
-    });
-  }
   // Track the animation frame id that advances idle simulations so we can pause the loop when idle.
 
   // Extracted Tsadi UI helpers manage upgrade bindings via dependency injection.
@@ -4518,7 +4427,7 @@ import { createSpireCameraController } from './spireCameraController.js';
         }
 
         // Surface spire briefings the first time each tab opens.
-        maybeShowSpireStory(tabId);
+        spireStoryManager.maybeShowSpireStory(tabId);
 
         refreshTabMusic();
         if (audioManager) {
