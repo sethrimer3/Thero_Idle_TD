@@ -499,6 +499,27 @@ Following this plan will shrink the single-source files, align them with the dis
 - Button bindings can be reused or unit-tested without spinning up the entire orchestrator
 - Clearing this block sets the stage for additional spire refactors (Tsadi already extracted, Shin/Kuf next)
 
+### spireStoryManager.js (spire narrative reveal controller)
+
+**Status:** ✅ Complete
+
+**What was extracted:**
+- `SPIRE_STORY_TARGETS` map associating each spire tab id with its authored briefing metadata
+- `getSpireStoryBranch()` — initializes and returns the per-spire `storySeen` state bucket inside `spireResourceState`
+- `markSpireStorySeen()` — flips the flag and flushes an autosave so progress persists across sessions
+- `buildSeenStoryEntries()` — async collector that gathers story-only level entries and spire briefings the player has unlocked, used by the field notes overlay
+- `maybeShowSpireStory()` — surfaces the shared story overlay the first time each spire tab opens
+
+**Integration approach:**
+- Added `createSpireStoryManager()` factory in `assets/spireStoryManager.js` that receives `spireResourceState`, a `getLevelStoryScreen` getter, `levelBlueprints`, `getLevelState`, `isStoryOnlyLevel`, and `commitAutoSave` via dependency injection
+- `configureFieldNotesOverlay` now receives a lazy proxy `() => spireStoryManager.buildSeenStoryEntries()` so the overlay can be configured before the manager is created
+- The tab-change handler now calls `spireStoryManager.maybeShowSpireStory(tabId)` instead of the inlined function
+
+**Result:**
+- Roughly 110 lines of story-reveal logic leave `main.js`, reducing the orchestrator further while preserving identical runtime behavior
+- Narrative state management for all spire tabs lives in one focused module, making future story additions easy to locate and extend
+- Dependency injection keeps the module free of global references, improving future testability
+
 ### manualDropController.js (spire manual drop gestures)
 
 **Status:** ✅ Complete
