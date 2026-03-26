@@ -56,16 +56,16 @@ const CRAFTING_TIER_NAME_SEQUENCE = [
 ];
 
 const EQUIPMENT_LENS_SPRITE_LOOKUP = new Map([
-  ['quartz', './assets/sprites/equipment/quartzLens.png'],
-  ['ruby', './assets/sprites/equipment/rubyLens.png'],
-  ['sunstone', './assets/sprites/equipment/sunstoneLens.png'],
-  ['citrine', './assets/sprites/equipment/citrineLens.png'],
-  ['emerald', './assets/sprites/equipment/emeraldLens.png'],
-  ['sapphire', './assets/sprites/equipment/sapphireLens.png'],
-  ['iolite', './assets/sprites/equipment/ioliteLens.png'],
-  ['amethyst', './assets/sprites/equipment/amethystLens.png'],
-  ['diamond', './assets/sprites/equipment/diamondLens.png'],
-  ['nullstone', './assets/sprites/equipment/nullstoneLens.png'],
+  ['quartz', './assets/sprites/equipment/quartzLens.webp'],
+  ['ruby', './assets/sprites/equipment/rubyLens.webp'],
+  ['sunstone', './assets/sprites/equipment/sunstoneLens.webp'],
+  ['citrine', './assets/sprites/equipment/citrineLens.webp'],
+  ['emerald', './assets/sprites/equipment/emeraldLens.webp'],
+  ['sapphire', './assets/sprites/equipment/sapphireLens.webp'],
+  ['iolite', './assets/sprites/equipment/ioliteLens.webp'],
+  ['amethyst', './assets/sprites/equipment/amethystLens.webp'],
+  ['diamond', './assets/sprites/equipment/diamondLens.webp'],
+  ['nullstone', './assets/sprites/equipment/nullstoneLens.webp'],
 ]);
 
 const HABITUATION_SIGIL_ID = 'habituation-sigil';
