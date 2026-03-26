@@ -6,7 +6,7 @@ import {
 } from '../scripts/features/towers/powderTower.js';
 import { formatAlephLabel, formatBetLabel } from './formatHelpers.js';
 
-const GOLD_ALEPH_SPRITE_PATH = 'assets/sprites/spires/alephSpire/Gold_Aleph.png';
+const GOLD_ALEPH_SPRITE_PATH = 'assets/sprites/spires/alephSpire/Gold_Aleph.webp';
 const GOLD_NUMBER_SPRITE_PATH_PREFIX = 'assets/sprites/goldNumbers/Gold_';
 
 /**
@@ -76,7 +76,7 @@ export function createPowderUiDomHelpers(options = {}) {
     displayValue.split('').forEach((digit) => {
       const digitSprite = document.createElement('img');
       digitSprite.className = 'powder-glyph-sprite powder-glyph-sprite--digit';
-      digitSprite.src = `${GOLD_NUMBER_SPRITE_PATH_PREFIX}${digit}.png`;
+      digitSprite.src = `${GOLD_NUMBER_SPRITE_PATH_PREFIX}${digit}.webp`;
       digitSprite.alt = '';
       digitSprite.decoding = 'async';
       strip.appendChild(digitSprite);

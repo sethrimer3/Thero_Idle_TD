@@ -54,16 +54,16 @@ function loadSprite(url) {
 }
 
 // Main sprite (rendered first, behind everything).
-const mainSprite = loadSprite('assets/sprites/environment/CrystalBackground_Main.png');
+const mainSprite = loadSprite('assets/sprites/environment/CrystalBackground_Main.webp');
 
 // Edge sprites (4) – same parallax plane and blur.
 const edgeSprites = [1, 2, 3, 4].map((i) =>
-  loadSprite(`assets/sprites/environment/CrystalBackground_Edge (${i}).png`)
+  loadSprite(`assets/sprites/environment/CrystalBackground_Edge (${i}).webp`)
 );
 
 // Corner sprites (4) – different parallax and blur, rendered in the foreground layer.
 const cornerSprites = [1, 2, 3, 4].map((i) =>
-  loadSprite(`assets/sprites/environment/CrystalBackground_Corner (${i}).png`)
+  loadSprite(`assets/sprites/environment/CrystalBackground_Corner (${i}).webp`)
 );
 
 // ─── Blur caching ─────────────────────────────────────────────────────────────

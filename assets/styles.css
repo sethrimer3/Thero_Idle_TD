@@ -99,13 +99,13 @@ body {
 /* Activate the gem cursor on desktop pointers without affecting touch targets. */
 body.mouse-cursor-gem {
   /* Swap cursor tokens to the gem sprite while keeping fallbacks for unsupported formats. */
-  --cursor-default: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, auto;
-  --cursor-pointer: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, pointer;
-  --cursor-not-allowed: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, not-allowed;
-  --cursor-grab: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grab;
-  --cursor-grabbing: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, grabbing;
-  --cursor-crosshair: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, crosshair;
-  --cursor-progress: url('./sprites/interface&cursor/mouse_cursor.png') 4 2, progress;
+  --cursor-default: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, auto;
+  --cursor-pointer: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, pointer;
+  --cursor-not-allowed: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, not-allowed;
+  --cursor-grab: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, grab;
+  --cursor-grabbing: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, grabbing;
+  --cursor-crosshair: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, crosshair;
+  --cursor-progress: url('./sprites/interface&cursor/mouse_cursor.webp') 4 2, progress;
 }
 
 button {
@@ -870,27 +870,27 @@ body.graphics-mode-low .control-button {
 
 /* Map each offline row to its matching uploaded resource icon file. */
 #offline-aleph-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/aleph_resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/aleph_resourceIcon.webp');
 }
 
 #offline-bet-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/bet_resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/bet_resourceIcon.webp');
 }
 
 #offline-lamed-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/lamed__resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/lamed__resourceIcon.webp');
 }
 
 #offline-tsadi-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/tsadi_resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/tsadi_resourceIcon.webp');
 }
 
 #offline-shin-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/shin_resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/shin_resourceIcon.webp');
 }
 
 #offline-kuf-row .offline-resource__label {
-  --offline-resource-icon: url('./sprites/idleScreen/kuf_resourceIcon.png');
+  --offline-resource-icon: url('./sprites/idleScreen/kuf_resourceIcon.webp');
 }
 
 .offline-symbol {
@@ -964,7 +964,7 @@ body.graphics-mode-low .control-button {
   padding: clamp(1rem, 5vw, 3rem);
   /* Lock the story artwork to the viewport so it doesn't resize as text grows. */
   background-color: rgba(0, 0, 0, 0);
-  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardMobile.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -982,7 +982,7 @@ body.graphics-mode-low .control-button {
 }
 
 .level-story-overlay[data-background-ready='true'] {
-  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardMobile.png');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardMobile.webp');
 }
 
 /* Keep a short fade-out path when dismissing story so the board disappears before the overlay fully closes. */
@@ -1083,11 +1083,11 @@ body.graphics-mode-low .control-button {
 
   .level-story-overlay {
     /* Swap to the landscape chalkboard artwork for desktop story overlays. */
-    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.96)), url('./sprites/backgrounds/blackboardDesktop.webp');
   }
 
   .level-story-overlay[data-background-ready='true'] {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardDesktop.png');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), url('./sprites/backgrounds/blackboardDesktop.webp');
   }
 }
 
@@ -7713,11 +7713,11 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .powder-alt-render__wall--left {
-  background-image: url('./sprites/spires/alephSpire/wall_left_tier0.png');
+  background-image: url('./sprites/spires/alephSpire/wall_left_tier0.webp');
 }
 
 .powder-alt-render__wall--right {
-  background-image: url('./sprites/spires/alephSpire/wall_right_tier0.png');
+  background-image: url('./sprites/spires/alephSpire/wall_right_tier0.webp');
 }
 
 .powder-alt-render__fluid {
@@ -7912,7 +7912,7 @@ body.playfield-fullscreen .playfield canvas {
 .powder-wall-left::before {
   right: 0;
   left: auto;
-  background-image: var(--powder-wall-left-image, url('./sprites/spires/alephSpire/wall_left_tier0.png'));
+  background-image: var(--powder-wall-left-image, url('./sprites/spires/alephSpire/wall_left_tier0.webp'));
 }
 
 .powder-wall-left::after {
@@ -7925,7 +7925,7 @@ body.playfield-fullscreen .playfield canvas {
   left: 0;
   right: auto;
   transform: translateX(var(--powder-right-wall-sprite-offset-x, 0px));
-  background-image: var(--powder-wall-right-image, url('./sprites/spires/alephSpire/wall_right_tier0.png'));
+  background-image: var(--powder-wall-right-image, url('./sprites/spires/alephSpire/wall_right_tier0.webp'));
 }
 
 .powder-wall-right::after {
@@ -7936,11 +7936,11 @@ body.playfield-fullscreen .playfield canvas {
 }
 
 .fluid-wall-left::before {
-  background-image: url('./sprites/spires/alephSpire/wall_left_tier0.png');
+  background-image: url('./sprites/spires/alephSpire/wall_left_tier0.webp');
 }
 
 .fluid-wall-right::before {
-  background-image: url('./sprites/spires/alephSpire/wall_right_tier0.png');
+  background-image: url('./sprites/spires/alephSpire/wall_right_tier0.webp');
 }
 
 
@@ -14875,7 +14875,7 @@ body[data-spire-options-placement='footer'] .spire-options-trigger--corner {
   content: '';
   width: 1rem;
   height: 1rem;
-  background-image: url('./sprites/idleScreen/shin_resourceIcon.png');
+  background-image: url('./sprites/idleScreen/shin_resourceIcon.webp');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;

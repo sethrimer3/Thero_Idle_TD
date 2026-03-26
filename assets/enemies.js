@@ -24,7 +24,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 2,
     color: { hue: 18, saturation: 16, lightness: 86 },
     // Reference the quartz sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/quartz.png',
+    sprite: './assets/sprites/gems/quartz.webp',
   },
   {
     id: 'ruby',
@@ -33,7 +33,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 3,
     color: { hue: 350, saturation: 74, lightness: 48 },
     // Reference the ruby sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/ruby.png',
+    sprite: './assets/sprites/gems/ruby.webp',
   },
   {
     id: 'sunstone',
@@ -42,7 +42,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 4,
     color: { hue: 28, saturation: 78, lightness: 56 },
     // Reference the sunstone sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/sunstone.png',
+    sprite: './assets/sprites/gems/sunstone.webp',
   },
   {
     id: 'citrine',
@@ -51,7 +51,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 5,
     color: { hue: 48, saturation: 78, lightness: 60 },
     // Reference the citrine sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/citrine.png',
+    sprite: './assets/sprites/gems/citrine.webp',
   },
   {
     id: 'emerald',
@@ -60,7 +60,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 6,
     color: { hue: 140, saturation: 64, lightness: 44 },
     // Reference the emerald sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/emerald.png',
+    sprite: './assets/sprites/gems/emerald.webp',
   },
   {
     id: 'sapphire',
@@ -69,7 +69,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 7,
     color: { hue: 210, saturation: 72, lightness: 52 },
     // Reference the sapphire sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/sapphire.png',
+    sprite: './assets/sprites/gems/sapphire.webp',
   },
   {
     id: 'iolite',
@@ -78,7 +78,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 8,
     color: { hue: 255, saturation: 52, lightness: 50 },
     // Reference the iolite sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/iolite.png',
+    sprite: './assets/sprites/gems/iolite.webp',
   },
   {
     id: 'amethyst',
@@ -87,7 +87,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 9,
     color: { hue: 280, saturation: 60, lightness: 55 },
     // Reference the amethyst sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/amethyst.png',
+    sprite: './assets/sprites/gems/amethyst.webp',
   },
   {
     id: 'diamond',
@@ -96,7 +96,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 10,
     color: { hue: 200, saturation: 12, lightness: 92 },
     // Reference the diamond sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/diamond.png',
+    sprite: './assets/sprites/gems/diamond.webp',
   },
   {
     id: 'nullstone',
@@ -105,7 +105,7 @@ export const GEM_DEFINITIONS = [
     moteSize: 11,
     color: { hue: 210, saturation: 10, lightness: 14 },
     // Reference the nullstone sprite so UI surfaces can render the correct crystal art.
-    sprite: './assets/sprites/gems/nullstone.png',
+    sprite: './assets/sprites/gems/nullstone.webp',
   },
 ];
 
