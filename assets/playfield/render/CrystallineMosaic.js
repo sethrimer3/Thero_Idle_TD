@@ -40,7 +40,7 @@ const MOSAIC_LAYER_CACHE_BUCKET_PIXELS = 4;
 
 // Shard sprite configuration
 const SHARD_SPRITE_COUNT = 37; // Number of shard PNG sprites available (1-37)
-const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).png';
+const SHARD_SPRITE_PATH = 'assets/sprites/shards/shard (INDEX).webp';
 // With brightness pre-baked into the color at call sites, the cache universe is ~5× smaller.
 const CACHE_MAX_SIZE = 200; // Maximum number of cached colored sprites
 

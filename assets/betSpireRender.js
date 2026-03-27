@@ -166,7 +166,7 @@ export class BetSpireRender {
     // Load generator sprite sources for each tier so they can be tinted and cached on load.
     PARTICLE_TIERS.forEach((tier, index) => {
       const sprite = new Image();
-      sprite.src = `./assets/sprites/spires/betSpire/generators/tier${index + 1}.svg`;
+      sprite.src = `./assets/sprites/spires/betSpire/generators/tier${index + 1}.webp`;
       sprite.onload = () => {
         this.cacheGeneratorSpritesForTier(tier.id, sprite);
       };
