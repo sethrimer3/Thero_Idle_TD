@@ -36,10 +36,10 @@ const SWIMMER_VIEWPORT_MARGIN = 12;
 // Small sketch sprites loaded once at module initialisation for background decoration.
 // Each sprite has a 10% chance of appearing per level at a random position and rotation.
 const sketchSprites = [
-  'assets/sprites/sketches/sketch_small_1.png',
-  'assets/sprites/sketches/sketch_small_2.png',
-  'assets/sprites/sketches/sketch_small_3.png',
-  'assets/sprites/sketches/sketch_small_4.png',
+  'assets/sprites/sketches/sketch_small_1.webp',
+  'assets/sprites/sketches/sketch_small_2.webp',
+  'assets/sprites/sketches/sketch_small_3.webp',
+  'assets/sprites/sketches/sketch_small_4.webp',
 ].map((url) => {
   const img = new Image();
   img.src = url;

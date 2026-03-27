@@ -81,7 +81,7 @@ export function createPowderViewportController({
       normalizedTier <= ALEPH_UNDERSCORE_VARIANT_MAX_TIER;
     const tierToken = useUnderscoreVariant ? `tier_${normalizedTier}` : `tier${normalizedTier}`;
     // Build an absolute asset URL so CSS variable substitution never double-prefixes `/assets`.
-    return new URL(`./sprites/spires/alephSpire/wall_${normalizedSide}_${tierToken}.png`, import.meta.url).href;
+    return new URL(`./sprites/spires/alephSpire/wall_${normalizedSide}_${tierToken}.webp`, import.meta.url).href;
   }
 
   function getNormalizedAlephWallTier() {

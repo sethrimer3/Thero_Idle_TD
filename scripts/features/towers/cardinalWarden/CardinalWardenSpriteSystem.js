@@ -182,17 +182,17 @@ export function loadGraphemeSprites() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
   // Dagesh sprite mapping for enhanced graphemes.
   const dageshSprites = [
-    { index: GRAPHEME_INDEX.A_DAGESH, filename: 'grapheme-A-dagesh.svg' },
-    { index: GRAPHEME_INDEX.I_DAGESH, filename: 'grapheme-I-dagesh.svg' },
-    { index: GRAPHEME_INDEX.M_DAGESH, filename: 'grapheme-M-dagesh.svg' },
-    { index: GRAPHEME_INDEX.P_DAGESH, filename: 'grapheme-P-dagesh.svg' },
-    { index: GRAPHEME_INDEX.R_DAGESH, filename: 'grapheme-R-dagesh.svg' },
-    { index: GRAPHEME_INDEX.S_DAGESH, filename: 'grapheme-S-dagesh.svg' },
-    { index: GRAPHEME_INDEX.U_DAGESH, filename: 'grapheme-U-dagesh.svg' },
+    { index: GRAPHEME_INDEX.A_DAGESH, filename: 'grapheme-A-dagesh.webp' },
+    { index: GRAPHEME_INDEX.I_DAGESH, filename: 'grapheme-I-dagesh.webp' },
+    { index: GRAPHEME_INDEX.M_DAGESH, filename: 'grapheme-M-dagesh.webp' },
+    { index: GRAPHEME_INDEX.P_DAGESH, filename: 'grapheme-P-dagesh.webp' },
+    { index: GRAPHEME_INDEX.R_DAGESH, filename: 'grapheme-R-dagesh.webp' },
+    { index: GRAPHEME_INDEX.S_DAGESH, filename: 'grapheme-S-dagesh.webp' },
+    { index: GRAPHEME_INDEX.U_DAGESH, filename: 'grapheme-U-dagesh.webp' },
   ];
 
   const spriteSources = [
-    ...letters.map((letter, index) => ({ index, filename: `grapheme-${letter}.svg` })),
+    ...letters.map((letter, index) => ({ index, filename: `grapheme-${letter}.webp` })),
     ...dageshSprites,
   ];
 
