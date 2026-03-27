@@ -119,7 +119,7 @@ const resolveGraphemeSpriteName = (definition) => {
     return definition.sprite;
   }
   if (typeof definition.name === 'string' && definition.name.length === 1) {
-    return `grapheme-${definition.name}.svg`;
+    return `grapheme-${definition.name}.webp`;
   }
   return null;
 };
@@ -132,13 +132,13 @@ getGraphemeCharacters().forEach((definition) => {
   const url = new URL(`./sprites/spires/shinSpire/graphemes/${spriteName}`, import.meta.url).href;
   graphemeSvgUrls.set(definition.index, url);
   
-  // Preload the SVG as an Image for canvas rendering.
+  // Preload the WebP as an Image for canvas rendering.
   const img = new Image();
   img.onload = () => {
     graphemeSvgLoaded.set(definition.index, true);
   };
   img.onerror = () => {
-    console.warn(`Failed to load grapheme SVG: ${spriteName}`);
+    console.warn(`Failed to load grapheme sprite: ${spriteName}`);
   };
   img.src = url;
   graphemeSvgImages.set(definition.index, img);
