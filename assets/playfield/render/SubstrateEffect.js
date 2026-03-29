@@ -124,7 +124,7 @@ const GRID_EMPTY = -10001;
 // ─── Undraw (tail-erase) parameters ──────────────────────────────────────────
 
 /** Maximum simultaneously visible trail pixels before the tail starts erasing. */
-const TRAIL_MAX_VISIBLE = 4000;
+const TRAIL_MAX_VISIBLE = 80000;
 
 /** Radius (px) of the destination-out eraser brush at each trail point. */
 const ERASE_RADIUS = 2.5;
@@ -132,26 +132,13 @@ const ERASE_RADIUS = 2.5;
 /** Speed multiplier for undraw relative to the front's growth speed. */
 const UNDRAW_SPEED_FACTOR = 1.2;
 
-// ─── Spark (spawn flash) parameters ─────────────────────────────────────────
-
-/** Number of sparks emitted when a new growth front spawns. */
-const SPARK_COUNT_MIN = 5;
-const SPARK_COUNT_MAX = 10;
-
-/** Base speed (px / s) of spark particles. */
-const SPARK_SPEED = 110;
-
-/** Lifetime (seconds) of a spark particle. */
-const SPARK_LIFETIME = 0.35;
-
-/** Radius (px) of a rendered spark particle. */
-const SPARK_SIZE = 1.2;
-
-/** Per-frame velocity multiplier for spark deceleration. */
-const SPARK_DECELERATION = 0.92;
-
-/** Directional bias: fraction of velocity aligned with the front's direction. */
-const SPARK_DIRECTION_BIAS = 0.55;
+/**
+ * Minimum trail pixels a stopped front must have drawn before it is allowed
+ * to spawn perpendicular branches.  Fronts that stop with fewer pixels than
+ * this are "boxed in" and are prevented from spawning branches, avoiding
+ * cascading micro-branches that subdivide a dense region indefinitely.
+ */
+const MINIMUM_TRAIL_FOR_BRANCH = 5;
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 // Restricted to pale, restrained white / grey / gold values.
@@ -271,25 +258,11 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
 
   let fronts = [];
 
-  // Ephemeral spark particles emitted when a new front spawns.
-  let sparks = [];
-
   let lastTs       = null;
 
   // Initial fade-in alpha multiplier (0 → 1).
   let compositeAlpha = 0;
   let initStartMs    = null;
-
-  // ── Spark draw buckets (pre-allocated once per effect instance) ──────────
-  // 20 opacity buckets × 5% each.  Arrays are cleared at the start of each
-  // _drawSparks call to avoid per-frame allocation/GC churn.
-  const _SPARK_BUCKET_COUNT  = 20;
-  const _sparkBuckets        = new Array(_SPARK_BUCKET_COUNT).fill(null).map(() => []);
-  // Pre-computed mid-point alpha per bucket to avoid repeated division in the render loop.
-  const _sparkBucketAlphas   = new Array(_SPARK_BUCKET_COUNT);
-  for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
-    _sparkBucketAlphas[b] = (b + 0.5) / _SPARK_BUCKET_COUNT;
-  }
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -309,7 +282,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     cgrid.fill(GRID_EMPTY);
 
     fronts = [];
-    sparks = [];
 
     for (let i = 0; i < effectSeedCount; i++) {
       _spawnRandom();
@@ -326,7 +298,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     const angle = _quantisedAngle();
     const mode  = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(x, y, angle, mode));
-    _emitSparks(x, y, angle);
   }
 
   /**
@@ -342,7 +313,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     if (ox < 0 || ox >= W || oy < 0 || oy >= H) return;
     const mode = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(ox, oy, perp, mode));
-    _emitSparks(ox, oy, perp);
   }
 
   // ── Growth front simulation ───────────────────────────────────────────────
@@ -406,13 +376,18 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       // Collision: hit an existing structure → stop and possibly branch.
       if (cgrid[idx] !== GRID_EMPTY) {
         front.growing = false;
-        // Primary perpendicular branch.
-        if (Math.random() < BRANCH_PROBABILITY) {
-          _spawnPerp(xi, yi, cgrid[idx]);
-        }
-        // Occasional second branch for denser intersection nodes.
-        if (Math.random() < BRANCH_PROBABILITY * 0.3) {
-          _spawnPerp(xi, yi, cgrid[idx]);
+        // Only spawn branches when this front made meaningful progress.
+        // Fronts that stop immediately are boxed in; branching from them
+        // would create an infinite cascade of zero-progress micro-fronts.
+        if (front.trail.length >= MINIMUM_TRAIL_FOR_BRANCH) {
+          // Primary perpendicular branch.
+          if (Math.random() < BRANCH_PROBABILITY) {
+            _spawnPerp(xi, yi, cgrid[idx]);
+          }
+          // Occasional second branch for denser intersection nodes.
+          if (Math.random() < BRANCH_PROBABILITY * 0.3) {
+            _spawnPerp(xi, yi, cgrid[idx]);
+          }
         }
         return;
       }
@@ -537,96 +512,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     front.undrawIndex = limit;
   }
 
-  // ── Spark (spawn flash) system ───────────────────────────────────────────
-
-  /**
-   * Emit a burst of tiny white sparks at the given position, biased toward
-   * the growth direction.  Called whenever a new front spawns.
-   */
-  function _emitSparks(x, y, angle) {
-    const count = SPARK_COUNT_MIN +
-      Math.floor(Math.random() * (SPARK_COUNT_MAX - SPARK_COUNT_MIN + 1));
-    const dirX = Math.cos(angle);
-    const dirY = Math.sin(angle);
-
-    for (let i = 0; i < count; i++) {
-      // Random spread with a directional bias toward the front's heading.
-      const randAngle = Math.random() * Math.PI * 2;
-      const randSpeed = SPARK_SPEED * (0.3 + Math.random() * 0.7);
-      let vx = Math.cos(randAngle) * randSpeed;
-      let vy = Math.sin(randAngle) * randSpeed;
-      // Blend toward the biased direction.
-      vx = vx * (1 - SPARK_DIRECTION_BIAS) + dirX * randSpeed * SPARK_DIRECTION_BIAS;
-      vy = vy * (1 - SPARK_DIRECTION_BIAS) + dirY * randSpeed * SPARK_DIRECTION_BIAS;
-
-      sparks.push({
-        x,
-        y,
-        vx,
-        vy,
-        life: SPARK_LIFETIME * (0.5 + Math.random() * 0.5),
-        maxLife: SPARK_LIFETIME,
-      });
-    }
-  }
-
-  /** Advance spark positions and cull expired ones. */
-  function _updateSparks(dt) {
-    for (let i = sparks.length - 1; i >= 0; i--) {
-      const sp = sparks[i];
-      sp.x += sp.vx * dt;
-      sp.y += sp.vy * dt;
-      // Gentle deceleration so sparks fizzle out.
-      sp.vx *= SPARK_DECELERATION;
-      sp.vy *= SPARK_DECELERATION;
-      sp.life -= dt;
-      if (sp.life <= 0) {
-        sparks.splice(i, 1);
-      }
-    }
-  }
-
-  /**
-   * Render active sparks onto the main canvas.
-   *
-   * Performance note: sparks are grouped into pre-allocated opacity buckets
-   * and drawn with a single compound path per bucket, reducing draw calls
-   * from O(N sparks) to O(N buckets ≤ 20).  Bucket arrays and alpha values
-   * are pre-allocated at effect-creation time to eliminate per-frame GC churn.
-   */
-  function _drawSparks(ctx) {
-    if (!sparks.length) return;
-
-    // Clear bucket arrays from the previous frame without reallocating.
-    for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
-      _sparkBuckets[b].length = 0;
-    }
-
-    for (const sp of sparks) {
-      const alpha = Math.max(0, sp.life / sp.maxLife) * 0.85;
-      const bucketIdx = Math.min(_SPARK_BUCKET_COUNT - 1,
-        Math.floor(alpha * _SPARK_BUCKET_COUNT));
-      _sparkBuckets[bucketIdx].push(sp);
-    }
-
-    ctx.save();
-    ctx.fillStyle = '#fff';
-
-    for (let b = 0; b < _SPARK_BUCKET_COUNT; b++) {
-      const group = _sparkBuckets[b];
-      if (!group.length) continue;
-      ctx.globalAlpha = _sparkBucketAlphas[b];
-      ctx.beginPath();
-      for (const sp of group) {
-        ctx.moveTo(sp.x + SPARK_SIZE, sp.y);
-        ctx.arc(sp.x, sp.y, SPARK_SIZE, 0, Math.PI * 2);
-      }
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
   // ── Update ────────────────────────────────────────────────────────────────
 
   /**
@@ -697,16 +582,12 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     while (fronts.length < effectSeedCount && fronts.length < effectMaxFronts) {
       _spawnRandom();
     }
-
-    // Advance spark particles.
-    _updateSparks(dt);
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   /**
-   * Composite the accumulated crystalline pattern onto the main canvas,
-   * then overlay any active spark particles.
+   * Composite the accumulated crystalline pattern onto the main canvas.
    *
    * @param {CanvasRenderingContext2D} ctx  Already in CSS-pixel space.
    */
@@ -717,9 +598,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     ctx.globalAlpha = compositeAlpha * COMPOSITE_ALPHA;
     ctx.drawImage(offCanvas, 0, 0);
     ctx.restore();
-
-    // Sparks render at full canvas alpha on top of the composite.
-    _drawSparks(ctx);
   }
 
   // ── Reset ─────────────────────────────────────────────────────────────────
@@ -730,7 +608,6 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     offCtx         = null;
     cgrid          = null;
     fronts         = [];
-    sparks         = [];
     W              = 0;
     H              = 0;
     lastTs         = null;
