@@ -71,10 +71,10 @@
 // All important tuning values are grouped here for easy adjustment.
 
 /** Number of seed growth fronts placed at each cycle start. */
-const SEED_COUNT = 6;
+const SEED_COUNT = 12;
 
 /** Maximum simultaneously active growth front tips. */
-const MAX_FRONTS = 60;
+const MAX_FRONTS = 120;
 
 /** Base growth speed (CSS pixels per second). Individual fronts vary ±30%. */
 const GROWTH_SPEED = 65;
@@ -139,6 +139,36 @@ const UNDRAW_SPEED_FACTOR = 1.2;
  * cascading micro-branches that subdivide a dense region indefinitely.
  */
 const MINIMUM_TRAIL_FOR_BRANCH = 5;
+
+/**
+ * Duration (ms) a front that stopped due to collision persists fully visible
+ * before its tail begins to undraw.  Gives "boxed-in" lines a long dwell time.
+ */
+const PERSIST_DURATION_MS = 15000;
+
+// ─── Collision glow parameters ────────────────────────────────────────────────
+
+/** Speed (px / sec) at which the collision glow ring expands outward. */
+const COLLISION_GLOW_SPEED = 80;
+
+/**
+ * Maximum radius (px) the glow ring expands to before the glow begins fading.
+ * At COLLISION_GLOW_SPEED = 80 px/s the ring reaches this in 5 seconds.
+ */
+const COLLISION_GLOW_MAX_RADIUS = 400;
+
+/**
+ * Total lifetime (ms) of a collision glow event (expansion + fade-out).
+ * After COLLISION_GLOW_MAX_RADIUS is reached the glow fades for the remaining
+ * duration.
+ */
+const COLLISION_GLOW_DURATION_MS = 7000;
+
+/** Thickness (px) of the bright band at the leading edge of the expanding glow ring. */
+const COLLISION_GLOW_RING_WIDTH = 30;
+
+/** Soft outer overshoot (px) added beyond the ring radius before alpha returns to 0. */
+const COLLISION_GLOW_OUTER_FADE = 8;
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 // Restricted to pale, restrained white / grey / gold values.
@@ -210,6 +240,11 @@ function _createFront(x, y, angle, mode) {
     trail: [],
     // Index into trail[] of the next point to erase from the back.
     undrawIndex: 0,
+    // Set to the timestamp (ms) when this front stopped growing.
+    stoppedAt: null,
+    // True when the front was stopped by collision with an existing structure.
+    // Such fronts persist for PERSIST_DURATION_MS before their tail undraws.
+    stoppedByCollision: false,
     // Last integer grid cell – avoids self-collision when sub-pixel
     // movement keeps the front inside the same cell.
     lastGx: Math.round(x),
@@ -235,10 +270,10 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
   const isLow    = quality === 'low';
   const isMedium = quality === 'medium';
 
-  /** Seed count: fewer starting fronts on lower tiers. */
-  const effectSeedCount    = isLow ? 3  : isMedium ? 4  : SEED_COUNT;
-  /** Hard cap on simultaneously active fronts. */
-  const effectMaxFronts    = isLow ? 20 : isMedium ? 35 : MAX_FRONTS;
+  /** Seed count: fewer starting fronts on lower tiers (≈ half the high-quality count). */
+  const effectSeedCount    = isLow ? 6  : isMedium ? 8  : SEED_COUNT;
+  /** Hard cap on simultaneously active fronts (≈ one-third / two-thirds of the high cap). */
+  const effectMaxFronts    = isLow ? 40 : isMedium ? 70 : MAX_FRONTS;
   /**
    * Interior deposition grains per pixel step.
    * Set to 0 on LOW to skip deposition entirely (biggest per-frame saving).
@@ -263,6 +298,12 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
   // Initial fade-in alpha multiplier (0 → 1).
   let compositeAlpha = 0;
   let initStartMs    = null;
+
+  // Active collision glow events: each entry is { x, y, startTime (ms) }.
+  let collisionGlows = [];
+
+  // Snapshot of the most recent `now` timestamp passed to update(), used in draw().
+  let latestNow = 0;
 
   // ── Initialisation ────────────────────────────────────────────────────────
 
@@ -322,7 +363,7 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
    * Handles arc curvature, perpendicular turns, collision detection,
    * edge rendering, and interior deposition.
    */
-  function _stepFront(front, steps, dt) {
+  function _stepFront(front, steps, dt, now) {
     if (!front.growing) return;
 
     // Age the front; stop growing if it exceeds its lifespan.
@@ -376,10 +417,18 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       // Collision: hit an existing structure → stop and possibly branch.
       if (cgrid[idx] !== GRID_EMPTY) {
         front.growing = false;
+        front.stoppedAt = now;
         // Only spawn branches when this front made meaningful progress.
         // Fronts that stop immediately are boxed in; branching from them
         // would create an infinite cascade of zero-progress micro-fronts.
         if (front.trail.length >= MINIMUM_TRAIL_FOR_BRANCH) {
+          // Mark as collision-stopped so it persists before undrawn.
+          front.stoppedByCollision = true;
+          // Record a collision glow event at the impact point.
+          // Cap active glows to avoid excessive radial gradient fills per frame;
+          // if the cap is hit, drop the oldest event to make room for the newest.
+          if (collisionGlows.length >= 25) collisionGlows.shift();
+          collisionGlows.push({ x: xi, y: yi, startTime: now });
           // Primary perpendicular branch.
           if (Math.random() < BRANCH_PROBABILITY) {
             _spawnPerp(xi, yi, cgrid[idx]);
@@ -538,6 +587,9 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     const dt = lastTs === null ? 0.016 : Math.min((now - lastTs) / 1000, 0.1);
     lastTs   = now;
 
+    // Record the latest timestamp for the draw() function (glow rendering).
+    latestNow = now;
+
     // Gentle fade-in after initialisation.
     compositeAlpha = Math.min(1, (now - initStartMs) / FADE_IN_MS);
 
@@ -546,7 +598,7 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       if (!front.alive) continue;
       if (front.growing) {
         const steps = Math.max(1, Math.round(front.speed * dt));
-        _stepFront(front, steps, dt);
+        _stepFront(front, steps, dt, now);
       }
     }
 
@@ -561,10 +613,16 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
         const excess = visibleCount - TRAIL_MAX_VISIBLE;
         _undrawFront(front, excess);
       } else if (!front.growing && visibleCount > 0) {
-        // Front stopped growing — erase from the back at its growth speed.
-        const undrawSteps = Math.max(1,
-          Math.round(front.speed * UNDRAW_SPEED_FACTOR * dt));
-        _undrawFront(front, undrawSteps);
+        // Collision-stopped fronts persist visibly for PERSIST_DURATION_MS before
+        // the tail begins to undraw, giving boxed-in lines a long dwell time.
+        const persisting = front.stoppedByCollision &&
+          (now - front.stoppedAt) < PERSIST_DURATION_MS;
+        if (!persisting) {
+          // Front stopped growing — erase from the back at its growth speed.
+          const undrawSteps = Math.max(1,
+            Math.round(front.speed * UNDRAW_SPEED_FACTOR * dt));
+          _undrawFront(front, undrawSteps);
+        }
       }
 
       // Mark fully erased fronts as dead.
@@ -578,6 +636,13 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       if (!fronts[i].alive) fronts.splice(i, 1);
     }
 
+    // Expire collision glow events that have outlived their full duration.
+    for (let i = collisionGlows.length - 1; i >= 0; i--) {
+      if (now - collisionGlows[i].startTime > COLLISION_GLOW_DURATION_MS) {
+        collisionGlows.splice(i, 1);
+      }
+    }
+
     // Re-seed if active count drops below the seed threshold.
     while (fronts.length < effectSeedCount && fronts.length < effectMaxFronts) {
       _spawnRandom();
@@ -587,7 +652,11 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   /**
-   * Composite the accumulated crystalline pattern onto the main canvas.
+   * Composite the accumulated crystalline pattern onto the main canvas,
+   * then overlay golden collision glow rings on top using screen blend mode.
+   *
+   * All rendering is clipped to the offCanvas bounds [0, W] × [0, H] so
+   * nothing bleeds outside the playing field or Shin Spire panel.
    *
    * @param {CanvasRenderingContext2D} ctx  Already in CSS-pixel space.
    */
@@ -595,8 +664,60 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     if (!offCanvas || compositeAlpha <= 0) return;
 
     ctx.save();
+
+    // Clip strictly to the offCanvas bounds to prevent any pixel from
+    // rendering outside the playing field / Shin Spire render boundary.
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.clip();
+
+    // Draw the accumulated crystalline line pattern.
     ctx.globalAlpha = compositeAlpha * COMPOSITE_ALPHA;
     ctx.drawImage(offCanvas, 0, 0);
+
+    // Overlay collision glows using the 'screen' blend mode so the golden
+    // halo is only visible where bright line pixels exist – transparent areas
+    // receive no visible colour contribution.
+    if (collisionGlows.length > 0 && latestNow > 0) {
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'screen';
+
+      for (const glow of collisionGlows) {
+        const elapsed = (latestNow - glow.startTime) / 1000; // seconds
+        const ringRadius = Math.min(COLLISION_GLOW_SPEED * elapsed,
+          COLLISION_GLOW_MAX_RADIUS);
+        if (ringRadius <= 0) continue;
+
+        // After the ring reaches max radius, fade it out over the remaining
+        // portion of COLLISION_GLOW_DURATION_MS.
+        const expansionDuration = COLLISION_GLOW_MAX_RADIUS / COLLISION_GLOW_SPEED;
+        const fadeDuration = Math.max(
+          (COLLISION_GLOW_DURATION_MS / 1000) - expansionDuration,
+          0.001); // guard against division by zero when durations align exactly
+        const postElapsed = elapsed - expansionDuration;
+        const fadeFraction = postElapsed > 0
+          ? Math.min(1, postElapsed / fadeDuration) : 0;
+        const glowAlpha = (1 - fadeFraction) * compositeAlpha;
+        if (glowAlpha <= 0) continue;
+
+        // Radial gradient shaped like an expanding ring: bright gold at the
+        // leading edge with a soft fade on both inner and outer sides.
+        const innerR = Math.max(0, ringRadius - COLLISION_GLOW_RING_WIDTH);
+        const outerR = ringRadius + COLLISION_GLOW_OUTER_FADE;
+
+        const grad = ctx.createRadialGradient(
+          glow.x, glow.y, innerR, glow.x, glow.y, outerR);
+        grad.addColorStop(0, 'rgba(255,215,50,0)');
+        grad.addColorStop(0.55, `rgba(255,215,50,${(glowAlpha * 0.85).toFixed(3)})`);
+        grad.addColorStop(1, 'rgba(255,215,50,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(glow.x, glow.y, outerR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     ctx.restore();
   }
 
@@ -613,6 +734,8 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     lastTs         = null;
     initStartMs    = null;
     compositeAlpha = 0;
+    collisionGlows = [];
+    latestNow      = 0;
   }
 
   return { update, draw, reset };
