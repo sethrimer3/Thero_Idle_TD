@@ -103,8 +103,8 @@ const EDGE_OPACITY = 0.70;
 /** Maximum alpha of a single interior deposition grain. */
 const INTERIOR_OPACITY = 0.025;
 
-/** Width (px) of edge line pixels. Thin and delicate. */
-const LINE_WIDTH = 0.8;
+/** Width (px) of edge line pixels. Chalk-like – slightly thicker for texture. */
+const LINE_WIDTH = 1.2;
 
 /** Overall compositing alpha applied when blitting to the main canvas. */
 const COMPOSITE_ALPHA = 0.20;
@@ -160,10 +160,10 @@ const COLLISION_GLOW_PEAK_MS = 400;
 const COLLISION_GLOW_TRAIL_LENGTH = 180;
 
 /** Peak alpha of the golden glow stroke at the exact collision point. */
-const COLLISION_GLOW_MAX_ALPHA = 0.85;
+const COLLISION_GLOW_MAX_ALPHA = 0.30;
 
 /** Stroke width (px) of the golden glow drawn over the trail. */
-const COLLISION_GLOW_LINE_WIDTH = 3;
+const COLLISION_GLOW_LINE_WIDTH = 4.5;
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 // Restricted to pale, restrained white / grey / gold values.
@@ -484,11 +484,24 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
    * Draw a single thin edge pixel for a growth front line.
    * Accepts the pre-built fillStyle string stored on the front to avoid
    * repeated rgba() string construction.
+   * Per-pixel alpha variation and an occasional off-centre grain dot give
+   * the strokes a chalky, hand-drawn quality.
    */
   function _drawEdgePixel(x, y, fillStyle) {
     offCtx.fillStyle = fillStyle;
+    // Vary opacity slightly each pixel for a chalky, irregular stroke.
+    offCtx.globalAlpha = 0.70 + Math.random() * 0.30;
     offCtx.fillRect(x - LINE_WIDTH / 2, y - LINE_WIDTH / 2,
       LINE_WIDTH, LINE_WIDTH);
+    // Chalk grain: an occasional faint dot near the edge for rough texture.
+    if (Math.random() < 0.35) {
+      const gx = x + (Math.random() - 0.5) * LINE_WIDTH * 2.5;
+      const gy = y + (Math.random() - 0.5) * LINE_WIDTH * 2.5;
+      offCtx.globalAlpha = 0.15 + Math.random() * 0.15;
+      offCtx.fillRect(gx, gy, 1, 1);
+    }
+    // Restore globalAlpha so subsequent draw calls are not affected.
+    offCtx.globalAlpha = 1;
   }
 
   /**
@@ -756,10 +769,10 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       const alpha = COLLISION_GLOW_MAX_ALPHA * timeFade * compositeAlpha;
       if (alpha <= 0.001) continue;
 
-      // Linear gradient: transparent at the far end, golden at the collision point.
+      // Linear gradient: transparent at the far end, pale gold at the collision point.
       const grad = ctx.createLinearGradient(startPt.x, startPt.y, endPt.x, endPt.y);
-      grad.addColorStop(0, 'rgba(255,215,0,0)');
-      grad.addColorStop(1, `rgba(255,215,0,${alpha.toFixed(3)})`);
+      grad.addColorStop(0, 'rgba(255,240,200,0)');
+      grad.addColorStop(1, `rgba(255,240,200,${alpha.toFixed(3)})`);
 
       ctx.save();
       ctx.strokeStyle = grad;
