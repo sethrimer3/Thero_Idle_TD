@@ -713,13 +713,10 @@ export function drawChapter6Substrate() {
   // Advance simulation.
   _substrateEffect.update(nowMs, width, height);
 
-  // Draw in screen space: reset the camera/world transform to pixel-ratio only
-  // so the crystalline pattern always fills the visible viewport and never
-  // bleeds outside the playing field boundaries.
+  // Draw in world space: the ctx already carries the camera transform so the
+  // crack pattern moves and scales correctly with the player's zoom / pan.
   const ctx = this.ctx;
-  const pr  = Math.max(1, this.pixelRatio || 1);
   ctx.save();
-  ctx.setTransform(pr, 0, 0, pr, 0, 0);
   _substrateEffect.draw(ctx);
   ctx.restore();
 }
