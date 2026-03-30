@@ -713,10 +713,17 @@ export function drawChapter6Substrate() {
   // Advance simulation.
   _substrateEffect.update(nowMs, width, height);
 
-  // Draw in world space: the ctx already carries the camera transform so the
-  // crack pattern moves and scales correctly with the player's zoom / pan.
-  const ctx = this.ctx;
+  // Draw in screen space: reset the camera transform to a pixelRatio-only
+  // transform so the substrate always covers exactly the CSS viewport and
+  // cannot bleed outside the playfield boundaries.
+  const ctx        = this.ctx;
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
   ctx.save();
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  // Clip to the logical viewport so nothing renders outside the playfield.
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.clip();
   _substrateEffect.draw(ctx);
   ctx.restore();
 }
