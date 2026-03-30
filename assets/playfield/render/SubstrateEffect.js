@@ -140,6 +140,31 @@ const UNDRAW_SPEED_FACTOR = 1.2;
  */
 const MINIMUM_TRAIL_FOR_BRANCH = 5;
 
+/**
+ * Maximum number of completed (stopped) lines that may persist visibly on the
+ * canvas at one time.  Once this ceiling is exceeded, the oldest stopped lines
+ * begin their tail-to-tip "undraw" erase animation.  Mirrors the old per-cycle
+ * maximum that previously caused all lines to vanish simultaneously.
+ */
+const MAX_LINES_BEFORE_UNDRAW = 120;
+
+// ─── Collision glow parameters ────────────────────────────────────────────────
+
+/** Total duration (ms) of the golden collision-glow effect. */
+const COLLISION_GLOW_DURATION_MS = 3000;
+
+/** Duration (ms) for the glow to ramp from zero to peak intensity (attack phase). */
+const COLLISION_GLOW_PEAK_MS = 400;
+
+/** Number of trail points back from the collision that the glow gradient covers. */
+const COLLISION_GLOW_TRAIL_LENGTH = 180;
+
+/** Peak alpha of the golden glow stroke at the exact collision point. */
+const COLLISION_GLOW_MAX_ALPHA = 0.85;
+
+/** Stroke width (px) of the golden glow drawn over the trail. */
+const COLLISION_GLOW_LINE_WIDTH = 3;
+
 // ─── Color palette ────────────────────────────────────────────────────────────
 // Restricted to pale, restrained white / grey / gold values.
 // No saturated pastels, no bright metallic golds.
@@ -210,6 +235,14 @@ function _createFront(x, y, angle, mode) {
     trail: [],
     // Index into trail[] of the next point to erase from the back.
     undrawIndex: 0,
+    // Insertion-order rank assigned when this front first stops growing.
+    // Used to determine "oldest" when MAX_LINES_BEFORE_UNDRAW is exceeded.
+    stoppedOrder: -1,
+    // Set to true once this stopped front has been selected to begin erasing.
+    undrawStarted: false,
+    // Active golden glow state set when the front stops due to a collision.
+    // null if no collision glow is active.
+    collisionGlow: null,
     // Last integer grid cell – avoids self-collision when sub-pixel
     // movement keeps the front inside the same cell.
     lastGx: Math.round(x),
@@ -264,11 +297,24 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
   let compositeAlpha = 0;
   let initStartMs    = null;
 
+  // Monotonically increasing counter assigned to each front when it first
+  // stops growing.  Lower values = older stopped fronts, which are chosen
+  // first when MAX_LINES_BEFORE_UNDRAW is exceeded.
+  let _nextStoppedOrder = 0;
+
+  // Cached count of actively growing fronts.  Maintained incrementally so
+  // spawn-cap checks are O(1) rather than iterating the entire fronts array.
+  let _growingCount = 0;
+
   // ── Initialisation ────────────────────────────────────────────────────────
 
   function _init(w, h) {
     W = Math.ceil(w);
     H = Math.ceil(h);
+
+    // Reset the stopped-order counter and growing-count cache on a fresh canvas.
+    _nextStoppedOrder = 0;
+    _growingCount     = 0;
 
     // Create (or recreate) the off-screen accumulation canvas.
     offCanvas        = document.createElement('canvas');
@@ -290,14 +336,23 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
 
   // ── Front spawning ────────────────────────────────────────────────────────
 
+  /**
+   * Return the current count of actively growing fronts.
+   * Backed by an incrementally maintained cache so each call is O(1).
+   */
+  function _growingFrontCount() {
+    return _growingCount;
+  }
+
   /** Seed a new front at a random viewport position with quantised angle. */
   function _spawnRandom() {
-    if (fronts.length >= effectMaxFronts) return;
+    if (_growingCount >= effectMaxFronts) return;
     const x     = 10 + Math.random() * (W - 20);
     const y     = 10 + Math.random() * (H - 20);
     const angle = _quantisedAngle();
     const mode  = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(x, y, angle, mode));
+    _growingCount++;
   }
 
   /**
@@ -305,7 +360,7 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
    * The child direction is ±90° relative to the hit structure's angle.
    */
   function _spawnPerp(xi, yi, hitAngle) {
-    if (fronts.length >= effectMaxFronts) return;
+    if (_growingCount >= effectMaxFronts) return;
     const perp = hitAngle + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
     // Offset 2 px along the new direction to avoid immediate re-collision.
     const ox = xi + Math.cos(perp) * 2;
@@ -313,6 +368,7 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     if (ox < 0 || ox >= W || oy < 0 || oy >= H) return;
     const mode = Math.random() < ARC_PROBABILITY ? 'arc' : 'straight';
     fronts.push(_createFront(ox, oy, perp, mode));
+    _growingCount++;
   }
 
   // ── Growth front simulation ───────────────────────────────────────────────
@@ -328,7 +384,9 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     // Age the front; stop growing if it exceeds its lifespan.
     front.age += dt;
     if (front.age >= front.maxAge) {
+      front.stoppedOrder = _nextStoppedOrder++;
       front.growing = false;
+      _growingCount = Math.max(0, _growingCount - 1);
       return;
     }
 
@@ -360,7 +418,9 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
 
       // Out of viewport → stop growing.
       if (xi < 0 || xi >= W || yi < 0 || yi >= H) {
+        front.stoppedOrder = _nextStoppedOrder++;
         front.growing = false;
+        _growingCount = Math.max(0, _growingCount - 1);
         return;
       }
 
@@ -375,7 +435,16 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
 
       // Collision: hit an existing structure → stop and possibly branch.
       if (cgrid[idx] !== GRID_EMPTY) {
+        front.stoppedOrder = _nextStoppedOrder++;
         front.growing = false;
+        _growingCount = Math.max(0, _growingCount - 1);
+        // Golden glow effect at the collision point: fades along the trail
+        // away from the impact, then decays over time.
+        front.collisionGlow = {
+          active:        true,
+          age:           0,
+          trailEndIdx:   front.trail.length, // trail length at moment of collision
+        };
         // Only spawn branches when this front made meaningful progress.
         // Fronts that stop immediately are boxed in; branching from them
         // would create an infinite cascade of zero-progress micro-fronts.
@@ -550,27 +619,73 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       }
     }
 
-    // Process tail-erase for every front whose visible trail exceeds the limit
-    // or that has stopped growing.
-    for (const front of fronts) {
-      if (!front.alive) continue;
-      const visibleCount = front.trail.length - front.undrawIndex;
+    // Process tail-erase for every front.
+    // ─ While still growing: cap visible trail at TRAIL_MAX_VISIBLE.
+    // ─ Once stopped: persist until MAX_LINES_BEFORE_UNDRAW is exceeded,
+    //   then erase oldest stopped lines first.
 
-      if (front.growing && visibleCount > TRAIL_MAX_VISIBLE) {
-        // Erase just enough to stay at the limit while growing.
-        const excess = visibleCount - TRAIL_MAX_VISIBLE;
-        _undrawFront(front, excess);
-      } else if (!front.growing && visibleCount > 0) {
-        // Front stopped growing — erase from the back at its growth speed.
+    // Step 1 – enforce per-front pixel cap on growing fronts.
+    for (const front of fronts) {
+      if (!front.alive || !front.growing) continue;
+      const visibleCount = front.trail.length - front.undrawIndex;
+      if (visibleCount > TRAIL_MAX_VISIBLE) {
+        _undrawFront(front, visibleCount - TRAIL_MAX_VISIBLE);
+      }
+    }
+
+    // Step 2 – advance collision-glow age and expire finished glows.
+    for (const front of fronts) {
+      const glow = front.collisionGlow;
+      if (!glow?.active) continue;
+      glow.age += dt;
+      if (glow.age >= COLLISION_GLOW_DURATION_MS / 1000) {
+        glow.active = false;
+      }
+    }
+
+    // Step 3 – count stopped fronts that have not yet begun erasing.
+    //           If the count exceeds MAX_LINES_BEFORE_UNDRAW, schedule the
+    //           oldest ones (lowest stoppedOrder) for erasure.
+    let persistentCount = 0;
+    for (const front of fronts) {
+      if (front.alive && !front.growing && !front.undrawStarted) persistentCount++;
+    }
+
+    if (persistentCount > MAX_LINES_BEFORE_UNDRAW) {
+      // Collect stopped, non-erasing fronts sorted oldest first.
+      const toStart = persistentCount - MAX_LINES_BEFORE_UNDRAW;
+      const stopped = [];
+      for (const front of fronts) {
+        if (front.alive && !front.growing && !front.undrawStarted && front.stoppedOrder >= 0) {
+          stopped.push(front);
+        }
+      }
+      stopped.sort((a, b) => a.stoppedOrder - b.stoppedOrder);
+      for (let i = 0; i < Math.min(toStart, stopped.length); i++) {
+        stopped[i].undrawStarted = true;
+      }
+    }
+
+    // Step 4 – advance erase animation for fronts whose undraw has started.
+    for (const front of fronts) {
+      if (!front.alive || front.growing || !front.undrawStarted) continue;
+      const visibleCount = front.trail.length - front.undrawIndex;
+      if (visibleCount > 0) {
         const undrawSteps = Math.max(1,
           Math.round(front.speed * UNDRAW_SPEED_FACTOR * dt));
         _undrawFront(front, undrawSteps);
       }
 
       // Mark fully erased fronts as dead.
-      if (!front.growing && front.undrawIndex >= front.trail.length) {
+      if (front.undrawIndex >= front.trail.length) {
         front.alive = false;
       }
+    }
+
+    // Also mark stopped fronts with an empty trail as immediately dead.
+    for (const front of fronts) {
+      if (!front.alive || front.growing) continue;
+      if (front.trail.length === 0) front.alive = false;
     }
 
     // Remove dead fronts.
@@ -578,8 +693,10 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
       if (!fronts[i].alive) fronts.splice(i, 1);
     }
 
-    // Re-seed if active count drops below the seed threshold.
-    while (fronts.length < effectSeedCount && fronts.length < effectMaxFronts) {
+    // Re-seed if the count of actively growing fronts drops below the threshold.
+    // _growingCount is the cached value; _spawnRandom() increments it.
+    const needed = Math.max(0, effectSeedCount - _growingCount);
+    for (let i = 0; i < needed; i++) {
       _spawnRandom();
     }
   }
@@ -587,7 +704,8 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
   // ── Draw ──────────────────────────────────────────────────────────────────
 
   /**
-   * Composite the accumulated crystalline pattern onto the main canvas.
+   * Composite the accumulated crystalline pattern onto the main canvas,
+   * then overlay any active collision glows.
    *
    * @param {CanvasRenderingContext2D} ctx  Already in CSS-pixel space.
    */
@@ -598,21 +716,82 @@ export function createSubstrateEffect({ quality = 'high' } = {}) {
     ctx.globalAlpha = compositeAlpha * COMPOSITE_ALPHA;
     ctx.drawImage(offCanvas, 0, 0);
     ctx.restore();
+
+    // ── Collision glow overlays ───────────────────────────────────────────
+    // Draw a golden gradient stroke along each front's trail from a point
+    // COLLISION_GLOW_TRAIL_LENGTH px back to the collision point.
+    // Alpha peaks at the collision point and is zero at the far end.
+    // Intensity also ramps up over COLLISION_GLOW_PEAK_MS then decays.
+    for (const front of fronts) {
+      const glow = front.collisionGlow;
+      if (!glow?.active) continue;
+
+      const trail     = front.trail;
+      // glowEndIdx is the last trail point drawn at collision time.
+      const glowEndIdx   = Math.min(glow.trailEndIdx, trail.length) - 1;
+      if (glowEndIdx < 0) continue;
+
+      // glowStartIdx accounts for any tail-erasure that has already advanced.
+      const glowStartIdx = Math.max(
+        front.undrawIndex,
+        glowEndIdx - COLLISION_GLOW_TRAIL_LENGTH + 1,
+      );
+      if (glowStartIdx > glowEndIdx) continue;
+
+      const startPt = trail[glowStartIdx];
+      const endPt   = trail[glowEndIdx];
+      if (!startPt || !endPt) continue;
+
+      // Time-based fade: ramp up (attack) then ramp down (decay).
+      const duration = COLLISION_GLOW_DURATION_MS / 1000;
+      const peakTime = COLLISION_GLOW_PEAK_MS / 1000;
+      let   timeFade;
+      if (glow.age < peakTime) {
+        timeFade = glow.age / peakTime;
+      } else {
+        timeFade = 1 - (glow.age - peakTime) / (duration - peakTime);
+      }
+      timeFade = Math.max(0, Math.min(1, timeFade));
+
+      const alpha = COLLISION_GLOW_MAX_ALPHA * timeFade * compositeAlpha;
+      if (alpha <= 0.001) continue;
+
+      // Linear gradient: transparent at the far end, golden at the collision point.
+      const grad = ctx.createLinearGradient(startPt.x, startPt.y, endPt.x, endPt.y);
+      grad.addColorStop(0, 'rgba(255,215,0,0)');
+      grad.addColorStop(1, `rgba(255,215,0,${alpha.toFixed(3)})`);
+
+      ctx.save();
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = COLLISION_GLOW_LINE_WIDTH;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+      ctx.globalAlpha = 1; // Alpha is already encoded in the gradient stops.
+      ctx.beginPath();
+      ctx.moveTo(startPt.x, startPt.y);
+      for (let i = glowStartIdx + 1; i <= glowEndIdx; i++) {
+        ctx.lineTo(trail[i].x, trail[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
   /** Clear all state so the effect feels fresh on re-entry. */
   function reset() {
-    offCanvas      = null;
-    offCtx         = null;
-    cgrid          = null;
-    fronts         = [];
-    W              = 0;
-    H              = 0;
-    lastTs         = null;
-    initStartMs    = null;
-    compositeAlpha = 0;
+    offCanvas         = null;
+    offCtx            = null;
+    cgrid             = null;
+    fronts            = [];
+    W                 = 0;
+    H                 = 0;
+    lastTs            = null;
+    initStartMs       = null;
+    compositeAlpha    = 0;
+    _nextStoppedOrder = 0;
+    _growingCount     = 0;
   }
 
   return { update, draw, reset };
