@@ -185,6 +185,22 @@ const ENEMY_GATE_GRADIENT_STOPS = [
 // Reuse one canonical warm hue for the Mind Gate wave and its cached gradient.
 const MIND_GATE_WAVE_COLOR = { r: 255, g: 120, b: 0 };
 
+// Warm outward ripple (heat-wave) configuration for the Mind Gate.
+// Rings spawn near the gate rim and expand outward with a warm-yellow → sunset-orange → deep-ember colour fade.
+const WARM_WAVE_COUNT = 5;             // Concentric rings active simultaneously
+const WARM_WAVE_SPEED = 0.22;          // Full-expansion cycles per second (slow, meditative pulse)
+const WARM_WAVE_START_RADIUS_SCALE = 0.95; // Rings begin just outside the gate rim
+const WARM_WAVE_MAX_RADIUS_SCALE = 5.8;    // Rings expand to this multiple of the gate radius before vanishing
+const WARM_WAVE_PEAK_ALPHA = 0.68;     // Maximum opacity (at the innermost ring position)
+const WARM_WAVE_LINE_WIDTH_SCALE = 0.09;   // Ring stroke width relative to gate radius
+// Color gradient sampled across the expansion phase (0 = inner, 1 = fully expanded).
+const WARM_WAVE_COLOR_STOPS = [
+  { phase: 0.00, r: 255, g: 222, b: 80  }, // warm yellow  at origin
+  { phase: 0.28, r: 255, g: 138, b: 24  }, // sunset orange at 28 % expansion
+  { phase: 0.62, r: 185, g: 50,  b: 10  }, // deep ember    at 62 % expansion
+  { phase: 1.00, r: 155, g: 30,  b: 5   }, // darkest ember at full radius (alpha → 0)
+];
+
 // Cadence at which gate background layer composites are re-rendered to the offscreen cache.
 // At 30 fps the fastest ring (0.3 rad/s) shifts by only ~0.5° per bucket — imperceptible at any scale.
 const GATE_LAYERS_CACHE_FPS = 30;
@@ -957,6 +973,74 @@ function getMindGateWaveGradient(cacheOwner, ctx, waveWidth, waveAlpha) {
 }
 
 /**
+ * Linearly interpolate the warm-wave ring colour from the WARM_WAVE_COLOR_STOPS gradient.
+ * @param {number} phase 0 (inner edge) → 1 (fully expanded, alpha gone)
+ * @returns {{ r: number, g: number, b: number }}
+ */
+function sampleWarmWaveColor(phase) {
+  const stops = WARM_WAVE_COLOR_STOPS;
+  for (let i = 1; i < stops.length; i++) {
+    if (phase <= stops[i].phase) {
+      const prev = stops[i - 1];
+      const next = stops[i];
+      const t = (phase - prev.phase) / (next.phase - prev.phase);
+      return {
+        r: Math.round(prev.r + (next.r - prev.r) * t),
+        g: Math.round(prev.g + (next.g - prev.g) * t),
+        b: Math.round(prev.b + (next.b - prev.b) * t),
+      };
+    }
+  }
+  const last = stops[stops.length - 1];
+  return { r: last.r, g: last.g, b: last.b };
+}
+
+/**
+ * Draw warm outward-expanding concentric ripple rings around the Mind Gate.
+ * Rings begin at the gate rim, expand outward, and transition from warm yellow →
+ * sunset orange → deep ember while fading to full transparency.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} radius Gate radius in pixels (gate is already translated to centre)
+ * @param {number} currentTime Elapsed seconds
+ * @returns {void}
+ */
+function drawMindGateWarmWaves(ctx, radius, currentTime) {
+  if (!ctx) {
+    return;
+  }
+  const startR = radius * WARM_WAVE_START_RADIUS_SCALE;
+  const maxR   = radius * WARM_WAVE_MAX_RADIUS_SCALE;
+  const baseLineWidth = Math.max(1, radius * WARM_WAVE_LINE_WIDTH_SCALE);
+
+  ctx.save();
+  ctx.lineCap = 'round';
+
+  for (let i = 0; i < WARM_WAVE_COUNT; i++) {
+    // Stagger each ring evenly across one full expansion cycle.
+    const phase = ((currentTime * WARM_WAVE_SPEED + i / WARM_WAVE_COUNT) % 1);
+    const ringRadius = startR + (maxR - startR) * phase;
+    // Smooth fade: full opacity near the inner edge, reaches zero at the outer limit.
+    const alpha = WARM_WAVE_PEAK_ALPHA * Math.pow(1 - phase, 1.8);
+    if (alpha < 0.005) {
+      continue;
+    }
+    const color = sampleWarmWaveColor(phase);
+    // Glow pass: wide semi-transparent stroke approximates a warm luminous halo without ctx.shadowBlur.
+    ctx.beginPath();
+    ctx.arc(0, 0, ringRadius, 0, TWO_PI);
+    ctx.strokeStyle = `rgba(${color.r},${color.g},${color.b},${(alpha * 0.30).toFixed(3)})`;
+    ctx.lineWidth = baseLineWidth * 4;
+    ctx.stroke();
+    // Crisp main ring stroke.
+    ctx.strokeStyle = `rgba(${color.r},${color.g},${color.b},${alpha.toFixed(3)})`;
+    ctx.lineWidth = baseLineWidth;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/**
  * Draw a low-cost rotating halo when particle simulation is disabled by low graphics mode.
  * @param {CanvasRenderingContext2D} ctx
  * @param {number} radius
@@ -1398,6 +1482,7 @@ function drawMindGateSymbol(ctx, position) {
 
   // Let developer-mode layer toggles selectively disable individual Mind Gate visuals for profiling.
   const mindGateBackgroundVisible = this.getDevLayerVisible?.('mindGateBackground') !== false;
+  const mindGateWarmWavesVisible = this.getDevLayerVisible?.('mindGateWarmWaves') !== false;
   const mindGateWaveVisible = this.getDevLayerVisible?.('mindGateWave') !== false;
   const mindGateParticlesVisible = this.getDevLayerVisible?.('mindGateParticles') !== false;
   const mindGateSymbolVisible = this.getDevLayerVisible?.('mindGateSymbol') !== false;
@@ -1412,6 +1497,11 @@ function drawMindGateSymbol(ctx, position) {
       0.82,
       effectDetailProfile.backgroundLayerStride,
     );
+  }
+
+  // Draw warm outward-expanding ripple rings emanating from the gate centre.
+  if (mindGateWarmWavesVisible) {
+    drawMindGateWarmWaves(ctx, radius, currentTime);
   }
 
   // Replace per-frame mind gate ring shadowBlur with a double-stroke glow pass.
