@@ -33,6 +33,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 > **Note (Build 628):** `main.js` reduced from 7,905 to 6,771 lines via `levelGridController.js` (Build 626) and `settingsMenuController.js` (Build 627) extractions. `playfield.js` reduced from 11,862 to 5,422 lines through Phase 1 extractions including `WaveQueueSystem.js` (Build 628).
 >
 > **Note (Build 642):** `main.js` reduced from 5,823 to 5,444 lines (−379) via three new controller extractions: `playfieldLayoutController.js`, `spireCameraController.js`, and `idleResourceBankController.js`.
+>
+> **Note (Build 693):** `main.js` reduced from 5,402 to 4,780 lines (−622) via two new controller extractions: `spireResourcePersistence.js` (persistence/serialization logic, ~234 lines) and `levelCombatController.js` (level start/victory/defeat lifecycle, ~460 lines). `playfield.js` reduced from 5,754 to 5,593 lines (−161) via `EnemyFocusSystem.js` extraction (enemy focus, tooltip, hover, and visual metrics logic).
 
 ### Performance Baseline Requirements
 
