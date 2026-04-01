@@ -173,6 +173,8 @@ import { createIdleLevelRunManager } from './idleLevelRunManager.js';
 import { createSpireResourceState } from './state/spireResourceState.js';
 import { createPowderStateContext } from './powder/powderState.js';
 import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
+import { createSpireResourcePersistence } from './spireResourcePersistence.js';
+import { createLevelCombatController } from './levelCombatController.js';
 import { createSpireResourceBanks } from './spireResourceBanks.js';
 import {
   applyBetIdleParticles,
@@ -688,8 +690,10 @@ import { createSpireCameraController } from './spireCameraController.js';
   let levelPreviewRenderer = null;
   let levelOverlayController = null;
   let activeLevelId = null;
-  let pendingLevel = null;
-  let lastLevelTrigger = null;
+
+  // Level combat controller – declared early for late-binding in callback registrations;
+  // instantiated after idle run manager and remaining dependencies are available.
+  let levelCombatCtrl;
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -893,12 +897,12 @@ import { createSpireCameraController } from './spireCameraController.js';
     activateDeveloperMapToolsForLevel,
     deactivateDeveloperMapTools,
     clearPendingLevel: () => {
-      pendingLevel = null;
+      if (levelCombatCtrl) levelCombatCtrl.clearPendingLevel();
     },
     requestLayoutRefresh: () => {
       updateLayoutVisibility();
     },
-    leaveActiveLevel,
+    leaveActiveLevel: (...args) => levelCombatCtrl.leaveActiveLevel(...args),
     onStatsPanelVisibilityChange: (visible) => {
       if (playfield && typeof playfield.setStatsPanelEnabled === 'function') {
         playfield.setStatsPanelEnabled(visible);
@@ -924,7 +928,7 @@ import { createSpireCameraController } from './spireCameraController.js';
 
   configurePlayfieldOutcome({
     getPlayfield: () => playfield,
-    leaveActiveLevel,
+    leaveActiveLevel: (...args) => levelCombatCtrl.leaveActiveLevel(...args),
     updateLayoutVisibility,
     getStartButton: () => playfieldElements.startButton,
   });
@@ -1335,6 +1339,31 @@ import { createSpireCameraController } from './spireCameraController.js';
     updateBindingAgentDisplay();
   }
 
+  // ── Spire resource persistence (extracted from main.js) ───────────────
+  const spireResourcePersistence = createSpireResourcePersistence({
+    spireResourceState,
+    powderState,
+    moteGemState,
+    getTsadiBindingAgents,
+    syncTsadiBindingAgents,
+    updateBindingAgentDisplay,
+    getBetSpireRenderInstance,
+    tsadiMoleculeNameGenerator,
+    getTowerUpgradeStateSnapshot,
+    applyTowerUpgradeStateSnapshot,
+    getAlephChainUpgrades,
+    applyAlephChainUpgradeSnapshot,
+    getPlayfield: () => playfield,
+  });
+
+  const {
+    normalizeDiscoveredMolecules,
+    getTowerUpgradeStateSnapshotWithAleph,
+    applyTowerUpgradeStateSnapshotWithAleph,
+    getSpireResourceStateSnapshot,
+    applySpireResourceStateSnapshot,
+  } = spireResourcePersistence;
+
   function handleMoleculeDiscovery(recipe) {
     if (!recipe) {
       return;
@@ -1607,10 +1636,91 @@ import { createSpireCameraController } from './spireCameraController.js';
     levelLookup,
     isInteractiveLevel,
     updateLevelCards,
-    handlePlayfieldVictory,
+    handlePlayfieldVictory: (...args) => levelCombatCtrl.handlePlayfieldVictory(...args),
     getActiveLevelId: () => activeLevelId,
     getPlayfieldElements: () => playfieldElements,
   });
+
+  // ── Level combat controller (extracted from main.js) ──────────────────
+  levelCombatCtrl = createLevelCombatController({
+    getActiveLevelId: () => activeLevelId,
+    setActiveLevelId: (id) => { activeLevelId = id; },
+    getActiveLevelIsInteractive: () => activeLevelIsInteractive,
+    setActiveLevelIsInteractive: (val) => { activeLevelIsInteractive = val; },
+    resourceState,
+    baseResources,
+    levelState,
+    levelLookup,
+    levelConfigs,
+    getPlayfield: () => playfield,
+    getLevelOverlayController: () => levelOverlayController,
+    getLevelStoryScreen: () => levelStoryScreen,
+    getPlayfieldMenuController: () => playfieldMenuController,
+    getAudioManager: () => audioManager,
+    getLeaveLevelBtn: () => leaveLevelBtn,
+    hidePlayfieldOutcome,
+    showPlayfieldOutcome,
+    exitToLevelSelectionFromOutcome,
+    handleOutcomeRetryRequest,
+    isLevelUnlocked,
+    isStoryOnlyLevel,
+    isInteractiveLevel,
+    isLevelCompleted,
+    getPreviousInteractiveLevelId,
+    unlockNextInteractiveLevel,
+    unlockLevel,
+    formatWholeNumber,
+    checkTutorialCompletion,
+    isTutorialCompleted,
+    updateTabLockStates,
+    isTowersTabUnlocked,
+    unlockTowersTabState,
+    unlockTowersTab,
+    unlockAchievements,
+    unlockAchievementsTab,
+    ensureResourceTicker,
+    updateActiveLevelBanner,
+    updateLevelCards,
+    updateResourceRates,
+    updatePowderLedger,
+    updateStatusDisplays,
+    updateTowerSelectionButtons,
+    updateLayoutVisibility,
+    notifyLevelVictory,
+    commitAutoSave,
+    isCognitiveRealmUnlocked,
+    isCognitiveRealmLocked,
+    unlockCognitiveRealmRendering,
+    updateCognitiveRealmLockState,
+    updateTerritoriesForLevel,
+    showCognitiveRealmMap,
+    hideCognitiveRealmMap,
+    getActiveTabId,
+    stopAllIdleRuns,
+    beginIdleLevelRun,
+    updateIdleLevelDisplay,
+    stopIdleLevelRun,
+    closeLoadoutWheel,
+    refreshTabMusic,
+    deactivateDeveloperMapTools,
+  });
+
+  // Thin delegates so existing call sites continue to work unchanged.
+  const handlePlayfieldCombatStart = levelCombatCtrl.handlePlayfieldCombatStart;
+  const handlePlayfieldVictory = levelCombatCtrl.handlePlayfieldVictory;
+  const handlePlayfieldDefeat = levelCombatCtrl.handlePlayfieldDefeat;
+  const handleLevelSelection = levelCombatCtrl.handleLevelSelection;
+  const cancelPendingLevel = levelCombatCtrl.cancelPendingLevel;
+  const confirmPendingLevel = levelCombatCtrl.confirmPendingLevel;
+  const startLevel = levelCombatCtrl.startLevel;
+  const leaveActiveLevel = levelCombatCtrl.leaveActiveLevel;
+  const updateCognitiveRealmVisibility = levelCombatCtrl.updateCognitiveRealmVisibility;
+  const focusLeaveLevelButton = levelCombatCtrl.focusLeaveLevelButton;
+
+  // Allow the overlay confirmation gesture to begin levels through the shared controller.
+  if (levelOverlayController) {
+    levelOverlayController.setConfirmHandler(confirmPendingLevel);
+  }
 
   const { initializeManualDropHandlers } = createManualDropController({
     getActiveTabId,
@@ -1751,7 +1861,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     isTutorialCompleted,
     unlockCognitiveRealm,
     unlockCognitiveRealmRendering,
-    updateCognitiveRealmVisibility,
+    updateCognitiveRealmVisibility: (...args) => levelCombatCtrl.updateCognitiveRealmVisibility(...args),
   });
 
   // ── Level Grid Controller ───────────────────────────────────────────
@@ -2448,266 +2558,6 @@ import { createSpireCameraController } from './spireCameraController.js';
     return POWDER_WALL_TEXTURE_FALLBACK_PX;
   }
 
-  // Wrapper functions to include alephChainUpgrades in tower upgrade persistence.
-  function getTowerUpgradeStateSnapshotWithAleph() {
-    const towerSnapshot = getTowerUpgradeStateSnapshot();
-    return {
-      ...towerSnapshot,
-      alephChainUpgrades: getAlephChainUpgrades(),
-    };
-  }
-
-  function applyTowerUpgradeStateSnapshotWithAleph(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') {
-      return;
-    }
-    // Restore tower variable upgrades
-    applyTowerUpgradeStateSnapshot(snapshot);
-    // Restore alephChainUpgrades if present
-    if (snapshot.alephChainUpgrades && typeof snapshot.alephChainUpgrades === 'object') {
-      applyAlephChainUpgradeSnapshot(snapshot.alephChainUpgrades, { playfield });
-    }
-  }
-
-  /**
-   * Clamp a numeric value to a finite non-negative value for persistence payloads.
-   * @param {number} value - Raw numeric input from save data.
-   * @param {number} fallback - Optional fallback when the input is invalid.
-   * @returns {number} Sanitized value.
-   */
-  function clampPersistedValue(value, fallback = 0) {
-    const normalized = Number.isFinite(value) ? value : fallback;
-    return Math.max(0, normalized);
-  }
-
-  /**
-   * Normalize discovered molecule entries so older save payloads that only stored ids still render.
-   * @param {Array} molecules - Persisted molecule list.
-   * @returns {Array} Sanitized molecule descriptors.
-   */
-  function normalizePersistedMolecules(molecules) {
-    if (!Array.isArray(molecules)) {
-      return [];
-    }
-    return molecules
-      .map((entry) => {
-        if (!entry) {
-          return null;
-        }
-        if (typeof entry === 'string') {
-          return {
-            id: entry,
-            name: entry,
-            tiers: [],
-            description: 'Recorded in the Alchemy Codex.',
-          };
-        }
-        if (typeof entry === 'object') {
-          const id = entry.id || entry.name || 'molecule';
-          const name = typeof entry.name === 'string' ? entry.name : id;
-          const tiers = Array.isArray(entry.tiers) ? entry.tiers.filter((tier) => Number.isFinite(tier)) : [];
-          const description =
-            typeof entry.description === 'string' ? entry.description : 'Recorded in the Alchemy Codex.';
-          const particleCount = Number.isFinite(entry.particleCount)
-            ? Math.max(0, entry.particleCount)
-            : new Set(tiers).size;
-          return { ...entry, id, name, tiers, description, particleCount };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  }
-
-  /**
-   * Apply unique randomized names to normalized molecule entries.
-   * @param {Array} molecules - Raw persisted molecule descriptors.
-   * @returns {Array} Molecule descriptors with guaranteed-unique names.
-   */
-  function normalizeDiscoveredMolecules(molecules) {
-    const normalized = normalizePersistedMolecules(molecules);
-    return tsadiMoleculeNameGenerator.normalizeRecipes(normalized);
-  }
-
-  /**
-   * Compose a persistence-safe snapshot of the advanced spire resource state.
-   * @returns {Object} Sanitized spire resource data for autosave.
-   */
-  function getSpireResourceStateSnapshot() {
-    const powderStoryState = spireResourceState.powder || {};
-    const fluidStoryState = spireResourceState.fluid || {};
-    const lamedState = spireResourceState.lamed || {};
-    const tsadiState = spireResourceState.tsadi || {};
-    const shinState = spireResourceState.shin || {};
-    const kufState = spireResourceState.kuf || {};
-    const moteGems = Array.from(moteGemState.inventory.entries()).map(([gemId, record = {}]) => ({
-      gemId,
-      label: typeof record.label === 'string' ? record.label : gemId,
-      total: Number.isFinite(record.total) ? Math.max(0, record.total) : 0,
-      count: Number.isFinite(record.count) ? Math.max(0, Math.floor(record.count)) : 0,
-    }));
-
-    return {
-      powder: {
-        unlocked: true,
-        storySeen: Boolean(powderStoryState.storySeen),
-      },
-      fluid: {
-        unlocked: Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked),
-        storySeen: Boolean(fluidStoryState.storySeen),
-        generators: fluidStoryState.generators || {},
-        particleFactorMilestone: fluidStoryState.particleFactorMilestone || 100,
-        betGlyphsAwarded: fluidStoryState.betGlyphsAwarded || 0,
-        particlesByTierAndSize: getBetSpireRenderInstance()?.getParticleStateSnapshot(),
-      },
-      lamed: {
-        unlocked: Boolean(lamedState.unlocked),
-        dragLevel: clampPersistedValue(lamedState.dragLevel, 0),
-        starMass: Number.isFinite(lamedState.starMass) ? lamedState.starMass : 10,
-        storySeen: Boolean(lamedState.storySeen),
-        upgrades: {
-          starMass: clampPersistedValue(lamedState.upgrades?.starMass, 0),
-        },
-        stats: {
-          totalAbsorptions: clampPersistedValue(lamedState.stats?.totalAbsorptions, 0),
-          totalMassGained: clampPersistedValue(lamedState.stats?.totalMassGained, 0),
-        },
-        simulationSnapshot: lamedState.simulationSnapshot || null,
-      },
-      tsadi: {
-        unlocked: Boolean(tsadiState.unlocked),
-        storySeen: Boolean(tsadiState.storySeen),
-        bindingAgents: getTsadiBindingAgents(),
-        discoveredMolecules: normalizeDiscoveredMolecules(tsadiState.discoveredMolecules),
-        stats: {
-          totalParticles: clampPersistedValue(tsadiState.stats?.totalParticles, 0),
-          totalGlyphs: clampPersistedValue(tsadiState.stats?.totalGlyphs, 0),
-          highestTier: clampPersistedValue(tsadiState.stats?.highestTier, 0),
-        },
-        simulationSnapshot: tsadiState.simulationSnapshot || null,
-      },
-      shin: {
-        unlocked: Boolean(shinState.unlocked),
-        storySeen: Boolean(shinState.storySeen),
-      },
-      kuf: {
-        unlocked: Boolean(kufState.unlocked),
-        storySeen: Boolean(kufState.storySeen),
-      },
-      achievements: {
-        storySeen: Boolean((spireResourceState.achievements || {}).storySeen),
-      },
-      moteGems: {
-        inventory: moteGems,
-        autoCollectUnlocked: Boolean(moteGemState.autoCollectUnlocked),
-        autoCollectDelayMs: Number.isFinite(moteGemState.autoCollectDelayMs)
-          ? Math.max(0, Math.floor(moteGemState.autoCollectDelayMs))
-          : 0,
-      },
-    };
-  }
-
-  /**
-   * Hydrate the advanced spire resource state from persisted data while preserving existing references.
-   * @param {Object} snapshot - Persisted spire state payload.
-   */
-  function applySpireResourceStateSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') {
-      return;
-    }
-
-    const powderBranch = snapshot.powder || {};
-    const fluidBranch = snapshot.fluid || {};
-    const lamedBranch = snapshot.lamed || {};
-    const tsadiBranch = snapshot.tsadi || {};
-    const shinBranch = snapshot.shin || {};
-    const kufBranch = snapshot.kuf || {};
-    const achievementsBranch = snapshot.achievements || {};
-    const moteGemBranch = snapshot.moteGems || {};
-
-    const powderStoryState = spireResourceState.powder || {};
-    powderStoryState.storySeen = Boolean(powderBranch.storySeen || powderStoryState.storySeen);
-    spireResourceState.powder = powderStoryState;
-
-    const fluidStoryState = spireResourceState.fluid || {};
-    fluidStoryState.unlocked = Boolean(fluidBranch.unlocked || fluidStoryState.unlocked);
-    fluidStoryState.storySeen = Boolean(fluidBranch.storySeen || fluidStoryState.storySeen);
-    fluidStoryState.generators = fluidBranch.generators || fluidStoryState.generators || {};
-    fluidStoryState.particleFactorMilestone = fluidBranch.particleFactorMilestone || fluidStoryState.particleFactorMilestone || 100;
-    fluidStoryState.betGlyphsAwarded = fluidBranch.betGlyphsAwarded || fluidStoryState.betGlyphsAwarded || 0;
-    fluidStoryState.particlesByTierAndSize = fluidBranch.particlesByTierAndSize || fluidStoryState.particlesByTierAndSize || null;
-    spireResourceState.fluid = fluidStoryState;
-    powderState.fluidUnlocked = Boolean(fluidStoryState.unlocked || powderState.fluidUnlocked);
-
-    const lamedState = spireResourceState.lamed || {};
-    lamedState.unlocked = Boolean(lamedBranch.unlocked || lamedState.unlocked);
-    lamedState.dragLevel = clampPersistedValue(lamedBranch.dragLevel, lamedState.dragLevel || 0);
-    lamedState.starMass = Number.isFinite(lamedBranch.starMass) ? lamedBranch.starMass : lamedState.starMass || 10;
-    lamedState.storySeen = Boolean(lamedBranch.storySeen || lamedState.storySeen);
-    lamedState.upgrades = {
-      ...(lamedState.upgrades || {}),
-      starMass: clampPersistedValue(lamedBranch.upgrades?.starMass, lamedState.upgrades?.starMass || 0),
-    };
-    lamedState.stats = {
-      ...(lamedState.stats || {}),
-      totalAbsorptions: clampPersistedValue(
-        lamedBranch.stats?.totalAbsorptions,
-        lamedState.stats?.totalAbsorptions || 0,
-      ),
-      totalMassGained: clampPersistedValue(lamedBranch.stats?.totalMassGained, lamedState.stats?.totalMassGained || 0),
-    };
-    lamedState.simulationSnapshot = lamedBranch.simulationSnapshot || lamedState.simulationSnapshot || null;
-
-    const tsadiState = spireResourceState.tsadi || {};
-    tsadiState.unlocked = Boolean(tsadiBranch.unlocked || tsadiState.unlocked);
-    tsadiState.storySeen = Boolean(tsadiBranch.storySeen || tsadiState.storySeen);
-    const bindingStock = clampPersistedValue(tsadiBranch.bindingAgents, getTsadiBindingAgents());
-    syncTsadiBindingAgents(bindingStock);
-    tsadiState.stats = {
-      ...(tsadiState.stats || {}),
-      totalParticles: clampPersistedValue(tsadiBranch.stats?.totalParticles, tsadiState.stats?.totalParticles || 0),
-      totalGlyphs: clampPersistedValue(tsadiBranch.stats?.totalGlyphs, tsadiState.stats?.totalGlyphs || 0),
-      highestTier: clampPersistedValue(tsadiBranch.stats?.highestTier, tsadiState.stats?.highestTier || 0),
-    };
-    tsadiState.discoveredMolecules = normalizeDiscoveredMolecules(
-      tsadiBranch.discoveredMolecules || tsadiState.discoveredMolecules,
-    );
-    tsadiState.simulationSnapshot = tsadiBranch.simulationSnapshot || tsadiState.simulationSnapshot || null;
-    updateBindingAgentDisplay();
-
-    const shinState = spireResourceState.shin || {};
-    shinState.unlocked = Boolean(shinBranch.unlocked || shinState.unlocked);
-    shinState.storySeen = Boolean(shinBranch.storySeen || shinState.storySeen);
-
-    const kufState = spireResourceState.kuf || {};
-    kufState.unlocked = Boolean(kufBranch.unlocked || kufState.unlocked);
-    kufState.storySeen = Boolean(kufBranch.storySeen || kufState.storySeen);
-
-    const achievementsState = spireResourceState.achievements || {};
-    achievementsState.storySeen = Boolean(achievementsBranch.storySeen || achievementsState.storySeen);
-    spireResourceState.achievements = achievementsState;
-
-    moteGemState.inventory.clear();
-    if (Array.isArray(moteGemBranch.inventory)) {
-      moteGemBranch.inventory.forEach((entry) => {
-        const gemId = typeof entry?.gemId === 'string' ? entry.gemId.trim() : '';
-        if (!gemId) {
-          return;
-        }
-        moteGemState.inventory.set(gemId, {
-          label: typeof entry.label === 'string' && entry.label.trim().length ? entry.label.trim() : gemId,
-          total: Number.isFinite(entry.total) ? Math.max(0, entry.total) : 0,
-          count: Number.isFinite(entry.count) ? Math.max(0, Math.floor(entry.count)) : 0,
-        });
-      });
-    }
-    moteGemState.autoCollectUnlocked = Boolean(
-      moteGemBranch.autoCollectUnlocked || moteGemState.autoCollectUnlocked,
-    );
-    moteGemState.autoCollectDelayMs = Number.isFinite(moteGemBranch.autoCollectDelayMs)
-      ? Math.max(0, Math.floor(moteGemBranch.autoCollectDelayMs))
-      : moteGemState.autoCollectDelayMs || 0;
-  }
-
   // Configure the autosave helpers so they can persist powder, stats, and preference state.
   configureAutoSave({
     audioStorageKey: AUDIO_SETTINGS_STORAGE_KEY,
@@ -3120,471 +2970,6 @@ import { createSpireCameraController } from './spireCameraController.js';
     }, 1000 / 30);
   }
 
-  function handlePlayfieldCombatStart(levelId) {
-    if (!levelId) {
-      return;
-    }
-    hidePlayfieldOutcome();
-    const existing = levelState.get(levelId) || {
-      entered: false,
-      running: false,
-      completed: false,
-    };
-    const updated = { ...existing, entered: true, running: true };
-    levelState.set(levelId, updated);
-    activeLevelId = levelId;
-    resourceState.running = true;
-    ensureResourceTicker();
-    updateActiveLevelBanner();
-    updateLevelCards();
-  }
-
-  function handlePlayfieldVictory(levelId, stats = {}) {
-    if (!levelId) {
-      return;
-    }
-    const existing = levelState.get(levelId) || {
-      entered: true,
-      running: false,
-      completed: false,
-    };
-    const alreadyCompleted = Boolean(existing.completed);
-    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
-    const updated = {
-      ...existing,
-      entered: true,
-      running: false,
-      completed: true,
-      bestWave,
-      lastResult: { outcome: 'victory', stats, timestamp: Date.now() },
-    };
-    levelState.set(levelId, updated);
-    resourceState.running = false;
-
-    notifyLevelVictory(levelId);
-
-    if (!alreadyCompleted) {
-      if (typeof stats.rewardScore === 'number') {
-        resourceState.score += stats.rewardScore;
-      }
-      if (typeof stats.rewardFlux === 'number') {
-        baseResources.fluxRate += stats.rewardFlux;
-      }
-      if (typeof stats.rewardEnergy === 'number') {
-        baseResources.energyRate += stats.rewardEnergy;
-      }
-      unlockNextInteractiveLevel(levelId);
-      // Check if tutorial completion should be triggered
-      checkTutorialCompletion(isLevelCompleted);
-      // Update tab lock states in case tutorial was just completed
-      updateTabLockStates(isTutorialCompleted());
-      updateResourceRates();
-      updatePowderLedger();
-      
-      // Unlock cognitive realm rendering when Chapter 3, level 5 is completed
-      if (levelId === '3 - 5' && isCognitiveRealmLocked()) {
-        unlockCognitiveRealmRendering();
-        updateCognitiveRealmLockState();
-      }
-    } else {
-      updateStatusDisplays();
-      updatePowderLedger();
-    }
-
-    updateActiveLevelBanner();
-    updateLevelCards();
-    
-    // Update cognitive realm territories on level victory
-    if (isCognitiveRealmUnlocked()) {
-      updateTerritoriesForLevel(levelId, true);
-    }
-    
-    commitAutoSave();
-
-    if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
-      // Surface the victory overlay so the player can exit the battlefield gracefully.
-      const level = levelLookup.get(levelId);
-      const subtitle = level && level.title ? `${level.title} sealed.` : 'All waves contained.';
-      showPlayfieldOutcome({
-        outcome: 'victory',
-        title: 'Victory!',
-        subtitle,
-        primaryLabel: 'Back to Level Selection',
-        onPrimary: exitToLevelSelectionFromOutcome,
-      });
-    }
-  }
-
-  function handlePlayfieldDefeat(levelId, stats = {}) {
-    if (!levelId) {
-      return;
-    }
-    const existing = levelState.get(levelId) || {
-      entered: true,
-      running: false,
-      completed: false,
-    };
-    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
-    const updated = {
-      ...existing,
-      entered: true,
-      running: false,
-      completed: existing.completed,
-      bestWave,
-      lastResult: { outcome: 'defeat', stats, timestamp: Date.now() },
-    };
-    levelState.set(levelId, updated);
-    resourceState.running = false;
-    updateActiveLevelBanner();
-    updateLevelCards();
-    
-    // Update cognitive realm territories on level defeat
-    if (isCognitiveRealmUnlocked()) {
-      updateTerritoriesForLevel(levelId, false);
-    }
-    
-    commitAutoSave();
-
-    if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
-      // Display defeat messaging and optional endless retry controls directly on the playfield.
-      const isEndless = Boolean(playfield.isEndlessMode);
-      const fallbackWave = Number.isFinite(playfield.maxWaveReached)
-        ? playfield.maxWaveReached
-        : null;
-      const achievedWave = Number.isFinite(stats.maxWave) ? stats.maxWave : fallbackWave;
-      const waveLabel = achievedWave ? formatWholeNumber(achievedWave) : null;
-      const subtitle = isEndless && waveLabel
-        ? `Wave ${waveLabel} achieved.`
-        : 'The defense collapsed—recalibrate and retry.';
-      let secondaryLabel = null;
-      let secondaryAction = null;
-      if (isEndless && typeof playfield.getEndlessCheckpointInfo === 'function') {
-        const checkpoint = playfield.getEndlessCheckpointInfo();
-        if (checkpoint?.available && Number.isFinite(checkpoint.waveNumber)) {
-          const retryWave = formatWholeNumber(checkpoint.waveNumber);
-          secondaryLabel = `Retry from wave ${retryWave}`;
-          secondaryAction = handleOutcomeRetryRequest;
-        }
-      }
-      showPlayfieldOutcome({
-        outcome: 'defeat',
-        title: 'Defeat…',
-        subtitle,
-        primaryLabel: 'Back to Level Selection',
-        onPrimary: exitToLevelSelectionFromOutcome,
-        secondaryLabel,
-        onSecondary: secondaryAction,
-      });
-    }
-  }
-
-  // Update cognitive realm map visibility based on unlock status, tab, and level state
-  function updateCognitiveRealmVisibility() {
-    const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
-    if (!cognitiveRealmSection) {
-      return;
-    }
-
-    if (isCognitiveRealmUnlocked()) {
-      cognitiveRealmSection.hidden = false;
-      cognitiveRealmSection.setAttribute('aria-hidden', 'false');
-      
-      // Only show map if on Defense tab AND not inside a level
-      const activeTabId = getActiveTabId();
-      const isDefenseTab = activeTabId === 'tower';
-      const isInsideLevel = Boolean(activeLevelId);
-      const shouldShowMap = isDefenseTab && !isInsideLevel;
-      
-      if (shouldShowMap) {
-        showCognitiveRealmMap();
-      } else {
-        hideCognitiveRealmMap();
-      }
-    } else {
-      cognitiveRealmSection.hidden = true;
-      cognitiveRealmSection.setAttribute('aria-hidden', 'true');
-      hideCognitiveRealmMap();
-    }
-  }
-
-  function handleLevelSelection(level) {
-    const state = levelState.get(level.id) || { entered: false, running: false };
-    const activeElement = document.activeElement;
-    if (activeElement && typeof activeElement.focus === 'function') {
-      lastLevelTrigger = activeElement;
-    } else {
-      lastLevelTrigger = null;
-    }
-
-    if (!isLevelUnlocked(level.id)) {
-      const requirementId = getPreviousInteractiveLevelId(level.id);
-      const requirement = requirementId ? levelLookup.get(requirementId) : null;
-      const requirementLabel = requirement
-        ? `${requirement.id} · ${requirement.title}`
-        : 'the preceding defense';
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock ${level.id}.`;
-      }
-      if (audioManager) {
-        audioManager.playSfx('error');
-      }
-      lastLevelTrigger = null;
-      return;
-    }
-
-    // Handle story levels specially - always show story and mark as completed when finished
-    if (isStoryOnlyLevel(level.id)) {
-      if (levelStoryScreen) {
-        levelStoryScreen.maybeShowStory(level, {
-          shouldShow: () => true, // Force story display for story-only levels
-          onComplete: () => {
-            // Mark the story level as completed
-            if (!isLevelCompleted(level.id)) {
-              const currentState = levelState.get(level.id) || {};
-              levelState.set(level.id, {
-                ...currentState,
-                completed: true,
-                entered: true,
-                storySeen: true,
-              });
-              unlockNextInteractiveLevel(level.id);
-              updateLevelCards();
-              
-              // Special unlock for Prologue - Story: unlock Achievements and first Trial.
-              if (level.id === 'Prologue - Story') {
-                unlockAchievements();
-                unlockAchievementsTab();
-                // Unlock first trial after completing prologue
-                if (isInteractiveLevel('Trial - 1')) {
-                  unlockLevel('Trial - 1');
-                }
-              }
-              
-              // Special unlock for chapter story levels: unlock corresponding Ladder chapter and next Trial
-              const chapterStoryMatch = level.id.match(/^([1-6]) - Story$/);
-              if (chapterStoryMatch) {
-                const chapterNum = Number(chapterStoryMatch[1]);
-                // Unlock all Ladder levels for this chapter
-                for (let i = 1; i <= 5; i++) {
-                  const ladderLevelId = `Ladder - ${chapterNum} - ${i}`;
-                  if (isInteractiveLevel(ladderLevelId)) {
-                    unlockLevel(ladderLevelId);
-                  }
-                }
-                
-                // Unlock next trial after each chapter story (Trial 2-7 unlock after Chapters 1-6)
-                const nextTrialNum = chapterNum + 1;
-                if (nextTrialNum >= 2 && nextTrialNum <= 7) {
-                  const nextTrialId = `Trial - ${nextTrialNum}`;
-                  if (isInteractiveLevel(nextTrialId)) {
-                    unlockLevel(nextTrialId);
-                  }
-                }
-              }
-              
-              // Check if this completes tutorial
-              checkTutorialCompletion(isLevelCompleted);
-              updateTabLockStates(isTutorialCompleted());
-              commitAutoSave();
-            }
-          },
-        });
-      }
-      lastLevelTrigger = null;
-      return;
-    }
-
-    const otherActiveId = activeLevelId && activeLevelId !== level.id ? activeLevelId : null;
-    const otherActiveState = otherActiveId ? levelState.get(otherActiveId) : null;
-    const requiresExitConfirm = Boolean(
-      otherActiveId && (otherActiveState?.running || otherActiveState?.entered),
-    );
-
-    if (!state.entered || requiresExitConfirm) {
-      pendingLevel = level;
-      if (levelOverlayController) {
-        levelOverlayController.showLevelOverlay(level, {
-          requireExitConfirm: requiresExitConfirm,
-          exitLevelId: otherActiveId,
-        });
-      }
-      return;
-    }
-
-    startLevel(level);
-    focusLeaveLevelButton();
-    lastLevelTrigger = null;
-  }
-
-  function cancelPendingLevel() {
-    pendingLevel = null;
-    if (levelOverlayController) {
-      levelOverlayController.hideLevelOverlay();
-    }
-    if (lastLevelTrigger && typeof lastLevelTrigger.focus === 'function') {
-      lastLevelTrigger.focus();
-    }
-    lastLevelTrigger = null;
-  }
-
-  function confirmPendingLevel() {
-    if (!pendingLevel) {
-      if (levelOverlayController) {
-        levelOverlayController.hideLevelOverlay();
-      }
-      return;
-    }
-
-    const levelToStart = pendingLevel;
-    pendingLevel = null;
-    if (levelOverlayController) {
-      levelOverlayController.hideLevelOverlay();
-    }
-    startLevel(levelToStart);
-    focusLeaveLevelButton();
-    lastLevelTrigger = null;
-  }
-
-  // Allow the overlay confirmation gesture to begin levels through the shared controller.
-  if (levelOverlayController) {
-    levelOverlayController.setConfirmHandler(confirmPendingLevel);
-  }
-
-  function startLevel(level) {
-    deactivateDeveloperMapTools({ force: true, silent: true });
-    const currentState = levelState.get(level.id) || {
-      entered: false,
-      running: false,
-      completed: false,
-    };
-    const isInteractive = isInteractiveLevel(level.id);
-    const levelConfig = levelConfigs.get(level.id);
-    const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
-    const endlessCampaign = level?.campaign === 'Ladder';
-    if (isInteractive && !isLevelUnlocked(level.id)) {
-      if (playfield?.messageEl) {
-        const requiredId = getPreviousInteractiveLevelId(level.id);
-        const requiredLevel = requiredId ? levelLookup.get(requiredId) : null;
-        const requirementLabel = requiredLevel
-          ? `${requiredLevel.id} · ${requiredLevel.title}`
-          : 'the previous defense';
-        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock this path.`;
-      }
-      return;
-    }
-    const updatedState = {
-      ...currentState,
-      entered: true,
-      running: !isInteractive,
-    };
-    levelState.set(level.id, updatedState);
-    
-    // Unlock Towers tab when entering any interactive level for the first time
-    if (isInteractive && !currentState.entered && !isTowersTabUnlocked()) {
-      unlockTowersTabState();
-      unlockTowersTab();
-    }
-
-    stopAllIdleRuns(level.id);
-
-    levelState.forEach((state, id) => {
-      if (id !== level.id) {
-        levelState.set(id, { ...state, running: false });
-      }
-    });
-
-    activeLevelId = level.id;
-    // Remember whether the active map uses the live battlefield.
-    activeLevelIsInteractive = isInteractive;
-    resourceState.running = !isInteractive;
-    ensureResourceTicker();
-    updateActiveLevelBanner();
-    updateLevelCards();
-
-    // Hide cognitive realm map whenever a level begins so rendering pauses inside encounters
-    if (isCognitiveRealmUnlocked()) {
-      hideCognitiveRealmMap();
-    }
-
-    if (playfield) {
-      playfield.enterLevel(level, {
-        endlessMode: forceEndlessMode || endlessCampaign,
-      });
-    }
-
-    if (isInteractive && levelStoryScreen) {
-      levelStoryScreen.maybeShowStory(level);
-    }
-
-    if (isInteractive) {
-      if (audioManager) {
-        audioManager.playSfx('enterLevel');
-      }
-      refreshTabMusic({ restart: true });
-    } else {
-      refreshTabMusic();
-    }
-
-    if (!isInteractive) {
-      beginIdleLevelRun(level);
-    } else {
-      updateIdleLevelDisplay();
-    }
-
-    updateTowerSelectionButtons();
-
-    // Swap the visible UI surfaces to match the new level state.
-    updateLayoutVisibility();
-  }
-
-  function leaveActiveLevel() {
-    if (!activeLevelId) return;
-    deactivateDeveloperMapTools({ force: true, silent: true });
-    hidePlayfieldOutcome();
-    const state = levelState.get(activeLevelId);
-    if (state) {
-      levelState.set(activeLevelId, { ...state, running: false });
-    }
-    stopIdleLevelRun(activeLevelId);
-    if (playfield) {
-      // Close any open tower selection wheels when leaving the level
-      if (typeof playfield.closeTowerSelectionWheel === 'function') {
-        playfield.closeTowerSelectionWheel();
-      }
-      playfield.leaveLevel();
-    }
-    // Close the loadout wheel when leaving the level
-    if (typeof closeLoadoutWheel === 'function') {
-      closeLoadoutWheel();
-    }
-    refreshTabMusic({ restart: true });
-    activeLevelId = null;
-
-    // Reset the interaction flag so the level grid is visible again.
-    activeLevelIsInteractive = false;
-    resourceState.running = false;
-    updateActiveLevelBanner();
-    updateLevelCards();
-    // Ensure the battlefield stays hidden until another level begins.
-    updateLayoutVisibility();
-    updateTowerSelectionButtons();
-    
-    // Show cognitive realm map when leaving a level if on Defense tab
-    if (isCognitiveRealmUnlocked()) {
-      const activeTabId = getActiveTabId();
-      if (activeTabId === 'tower') {
-        showCognitiveRealmMap();
-      }
-    }
-    if (playfieldMenuController) {
-      playfieldMenuController.updateMenuState();
-    }
-  }
-
-  
-
-
-
   // Collapsible settings menus use a shared helper to eliminate duplicate expand/collapse logic.
   function bindVisualSettingsMenu() {
     bindCollapsibleMenu({ triggerId: 'visual-settings-menu-button', menuId: 'visual-settings-menu' });
@@ -3600,13 +2985,6 @@ import { createSpireCameraController } from './spireCameraController.js';
       leaveActiveLevel();
     });
   }
-
-  function focusLeaveLevelButton() {
-    if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
-      leaveLevelBtn.focus();
-    }
-  }
-
 
 
   // Field notes overlay logic handled by fieldNotesOverlay.js.
