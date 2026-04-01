@@ -6,7 +6,8 @@
  * inspired by the "Euler 2D" XScreenSaver (Stephen Montgomery-Smith, 2002),
  * which simulates two-dimensional incompressible inviscid fluid flow.
  *
- * The velocity field is composed of four contributions:
+ * The velocity field is composed of four analytical contributions, plus a
+ * fifth particle-interaction pass:
  *  1. Path-channel current  – a Gaussian-weighted flow aligned with each
  *     level-path segment, creating a river-like current along the route.
  *  2. Mind Gate CW vortex   – a clockwise point vortex centred on the path
@@ -16,6 +17,9 @@
  *     (the Shadow Gate), spinning tracers outward as they emerge.
  *  4. Tower obstacles        – soft radial repulsion around each tower so the
  *     flow appears to part around solid objects.
+ *  5. Inter-particle repulsion – a gentle linear-falloff nudge between
+ *     nearby particles, preventing them from bunching at edges or vortex
+ *     centres.
  *
  * Visualised as short colour trails at ≈ 20 % peak opacity, using a
  * blue-to-violet palette that harmonises with the Chapter 3 deep-purple
@@ -56,6 +60,17 @@ const TOWER_OBSTACLE_R = 54;
 
 /** Tower obstacle repulsion coefficient. */
 const TOWER_OBSTACLE_K = 2200;
+
+/** Inter-particle repulsion radius (world px).  Particles closer than this
+ *  nudge each other apart, preventing clumping at edges and vortex centres. */
+const PARTICLE_REPEL_R = 24;
+
+/** Inter-particle repulsion coefficient (world px / s).  The force uses a
+ *  linear falloff: strongest at zero separation, zero at PARTICLE_REPEL_R. */
+const PARTICLE_REPEL_K = 600;
+
+// Precomputed squared repulsion radius.
+const PARTICLE_REPEL_R_SQ = PARTICLE_REPEL_R * PARTICLE_REPEL_R;
 
 /** Maximum particle speed cap (world px / s). */
 const MAX_SPEED = 160;
@@ -343,6 +358,10 @@ export function createEulerFluidEffect() {
       _initParticles(W, H);
     }
 
+    // Phase 1: advect every particle through the analytical velocity field.
+    // Store per-particle speed for the respawn check in Phase 3.
+    const speeds = new Float32Array(particles.length);
+
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
 
@@ -355,17 +374,47 @@ export function createEulerFluidEffect() {
       p.x += vx * dt;
       p.y += vy * dt;
 
-      // Append current position to the trail; trim the oldest point when full.
+      speeds[i] = Math.sqrt(vx * vx + vy * vy);
+    }
+
+    // Phase 2: inter-particle repulsion – prevents clumping at boundaries and
+    // vortex centres.  A linear falloff (strongest at zero separation, zero at
+    // PARTICLE_REPEL_R) keeps the effect gentle and singularity-free.
+    for (let i = 0; i < particles.length; i++) {
+      const pi = particles[i];
+      for (let j = i + 1; j < particles.length; j++) {
+        const pj = particles[j];
+        const dx = pi.x - pj.x;
+        const dy = pi.y - pj.y;
+        const r2 = dx * dx + dy * dy;
+        if (r2 < PARTICLE_REPEL_R_SQ && r2 > 0.01) {
+          const r  = Math.sqrt(r2);
+          // Linear falloff: full strength at r=0, zero at r=PARTICLE_REPEL_R.
+          const f  = PARTICLE_REPEL_K * (1 - r / PARTICLE_REPEL_R) * dt;
+          const nx = dx / r;
+          const ny = dy / r;
+          pi.x += nx * f;
+          pi.y += ny * f;
+          pj.x -= nx * f;
+          pj.y -= ny * f;
+        }
+      }
+    }
+
+    // Phase 3: record trails and respawn out-of-bounds / stalled particles.
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+
+      // Append current (post-repulsion) position to the trail.
       p.trail.push({ x: p.x, y: p.y });
       if (p.trail.length > TRAIL_LENGTH) {
         p.trail.shift();
       }
 
       // Respawn the particle if it has left the extended viewport or stalled.
-      const spd = Math.sqrt(vx * vx + vy * vy);
       const oob = p.x < -RESPAWN_OOB_MARGIN || p.x > W + RESPAWN_OOB_MARGIN ||
                   p.y < -RESPAWN_OOB_MARGIN || p.y > H + RESPAWN_OOB_MARGIN;
-      if (oob || spd < RESPAWN_SLOW_THRESHOLD) {
+      if (oob || speeds[i] < RESPAWN_SLOW_THRESHOLD) {
         particles[i] = _spawnParticle(W, H, _shadowGate, i);
       }
     }
