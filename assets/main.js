@@ -174,6 +174,7 @@ import { createSpireResourceState } from './state/spireResourceState.js';
 import { createPowderStateContext } from './powder/powderState.js';
 import { createTsadiMoleculeNameGenerator, TSADI_MOLECULE_LEXICON } from './tsadiMoleculeNameGenerator.js';
 import { createSpireResourcePersistence } from './spireResourcePersistence.js';
+import { createLevelCombatController } from './levelCombatController.js';
 import { createSpireResourceBanks } from './spireResourceBanks.js';
 import {
   applyBetIdleParticles,
@@ -689,8 +690,10 @@ import { createSpireCameraController } from './spireCameraController.js';
   let levelPreviewRenderer = null;
   let levelOverlayController = null;
   let activeLevelId = null;
-  let pendingLevel = null;
-  let lastLevelTrigger = null;
+
+  // Level combat controller – declared early for late-binding in callback registrations;
+  // instantiated after idle run manager and remaining dependencies are available.
+  let levelCombatCtrl;
 
   const PERSISTENT_STORAGE_KEYS = [
     GRAPHICS_MODE_STORAGE_KEY,
@@ -894,12 +897,12 @@ import { createSpireCameraController } from './spireCameraController.js';
     activateDeveloperMapToolsForLevel,
     deactivateDeveloperMapTools,
     clearPendingLevel: () => {
-      pendingLevel = null;
+      if (levelCombatCtrl) levelCombatCtrl.clearPendingLevel();
     },
     requestLayoutRefresh: () => {
       updateLayoutVisibility();
     },
-    leaveActiveLevel,
+    leaveActiveLevel: (...args) => levelCombatCtrl.leaveActiveLevel(...args),
     onStatsPanelVisibilityChange: (visible) => {
       if (playfield && typeof playfield.setStatsPanelEnabled === 'function') {
         playfield.setStatsPanelEnabled(visible);
@@ -925,7 +928,7 @@ import { createSpireCameraController } from './spireCameraController.js';
 
   configurePlayfieldOutcome({
     getPlayfield: () => playfield,
-    leaveActiveLevel,
+    leaveActiveLevel: (...args) => levelCombatCtrl.leaveActiveLevel(...args),
     updateLayoutVisibility,
     getStartButton: () => playfieldElements.startButton,
   });
@@ -1633,10 +1636,91 @@ import { createSpireCameraController } from './spireCameraController.js';
     levelLookup,
     isInteractiveLevel,
     updateLevelCards,
-    handlePlayfieldVictory,
+    handlePlayfieldVictory: (...args) => levelCombatCtrl.handlePlayfieldVictory(...args),
     getActiveLevelId: () => activeLevelId,
     getPlayfieldElements: () => playfieldElements,
   });
+
+  // ── Level combat controller (extracted from main.js) ──────────────────
+  levelCombatCtrl = createLevelCombatController({
+    getActiveLevelId: () => activeLevelId,
+    setActiveLevelId: (id) => { activeLevelId = id; },
+    getActiveLevelIsInteractive: () => activeLevelIsInteractive,
+    setActiveLevelIsInteractive: (val) => { activeLevelIsInteractive = val; },
+    resourceState,
+    baseResources,
+    levelState,
+    levelLookup,
+    levelConfigs,
+    getPlayfield: () => playfield,
+    getLevelOverlayController: () => levelOverlayController,
+    getLevelStoryScreen: () => levelStoryScreen,
+    getPlayfieldMenuController: () => playfieldMenuController,
+    getAudioManager: () => audioManager,
+    getLeaveLevelBtn: () => leaveLevelBtn,
+    hidePlayfieldOutcome,
+    showPlayfieldOutcome,
+    exitToLevelSelectionFromOutcome,
+    handleOutcomeRetryRequest,
+    isLevelUnlocked,
+    isStoryOnlyLevel,
+    isInteractiveLevel,
+    isLevelCompleted,
+    getPreviousInteractiveLevelId,
+    unlockNextInteractiveLevel,
+    unlockLevel,
+    formatWholeNumber,
+    checkTutorialCompletion,
+    isTutorialCompleted,
+    updateTabLockStates,
+    isTowersTabUnlocked,
+    unlockTowersTabState,
+    unlockTowersTab,
+    unlockAchievements,
+    unlockAchievementsTab,
+    ensureResourceTicker,
+    updateActiveLevelBanner,
+    updateLevelCards,
+    updateResourceRates,
+    updatePowderLedger,
+    updateStatusDisplays,
+    updateTowerSelectionButtons,
+    updateLayoutVisibility,
+    notifyLevelVictory,
+    commitAutoSave,
+    isCognitiveRealmUnlocked,
+    isCognitiveRealmLocked,
+    unlockCognitiveRealmRendering,
+    updateCognitiveRealmLockState,
+    updateTerritoriesForLevel,
+    showCognitiveRealmMap,
+    hideCognitiveRealmMap,
+    getActiveTabId,
+    stopAllIdleRuns,
+    beginIdleLevelRun,
+    updateIdleLevelDisplay,
+    stopIdleLevelRun,
+    closeLoadoutWheel,
+    refreshTabMusic,
+    deactivateDeveloperMapTools,
+  });
+
+  // Thin delegates so existing call sites continue to work unchanged.
+  const handlePlayfieldCombatStart = levelCombatCtrl.handlePlayfieldCombatStart;
+  const handlePlayfieldVictory = levelCombatCtrl.handlePlayfieldVictory;
+  const handlePlayfieldDefeat = levelCombatCtrl.handlePlayfieldDefeat;
+  const handleLevelSelection = levelCombatCtrl.handleLevelSelection;
+  const cancelPendingLevel = levelCombatCtrl.cancelPendingLevel;
+  const confirmPendingLevel = levelCombatCtrl.confirmPendingLevel;
+  const startLevel = levelCombatCtrl.startLevel;
+  const leaveActiveLevel = levelCombatCtrl.leaveActiveLevel;
+  const updateCognitiveRealmVisibility = levelCombatCtrl.updateCognitiveRealmVisibility;
+  const focusLeaveLevelButton = levelCombatCtrl.focusLeaveLevelButton;
+
+  // Allow the overlay confirmation gesture to begin levels through the shared controller.
+  if (levelOverlayController) {
+    levelOverlayController.setConfirmHandler(confirmPendingLevel);
+  }
 
   const { initializeManualDropHandlers } = createManualDropController({
     getActiveTabId,
@@ -1777,7 +1861,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     isTutorialCompleted,
     unlockCognitiveRealm,
     unlockCognitiveRealmRendering,
-    updateCognitiveRealmVisibility,
+    updateCognitiveRealmVisibility: (...args) => levelCombatCtrl.updateCognitiveRealmVisibility(...args),
   });
 
   // ── Level Grid Controller ───────────────────────────────────────────
@@ -2886,471 +2970,6 @@ import { createSpireCameraController } from './spireCameraController.js';
     }, 1000 / 30);
   }
 
-  function handlePlayfieldCombatStart(levelId) {
-    if (!levelId) {
-      return;
-    }
-    hidePlayfieldOutcome();
-    const existing = levelState.get(levelId) || {
-      entered: false,
-      running: false,
-      completed: false,
-    };
-    const updated = { ...existing, entered: true, running: true };
-    levelState.set(levelId, updated);
-    activeLevelId = levelId;
-    resourceState.running = true;
-    ensureResourceTicker();
-    updateActiveLevelBanner();
-    updateLevelCards();
-  }
-
-  function handlePlayfieldVictory(levelId, stats = {}) {
-    if (!levelId) {
-      return;
-    }
-    const existing = levelState.get(levelId) || {
-      entered: true,
-      running: false,
-      completed: false,
-    };
-    const alreadyCompleted = Boolean(existing.completed);
-    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
-    const updated = {
-      ...existing,
-      entered: true,
-      running: false,
-      completed: true,
-      bestWave,
-      lastResult: { outcome: 'victory', stats, timestamp: Date.now() },
-    };
-    levelState.set(levelId, updated);
-    resourceState.running = false;
-
-    notifyLevelVictory(levelId);
-
-    if (!alreadyCompleted) {
-      if (typeof stats.rewardScore === 'number') {
-        resourceState.score += stats.rewardScore;
-      }
-      if (typeof stats.rewardFlux === 'number') {
-        baseResources.fluxRate += stats.rewardFlux;
-      }
-      if (typeof stats.rewardEnergy === 'number') {
-        baseResources.energyRate += stats.rewardEnergy;
-      }
-      unlockNextInteractiveLevel(levelId);
-      // Check if tutorial completion should be triggered
-      checkTutorialCompletion(isLevelCompleted);
-      // Update tab lock states in case tutorial was just completed
-      updateTabLockStates(isTutorialCompleted());
-      updateResourceRates();
-      updatePowderLedger();
-      
-      // Unlock cognitive realm rendering when Chapter 3, level 5 is completed
-      if (levelId === '3 - 5' && isCognitiveRealmLocked()) {
-        unlockCognitiveRealmRendering();
-        updateCognitiveRealmLockState();
-      }
-    } else {
-      updateStatusDisplays();
-      updatePowderLedger();
-    }
-
-    updateActiveLevelBanner();
-    updateLevelCards();
-    
-    // Update cognitive realm territories on level victory
-    if (isCognitiveRealmUnlocked()) {
-      updateTerritoriesForLevel(levelId, true);
-    }
-    
-    commitAutoSave();
-
-    if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
-      // Surface the victory overlay so the player can exit the battlefield gracefully.
-      const level = levelLookup.get(levelId);
-      const subtitle = level && level.title ? `${level.title} sealed.` : 'All waves contained.';
-      showPlayfieldOutcome({
-        outcome: 'victory',
-        title: 'Victory!',
-        subtitle,
-        primaryLabel: 'Back to Level Selection',
-        onPrimary: exitToLevelSelectionFromOutcome,
-      });
-    }
-  }
-
-  function handlePlayfieldDefeat(levelId, stats = {}) {
-    if (!levelId) {
-      return;
-    }
-    const existing = levelState.get(levelId) || {
-      entered: true,
-      running: false,
-      completed: false,
-    };
-    const bestWave = Math.max(existing.bestWave || 0, stats.maxWave || 0);
-    const updated = {
-      ...existing,
-      entered: true,
-      running: false,
-      completed: existing.completed,
-      bestWave,
-      lastResult: { outcome: 'defeat', stats, timestamp: Date.now() },
-    };
-    levelState.set(levelId, updated);
-    resourceState.running = false;
-    updateActiveLevelBanner();
-    updateLevelCards();
-    
-    // Update cognitive realm territories on level defeat
-    if (isCognitiveRealmUnlocked()) {
-      updateTerritoriesForLevel(levelId, false);
-    }
-    
-    commitAutoSave();
-
-    if (activeLevelId === levelId && activeLevelIsInteractive && playfield) {
-      // Display defeat messaging and optional endless retry controls directly on the playfield.
-      const isEndless = Boolean(playfield.isEndlessMode);
-      const fallbackWave = Number.isFinite(playfield.maxWaveReached)
-        ? playfield.maxWaveReached
-        : null;
-      const achievedWave = Number.isFinite(stats.maxWave) ? stats.maxWave : fallbackWave;
-      const waveLabel = achievedWave ? formatWholeNumber(achievedWave) : null;
-      const subtitle = isEndless && waveLabel
-        ? `Wave ${waveLabel} achieved.`
-        : 'The defense collapsed—recalibrate and retry.';
-      let secondaryLabel = null;
-      let secondaryAction = null;
-      if (isEndless && typeof playfield.getEndlessCheckpointInfo === 'function') {
-        const checkpoint = playfield.getEndlessCheckpointInfo();
-        if (checkpoint?.available && Number.isFinite(checkpoint.waveNumber)) {
-          const retryWave = formatWholeNumber(checkpoint.waveNumber);
-          secondaryLabel = `Retry from wave ${retryWave}`;
-          secondaryAction = handleOutcomeRetryRequest;
-        }
-      }
-      showPlayfieldOutcome({
-        outcome: 'defeat',
-        title: 'Defeat…',
-        subtitle,
-        primaryLabel: 'Back to Level Selection',
-        onPrimary: exitToLevelSelectionFromOutcome,
-        secondaryLabel,
-        onSecondary: secondaryAction,
-      });
-    }
-  }
-
-  // Update cognitive realm map visibility based on unlock status, tab, and level state
-  function updateCognitiveRealmVisibility() {
-    const cognitiveRealmSection = document.getElementById('cognitive-realm-section');
-    if (!cognitiveRealmSection) {
-      return;
-    }
-
-    if (isCognitiveRealmUnlocked()) {
-      cognitiveRealmSection.hidden = false;
-      cognitiveRealmSection.setAttribute('aria-hidden', 'false');
-      
-      // Only show map if on Defense tab AND not inside a level
-      const activeTabId = getActiveTabId();
-      const isDefenseTab = activeTabId === 'tower';
-      const isInsideLevel = Boolean(activeLevelId);
-      const shouldShowMap = isDefenseTab && !isInsideLevel;
-      
-      if (shouldShowMap) {
-        showCognitiveRealmMap();
-      } else {
-        hideCognitiveRealmMap();
-      }
-    } else {
-      cognitiveRealmSection.hidden = true;
-      cognitiveRealmSection.setAttribute('aria-hidden', 'true');
-      hideCognitiveRealmMap();
-    }
-  }
-
-  function handleLevelSelection(level) {
-    const state = levelState.get(level.id) || { entered: false, running: false };
-    const activeElement = document.activeElement;
-    if (activeElement && typeof activeElement.focus === 'function') {
-      lastLevelTrigger = activeElement;
-    } else {
-      lastLevelTrigger = null;
-    }
-
-    if (!isLevelUnlocked(level.id)) {
-      const requirementId = getPreviousInteractiveLevelId(level.id);
-      const requirement = requirementId ? levelLookup.get(requirementId) : null;
-      const requirementLabel = requirement
-        ? `${requirement.id} · ${requirement.title}`
-        : 'the preceding defense';
-      if (playfield?.messageEl) {
-        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock ${level.id}.`;
-      }
-      if (audioManager) {
-        audioManager.playSfx('error');
-      }
-      lastLevelTrigger = null;
-      return;
-    }
-
-    // Handle story levels specially - always show story and mark as completed when finished
-    if (isStoryOnlyLevel(level.id)) {
-      if (levelStoryScreen) {
-        levelStoryScreen.maybeShowStory(level, {
-          shouldShow: () => true, // Force story display for story-only levels
-          onComplete: () => {
-            // Mark the story level as completed
-            if (!isLevelCompleted(level.id)) {
-              const currentState = levelState.get(level.id) || {};
-              levelState.set(level.id, {
-                ...currentState,
-                completed: true,
-                entered: true,
-                storySeen: true,
-              });
-              unlockNextInteractiveLevel(level.id);
-              updateLevelCards();
-              
-              // Special unlock for Prologue - Story: unlock Achievements and first Trial.
-              if (level.id === 'Prologue - Story') {
-                unlockAchievements();
-                unlockAchievementsTab();
-                // Unlock first trial after completing prologue
-                if (isInteractiveLevel('Trial - 1')) {
-                  unlockLevel('Trial - 1');
-                }
-              }
-              
-              // Special unlock for chapter story levels: unlock corresponding Ladder chapter and next Trial
-              const chapterStoryMatch = level.id.match(/^([1-6]) - Story$/);
-              if (chapterStoryMatch) {
-                const chapterNum = Number(chapterStoryMatch[1]);
-                // Unlock all Ladder levels for this chapter
-                for (let i = 1; i <= 5; i++) {
-                  const ladderLevelId = `Ladder - ${chapterNum} - ${i}`;
-                  if (isInteractiveLevel(ladderLevelId)) {
-                    unlockLevel(ladderLevelId);
-                  }
-                }
-                
-                // Unlock next trial after each chapter story (Trial 2-7 unlock after Chapters 1-6)
-                const nextTrialNum = chapterNum + 1;
-                if (nextTrialNum >= 2 && nextTrialNum <= 7) {
-                  const nextTrialId = `Trial - ${nextTrialNum}`;
-                  if (isInteractiveLevel(nextTrialId)) {
-                    unlockLevel(nextTrialId);
-                  }
-                }
-              }
-              
-              // Check if this completes tutorial
-              checkTutorialCompletion(isLevelCompleted);
-              updateTabLockStates(isTutorialCompleted());
-              commitAutoSave();
-            }
-          },
-        });
-      }
-      lastLevelTrigger = null;
-      return;
-    }
-
-    const otherActiveId = activeLevelId && activeLevelId !== level.id ? activeLevelId : null;
-    const otherActiveState = otherActiveId ? levelState.get(otherActiveId) : null;
-    const requiresExitConfirm = Boolean(
-      otherActiveId && (otherActiveState?.running || otherActiveState?.entered),
-    );
-
-    if (!state.entered || requiresExitConfirm) {
-      pendingLevel = level;
-      if (levelOverlayController) {
-        levelOverlayController.showLevelOverlay(level, {
-          requireExitConfirm: requiresExitConfirm,
-          exitLevelId: otherActiveId,
-        });
-      }
-      return;
-    }
-
-    startLevel(level);
-    focusLeaveLevelButton();
-    lastLevelTrigger = null;
-  }
-
-  function cancelPendingLevel() {
-    pendingLevel = null;
-    if (levelOverlayController) {
-      levelOverlayController.hideLevelOverlay();
-    }
-    if (lastLevelTrigger && typeof lastLevelTrigger.focus === 'function') {
-      lastLevelTrigger.focus();
-    }
-    lastLevelTrigger = null;
-  }
-
-  function confirmPendingLevel() {
-    if (!pendingLevel) {
-      if (levelOverlayController) {
-        levelOverlayController.hideLevelOverlay();
-      }
-      return;
-    }
-
-    const levelToStart = pendingLevel;
-    pendingLevel = null;
-    if (levelOverlayController) {
-      levelOverlayController.hideLevelOverlay();
-    }
-    startLevel(levelToStart);
-    focusLeaveLevelButton();
-    lastLevelTrigger = null;
-  }
-
-  // Allow the overlay confirmation gesture to begin levels through the shared controller.
-  if (levelOverlayController) {
-    levelOverlayController.setConfirmHandler(confirmPendingLevel);
-  }
-
-  function startLevel(level) {
-    deactivateDeveloperMapTools({ force: true, silent: true });
-    const currentState = levelState.get(level.id) || {
-      entered: false,
-      running: false,
-      completed: false,
-    };
-    const isInteractive = isInteractiveLevel(level.id);
-    const levelConfig = levelConfigs.get(level.id);
-    const forceEndlessMode = Boolean(level?.forceEndlessMode || levelConfig?.forceEndlessMode);
-    const endlessCampaign = level?.campaign === 'Ladder';
-    if (isInteractive && !isLevelUnlocked(level.id)) {
-      if (playfield?.messageEl) {
-        const requiredId = getPreviousInteractiveLevelId(level.id);
-        const requiredLevel = requiredId ? levelLookup.get(requiredId) : null;
-        const requirementLabel = requiredLevel
-          ? `${requiredLevel.id} · ${requiredLevel.title}`
-          : 'the previous defense';
-        playfield.messageEl.textContent = `Seal ${requirementLabel} to unlock this path.`;
-      }
-      return;
-    }
-    const updatedState = {
-      ...currentState,
-      entered: true,
-      running: !isInteractive,
-    };
-    levelState.set(level.id, updatedState);
-    
-    // Unlock Towers tab when entering any interactive level for the first time
-    if (isInteractive && !currentState.entered && !isTowersTabUnlocked()) {
-      unlockTowersTabState();
-      unlockTowersTab();
-    }
-
-    stopAllIdleRuns(level.id);
-
-    levelState.forEach((state, id) => {
-      if (id !== level.id) {
-        levelState.set(id, { ...state, running: false });
-      }
-    });
-
-    activeLevelId = level.id;
-    // Remember whether the active map uses the live battlefield.
-    activeLevelIsInteractive = isInteractive;
-    resourceState.running = !isInteractive;
-    ensureResourceTicker();
-    updateActiveLevelBanner();
-    updateLevelCards();
-
-    // Hide cognitive realm map whenever a level begins so rendering pauses inside encounters
-    if (isCognitiveRealmUnlocked()) {
-      hideCognitiveRealmMap();
-    }
-
-    if (playfield) {
-      playfield.enterLevel(level, {
-        endlessMode: forceEndlessMode || endlessCampaign,
-      });
-    }
-
-    if (isInteractive && levelStoryScreen) {
-      levelStoryScreen.maybeShowStory(level);
-    }
-
-    if (isInteractive) {
-      if (audioManager) {
-        audioManager.playSfx('enterLevel');
-      }
-      refreshTabMusic({ restart: true });
-    } else {
-      refreshTabMusic();
-    }
-
-    if (!isInteractive) {
-      beginIdleLevelRun(level);
-    } else {
-      updateIdleLevelDisplay();
-    }
-
-    updateTowerSelectionButtons();
-
-    // Swap the visible UI surfaces to match the new level state.
-    updateLayoutVisibility();
-  }
-
-  function leaveActiveLevel() {
-    if (!activeLevelId) return;
-    deactivateDeveloperMapTools({ force: true, silent: true });
-    hidePlayfieldOutcome();
-    const state = levelState.get(activeLevelId);
-    if (state) {
-      levelState.set(activeLevelId, { ...state, running: false });
-    }
-    stopIdleLevelRun(activeLevelId);
-    if (playfield) {
-      // Close any open tower selection wheels when leaving the level
-      if (typeof playfield.closeTowerSelectionWheel === 'function') {
-        playfield.closeTowerSelectionWheel();
-      }
-      playfield.leaveLevel();
-    }
-    // Close the loadout wheel when leaving the level
-    if (typeof closeLoadoutWheel === 'function') {
-      closeLoadoutWheel();
-    }
-    refreshTabMusic({ restart: true });
-    activeLevelId = null;
-
-    // Reset the interaction flag so the level grid is visible again.
-    activeLevelIsInteractive = false;
-    resourceState.running = false;
-    updateActiveLevelBanner();
-    updateLevelCards();
-    // Ensure the battlefield stays hidden until another level begins.
-    updateLayoutVisibility();
-    updateTowerSelectionButtons();
-    
-    // Show cognitive realm map when leaving a level if on Defense tab
-    if (isCognitiveRealmUnlocked()) {
-      const activeTabId = getActiveTabId();
-      if (activeTabId === 'tower') {
-        showCognitiveRealmMap();
-      }
-    }
-    if (playfieldMenuController) {
-      playfieldMenuController.updateMenuState();
-    }
-  }
-
-  
-
-
-
   // Collapsible settings menus use a shared helper to eliminate duplicate expand/collapse logic.
   function bindVisualSettingsMenu() {
     bindCollapsibleMenu({ triggerId: 'visual-settings-menu-button', menuId: 'visual-settings-menu' });
@@ -3366,13 +2985,6 @@ import { createSpireCameraController } from './spireCameraController.js';
       leaveActiveLevel();
     });
   }
-
-  function focusLeaveLevelButton() {
-    if (leaveLevelBtn && !leaveLevelBtn.disabled && typeof leaveLevelBtn.focus === 'function') {
-      leaveLevelBtn.focus();
-    }
-  }
-
 
 
   // Field notes overlay logic handled by fieldNotesOverlay.js.
