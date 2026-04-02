@@ -29,14 +29,16 @@ Quick lookup table for all implemented towers in Thero Idle.
 | Ω | Omega | `omegaTower.js` | Golden orbital particles slice percentage of enemy max HP after charging period |
 | ∞ | Infinity | `infinityTower.js` | Aura tower that exponentially boosts all towers in range based on total tower count |
 
-## Special Towers
+## Spires (Idle Games)
+
+Spires are self-contained idle games — not towers. Each provides glyphs that alter tower equations.
 
 | Name | File | Description |
 |------|------|-------------|
-| Fluid | `fluidTower.js` | Fluid dynamics simulation |
-| Powder | `powderTower.js` | Powder game integration |
-| Lamed (ל) | `lamedTower.js` | Gravity simulation with orbital sparks |
-| Tsadi (צ) | `tsadiTower.js` | Particle fusion simulation with tier merging |
+| Powder Spire | `powderTower.js` | Falling-sand idle game producing Aleph glyphs (ℵ) |
+| Fluid Spire (Bet) | `fluidTower.js` | Shallow-water idle game producing Bet glyphs (ב) |
+| Lamed Spire (ל) | `lamedTower.js` | Gravity simulation idle game producing Lamed glyphs (ל) |
+| Tsadi Spire (צ) | `tsadiTower.js` | Particle fusion idle game producing Tsadi glyphs (צ) |
 
 ## Math Modules
 

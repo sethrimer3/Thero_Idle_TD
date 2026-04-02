@@ -342,7 +342,7 @@ export function createPowderUiDomHelpers(options = {}) {
     };
   }
 
-  // Powder simulation metrics are supplied via the powder tower module.
+  // Powder Spire simulation metrics are supplied via the powder spire module.
   function updatePowderGlyphColumns(info = {}) {
     const rows = Number.isFinite(info.rows) && info.rows > 0 ? info.rows : 1;
     const cellSize = Number.isFinite(info.cellSize) && info.cellSize > 0 ? info.cellSize : POWDER_CELL_SIZE_PX;

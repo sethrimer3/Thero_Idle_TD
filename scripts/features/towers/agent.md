@@ -22,8 +22,8 @@ Individual tower implementations for Thero Idle's Greek-letter-themed defense sy
 
 **Special Towers:**
 - `alephChain.js` - Aleph (ℵ) series: Cardinality-based tower system
-- `fluidTower.js` - Fluid dynamics simulation tower
-- `powderTower.js` - Powder game integration tower
+- `fluidTower.js` - Fluid (Bet) Spire idle-game simulation
+- `powderTower.js` - Powder Spire idle-game simulation and shared palette helpers
 
 **Math Modules:**
 - `betaMath.js` - Dedicated math utilities for β tower calculations

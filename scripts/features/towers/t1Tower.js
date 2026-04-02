@@ -1,4 +1,4 @@
-// T₁ test tower — plots a polar rose curve around itself.
+// T₁ tower — plots a polar rose curve around itself.
 // A glowing tracer head sweeps along r = maxRadius·|sin(3θ)| (a 3-petal rose),
 // leaving a fading trail that deals ongoing damage to any enemy it touches.
 

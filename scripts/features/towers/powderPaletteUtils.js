@@ -1,5 +1,5 @@
 ﻿/**
- * Shared palette, color conversion, and numeric normalization helpers for powder towers.
+ * Shared palette, color conversion, and numeric normalization helpers for the Powder Spire.
  *
  * Extracted from the massive powderTower module to keep visual math utilities
  * accessible without loading the full simulation implementation.

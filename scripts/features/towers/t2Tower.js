@@ -1,4 +1,4 @@
-// T₂ test tower — plots a parametric curve around itself using composable trig functions.
+// T₂ tower — plots a parametric curve around itself using composable trig functions.
 // The player toggles sin, cos, and tan independently for the x and y axes.
 // Position: (x, y) = R × (Σ x-funcs(t), Σ y-funcs(t)), advancing at a fixed sweep speed.
 // Default state is (cos t, sin t) — a circle.  The glowing tracer head damages enemies on contact.

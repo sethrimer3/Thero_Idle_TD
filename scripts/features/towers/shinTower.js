@@ -1,19 +1,19 @@
 /**
- * Shin Tower - Fractal Tree Visualization
+ * Shin Fractal Tree — Terrarium Achievement Object
  * 
  * A minimalist, elegant fractal tree that grows incrementally with an ink-like aesthetic.
- * This tower module integrates the FractalTreeSimulation for visual display,
- * potentially tied to Quanta resource accumulation in future iterations.
+ * This module integrates the FractalTreeSimulation as a decorative reward object
+ * placed in the player's achievements terrarium, not as a combat tower.
  */
 
 import { FractalTreeSimulation } from './fractalTreeSimulation.js';
 
 /**
- * Creates and manages a fractal tree simulation instance for the Shin tower.
+ * Creates and manages a fractal tree simulation instance for the Shin terrarium object.
  * 
  * @param {Object} config - Configuration object loaded from shinFractalTree.json
  * @param {HTMLCanvasElement} canvas - Canvas element for rendering
- * @returns {Object} Tower interface with update and render methods
+ * @returns {Object} Terrarium object interface with update and render methods
  */
 export function createShinTower(config, canvas) {
   // Initialize the fractal tree simulation with config
@@ -93,7 +93,7 @@ export function createShinTower(config, canvas) {
 }
 
 /**
- * Loads the Shin tower configuration from JSON.
+ * Loads the Shin fractal tree terrarium configuration from JSON.
  * 
  * @returns {Promise<Object>} Configuration object
  */

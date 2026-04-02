@@ -188,26 +188,26 @@ import { refreshBetaShotSpritePaletteCache } from '../scripts/features/towers/be
 import { refreshGammaShotSpritePaletteCache } from '../scripts/features/towers/gammaTower.js';
 // Delta tower sprite tint cache builder for palette-synced ship sprites.
 import { refreshDeltaShipSpritePaletteCache } from '../scripts/features/towers/deltaTower.js';
-// Powder tower palette and simulation helpers.
+// Powder Spire palette and simulation helpers (idle game producing Aleph glyphs).
 import {
   DEFAULT_MOTE_PALETTE,
   POWDER_CELL_SIZE_PX,
   PowderSimulation,
   mergeMotePalette,
 } from '../scripts/features/towers/powderTower.js';
-// Fluid tower shallow-water simulation extracted into a dedicated module.
+// Fluid Spire (Bet) shallow-water simulation (idle game producing Bet glyphs).
 import { FluidSimulation } from '../scripts/features/towers/fluidTower.js';
-// Lamed tower gravity simulation for orbital mechanics with sparks.
+// Lamed Spire gravity simulation for orbital mechanics with sparks (idle game producing Lamed glyphs).
 import { GravitySimulation } from '../scripts/features/towers/lamedTower.js';
-// Tsadi tower particle fusion simulation with tier-based merging.
+// Tsadi Spire particle fusion simulation with tier-based merging (idle game producing Tsadi glyphs).
 import {
   ParticleFusionSimulation,
   getGreekTierInfo,
   ADVANCED_MOLECULE_UNLOCK_TIER,
 } from '../scripts/features/towers/tsadiTower.js';
-// Shin tower fractal tree simulation with incremental growth.
+// Shin fractal tree simulation — terrarium achievement object, not a tower.
 import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
-// Shin state management for Iteron allocation and fractal progression.
+// Shin state management for Iteron allocation and fractal terrarium progression.
 import {
   initializeShinState,
   loadFractalDefinitions,

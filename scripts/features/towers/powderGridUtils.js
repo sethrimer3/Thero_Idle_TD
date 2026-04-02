@@ -1,6 +1,6 @@
 /**
  * Grid and wall helpers extracted from powderTower.js to keep the
- * PowderSimulation class focused on simulation lifecycle and rendering.
+ * Powder Spire PowderSimulation class focused on simulation lifecycle and rendering.
  */
 
 /**
