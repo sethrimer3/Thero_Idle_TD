@@ -1,5 +1,5 @@
 /**
- * T1 Tower definition — a test tower that plots a polar rose graph around itself.
+ * T1 Tower definition — plots a polar rose graph around itself.
  * The glowing tracer head sweeps the curve continuously, leaving a damaging trail.
  */
 export const T1_TOWER = Object.freeze({

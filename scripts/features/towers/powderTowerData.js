@@ -1,5 +1,5 @@
 /**
- * Powder tower simulation static data and configuration constants.
+ * Powder Spire simulation static data and configuration constants.
  * This module contains cell-size settings, mote lane limits, and background
  * star configuration extracted from powderTower.js to improve maintainability.
  */

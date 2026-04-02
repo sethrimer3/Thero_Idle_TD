@@ -1,5 +1,5 @@
 /**
- * T2 Tower definition — a test tower that draws a parametric curve around itself.
+ * T2 Tower definition — draws a parametric curve around itself.
  * The player enables sin, cos, and/or tan independently for the x and y axes,
  * composing the curve as (Σ x-funcs(t), Σ y-funcs(t)).  Default: (cos t, sin t) — a circle.
  */

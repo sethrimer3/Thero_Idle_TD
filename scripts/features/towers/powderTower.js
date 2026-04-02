@@ -1,8 +1,8 @@
 ﻿/**
- * Powder tower simulation utilities and shared mote palette helpers.
+ * Powder Spire simulation utilities and shared mote palette helpers.
  *
- * This module packages the powder basin rendering math so other systems can
- * reuse the same palette rules without depending on the main bundle.
+ * The Powder Spire is an idle game whose falling-sand physics produce
+ * Aleph glyphs (ℵ) used to alter tower equations.
  *
  * Static constants and pure helpers live in powderTowerData.js.
  */

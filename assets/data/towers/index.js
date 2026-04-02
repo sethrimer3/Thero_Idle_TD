@@ -64,9 +64,9 @@ export {
 };
 
 export const towers = [
-  // T₁ test tower — available from the start for rapid experimentation.
+  // T₁ tower — available from the start for rapid experimentation.
   T1_TOWER,
-  // T₂ test tower — parametric curve tracer with composable sin/cos/tan functions.
+  // T₂ tower — parametric curve tracer with composable sin/cos/tan functions.
   T2_TOWER,
   // Surface the Mind Gate first so upgrade systems can treat it as the foundation lattice.
   MIND_GATE_TOWER,

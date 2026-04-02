@@ -1,6 +1,7 @@
 /**
- * Fluid tower simulation module extracted from the powder tower bundle.
- * Provides the shallow-water style drop simulation used by the Bet Spire.
+ * Fluid Spire (Bet) simulation module extracted from the powder tower bundle.
+ * The Fluid Spire is an idle game whose shallow-water physics produce
+ * Bet glyphs (ב) used to alter tower equations.
  */
 import {
   DEFAULT_MOTE_PALETTE,
@@ -10,7 +11,7 @@ import {
   colorToRgbaString,
   mergeMotePalette,
   resolvePaletteColorStops,
-} from './powderTower.js'; // Reuse shared palette helpers from the powder tower module.
+} from './powderTower.js'; // Reuse shared palette helpers from the Powder Spire module.
 
 /**
  * Fluid simulation for the late-game mote basin.
