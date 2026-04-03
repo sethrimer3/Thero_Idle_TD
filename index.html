@@ -63,6 +63,20 @@
         <p class="startup-overlay__hint">Calibrating glyph lattice…</p>
       </div>
     </div>
+    <!-- Loading overlay shown briefly while an interactive level initialises after "Enter Level". -->
+    <div
+      class="level-loading-overlay"
+      id="level-loading-overlay"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading level"
+      hidden
+    >
+      <div class="level-loading-overlay__content">
+        <div class="level-loading-overlay__spinner" aria-hidden="true"></div>
+        <p class="level-loading-overlay__hint">Marshalling defenses…</p>
+      </div>
+    </div>
     <div
       class="offline-overlay"
       id="offline-overlay"

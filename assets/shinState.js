@@ -421,13 +421,13 @@ const GRAPHEME_CHARACTERS = [
   { index: 33, name: 'number-8', property: 'numeral', row: 4, col: 5, collectable: false },
 
   // Dagesh variants (indices 34-40): enhanced letters earned through special drops
-  { index: 34, name: 'A•', label: 'A•', displayName: 'A• (Dagesh)', property: 'dagesh-thoughtspeak', row: 5, col: 0, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 0, sprite: 'grapheme-A-dagesh.svg' },
-  { index: 35, name: 'I•', label: 'I•', displayName: 'I• (Dagesh)', property: 'dagesh-spread', row: 5, col: 1, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 8, sprite: 'grapheme-I-dagesh.svg' },
-  { index: 36, name: 'M•', label: 'M•', displayName: 'M• (Dagesh)', property: 'dagesh-mines', row: 5, col: 2, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 12, sprite: 'grapheme-M-dagesh.svg' },
-  { index: 37, name: 'P•', label: 'P•', displayName: 'P• (Dagesh)', property: 'dagesh-homing', row: 5, col: 3, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 15, sprite: 'grapheme-P-dagesh.svg' },
-  { index: 38, name: 'R•', label: 'R•', displayName: 'R• (Dagesh)', property: 'dagesh-chain', row: 5, col: 4, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 17, sprite: 'grapheme-R-dagesh.svg' },
-  { index: 39, name: 'S•', label: 'S•', displayName: 'S• (Dagesh)', property: 'dagesh-size', row: 5, col: 5, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 18, sprite: 'grapheme-S-dagesh.svg' },
-  { index: 40, name: 'U•', label: 'U•', displayName: 'U• (Dagesh)', property: 'dagesh-pulse', row: 5, col: 6, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 20, sprite: 'grapheme-U-dagesh.svg' },
+  { index: 34, name: 'A•', label: 'A•', displayName: 'A• (Dagesh)', property: 'dagesh-thoughtspeak', row: 5, col: 0, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 0, sprite: 'grapheme-A-dagesh.webp' },
+  { index: 35, name: 'I•', label: 'I•', displayName: 'I• (Dagesh)', property: 'dagesh-spread', row: 5, col: 1, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 8, sprite: 'grapheme-I-dagesh.webp' },
+  { index: 36, name: 'M•', label: 'M•', displayName: 'M• (Dagesh)', property: 'dagesh-mines', row: 5, col: 2, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 12, sprite: 'grapheme-M-dagesh.webp' },
+  { index: 37, name: 'P•', label: 'P•', displayName: 'P• (Dagesh)', property: 'dagesh-homing', row: 5, col: 3, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 15, sprite: 'grapheme-P-dagesh.webp' },
+  { index: 38, name: 'R•', label: 'R•', displayName: 'R• (Dagesh)', property: 'dagesh-chain', row: 5, col: 4, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 17, sprite: 'grapheme-R-dagesh.webp' },
+  { index: 39, name: 'S•', label: 'S•', displayName: 'S• (Dagesh)', property: 'dagesh-size', row: 5, col: 5, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 18, sprite: 'grapheme-S-dagesh.webp' },
+  { index: 40, name: 'U•', label: 'U•', displayName: 'U• (Dagesh)', property: 'dagesh-pulse', row: 5, col: 6, collectable: true, unlockable: false, unlockOnCollect: true, variant: 'dagesh', baseIndex: 20, sprite: 'grapheme-U-dagesh.webp' },
 ];
 
 /**
