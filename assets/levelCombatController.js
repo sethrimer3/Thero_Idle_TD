@@ -503,7 +503,9 @@ export function createLevelCombatController(deps) {
       playfield.enterLevel(level, {
         endlessMode: forceEndlessMode || endlessCampaign,
       });
-      // Hide the loading overlay after the first rendered frame so the transition feels seamless.
+      // Hide the loading overlay once the canvas has had two frames to paint its initial state.
+      // The first rAF schedules after enterLevel's synchronous setup; the second waits for the
+      // resulting paint so the overlay dissolves after the playfield is visually ready.
       if (isInteractive && loadingEl) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
