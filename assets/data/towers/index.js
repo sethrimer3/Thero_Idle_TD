@@ -30,6 +30,10 @@ import CHI_TOWER from './chi.js';
 import PSI_TOWER from './psi.js';
 import OMEGA_TOWER from './omega.js';
 import INFINITY_TOWER from './infinity.js';
+import REGRESSION_TOWER from './regression.js';
+import DENSITY_COLLAPSE_TOWER from './density-collapse.js';
+import ORBITAL_COLLAPSE_TOWER from './orbital-collapse.js';
+import POLYNOMIAL_ENGINE_TOWER from './polynomial-engine.js';
 
 export {
   T1_TOWER as t1Tower,
@@ -61,6 +65,10 @@ export {
   PSI_TOWER as psiTower,
   OMEGA_TOWER as omegaTower,
   INFINITY_TOWER as infinityTower,
+  REGRESSION_TOWER as regressionTower,
+  DENSITY_COLLAPSE_TOWER as densityCollapseTower,
+  ORBITAL_COLLAPSE_TOWER as orbitalCollapseTower,
+  POLYNOMIAL_ENGINE_TOWER as polynomialEngineTower,
 };
 
 export const towers = [
@@ -97,6 +105,11 @@ export const towers = [
   PSI_TOWER,
   OMEGA_TOWER,
   INFINITY_TOWER,
+  // Mathematical Test Tower Arsenal — graph-based experimental towers.
+  REGRESSION_TOWER,
+  DENSITY_COLLAPSE_TOWER,
+  ORBITAL_COLLAPSE_TOWER,
+  POLYNOMIAL_ENGINE_TOWER,
 ];
 
 export default towers;
