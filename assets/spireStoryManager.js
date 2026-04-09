@@ -25,7 +25,7 @@ export const SPIRE_STORY_TARGETS = {
  * @param {Function} options.getLevelStoryScreen - Returns the current level story screen instance.
  * @param {Iterable} options.levelBlueprints - Iterable of all level blueprint objects.
  * @param {Function} options.getLevelState - Returns the persisted state for a given levelId.
- * @param {Function} options.isStoryOnlyLevel - Returns true when a levelId is a narrative-only entry.
+ * @param {Function} [options.isStoryOnlyLevel] - Unused; retained for backward compatibility.
  * @param {Function} options.commitAutoSave - Flush the current save state to persistent storage.
  * @returns {{ buildSeenStoryEntries: Function, maybeShowSpireStory: Function }}
  */
@@ -82,10 +82,8 @@ export function createSpireStoryManager({
 
     const storyIds = [];
 
+    // Include all levels (story-only or not) where the player has seen the story screen.
     levelBlueprints.forEach((level) => {
-      if (!isStoryOnlyLevel(level.id)) {
-        return;
-      }
       const state = typeof getLevelState === 'function' ? getLevelState(level.id) : null;
       if (state?.storySeen) {
         storyIds.push(level.id);

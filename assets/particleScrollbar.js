@@ -1,8 +1,6 @@
 // Canvas-based particle scrollbars for mobile touch scrolling on Android.
-// Renders glowing particle thumbs with orbiting satellite particles along the viewport edge.
+// Renders golden polygon thumbs with orbiting satellite polygons along the viewport edge.
 // Holding a thumb expands its satellites into a vertical scrollbar track; dragging scrolls the active panel.
-
-import { samplePaletteGradient } from './colorSchemeUtils.js';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -34,9 +32,6 @@ const TRACK_PAD = 36;
 // particles sit on distinct rings rather than colliding at the same radius.
 const ORBIT_COPY_OFFSET = 3.5;
 
-// Multiplier applied to the particle core radius to determine the outer halo radius.
-const HALO_RADIUS_MULTIPLIER = 2.6;
-
 // Compression factors for the elliptical swirl orbit.
 const ORBIT_HORIZONTAL_COMPRESSION = 0.6;
 const ORBIT_VERTICAL_COMPRESSION = 0.5;
@@ -47,7 +42,14 @@ const DRAG_EXPAND_BOOST = 0.2;
 // Idle particles should be only slightly faded when not actively in use.
 const IDLE_ALPHA = 0.8;
 
-// Moving particles leave behind a fiery trail while sliding into or out of position.
+// Edge opacity for polygon outlines: base (idle) and held (click-and-hold).
+const POLYGON_EDGE_ALPHA_BASE = 0.20;
+const POLYGON_EDGE_ALPHA_HELD = 0.80;
+
+// Polygon side counts cycled through the satellite list.
+const POLYGON_SIDES = [3, 4, 5, 6, 7, 8];
+
+// Thin golden curve trail settings.
 const TRAIL_POINT_LIMIT = 14;
 const TRAIL_MIN_MOVEMENT = 1.4;
 const TRAIL_DECAY_PER_SECOND = 2.6;
@@ -66,6 +68,10 @@ function buildSatellites() {
       const speedMagnitude = 0.55 + (globalIndex % 7) * 0.12;
       const orbitSpeed = speedMagnitude * dirSign;
       const orbitAngle = (Math.PI * 2 * globalIndex) / NUM_SATELLITES;
+      // Assign a stable polygon shape from the cycle of side counts.
+      const sides = POLYGON_SIDES[globalIndex % POLYGON_SIDES.length];
+      // Slow independent rotation angle for each polygon.
+      const rotationSpeed = (0.3 + (globalIndex % 5) * 0.15) * dirSign;
 
       satellites.push({
         radius: size / 2,
@@ -78,6 +84,9 @@ function buildSatellites() {
         lastX: null,
         lastY: null,
         trail: [],
+        sides,
+        rotationAngle: (Math.PI * 2 * globalIndex) / NUM_SATELLITES,
+        rotationSpeed,
       });
     }
   });
@@ -99,42 +108,68 @@ function isVisibleElement(element) {
   return rect.width > 0 && rect.height > 0;
 }
 
-function drawGlowDot(ctx, x, y, radius, color, alpha) {
-  const { r, g, b } = color;
-  const haloR = radius * HALO_RADIUS_MULTIPLIER;
-  const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
-  halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha * 0.5})`);
-  halo.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alpha * 0.12})`);
-  halo.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+// Draw a regular polygon (stroke only, no fill) with a glowing golden edge.
+// sides: number of polygon sides; rotAngle: rotation offset in radians.
+// edgeAlpha: edge stroke opacity (0–1).
+function drawGoldenPolygon(ctx, x, y, radius, sides, rotAngle, edgeAlpha) {
+  if (radius < 1) {
+    return;
+  }
+  ctx.save();
   ctx.beginPath();
-  ctx.arc(x, y, haloR, 0, Math.PI * 2);
-  ctx.fillStyle = halo;
-  ctx.fill();
+  for (let i = 0; i < sides; i++) {
+    const angle = rotAngle + (Math.PI * 2 * i) / sides;
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  ctx.closePath();
 
-  const core = ctx.createRadialGradient(x, y, 0, x, y, radius);
-  core.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-  core.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${alpha})`);
-  core.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alpha * 0.55})`);
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = core;
-  ctx.fill();
+  // Outer glow pass — wider, more transparent stroke for soft golden halo.
+  ctx.lineWidth = radius * 0.5 + 1.5;
+  ctx.strokeStyle = `rgba(255, 215, 80, ${edgeAlpha * 0.35})`;
+  ctx.stroke();
+
+  // Crisp inner edge — thin, brighter stroke.
+  ctx.lineWidth = Math.max(0.8, radius * 0.12);
+  ctx.strokeStyle = `rgba(255, 230, 120, ${edgeAlpha})`;
+  ctx.stroke();
+
+  ctx.restore();
 }
 
-function drawFieryTrail(ctx, trail, radius, alpha) {
+// Draw a thin golden bezier curve trail through a series of position history points.
+// Uses a smooth catmull-rom-style path to give a clean, organic curve.
+function drawGoldenCurveTrail(ctx, trail, alpha) {
   if (!Array.isArray(trail) || trail.length < 2) {
     return;
   }
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  trail.forEach((point, index) => {
-    const progress = (index + 1) / trail.length;
-    const warm = {
-      r: Math.round(255 - progress * 10),
-      g: Math.round(150 - progress * 80),
-      b: Math.round(30 + progress * 20),
-    };
-    drawGlowDot(ctx, point.x, point.y, Math.max(1.2, radius * (0.45 + progress * 0.25)), warm, alpha * point.life * 0.55);
-  });
+  // Draw segments pairwise, fading from oldest to newest.
+  for (let i = 1; i < trail.length; i++) {
+    const prev = trail[i - 1];
+    const curr = trail[i];
+    const progress = i / (trail.length - 1);
+    const segAlpha = alpha * curr.life * progress * 0.7;
+    if (segAlpha < 0.01) {
+      continue;
+    }
+    ctx.beginPath();
+    ctx.moveTo(prev.x, prev.y);
+    ctx.lineTo(curr.x, curr.y);
+    ctx.lineWidth = Math.max(0.5, 1.2 * progress);
+    ctx.strokeStyle = `rgba(255, 225, 100, ${segAlpha})`;
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 function resolveOverlayActive() {
@@ -368,6 +403,7 @@ function createScrollbarInstance({
     state.scrollRatio = readScrollRatio();
     state.satellites.forEach((satellite) => {
       satellite.orbitAngle += satellite.orbitSpeed * dt;
+      satellite.rotationAngle += satellite.rotationSpeed * dt;
     });
   }
 
@@ -384,15 +420,18 @@ function createScrollbarInstance({
     const ep = state.expandProgress;
     const inUse = state.pointer.active || ep > 0.02;
     const baseAlpha = inUse ? 1 : IDLE_ALPHA;
+    // Edge opacity depends on whether pointer is actively held (click-and-hold).
+    const edgeAlpha = state.pointer.active
+      ? POLYGON_EDGE_ALPHA_HELD
+      : POLYGON_EDGE_ALPHA_BASE * baseAlpha;
 
     state.ctx.clearRect(0, 0, W, H);
 
     if (ep > 0.02) {
-      const lineColor = samplePaletteGradient(0.5);
       state.ctx.save();
       state.ctx.globalAlpha = ep * 0.28;
-      state.ctx.strokeStyle = `rgb(${lineColor.r}, ${lineColor.g}, ${lineColor.b})`;
-      state.ctx.lineWidth = 2;
+      state.ctx.strokeStyle = 'rgba(255, 215, 80, 0.6)';
+      state.ctx.lineWidth = 1.5;
       state.ctx.lineCap = 'round';
       state.ctx.beginPath();
       state.ctx.moveTo(cx, TRACK_PAD);
@@ -401,7 +440,6 @@ function createScrollbarInstance({
       state.ctx.restore();
     }
 
-    const thumbColor = samplePaletteGradient(0.5);
     const trailActive = state.pointer.active || (ep > 0.02 && ep < 0.98);
 
     state.satellites.forEach((satellite) => {
@@ -418,15 +456,14 @@ function createScrollbarInstance({
         return;
       }
 
-      const swirlColor = samplePaletteGradient(satellite.palettePos);
-      const r = Math.round(swirlColor.r + (thumbColor.r - swirlColor.r) * ep);
-      const g = Math.round(swirlColor.g + (thumbColor.g - swirlColor.g) * ep);
-      const b = Math.round(swirlColor.b + (thumbColor.b - swirlColor.b) * ep);
-      drawFieryTrail(state.ctx, satellite.trail, satellite.radius, baseAlpha);
-      drawGlowDot(state.ctx, x, y, satellite.radius, { r, g, b }, baseAlpha * 0.88);
+      // Draw the golden curve trail instead of a fiery particle trail.
+      drawGoldenCurveTrail(state.ctx, satellite.trail, edgeAlpha * 1.5);
+      // Draw the transparent golden-edged polygon.
+      drawGoldenPolygon(state.ctx, x, y, satellite.radius, satellite.sides, satellite.rotationAngle, edgeAlpha);
     });
 
-    drawGlowDot(state.ctx, cx, thumbY, MAIN_SIZE / 2, thumbColor, baseAlpha);
+    // Main thumb: draw as a hexagon (6 sides) at MAIN_SIZE / 2 radius.
+    drawGoldenPolygon(state.ctx, cx, thumbY, MAIN_SIZE / 2, 6, performance.now() * 0.0003, edgeAlpha);
   }
 
   return {
