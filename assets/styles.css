@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Zeyada';
+  src: url('./fonts/Zeyada/Zeyada-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #0b0b0f;
   --bg-alt: #12121a;
@@ -1008,7 +1016,7 @@ body.graphics-mode-low .control-button {
   padding: clamp(1.5rem, 4vw, 2.5rem);
   color: #f6f2eb;
   text-align: center;
-  font-family: 'Cormorant Garamond', 'Space Mono', serif;
+  font-family: 'Zeyada', 'Cormorant Garamond', 'Space Mono', serif;
   letter-spacing: 0.02em;
   display: flex;
   flex-direction: column;
