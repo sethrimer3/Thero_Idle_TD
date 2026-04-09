@@ -1,5 +1,5 @@
 // Canvas-based particle scrollbars for mobile touch scrolling on Android.
-// Renders golden polygon thumbs with orbiting satellite polygons along the viewport edge.
+// Renders golden polygon thumb with orbiting satellite polygons along the viewport edge.
 // Holding a thumb expands its satellites into a vertical scrollbar track; dragging scrolls the active panel.
 
 // ─── Configuration ────────────────────────────────────────────────────────────
@@ -142,8 +142,8 @@ function drawGoldenPolygon(ctx, x, y, radius, sides, rotAngle, edgeAlpha) {
   ctx.restore();
 }
 
-// Draw a thin golden bezier curve trail through a series of position history points.
-// Uses a smooth catmull-rom-style path to give a clean, organic curve.
+// Draw a thin golden trail through a series of position history points using linear segments.
+// Segments fade from oldest to newest, giving a clean, fading golden curve effect.
 function drawGoldenCurveTrail(ctx, trail, alpha) {
   if (!Array.isArray(trail) || trail.length < 2) {
     return;
