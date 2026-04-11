@@ -44,6 +44,7 @@ import {
   drawEnemyDeathParticles,
   drawSwarmClouds,
   drawDecimalSwarmParticles,
+  drawHypernodeShield,
 } from './layers/EnemyRenderer.js';
 import {
   drawDamageNumbers,
@@ -319,6 +320,8 @@ function draw() {
     // Mote gems are collectible world entities that share the enemy render pass.
     this.drawMoteGems();
     this.drawEnemies();
+    // Hypernode shield polygon renders above enemies so the prismatic zone is visible.
+    this.drawHypernodeShield();
     this.drawEnemyDeathParticles();
     this.drawSwarmClouds();
     this.drawDecimalSwarmParticles();
@@ -806,6 +809,7 @@ export {
   drawDeltaSoldiers,
   drawOmicronUnits,
   drawEnemies,
+  drawHypernodeShield,
   drawEnemyDeathParticles,
   drawSwarmClouds,
   drawDecimalSwarmParticles,

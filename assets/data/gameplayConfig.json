@@ -264,6 +264,23 @@
       "lore": "It arrives wrapped in the certainty of zero, but each step adds a sliver of doubt until the integral converges to its doom.",
       "formula": "(m(x) = \\max(0.05,\\; x^{0.8}))",
       "formulaLabel": "Exposure Curve"
+    },
+    {
+      "id": "hypernode",
+      "symbol": "⬡",
+      "name": "Hypernode",
+      "summary": "A network-anchor boss that forms defensive connections to nearby enemies, creating a prismatic polygonal shield that blocks projectiles and disables towers inside it.",
+      "traits": [
+        "Connects to up to 10 nearby enemies, forming a convex hull polygon shield.",
+        "Any projectile crossing the polygon boundary or interior is destroyed instantly.",
+        "Towers whose center lies inside the polygon are disabled until they leave.",
+        "Connections recalculate every 0.25 seconds and immediately when enemies die.",
+        "Fewer than 2 connections: lines are drawn but no polygon is formed."
+      ],
+      "counter": "Eliminate connected minions to collapse the polygon, then strike the exposed Hypernode directly.",
+      "lore": "A prismatic intelligence woven from graph theory, it binds lesser constructs into a shimmering lattice of mutual defense.",
+      "formula": "(\\text{hull} = \\operatorname{ConvexHull}(H \\cup \\{e_1, \\ldots, e_n\\}))",
+      "formulaLabel": "Shield Polygon"
     }
   ],
   "maps": [
