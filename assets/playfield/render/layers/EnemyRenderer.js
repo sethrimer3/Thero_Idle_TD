@@ -1332,3 +1332,102 @@ export function drawSwarmClouds() {
 
   ctx.restore();
 }
+
+// ─── Hypernode boss: prismatic polygon shield and connection lines ───────────
+
+import { POLYGON_OPACITY } from '../../systems/HypernodeBossSystem.js';
+
+/**
+ * Draw Hypernode boss connection lines and shield polygon.
+ * Renders above enemies but below UI elements.
+ * Called with `.call(renderer)` — `this` is the SimplePlayfield instance.
+ */
+export function drawHypernodeShield() {
+  if (!this.ctx || !Array.isArray(this.enemies)) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  const hypernodes = this.enemies.filter(
+    (e) => e && e._hypernode && ((e.codexId || e.typeId) === 'hypernode'),
+  );
+  if (hypernodes.length === 0) {
+    return;
+  }
+
+  ctx.save();
+
+  for (const boss of hypernodes) {
+    const state = boss._hypernode;
+    const bossPos = this.getEnemyPosition(boss);
+    if (!bossPos) {
+      continue;
+    }
+
+    // ─── Prismatic hue for shimmer ────────────────────────────────────────
+    const hue = state.hueOffset || 0;
+    const shimmerAlpha = 0.6 + 0.15 * Math.sin(state.elapsedTime * 3.0);
+
+    // ─── Draw connection lines from Hypernode to each connected enemy ─────
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    for (const connPos of state.connectedPositions) {
+      // Prismatic gradient along each line
+      const gradient = ctx.createLinearGradient(bossPos.x, bossPos.y, connPos.x, connPos.y);
+      const h1 = (hue) % 360;
+      const h2 = (hue + 60) % 360;
+      gradient.addColorStop(0, `hsla(${h1}, 80%, 70%, ${shimmerAlpha})`);
+      gradient.addColorStop(0.5, `hsla(${(h1 + h2) / 2}, 90%, 80%, ${shimmerAlpha * 0.8})`);
+      gradient.addColorStop(1, `hsla(${h2}, 80%, 70%, ${shimmerAlpha})`);
+
+      ctx.strokeStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(bossPos.x, bossPos.y);
+      ctx.lineTo(connPos.x, connPos.y);
+      ctx.stroke();
+
+      // Subtle glow pass
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineWidth = 5;
+      ctx.globalAlpha = 0.12;
+      ctx.strokeStyle = `hsla(${h1}, 90%, 85%, 0.3)`;
+      ctx.beginPath();
+      ctx.moveTo(bossPos.x, bossPos.y);
+      ctx.lineTo(connPos.x, connPos.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ─── Draw filled polygon (convex hull) ────────────────────────────────
+    if (state.polygonActive && state.hullVertices.length >= 3) {
+      const hull = state.hullVertices;
+
+      // Filled polygon with prismatic shimmer
+      const shiftedHue = (hue + 30 * Math.sin(state.elapsedTime * 1.5)) % 360;
+      ctx.fillStyle = `hsla(${shiftedHue}, 70%, 75%, ${POLYGON_OPACITY})`;
+      ctx.beginPath();
+      ctx.moveTo(hull[0].x, hull[0].y);
+      for (let i = 1; i < hull.length; i++) {
+        ctx.lineTo(hull[i].x, hull[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Polygon border with brighter shimmer
+      ctx.strokeStyle = `hsla(${shiftedHue}, 85%, 80%, ${shimmerAlpha * 0.7})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Soft inner glow for the polygon
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle = `hsla(${(shiftedHue + 120) % 360}, 80%, 85%, 0.15)`;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  ctx.restore();
+}

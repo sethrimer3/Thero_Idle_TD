@@ -5246,6 +5246,11 @@ export class SimplePlayfield {
     return CanvasRenderer.drawEnemies.call(this);
   }
 
+  // Render Hypernode prismatic polygon shield and connection lines above enemies.
+  drawHypernodeShield() {
+    return CanvasRenderer.drawHypernodeShield.call(this);
+  }
+
   // Render particle fragments from defeated enemies so the battlefield reflects recent combat.
   drawEnemyDeathParticles() {
     return CanvasRenderer.drawEnemyDeathParticles.call(this);
