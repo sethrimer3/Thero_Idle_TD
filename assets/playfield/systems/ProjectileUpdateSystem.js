@@ -109,27 +109,26 @@ function updateProjectiles(delta) {
     // Hypernode polygon blocking: destroy any combat projectile whose path
     // crosses a Hypernode shield polygon. Supply/laser/pulse projectiles are
     // excluded so tower-to-tower transfers and fixed-duration effects are not
-    // affected.
+    // affected. Only check when the projectile has valid position data.
     if (projectile.patternType !== 'supply'
         && projectile.patternType !== 'etaLaser'
-        && projectile.patternType !== 'iotaPulse') {
-      const projPos = projectile.position || projectile.source;
+        && projectile.patternType !== 'iotaPulse'
+        && projectile.position) {
+      const projPos = projectile.position;
       const projPrev = projectile.previousPosition || projPos;
-      if (projPos && projPrev) {
-        let blocked = false;
-        for (let ei = 0; ei < this.enemies.length; ei++) {
-          const e = this.enemies[ei];
-          if (e && e._hypernode && e._hypernode.polygonActive) {
-            if (doesProjectileHitPolygon(e, projPrev, projPos)) {
-              blocked = true;
-              break;
-            }
+      let blocked = false;
+      for (let ei = 0; ei < this.enemies.length; ei++) {
+        const e = this.enemies[ei];
+        if (e && e._hypernode && e._hypernode.polygonActive) {
+          if (doesProjectileHitPolygon(e, projPrev, projPos)) {
+            blocked = true;
+            break;
           }
         }
-        if (blocked) {
-          this.projectiles.splice(index, 1);
-          continue;
-        }
+      }
+      if (blocked) {
+        this.projectiles.splice(index, 1);
+        continue;
       }
     }
 

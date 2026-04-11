@@ -21,6 +21,13 @@ export const TOWER_DISABLE_ENABLED = true;
 const MIN_POLYGON_CONNECTIONS = 2;
 /** Range within which Hypernode searches for connectable enemies (normalised playfield fraction). */
 export const CONNECTION_RANGE = 0.45;
+/** Speed of the prismatic hue cycle in degrees per second. */
+const PRISMATIC_HUE_CYCLE_SPEED = 40;
+/** Far-future duration (seconds) used to keep towers disabled while inside the polygon. */
+const TOWER_DISABLE_DURATION = 999999;
+/** Distance threshold (pixels) below which two candidates are considered equidistant
+ *  so the sort falls through to path-progress preference. */
+const DISTANCE_EQUALITY_THRESHOLD = 1;
 
 // ─── Convex hull (Andrew's monotone chain) ──────────────────────────────────
 
@@ -225,7 +232,7 @@ export function selectConnections(enemy, allEnemies, getPosition) {
   // Sort by distance first, then prefer enemies ahead on the path (higher progress).
   candidates.sort((a, b) => {
     const distDiff = a.dist - b.dist;
-    if (Math.abs(distDiff) > 1) {
+    if (Math.abs(distDiff) > DISTANCE_EQUALITY_THRESHOLD) {
       return distDiff;
     }
     // Prefer enemies ahead of Hypernode on the path
@@ -252,7 +259,7 @@ export function updateHypernode(enemy, delta, allEnemies, getPosition, getEnemyB
   }
   const state = enemy._hypernode;
   state.elapsedTime += delta;
-  state.hueOffset = (state.elapsedTime * 40) % 360; // slow prismatic hue cycle
+  state.hueOffset = (state.elapsedTime * PRISMATIC_HUE_CYCLE_SPEED) % 360; // slow prismatic hue cycle
 
   // Purge dead connections immediately
   let connectionsDirty = false;
@@ -349,10 +356,9 @@ export function updateTowerDisableStates(enemy, towers) {
       state.disabledTowerIds.add(tower.id);
       if (!tower._hypernodeDisabled) {
         tower._hypernodeDisabled = true;
-        // Set a far-future disable time so TowerDispatchSystem skips it.
         const farFuture = (typeof performance !== 'undefined' && typeof performance.now === 'function'
           ? performance.now()
-          : Date.now()) / 1000 + 999999;
+          : Date.now()) / 1000 + TOWER_DISABLE_DURATION;
         tower.disabledUntil = farFuture;
         tower._hypernodeDisabledUntil = farFuture;
       }

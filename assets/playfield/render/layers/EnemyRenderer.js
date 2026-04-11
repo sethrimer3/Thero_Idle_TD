@@ -1337,6 +1337,14 @@ export function drawSwarmClouds() {
 
 import { POLYGON_OPACITY } from '../../systems/HypernodeBossSystem.js';
 
+// Shimmer animation tuning for the Hypernode connection lines.
+const SHIMMER_BASE_ALPHA = 0.6;
+const SHIMMER_OSCILLATION_AMPLITUDE = 0.15;
+const SHIMMER_FREQUENCY = 3.0;
+// Polygon fill hue shift animation parameters.
+const POLYGON_HUE_SHIFT_AMPLITUDE = 30;
+const POLYGON_HUE_SHIFT_FREQUENCY = 1.5;
+
 /**
  * Draw Hypernode boss connection lines and shield polygon.
  * Renders above enemies but below UI elements.
@@ -1366,7 +1374,7 @@ export function drawHypernodeShield() {
 
     // ─── Prismatic hue for shimmer ────────────────────────────────────────
     const hue = state.hueOffset || 0;
-    const shimmerAlpha = 0.6 + 0.15 * Math.sin(state.elapsedTime * 3.0);
+    const shimmerAlpha = SHIMMER_BASE_ALPHA + SHIMMER_OSCILLATION_AMPLITUDE * Math.sin(state.elapsedTime * SHIMMER_FREQUENCY);
 
     // ─── Draw connection lines from Hypernode to each connected enemy ─────
     ctx.lineWidth = 2.5;
@@ -1404,7 +1412,7 @@ export function drawHypernodeShield() {
       const hull = state.hullVertices;
 
       // Filled polygon with prismatic shimmer
-      const shiftedHue = (hue + 30 * Math.sin(state.elapsedTime * 1.5)) % 360;
+      const shiftedHue = (hue + POLYGON_HUE_SHIFT_AMPLITUDE * Math.sin(state.elapsedTime * POLYGON_HUE_SHIFT_FREQUENCY)) % 360;
       ctx.fillStyle = `hsla(${shiftedHue}, 70%, 75%, ${POLYGON_OPACITY})`;
       ctx.beginPath();
       ctx.moveTo(hull[0].x, hull[0].y);
