@@ -322,6 +322,24 @@ export function createLevelLifecycleManager(config) {
     playfield.syncCanvasSize();
     playfield.ensureLoop();
 
+    // For glyph trial levels, pre-place towers defined in the config at no cost.
+    // These towers are locked — players may only assign glyphs to them.
+    const isGlyphTrial = Boolean(clonedConfig.isGlyphTrialLevel);
+    if (isGlyphTrial && Array.isArray(clonedConfig.preplacedTowers)) {
+      clonedConfig.preplacedTowers.forEach((spec) => {
+        if (!spec || typeof spec.x !== 'number' || typeof spec.y !== 'number') {
+          return;
+        }
+        const normalized = { x: spec.x, y: spec.y };
+        playfield.addTowerAt(normalized, {
+          towerType: spec.type || 'alpha',
+          silent: true,
+          free: true,
+          allowPathOverlap: true,
+        });
+      });
+    }
+
     if (playfield.startButton) {
       playfield.startButton.textContent = 'Commence Wave';
       playfield.startButton.disabled = false;
@@ -331,9 +349,15 @@ export function createLevelLifecycleManager(config) {
       playfield.autoWaveCheckbox.checked = playfield.autoWaveEnabled;
     }
     if (playfield.messageEl) {
-      playfield.messageEl.textContent = startInEndless
-        ? 'Endless defense unlocked—survive as the waves loop.'
-        : 'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
+      if (isGlyphTrial) {
+        playfield.messageEl.textContent =
+          'Towers are pre-anchored — assign glyphs in the Towers tab to strengthen them.';
+      } else if (startInEndless) {
+        playfield.messageEl.textContent = 'Endless defense unlocked—survive as the waves loop.';
+      } else {
+        playfield.messageEl.textContent =
+          'Drag glyph chips from your loadout anywhere on the plane—no fixed anchors required.';
+      }
     }
     if (playfield.progressEl) {
       playfield.progressEl.textContent = startInEndless

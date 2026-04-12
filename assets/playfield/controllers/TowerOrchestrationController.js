@@ -66,9 +66,21 @@ export function createTowerOrchestrationController(config) {
       allowPathOverlap = false,
       silent = false,
       towerType = null,
+      free = false,
     } = options;
 
     if (!playfield.levelConfig || !normalized) {
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
+      return false;
+    }
+
+    // Block new tower placements in glyph trial levels unless this is a free pre-placement.
+    if (playfield.levelConfig.isGlyphTrialLevel && !free) {
+      if (messageEl && !silent) {
+        messageEl.textContent = 'Tower placement is sealed — assign glyphs to strengthen the anchored towers.';
+      }
       if (audio && !silent) {
         audio.playSfx('error');
       }
@@ -155,7 +167,8 @@ export function createTowerOrchestrationController(config) {
     }
     const actionCost = merging ? mergeCost : baseCost;
 
-    if (combatState.energy < actionCost) {
+    // Pre-placed towers (free: true) are placed at no cost.
+    if (!free && combatState.energy < actionCost) {
       const needed = Math.max(0, actionCost - combatState.energy);
       const neededLabel = formatCombatNumber(needed);
       if (messageEl && !silent) {
@@ -171,7 +184,9 @@ export function createTowerOrchestrationController(config) {
       return false;
     }
 
-    combatState.energy = Math.max(0, combatState.energy - actionCost);
+    if (!free) {
+      combatState.energy = Math.max(0, combatState.energy - actionCost);
+    }
 
     if (merging && mergeTarget && nextDefinition) {
       const wasInfinity = mergeTarget.type === 'infinity';
@@ -322,6 +337,17 @@ export function createTowerOrchestrationController(config) {
       return false;
     }
 
+    // Block tier upgrades in glyph trial levels — towers are fixed, only glyphs may be adjusted.
+    if (playfield.levelConfig?.isGlyphTrialLevel) {
+      if (messageEl && !silent) {
+        messageEl.textContent = 'Tower tiers are sealed — assign glyphs to enhance performance.';
+      }
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
+      return false;
+    }
+
     const nextId = expectedNextId || getNextTowerId(tower.type);
     const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
     if (!nextDefinition) {
@@ -421,6 +447,17 @@ export function createTowerOrchestrationController(config) {
    */
   function demoteTowerTier(tower, { silent = false, swipeVector = null } = {}) {
     if (!tower) {
+      return false;
+    }
+
+    // Block tier demotions in glyph trial levels — towers are fixed, only glyphs may be adjusted.
+    if (playfield.levelConfig?.isGlyphTrialLevel) {
+      if (messageEl && !silent) {
+        messageEl.textContent = 'Tower tiers are sealed — assign glyphs to enhance performance.';
+      }
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
       return false;
     }
 
@@ -549,6 +586,17 @@ export function createTowerOrchestrationController(config) {
    */
   function sellTower(tower, { slot, silent = false } = {}) {
     if (!tower) {
+      return;
+    }
+
+    // Block selling in glyph trial levels — towers are fixed anchors.
+    if (playfield.levelConfig?.isGlyphTrialLevel) {
+      if (messageEl && !silent) {
+        messageEl.textContent = 'Anchored towers cannot be removed in a Glyph Trial.';
+      }
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
       return;
     }
 
