@@ -1406,7 +1406,44 @@ export const iota = {
       },
     },
     {
-      key: 'attack',
+      key: 'phaseCoupling',
+      symbol: 'φ_c',
+      equationSymbol: 'φ_c',
+      glyphLabel: 'צ',
+      glyphCurrency: 'tsadi',
+      name: 'Phase Coupling',
+      description: 'Complex-plane projection strength. Damage and status effects applied to one enemy inside the Iota field are multiplied by this coupling factor and projected onto every other enemy in the same field.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      attachedToVariable: 'attack',
+      cost: (level) => Math.max(1, 3 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+      format: (value) => {
+        const rank = Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0);
+        // Coupling curve: 0.20·rank with slight acceleration
+        const coupling = rank <= 0 ? 0 : 0.20 * rank + 0.05 * Math.max(0, rank - 3);
+        return `${formatDecimal(coupling, 2)}× coupling`;
+      },
+      getSubEquations({ level, value }) {
+        const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+        const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+        const coupling = resolved <= 0 ? 0 : 0.20 * resolved + 0.05 * Math.max(0, resolved - 3);
+        return [
+          {
+            expression: String.raw`\( \varphi_c = 0.20\,\text{rank} + 0.05 \max(0, \text{rank} - 3) \)`,
+          },
+          {
+            values: String.raw`\( ${formatDecimal(coupling, 2)} = 0.20 \times ${formatWholeNumber(Math.floor(resolved))} + 0.05 \times \max(0,\, ${formatWholeNumber(Math.floor(resolved))} - 3) \)`,
+            variant: 'values',
+            glyphEquation: true,
+          },
+          {
+            expression: String.raw`\( z' = z \cdot \varphi_c \, e^{i\theta} \quad \forall\, e \in \text{field},\; e \neq \text{target} \)`,
+          },
+        ];
+      },
+    },
+    {
       symbol: 'Atk',
       equationSymbol: 'Atk',
       name: 'Pulse Attack',

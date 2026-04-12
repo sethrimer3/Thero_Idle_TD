@@ -360,6 +360,9 @@ import {
   setBetGlyphCurrency,
   addBetGlyphCurrency,
   getBetGlyphCurrency,
+  setTsadiGlyphCurrency,
+  addTsadiGlyphCurrency,
+  getTsadiGlyphCurrency,
   setTheroSymbol,
   setTowerLoadoutLimit,
   setHideUpgradeMatrixCallback,
@@ -1202,11 +1205,12 @@ import { createSpireCameraController } from './spireCameraController.js';
   setTrackedKufGlyphs = resourceHud.setTrackedKufGlyphs;
 
   setTrackedLamedGlyphs(spireResourceState.lamed?.stats?.starMilestoneReached || 0);
-  setTrackedTsadiGlyphs(
-    Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
-      ? spireResourceState.tsadi.stats.totalGlyphs
-      : spireResourceState.tsadi?.stats?.totalParticles || 0,
-  );
+  const trackedTsadiCount = Number.isFinite(spireResourceState.tsadi?.stats?.totalGlyphs)
+    ? spireResourceState.tsadi.stats.totalGlyphs
+    : spireResourceState.tsadi?.stats?.totalParticles || 0;
+  setTrackedTsadiGlyphs(trackedTsadiCount);
+  // Seed the tower-tab Tsadi glyph currency so Phase Coupling upgrades are spendable.
+  setTsadiGlyphCurrency(Math.max(0, trackedTsadiCount));
   setTrackedShinGlyphs(getShinGlyphs());
   setTrackedKufGlyphs(getKufGlyphs());
 
@@ -4049,6 +4053,8 @@ import { createSpireCameraController } from './spireCameraController.js';
                   // Persist Tsadi glyph totals so unlock checks can react immediately.
                   const previousGlyphs = getTrackedTsadiGlyphs();
                   setTrackedTsadiGlyphs(normalizedGlyphs);
+                  // Keep the tower-tab Tsadi currency in sync with earned glyphs.
+                  setTsadiGlyphCurrency(Math.max(0, normalizedGlyphs));
                   spireResourceState.tsadi.stats = {
                     ...(spireResourceState.tsadi.stats || {}),
                     totalParticles: normalizedGlyphs,

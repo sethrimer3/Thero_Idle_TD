@@ -576,25 +576,35 @@ export function createTowerUpgradeOverlayController({
   }
 
   function getVariableCurrencyKey(variable) {
-    return variable?.glyphCurrency === 'bet' ? 'bet' : 'aleph';
+    if (variable?.glyphCurrency === 'bet') return 'bet';
+    if (variable?.glyphCurrency === 'tsadi') return 'tsadi';
+    return 'aleph';
   }
 
   function getCurrencyMeta(currencyKey = 'aleph') {
     if (currencyKey === 'bet') {
       return { singular: 'Bet glyph', plural: 'Bet glyphs', short: 'Bet Glyphs', symbol: 'בּ' };
     }
+    if (currencyKey === 'tsadi') {
+      return { singular: 'Tsadi glyph', plural: 'Tsadi glyphs', short: 'Tsadi Glyphs', symbol: 'צ' };
+    }
     return { singular: 'glyph', plural: 'glyphs', short: 'Glyphs', symbol: 'ℵ' };
   }
 
   function getAvailableCurrency(currencyKey = 'aleph') {
-    const balance = currencyKey === 'bet' ? towerTabState.betGlyphCurrency : towerTabState.glyphCurrency;
-    return Math.max(0, Math.floor(balance || 0));
+    if (currencyKey === 'bet') return Math.max(0, Math.floor(towerTabState.betGlyphCurrency || 0));
+    if (currencyKey === 'tsadi') return Math.max(0, Math.floor(towerTabState.tsadiGlyphCurrency || 0));
+    return Math.max(0, Math.floor(towerTabState.glyphCurrency || 0));
   }
 
   function adjustCurrencyBalance(currencyKey = 'aleph', delta = 0) {
     if (currencyKey === 'bet') {
       towerTabState.betGlyphCurrency = Math.max(0, Math.floor((towerTabState.betGlyphCurrency || 0) + delta));
       return towerTabState.betGlyphCurrency;
+    }
+    if (currencyKey === 'tsadi') {
+      towerTabState.tsadiGlyphCurrency = Math.max(0, Math.floor((towerTabState.tsadiGlyphCurrency || 0) + delta));
+      return towerTabState.tsadiGlyphCurrency;
     }
     towerTabState.glyphCurrency = Math.max(0, Math.floor((towerTabState.glyphCurrency || 0) + delta));
     return towerTabState.glyphCurrency;

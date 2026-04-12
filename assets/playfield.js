@@ -68,6 +68,7 @@ import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js'
 import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
 import * as EnemyFocusSystem from './playfield/systems/EnemyFocusSystem.js';
 import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
+import { projectIotaPhaseDamage } from './playfield/systems/IotaPhaseProjectionSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
@@ -4175,7 +4176,7 @@ export class SimplePlayfield {
     }));
   }
 
-  applyDamageToEnemy(enemy, baseDamage, { sourceTower, attackType } = {}) {
+  applyDamageToEnemy(enemy, baseDamage, { sourceTower, attackType, isPhaseProjection } = {}) {
     if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
       return 0;
     }
@@ -4323,6 +4324,12 @@ export class SimplePlayfield {
           }
         }
       }
+    }
+
+    // ─── Iota Phase Projection: project the applied hit to field neighbours ──
+    // Only fires for non-projection hits to prevent recursive cascading.
+    if (applied > 0 && !isPhaseProjection) {
+      projectIotaPhaseDamage(this, enemy, applied, { sourceTower, isPhaseProjection: false });
     }
 
     if (sourceTower) {
@@ -5240,6 +5247,16 @@ export class SimplePlayfield {
    */
   drawOmicronUnits() {
     return CanvasRenderer.drawOmicronUnits.call(this);
+  }
+
+  // Render complex-plane field overlays for active Iota towers with Phase Coupling.
+  drawIotaFieldOverlays() {
+    return CanvasRenderer.drawIotaFieldOverlays.call(this);
+  }
+
+  // Render phase projection visual effects (pulses, arcs) for Iota Phase Coupling.
+  drawIotaPhaseEffects() {
+    return CanvasRenderer.drawIotaPhaseEffects.call(this);
   }
 
   drawEnemies() {
