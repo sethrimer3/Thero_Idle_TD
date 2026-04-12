@@ -40,6 +40,10 @@ import {
   drawOmegaParticles,
 } from './layers/ProjectileRenderer.js';
 import {
+  renderPhaseProjectionEffects,
+  renderIotaFieldOverlays,
+} from '../systems/IotaPhaseProjectionSystem.js';
+import {
   drawEnemies,
   drawEnemyDeathParticles,
   drawSwarmClouds,
@@ -315,6 +319,7 @@ function draw() {
     this.drawInfinityAuras();
     this.drawDeltaSoldiers();
     this.drawOmicronUnits();
+    this.drawIotaFieldOverlays();
   }
   if (devLayerFlags.enemies) {
     // Mote gems are collectible world entities that share the enemy render pass.
@@ -329,6 +334,7 @@ function draw() {
   }
   if (devLayerFlags.projectiles) {
     this.drawProjectiles();
+    this.drawIotaPhaseEffects();
   }
   // Foreground shards render on top of all game elements for a parallax depth effect.
   if (devLayerFlags.background) {
@@ -772,6 +778,25 @@ function drawTunnelZones() {
   ctx.restore();
 }
 
+// ─── Iota Phase Coupling: complex-plane field overlay and projection effects ─
+
+/**
+ * Render complex-plane field overlays for active Iota towers with Phase Coupling.
+ */
+function drawIotaFieldOverlays() {
+  if (!this.ctx) return;
+  const time = (performance.now() / 1000) || 0;
+  renderIotaFieldOverlays(this.ctx, this, time);
+}
+
+/**
+ * Render active phase projection visual effects (pulses, arcs).
+ */
+function drawIotaPhaseEffects() {
+  if (!this.ctx) return;
+  renderPhaseProjectionEffects(this.ctx, this);
+}
+
 
 export {
   applyCanvasShadow,
@@ -808,6 +833,7 @@ export {
   drawEtaOrbits,
   drawDeltaSoldiers,
   drawOmicronUnits,
+  drawIotaFieldOverlays,
   drawEnemies,
   drawHypernodeShield,
   drawEnemyDeathParticles,
@@ -817,6 +843,7 @@ export {
   drawFloatingFeedback,
   drawWaveTallies,
   drawProjectiles,
+  drawIotaPhaseEffects,
   drawAlphaBursts,
   drawBetaBursts,
   drawGammaBursts,

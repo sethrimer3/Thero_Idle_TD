@@ -48,6 +48,10 @@ export function ensureIotaState(playfield, tower) {
   const aleph2 = Math.max(0, computeTowerVariableValue('iota', 'aleph2', blueprint));
   const aleph3 = Math.max(0, computeTowerVariableValue('iota', 'aleph3', blueprint));
 
+  // Phase Coupling — Tsadi-glyph-driven complex-plane projection strength.
+  const phaseCouplingRank = Math.max(0, computeTowerVariableValue('iota', 'phaseCoupling', blueprint));
+  const phaseCoupling = phaseCouplingRank <= 0 ? 0 : 0.20 * phaseCouplingRank + 0.05 * Math.max(0, phaseCouplingRank - 3);
+
   const connectionMultiplier = 1 + 0.18 * alphaLinks + 0.24 * betaLinks;
   const gammaMultiplier = 1 + 0.45 * Math.sqrt(gammaLinks);
   const alephMultiplier = 1 + 0.35 * aleph0 + 0.25 * aleph1 + 0.2 * aleph2 + 0.15 * aleph3;
@@ -106,6 +110,7 @@ export function ensureIotaState(playfield, tower) {
   tower.iotaState.alphaLinks = alphaLinks;
   tower.iotaState.betaLinks = betaLinks;
   tower.iotaState.gammaLinks = gammaLinks;
+  tower.iotaState.phaseCoupling = phaseCoupling;
   tower.iotaState.color = resolvePulseColor();
 
   return tower.iotaState;
