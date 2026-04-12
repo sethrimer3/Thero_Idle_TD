@@ -364,6 +364,14 @@ export function createLevelCombatController(deps) {
                     unlockLevel(nextTrialId);
                   }
                 }
+
+                // Unlock the first Glyph Trial when the Chapter 6 story is completed.
+                if (chapterNum === 6) {
+                  const firstGlyphTrialId = 'Glyph Trial - 1';
+                  if (isInteractiveLevel(firstGlyphTrialId)) {
+                    unlockLevel(firstGlyphTrialId);
+                  }
+                }
               }
               
               // Check if this completes tutorial

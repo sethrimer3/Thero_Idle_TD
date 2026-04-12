@@ -116,6 +116,10 @@ export function setLevelConfigs(levels = []) {
     const normalizedLevel = {
       ...level,
       isStoryLevel: Boolean(level?.isStoryLevel),
+      isGlyphTrialLevel: Boolean(level?.isGlyphTrialLevel),
+      preplacedTowers: Array.isArray(level?.preplacedTowers)
+        ? level.preplacedTowers.map((t) => ({ ...t }))
+        : [],
       waves: cloneWaveArray(waves),
       path: cloneVectorArray(level.path),
       autoAnchors: cloneVectorArray(level.autoAnchors),
@@ -147,6 +151,15 @@ export function isStoryOnlyLevel(levelId) {
   }
   const config = levelConfigs.get(levelId);
   return Boolean(config && config.isStoryLevel);
+}
+
+// Identify glyph trial levels where towers are pre-placed and the player may only assign glyphs.
+export function isGlyphTrialLevel(levelId) {
+  if (!levelId) {
+    return false;
+  }
+  const config = levelConfigs.get(levelId);
+  return Boolean(config && config.isGlyphTrialLevel);
 }
 
 // Rebuild the ordered interactive level list and default unlocks.
