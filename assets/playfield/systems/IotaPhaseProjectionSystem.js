@@ -349,7 +349,7 @@ function drawComplexPlaneField(ctx, tower, time) {
   ctx.stroke();
 
   // ── Axis labels: Re / Im ──
-  ctx.font = '8px serif';
+  ctx.font = '8px "Latin Modern Math", "CMU Serif", Georgia, serif';
   ctx.fillStyle = `rgba(160, 220, 255, ${baseAlpha})`;
   ctx.fillText('Re', cx + radius - 14, cy - 3);
   ctx.fillText('Im', cx + 3, cy - radius + 10);
