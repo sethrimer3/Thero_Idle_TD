@@ -877,7 +877,12 @@ export function createTowerOrchestrationController(config) {
       // Rebuild the lookup map whenever the array is replaced wholesale.
       towerById = new Map();
       if (Array.isArray(value)) {
-        value.forEach((t) => { if (t?.id != null) towerById.set(t.id, t); });
+        value.forEach((towerRecord) => {
+          // Keep tower id lookup resilient so controller hydration can't leave stale references.
+          if (towerRecord?.id != null) {
+            towerById.set(towerRecord.id, towerRecord);
+          }
+        });
       }
     },
     set infinityTowers(value) {
