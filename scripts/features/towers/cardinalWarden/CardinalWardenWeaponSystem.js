@@ -220,7 +220,7 @@ export function fireWeapon(weaponId) {
   
   // Check for eleventh grapheme (index 10 - K) - Massive bullet or speed boost
   let massiveBulletMode = false;
-  let massiveBulletSlot = -1;
+  let _massiveBulletSlot = -1;
   for (let slotIndex = 0; slotIndex < effectiveAssignments.length; slotIndex++) {
     const assignment = effectiveAssignments[slotIndex];
     if (assignment && assignment.index === GRAPHEME_INDEX.K) {
@@ -229,7 +229,7 @@ export function fireWeapon(weaponId) {
       // Slot 8 (index 7): Speed boost only (already handled in fire rate calculation)
       if (slotIndex !== 7) {
         massiveBulletMode = true;
-        massiveBulletSlot = slotIndex;
+        _massiveBulletSlot = slotIndex;
       }
       break; // Only apply the first occurrence
     }

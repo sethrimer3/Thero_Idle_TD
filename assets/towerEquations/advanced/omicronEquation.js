@@ -21,7 +21,7 @@ export const omicron = {
       upgradable: false,
       lockedNote: 'Upgrade δ to raise ο triangle power and training rate.',
       format: (value) => formatGameNumber(Math.max(0, value || 0)),
-      getSubEquations({ blueprint, towerId, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, value }) {
         const helpers = ctx();
         const deltaValue = Math.max(0, Number.isFinite(value) ? value : 0);
         const xiValue = Math.max(
@@ -73,7 +73,7 @@ export const omicron = {
       upgradable: false,
       lockedNote: 'Tune ξ to channel energy into ο.',
       format: (value) => formatDecimal(value, 2),
-      getSubEquations({ blueprint, towerId, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, value }) {
         const helpers = ctx();
         const xiValue = Math.max(0, Number.isFinite(value) ? value : 0);
         const deltaValue = Math.max(

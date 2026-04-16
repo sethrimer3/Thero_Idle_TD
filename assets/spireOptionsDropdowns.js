@@ -8,7 +8,7 @@ const dropdownRegistry = new Map();
  * Determine if the menu should be displayed inline (at bottom of tab) vs as a popover (over render).
  * Returns true if using footer placement and a footer button is being used.
  */
-function shouldUseInlineDisplay(toggles, menu) {
+function shouldUseInlineDisplay(toggles, _menu) {
   const placementPreference = document.body?.dataset?.spireOptionsPlacement;
   if (placementPreference !== 'footer') {
     return false;

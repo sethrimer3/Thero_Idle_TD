@@ -13,7 +13,6 @@
 
 import { GraphTowerBase } from './GraphTowerBase.js';
 import { GlyphEquation } from './GlyphEquation.js';
-import { clamp } from '../shared/TowerUtils.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -93,7 +92,7 @@ export class RegressionTower extends GraphTowerBase {
 
   // ── Per-Frame Logic ──────────────────────────────────────────────────────
 
-  _onTick(dt, now) {
+  _onTick(dt, _now) {
     const interval = this._intervalEq.evaluate(this.glyphs);
 
     // Decay active beam.
@@ -176,7 +175,7 @@ export class RegressionTower extends GraphTowerBase {
 
   // ── Rendering Overlay ────────────────────────────────────────────────────
 
-  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, now) {
+  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, _now) {
     if (!this._lastFit) return;
 
     const fit = this._lastFit;

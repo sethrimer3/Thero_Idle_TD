@@ -68,8 +68,6 @@ import {
 } from './cardinalWardenConfig.js';
 import {
   SeededRandom,
-  OrbitalSquare,
-  RingSquare,
   CardinalWarden,
 } from './cardinalWarden/CardinalWardenEntities.js';
 import {

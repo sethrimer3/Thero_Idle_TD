@@ -202,7 +202,7 @@ function isInViewport(position, bounds, radius = 0) {
   );
 }
 
-function clamp(value, min, max) {
+function _clamp(value, min, max) {
   if (!Number.isFinite(value)) {
     return min;
   }

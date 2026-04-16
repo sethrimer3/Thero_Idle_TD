@@ -349,7 +349,7 @@ export function renderTsadiSimulation() {
   }
 }
 
-function renderBackgroundMolecules(ctx, simulation) {
+function _renderBackgroundMolecules(ctx, simulation) {
   if (!Array.isArray(simulation.backgroundMolecules) || simulation.backgroundMolecules.length === 0) {
     return;
   }

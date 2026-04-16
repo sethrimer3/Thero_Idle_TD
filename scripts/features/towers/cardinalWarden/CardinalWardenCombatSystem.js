@@ -619,7 +619,7 @@ export function updateExpandingWaves(deltaTime) {
     deltaTime,
     this.enemies,
     this.bosses,
-    (target, damage, x, y, isKilled) => {
+    (target, damage, x, y, _isKilled) => {
       // onDamage callback
       this.spawnDamageNumber(x, y, damage);
     },

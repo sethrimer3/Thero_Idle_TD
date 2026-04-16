@@ -66,7 +66,7 @@ const ENEMY_PARTICLE_PALETTE = [
 // Golden sparkle accents and debuff bar palette keep status markers consistent with the math aesthetic.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
 const RHO_SPARKLE_COLOR = { r: 255, g: 218, b: 140 };
-const RHO_SPARKLE_GLOW = 'rgba(255, 234, 170, 0.55)';
+const _RHO_SPARKLE_GLOW = 'rgba(255, 234, 170, 0.55)';
 const DEBUFF_ICON_COLORS = {
   iota: { fill: 'rgba(139, 247, 255, 0.92)', stroke: 'rgba(6, 8, 14, 0.82)' },
   rho: { fill: 'rgba(255, 219, 156, 0.96)', stroke: 'rgba(52, 28, 4, 0.85)' },
@@ -1139,7 +1139,7 @@ export function drawEnemies() {
     if ((enemy.codexId || enemy.typeId) === 'prime' && Number.isFinite(enemy.requiredHitCount)) {
       const total = enemy.requiredHitCount;
       const current = enemy.currentHitCount || 0;
-      const remaining = Math.max(0, total - current);
+      const _remaining = Math.max(0, total - current);
       const ringRadius = (metrics.ringRadius || 16) + 7;
       const segGap = 0.08; // radians gap between segments
       const segSpan = (TWO_PI / total) - segGap;

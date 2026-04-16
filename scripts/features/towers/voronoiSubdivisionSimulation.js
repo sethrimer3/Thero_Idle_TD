@@ -8,7 +8,7 @@
  * we render for the Shin showcase.
  */
 
-import { samplePalette, rgbToString } from './fractalRenderUtils.js';
+import { rgbToString } from './fractalRenderUtils.js';
 
 import { addPanZoomToFractal } from './fractalPanZoom.js';
 

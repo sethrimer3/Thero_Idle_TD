@@ -185,7 +185,7 @@ export function buildActiveEnemyEntries() {
     .filter(Boolean)
     .sort((a, b) => (b.priority || 0) - (a.priority || 0));
 
-  return entries.map(({ priority, ...entry }) => entry);
+  return entries.map(({ priority: _priority, ...entry }) => entry);
 }
 
 /**

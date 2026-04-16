@@ -9,28 +9,25 @@
 
 import {
   NULL_TIER,
-  GREEK_SEQUENCE_LENGTH,
+  GREEK_SEQUENCE_LENGTH as _GREEK_SEQUENCE_LENGTH,
   COLLAPSED_DIMENSION_THRESHOLD,
   WAVE_INITIAL_RADIUS_MULTIPLIER,
   WAVE_MAX_RADIUS_MULTIPLIER,
   WAVE_INITIAL_FORCE,
-  WAVE_FADE_RATE,
-  WAVE_EXPANSION_RATE,
-  WAVE_FORCE_DECAY_RATE,
-  WAVE_FORCE_DECAY_LOG,
-  WAVE_MIN_FORCE_THRESHOLD,
-  WAVE_MIN_DISTANCE,
+  WAVE_FADE_RATE as _WAVE_FADE_RATE,
+  WAVE_EXPANSION_RATE as _WAVE_EXPANSION_RATE,
+  WAVE_FORCE_DECAY_RATE as _WAVE_FORCE_DECAY_RATE,
+  WAVE_FORCE_DECAY_LOG as _WAVE_FORCE_DECAY_LOG,
+  WAVE_MIN_FORCE_THRESHOLD as _WAVE_MIN_FORCE_THRESHOLD,
+  WAVE_MIN_DISTANCE as _WAVE_MIN_DISTANCE,
   ADVANCED_MOLECULE_UNLOCK_TIER,
   toDisplayTier,
   getTierClassification,
-  toRomanNumeral,
   tierToColor,
   colorToCssString,
-  applyAlphaToColor,
   getGreekTierInfo,
-  Quadtree,
 } from './tsadiTowerData.js';
-import { TWO_PI, HALF_PI, getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
+import { TWO_PI, HALF_PI as _HALF_PI, getEffectiveDevicePixelRatio } from './shared/TowerUtils.js';
 import { renderTsadiSimulation, renderTsadiBindingAgents, brightenColor as tsadiBrightenColor } from './tsadiTowerRenderer.js';
 import {
   updateTsadiBackgroundMolecules as tsadiPhysicsUpdateBackgroundMolecules,

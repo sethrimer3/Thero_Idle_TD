@@ -11,7 +11,7 @@ import {
 } from '../../../scripts/core/formatting.js';
 import { blueprintContext } from '../blueprintContext.js';
 
-const ctx = () => blueprintContext;
+const _ctx = () => blueprintContext;
 
 export const psi = {
   mathSymbol: String.raw`\psi`,
@@ -118,7 +118,7 @@ export const psi = {
       },
       getSubEquations({ value }) {
         const multiplier = Math.max(0, Number.isFinite(value) ? value : 1.0);
-        const rank = Math.max(0, Math.floor((multiplier - 1.0) / 0.15));
+        const _rank = Math.max(0, Math.floor((multiplier - 1.0) / 0.15));
         const radiusMeters = multiplier * 2.0;
         return [
           { expression: String.raw`\( \text{R}_{\text{AoE}} = 1.0 + 0.15 \times \aleph_{4} \)` },

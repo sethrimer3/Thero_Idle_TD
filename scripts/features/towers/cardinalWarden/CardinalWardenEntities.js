@@ -9,7 +9,6 @@ import {
   VISUAL_CONFIG,
   ORBITAL_SQUARE_CONFIG,
   RING_SQUARE_CONFIGS,
-  INNER_RING_CONFIGS,
   HOMING_CONFIG,
 } from '../cardinalWardenConfig.js';
 
@@ -275,7 +274,7 @@ export class Bullet {
   /**
    * Flip bullet 180 degrees when hitting a ship trail (simple reflection for cheap computation).
    */
-  applyTrailBounce(normalX, normalY) {
+  applyTrailBounce(_normalX, _normalY) {
     // Simple 180-degree flip: reverse the direction
     this.angle += Math.PI;
     
@@ -749,7 +748,7 @@ export class MathBullet {
   /**
    * Flip mathematical bullets 180 degrees while preserving their oscillation pattern.
    */
-  applyTrailBounce(normalX, normalY) {
+  applyTrailBounce(_normalX, _normalY) {
     // Simple 180-degree flip: reverse the base angle
     this.baseAngle += Math.PI;
     this.baseAngle = normalizeAngle(this.baseAngle);

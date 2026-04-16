@@ -124,7 +124,7 @@ export function renderLamedSimulation() {
     const invDpr = 1 / dpr; // Cache reciprocal for multiplication instead of division
     
     // Get current tier information
-    const { tier, nextTier, progress, tierIndex } = this.getCurrentTier();
+    const { tier, nextTier: _nextTier, progress, tierIndex } = this.getCurrentTier();
     
     // Calculate star visual radius based on mass
     // diameter = star_mass / sqrt(center_mass) (scaled for display)

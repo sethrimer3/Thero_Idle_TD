@@ -169,7 +169,7 @@ export function scrollPanelToElement(target, { offset = 16 } = {}) {
     const scrollOptions = { top, behavior: 'smooth' };
     try {
       panel.scrollTo(scrollOptions);
-    } catch (error) {
+    } catch (_error) {
       panel.scrollTop = top;
     }
     return;
@@ -177,7 +177,7 @@ export function scrollPanelToElement(target, { offset = 16 } = {}) {
 
   try {
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (error) {
+  } catch (_error) {
     target.scrollIntoView(true);
   }
 }

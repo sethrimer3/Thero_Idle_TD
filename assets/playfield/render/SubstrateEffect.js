@@ -110,7 +110,7 @@ const LINE_WIDTH = 1.2;
 const COMPOSITE_ALPHA = 0.20;
 
 /** Duration (ms) of one full growth cycle before the canvas resets. */
-const CYCLE_DURATION_MS = 40000;
+const _CYCLE_DURATION_MS = 40000;
 
 /** Duration (ms) of the gentle fade-in at each cycle's start. */
 const FADE_IN_MS = 3000;

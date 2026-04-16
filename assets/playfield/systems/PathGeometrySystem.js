@@ -164,7 +164,7 @@ export function buildTunnelSegments(points) {
   
   // Find consecutive tunnel points to identify tunnel zones
   let tunnelStart = null;
-  let tunnelStartIndex = -1;
+  let _tunnelStartIndex = -1;
   
   for (let i = 0; i < points.length; i += 1) {
     const point = points[i];
@@ -173,7 +173,7 @@ export function buildTunnelSegments(points) {
     if (isTunnel && tunnelStart === null) {
       // Entering a tunnel zone
       tunnelStart = i;
-      tunnelStartIndex = i;
+      _tunnelStartIndex = i;
     } else if (!isTunnel && tunnelStart !== null) {
       // Exiting a tunnel zone
       const tunnelEnd = i - 1;
@@ -189,7 +189,7 @@ export function buildTunnelSegments(points) {
       }
       
       tunnelStart = null;
-      tunnelStartIndex = -1;
+      _tunnelStartIndex = -1;
     }
   }
   

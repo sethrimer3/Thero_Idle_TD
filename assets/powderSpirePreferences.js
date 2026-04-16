@@ -33,7 +33,7 @@ let cameraToggle = null;
 let cameraStateLabel = null;
 // Render size controls for the Aleph spire layout.
 let renderOverlapSelect = null;
-let renderOverlapRow = null;
+let _renderOverlapRow = null;
 let developerOnlyRenderSizeOptions = [];
 // Provide a handler to synchronize the Aleph camera mode with the main controller.
 let cameraModeHandler = null;
@@ -243,7 +243,7 @@ export function bindPowderSpireOptions() {
   cameraToggle = document.getElementById('powder-camera-controls-toggle');
   cameraStateLabel = document.getElementById('powder-camera-controls-state');
   renderOverlapSelect = document.getElementById('powder-render-overlap-select');
-  renderOverlapRow = document.getElementById('powder-render-overlap-row');
+  _renderOverlapRow = document.getElementById('powder-render-overlap-row');
   developerOnlyRenderSizeOptions = Array.from(
     document.querySelectorAll('[data-developer-only-render-size-option]'),
   );

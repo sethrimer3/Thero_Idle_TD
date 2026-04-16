@@ -5,7 +5,6 @@
  */
 import {
   DEFAULT_MOTE_PALETTE,
-  MIN_MOTE_LANE_CELL_PX,
   POWDER_CELL_SIZE_PX,
   clampUnitInterval,
   colorToRgbaString,
@@ -205,7 +204,7 @@ export class FluidSimulation {
 
     const measuredWidth = parentRect?.width || rect?.width || this.canvas.clientWidth || 0;
     const attrWidth = Number.parseFloat(this.canvas.getAttribute('width')) || 0;
-    const attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
+    const _attrHeight = Number.parseFloat(this.canvas.getAttribute('height')) || 0;
     const intrinsicWidth = attrWidth > 0 ? attrWidth : measuredWidth;
 
     // Lock the Bet Spire viewport to its intrinsic canvas size so window resizes
@@ -829,7 +828,7 @@ export class FluidSimulation {
       return;
     }
     this.convertIdleBank(deltaMs);
-    const releasedDrops = this.releaseIdleDrops(deltaMs);
+    const _releasedDrops = this.releaseIdleDrops(deltaMs);
     // Disabled spawnAmbientDrops as it creates duplicate drops beyond the configured rate
     // this.spawnAmbientDrops(deltaMs, releasedDrops);
     const spawnBudget = Math.max(1, Math.ceil(deltaMs / Math.max(30, this.baseSpawnInterval / 4)));

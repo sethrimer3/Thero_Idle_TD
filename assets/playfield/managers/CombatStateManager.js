@@ -5,6 +5,10 @@ import {
   assignRandomShell,
 } from '../../enemies.js';
 
+import {
+  registerEnemyEncounter,
+} from '../../codex.js';
+
 /**
  * Creates a combat state manager that handles wave progression and enemy lifecycle.
  * This manager is a stateful factory that encapsulates combat logic previously
@@ -44,9 +48,6 @@ export function createCombatStateManager(config) {
   // Fast O(1) enemy lookup by id, kept in sync with the enemies array.
   let enemyById = new Map();
   let enemyIdCounter = 0;
-  let enemyDeathParticles = [];
-  let enemySwirlImpacts = [];
-  let gammaStarBursts = [];
 
   // Victory/defeat state
   let lives = 0;
@@ -148,12 +149,6 @@ export function createCombatStateManager(config) {
     enemies = [];
     enemyById = new Map();
     enemyIdCounter = 0;
-    enemyDeathParticles = [];
-    enemySwirlImpacts = [];
-    gammaStarBursts = [];
-    
-    resolvedOutcome = null;
-    combatActive = true;
     waveTimer = 0;
     
     baseWaveCount = levelConfig.waves?.length || 0;
@@ -554,11 +549,6 @@ export function createCombatStateManager(config) {
     enemies = [];
     enemyById = new Map();
     enemyIdCounter = 0;
-    enemyDeathParticles = [];
-    enemySwirlImpacts = [];
-    gammaStarBursts = [];
-    
-    lives = 0;
     resolvedOutcome = null;
     combatActive = false;
     energy = 0;

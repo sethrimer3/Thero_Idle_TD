@@ -1,12 +1,10 @@
 // Tower interaction system extracted from SimplePlayfield.
 // These functions use 'this' (the SimplePlayfield instance) via prototype assignment.
 
-import { convertMathExpressionToPlainText } from '../../../scripts/core/mathText.js';
 import {
   getTowerDefinition,
   getNextTowerId,
   getPreviousTowerId,
-  getTowerEquationBlueprint,
 } from '../../towersTab.js';
 import {
   getKappaPreviewParameters as getKappaPreviewParametersHelper,
@@ -260,7 +258,7 @@ export function spawnTowerHoldIndicators(tower) {
   }
 
   const indicators = [];
-  const cleanupFunctions = [];
+  const _cleanupFunctions = [];
 
   // Always show upgrade indicator above tower (unless at max tier)
   const nextId = getNextTowerId(tower.type);

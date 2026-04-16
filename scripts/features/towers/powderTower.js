@@ -13,14 +13,12 @@ import {
   clampUnitInterval,
   cloneMoteColor,
   colorToRgbaString,
-  computeMotePaletteFromTheme,
   mergeMotePalette,
   mixRgbColors,
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   parseCssColor,
   hslToRgbColor,
-  resolvePaletteColorStops,
 } from './powderPaletteUtils.js';
 
 import {
@@ -41,7 +39,6 @@ import {
 } from './powderGridUtils.js';
 
 import {
-  MIN_MOTE_LANE_CELL_PX,
   POWDER_CELL_SIZE_PX,
   MOTE_RENDER_SCALE,
   MOTE_COLLISION_SCALE,

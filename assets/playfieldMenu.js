@@ -73,7 +73,7 @@ export function createPlayfieldMenuController(options) {
     if (typeof getAudioManager === 'function') {
       try {
         return getAudioManager() || null;
-      } catch (error) {
+      } catch (_error) {
         return null;
       }
     }
@@ -265,7 +265,7 @@ export function createPlayfieldMenuController(options) {
     if (focusTarget && typeof focusTarget.focus === 'function') {
       try {
         focusTarget.focus({ preventScroll: true });
-      } catch (error) {
+      } catch (_error) {
         focusTarget.focus();
       }
     }
@@ -293,7 +293,7 @@ export function createPlayfieldMenuController(options) {
     if (restoreFocus && menuElements.button && typeof menuElements.button.focus === 'function') {
       try {
         menuElements.button.focus({ preventScroll: true });
-      } catch (error) {
+      } catch (_error) {
         menuElements.button.focus();
       }
     }
@@ -333,7 +333,7 @@ export function createPlayfieldMenuController(options) {
       const attemptFocus = () => {
         try {
           focusStatsPanel();
-        } catch (error) {
+        } catch (_error) {
           focusStatsPanel();
         }
       };
@@ -444,7 +444,7 @@ export function createPlayfieldMenuController(options) {
     const interactive = Boolean(
       typeof isActiveLevelInteractive === 'function' && isActiveLevelInteractive(),
     );
-    const playfield = typeof getPlayfield === 'function' ? getPlayfield() : null;
+    const _playfield = typeof getPlayfield === 'function' ? getPlayfield() : null;
 
     if (!developerActive) {
       writePlayfieldMessage('Enable developer mode in the Codex tab to open Dev Map Tools.');
