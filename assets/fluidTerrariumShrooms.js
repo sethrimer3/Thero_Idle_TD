@@ -13,9 +13,8 @@ import {
   PsiShroom,
   SHROOM_CONFIG as _SHROOM_CONFIG,
 } from './fluidTerrariumShroomSimulation.js';
-import { clamp } from '../scripts/features/towers/shared/TowerUtils.js';
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
 
-function randomBetween(min, max) { return Math.random() * (max - min) + min; }
 /**
  * Main controller for the terrarium shroom system.
  */

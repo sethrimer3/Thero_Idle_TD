@@ -22,6 +22,7 @@ import { getTowerVisualConfig } from '../../../colorSchemeUtils.js';
 import { getTowerDefinition } from '../../../towersTab.js';
 import { colorToRgbaString } from '../../../../scripts/features/towers/powderTower.js';
 import { normalizeProjectileColor, drawConnectionMoteGlow } from '../../utils/rendering.js';
+import { clampSafe as clamp } from '../../../../scripts/core/mathUtils.js';
 import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../../scripts/features/towers/zetaTower.js';
 import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../../scripts/features/towers/etaTower.js';
 import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../../scripts/features/towers/deltaTower.js';
@@ -261,19 +262,6 @@ function getTowerRingSprites() {
 }
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
-
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
 
 function smoothstep(value) {
   const clamped = clamp(value, 0, 1);

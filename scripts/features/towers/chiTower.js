@@ -14,18 +14,12 @@
 
 import { calculateTowerEquationResult } from '../../../assets/towersTab.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
+import { clampSafe as clamp } from '../../core/mathUtils.js';
 
 const CHI_FALLBACK_COLOR = { r: 255, g: 228, b: 184 };
 const CHI_CONVERSION_TRAIL_DURATION = 0.65;
 const CHI_GATE_TRAIL_DURATION = 0.8;
 const MAX_CHI_TRAILS = 24;
-
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  return Math.max(min, Math.min(max, value));
-}
 
 function ensureChiSystem(playfield) {
   if (!playfield.chiThralls) {

@@ -66,8 +66,7 @@ const RAM_COOLDOWN_SECONDS = 0.55;
 // Fly-by loop pacing for track-hold anchors.
 const TRACK_HOLD_LOOP_SPEED = Math.PI * 0.6;
 
-// Clamp helper
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+import { clamp } from './shared/TowerUtils.js';
 
 /**
  * Ensure omicron tower state is initialized.

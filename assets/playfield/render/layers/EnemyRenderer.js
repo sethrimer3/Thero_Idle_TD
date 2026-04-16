@@ -23,6 +23,7 @@ import { samplePaletteGradient } from '../../../colorSchemeUtils.js';
 import { colorToRgbaString } from '../../../../scripts/features/towers/powderTower.js';
 import { getEnemyShellSprites } from '../../../enemies.js';
 import { areEnemyParticlesEnabled } from '../../../preferences.js';
+import { clampSafe as clamp, randomBetween } from '../../../../scripts/core/mathUtils.js';
 export { drawDecimalSwarmParticles } from '../../systems/DecimalSwarmSystem.js';
 
 // Enemy particle sprite for swirl ring (star particle sprites are more
@@ -126,29 +127,6 @@ function getCachedFont(prefix, size) {
 }
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
-
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-
-function randomBetween(min, max) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return min;
-  }
-  if (max <= min) {
-    return min;
-  }
-  return min + Math.random() * (max - min);
-}
 
 function getNowTimestamp() {
   if (typeof performance !== 'undefined' && typeof performance.now === 'function') {

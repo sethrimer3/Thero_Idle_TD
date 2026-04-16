@@ -7,6 +7,8 @@ const DEFAULT_BIRD_COLOR_STOPS = [
   '#7ed8b1',
 ];
 
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
+
 /**
  * Build a CSS gradient string for bird rendering.
  * @returns {string}
@@ -16,27 +18,6 @@ function createBirdGradientString() {
   const positions = [0, 0.5, 1];
   const parts = stops.map((color, index) => `${color} ${Math.round(positions[index] * 100)}%`);
   return `linear-gradient(135deg, ${parts.join(', ')})`;
-}
-
-/**
- * Clamp a numeric value between two bounds.
- * @param {number} value
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-/**
- * Generate a random float within the provided range.
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function randomBetween(min, max) {
-  return min + Math.random() * (max - min);
 }
 
 /**

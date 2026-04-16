@@ -82,10 +82,7 @@ const PALETTE = [
   { r: 255, g: 239, b: 214 },
 ];
 
-/** Clamp a value into an inclusive range. */
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
+import { clamp } from '../../../scripts/core/mathUtils.js';
 
 /** Return a random item from the configured palette. */
 function pickColor() {
