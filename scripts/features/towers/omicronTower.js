@@ -31,6 +31,7 @@ import {
 } from '../../../assets/towersTab.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
+import { clamp } from './shared/TowerUtils.js';
 
 // Default orbital parameters for shield particles
 const SHIELD_PARTICLE_COUNT = 12;
@@ -65,8 +66,6 @@ const RAM_COOLDOWN_SECONDS = 0.55;
 
 // Fly-by loop pacing for track-hold anchors.
 const TRACK_HOLD_LOOP_SPEED = Math.PI * 0.6;
-
-import { clamp } from './shared/TowerUtils.js';
 
 /**
  * Ensure omicron tower state is initialized.

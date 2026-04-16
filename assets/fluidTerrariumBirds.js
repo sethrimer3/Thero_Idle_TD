@@ -1,3 +1,5 @@
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
+
 /**
  * Palette stops for bird gradient effects.
  */
@@ -6,8 +8,6 @@ const DEFAULT_BIRD_COLOR_STOPS = [
   '#31a6c7',
   '#7ed8b1',
 ];
-
-import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
 
 /**
  * Build a CSS gradient string for bird rendering.

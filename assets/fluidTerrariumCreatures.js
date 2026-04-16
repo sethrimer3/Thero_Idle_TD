@@ -1,3 +1,5 @@
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
+
 /**
  * Palette stops that blend from deep navy to glimmering greens to match the Bet terrarium brief.
  */
@@ -9,8 +11,6 @@ const DEFAULT_COLOR_STOPS = [
   '#7ed8b1',
   '#1d6f35',
 ];
-
-import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
 
 /**
  * Build a CSS gradient string from the configured color ramp.

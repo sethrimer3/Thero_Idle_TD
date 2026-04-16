@@ -21,6 +21,8 @@
  *   • allow curved tracers to bounce off their own earlier trail as requested.
  */
 
+import { clamp } from '../../../scripts/core/mathUtils.js';
+
 /** Number of simultaneous background tracers. */
 const TRACER_COUNT = 14;
 
@@ -81,8 +83,6 @@ const PALETTE = [
   { r: 214, g: 224, b: 255 },
   { r: 255, g: 239, b: 214 },
 ];
-
-import { clamp } from '../../../scripts/core/mathUtils.js';
 
 /** Return a random item from the configured palette. */
 function pickColor() {
