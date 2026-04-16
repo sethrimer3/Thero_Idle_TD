@@ -515,7 +515,7 @@ function resolveTowerCardScrollableElement() {
 }
 
 const scrollbarInstances = [];
-let rafHandle = null;
+let _rafHandle = null;
 let lastTimestamp = null;
 
 function resizeCanvases() {
@@ -531,7 +531,7 @@ function frame(timestamp) {
     instance.draw();
   });
 
-  rafHandle = requestAnimationFrame(frame);
+  _rafHandle = requestAnimationFrame(frame);
 }
 
 export function notifyParticleScrollbarTabChanged() {
@@ -568,6 +568,6 @@ export function initParticleScrollbar() {
   scrollbarInstances.forEach((instance) => instance.initialize());
 
   window.addEventListener('resize', resizeCanvases, { passive: true });
-  rafHandle = requestAnimationFrame(frame);
+  _rafHandle = requestAnimationFrame(frame);
   notifyParticleScrollbarTabChanged();
 }
