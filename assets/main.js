@@ -5,33 +5,14 @@ import {
   applyAlephChainUpgradeSnapshot,
   resetAlephChainUpgrades,
 } from './alephUpgradeState.js';
-import {
-  MATH_SYMBOL_REGEX,
-  renderMathElement,
-  isLikelyMathExpression,
-  annotateMathText,
-  convertMathExpressionToPlainText,
-} from '../scripts/core/mathText.js';
-import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
-import {
-  BETA_BASE_ATTACK,
-  BETA_BASE_ATTACK_SPEED,
-  BETA_BASE_RANGE,
-  clampBetaExponent,
-  calculateBetaAttack,
-  calculateBetaAttackSpeed,
-  calculateBetaRange,
-} from '../scripts/features/towers/betaMath.js';
+import { renderMathElement } from '../scripts/core/mathText.js';
 import {
   formatGameNumber,
   formatWholeNumber,
   formatDecimal,
   formatPercentage,
   formatSignedPercentage,
-  GAME_NUMBER_NOTATIONS,
   getGameNumberNotation,
-  setGameNumberNotation,
-  addGameNumberNotationChangeListener,
 } from '../scripts/core/formatting.js';
 import {
   DEFAULT_AUDIO_MANIFEST,
@@ -99,7 +80,6 @@ import {
   applyFpsCounterPreference,
   bindEnemyParticlesToggle,
   initializeEnemyParticlesPreference,
-  areEnemyParticlesEnabled,
   bindEdgeCrystalsToggle,
   initializeEdgeCrystalsPreference,
   bindCrystalBackgroundSpritesToggle,
@@ -129,8 +109,6 @@ import {
   startAutoSaveLoop,
   stopAutoSaveLoop,
   commitAutoSave,
-  readStorage,
-  writeStorage,
   readStorageJson,
   writeStorageJson,
   GRAPHICS_MODE_STORAGE_KEY,
@@ -205,8 +183,6 @@ import {
   getGreekTierInfo,
   ADVANCED_MOLECULE_UNLOCK_TIER,
 } from '../scripts/features/towers/tsadiTower.js';
-// Shin fractal tree simulation — terrarium achievement object, not a tower.
-import { FractalTreeSimulation } from '../scripts/features/towers/fractalTreeSimulation.js';
 // Shin state management for Iteron allocation and fractal terrarium progression.
 import {
   initializeShinState,
@@ -215,7 +191,6 @@ import {
   updateShinState,
   addIterons,
   getIteronBank,
-  getIterationRate,
   getShinGlyphs,
   resetShinState,
   setIterationRate,
@@ -224,7 +199,6 @@ import {
 } from './shinState.js';
 // Shin UI components for fractal tab management and display.
 import {
-  initializeShinUI,
   updateShinDisplay,
   refreshFractalTabs,
   setShinUIUpdateCallback,
@@ -238,9 +212,7 @@ import {
   resizeCardinalCanvas,
   stopCardinalSimulation,
   startCardinalSimulation,
-  isCardinalSimulationRunning,
   getCardinalSimulation,
-  getCardinalHighestWave,
   getCardinalHighScore,
 } from './cardinalWardenUI.js';
 // Shin Grapheme Codex UI for displaying grapheme information.
@@ -270,8 +242,6 @@ import { initializeKufUI, updateKufDisplay, stopKufSimulation, resumeKufSimulati
 // Shared color palette orchestration utilities.
 import {
   configureColorSchemeSystem,
-  getTowerVisualConfig,
-  getOmegaWaveVisualConfig,
   bindColorSchemeButton,
   initializeColorScheme,
   COLOR_SCHEME_STORAGE_KEY,
@@ -284,9 +254,7 @@ import {
   evaluateAchievements,
   refreshAchievementPowderRate,
   getUnlockedAchievementCount,
-  notifyTowerPlaced,
   getAchievementPowderRate,
-  stopAllAchievementSparkles,
   notifyAchievementsTabVisibilityChange,
 } from './achievementsTab.js';
 import {
@@ -297,7 +265,6 @@ import {
   loadMonetizationState,
 } from './state/monetizationState.js';
 import {
-  cognitiveRealmState,
   isCognitiveRealmUnlocked,
   isCognitiveRealmLocked,
   unlockCognitiveRealm,
@@ -308,11 +275,9 @@ import {
 } from './state/cognitiveRealmState.js';
 import {
   initializeCognitiveRealmMap,
-  stopCognitiveRealmMap,
   showCognitiveRealmMap,
   hideCognitiveRealmMap,
   updateCognitiveRealmLockState,
-  resetCognitiveRealmView,
 } from './cognitiveRealmMap.js';
 import {
   configureFieldNotesOverlay,
@@ -333,24 +298,18 @@ import {
 import {
   codexState,
   enemyCodexElements,
-  setEnemyCodexEntries,
   getEnemyCodexEntries,
-  getEnemyCodexEntry,
   renderEnemyCodex,
-  registerEnemyEncounter,
   bindCodexControls,
   initializePerformanceCodex,
   initializeEnemyCodexOverlay,
 } from './codex.js';
 import {
-  setTowerDefinitions,
   getTowerDefinitions,
   getTowerDefinition,
-  getNextTowerId,
   getTowerLoadoutState,
   getTowerUnlockState,
   getMergeProgressState,
-  setMergingLogicCard,
   setLoadoutElements,
   setAudioManager as setTowersAudioManager,
   setPlayfield as setTowersPlayfield,
@@ -361,17 +320,12 @@ import {
   addBetGlyphCurrency,
   getBetGlyphCurrency,
   setTsadiGlyphCurrency,
-  addTsadiGlyphCurrency,
-  getTsadiGlyphCurrency,
   setTheroSymbol,
-  setTowerLoadoutLimit,
   setHideUpgradeMatrixCallback,
   setRenderUpgradeMatrixCallback,
   setMergingLogicUnlocked,
   refreshTowerLoadoutDisplay,
-  cancelTowerDrag,
   updateTowerSelectionButtons,
-  getTowerEquationBlueprint,
   renderTowerUpgradeOverlay,
   closeTowerUpgradeOverlay,
   getTowerUpgradeOverlayElement,
@@ -406,7 +360,7 @@ import {
   refreshTowerIconPalettes,
   closeLoadoutWheel,
 } from './towersTab.js';
-import towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
+import _towers from './data/towers/index.js'; // Modular tower definitions sourced from dedicated files.
 import { initializeEquipmentState, EQUIPMENT_STORAGE_KEY } from './equipment.js';
 import { initializeTowerTreeMap, refreshTowerTreeMap } from './towerTreeMap.js';
 // Particle-based visual scrollbar for reliable touch scrolling on Android.
@@ -470,11 +424,8 @@ import { bindPlayfieldOptions, initializePlayfieldPreferences } from './playfiel
 import { createDeveloperModeManager } from './developerModeManager.js';
 import {
   moteGemState,
-  MOTE_GEM_COLLECTION_RADIUS,
   configureEnemyHandlers,
   resetActiveMoteGems,
-  spawnMoteGemDrop,
-  collectMoteGemsWithinRadius,
   autoCollectActiveMoteGems,
   setMoteGemAutoCollectUnlocked,
   getMoteGemColor,
@@ -485,7 +436,6 @@ import {
 import {
   initializeCraftingOverlay,
   openCraftingOverlay,
-  refreshCraftingRecipesDisplay,
   CRAFTING_TIER_STORAGE_KEY,
 } from './crafting.js';
 import {
@@ -503,18 +453,6 @@ import {
   setActiveTab,
 } from './uiTabManager.js';
 import {
-  fetchJsonWithFallback,
-  getEmbeddedGameplayConfig,
-  loadGameplayConfigViaFetch,
-  loadGameplayConfigViaModule,
-} from './gameplayConfigLoaders.js';
-import {
-  cloneVectorArray,
-  cloneWaveArray,
-  setLevelBlueprints,
-  setLevelConfigs,
-  initializeInteractiveLevelProgression,
-  populateIdleLevelConfigs,
   pruneLevelState,
   getCompletedInteractiveLevelCount,
   getBaseStartingTheroMultiplier,
@@ -546,7 +484,6 @@ import {
   isTutorialCompleted,
   loadTutorialState,
   checkTutorialCompletion,
-  completeTutorial,
   isTowersTabUnlocked,
   unlockTowersTab as unlockTowersTabState,
   isAchievementsUnlocked,
@@ -555,24 +492,15 @@ import {
 import {
   updateTabLockStates,
   initializeTabLockStates,
-  unlockCodexTab,
   unlockAchievementsTab,
   unlockTowersTab,
 } from './tabLockManager.js';
 import {
   createOverlayHelpers,
-  setElementVisibility,
   triggerButtonRipple,
   scrollPanelToElement,
   enablePanelWheelScroll,
 } from './uiHelpers.js';
-import {
-  toSubscriptNumber,
-  formatAlephLabel,
-  formatDuration,
-  formatRewards,
-  formatRelativeTime,
-} from './formatHelpers.js';
 import { clampNormalizedCoordinate } from './geometryHelpers.js';
 import { createIdleResourceBankController } from './idleResourceBankController.js';
 import { createPlayfieldLayoutController } from './playfieldLayoutController.js';
@@ -621,7 +549,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   let setTrackedKufGlyphs = () => {};
 
   const THERO_SYMBOL = 'þ';
-  const COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
+  const _COMMUNITY_DISCORD_INVITE = 'https://discord.gg/UzqhfsZQ8n'; // Reserved for future placement.
 
   setTheroSymbol(THERO_SYMBOL);
 
@@ -718,7 +646,7 @@ import { createSpireCameraController } from './spireCameraController.js';
 
   // Initialize overlay helpers from uiHelpers module
   const overlayHelpers = createOverlayHelpers();
-  const { cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
+  const { cancelOverlayHide: _cancelOverlayHide, scheduleOverlayHide, revealOverlay } = overlayHelpers;
 
   const upgradeMatrixOverlayController = createUpgradeMatrixOverlay({
     revealOverlay,
@@ -763,10 +691,10 @@ import { createSpireCameraController } from './spireCameraController.js';
   });
 
   // Thin delegates so existing call sites continue to work unchanged.
-  const syncPlayfieldSettingsVisibility = layoutCtrl.syncPlayfieldSettingsVisibility;
-  const togglePlayfieldFullscreen = layoutCtrl.togglePlayfieldFullscreen;
-  const syncPlayfieldFullscreenState = layoutCtrl.syncPlayfieldFullscreenState;
-  const updatePlayfieldFullscreenButton = layoutCtrl.updatePlayfieldFullscreenButton;
+  const _syncPlayfieldSettingsVisibility = layoutCtrl.syncPlayfieldSettingsVisibility;
+  const _togglePlayfieldFullscreen = layoutCtrl.togglePlayfieldFullscreen;
+  const _syncPlayfieldFullscreenState = layoutCtrl.syncPlayfieldFullscreenState;
+  const _updatePlayfieldFullscreenButton = layoutCtrl.updatePlayfieldFullscreenButton;
   const updateLayoutVisibility = layoutCtrl.updateLayoutVisibility;
 
 
@@ -943,7 +871,7 @@ import { createSpireCameraController } from './spireCameraController.js';
    * and unlocked at the same height thresholds as Aleph glyphs but tracked independently.
    * @param {number} count - Number of Bet glyphs to award
    */
-  function awardBetGlyphs(count) {
+  function _awardBetGlyphs(count) {
     if (!Number.isFinite(count) || count <= 0) {
       return;
     }
@@ -983,10 +911,10 @@ import { createSpireCameraController } from './spireCameraController.js';
   const {
     suppressAudioPlayback,
     releaseAudioSuppression,
-    isAudioSuppressed,
+    isAudioSuppressed: _isAudioSuppressed,
     syncAudioControlsFromManager,
     bindAudioControls,
-    determineMusicKey,
+    determineMusicKey: _determineMusicKey,
     refreshTabMusic,
   } = createAudioOrchestration({
     audioManager,
@@ -1003,7 +931,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   });
 
   // Cached reference to the notation toggle control inside the Codex panel.
-  let notationToggleButton = null;
+  let _notationToggleButton = null;
 
   const { baseResources, resourceState } = createResourceStateContainers({
     calculateStartingThero,
@@ -1016,7 +944,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   // Fluid simulation has been disabled to prevent creation errors
   const FLUID_STUDY_ENABLED = false;
 
-  const FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Scintillae upon unlock.
+  const _FLUID_UNLOCK_BASE_RESERVOIR_DROPS = 100; // Seed the Bet Spire Terrarium with a base reservoir of Scintillae upon unlock.
 
   const {
     powderConfig,
@@ -1082,7 +1010,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   const unlockTerrariumCelestialBody = betTerrariumCtrl.unlockTerrariumCelestialBody;
   const addTerrariumCreature = betTerrariumCtrl.addTerrariumCreature;
   const addTerrariumItem = betTerrariumCtrl.addTerrariumItem;
-  const getBetTerrariumCreatureCount = betTerrariumCtrl.getBetTerrariumCreatureCount;
+  const _getBetTerrariumCreatureCount = betTerrariumCtrl.getBetTerrariumCreatureCount;
 
   // Ensure compact autosave remains the active basin persistence strategy.
   document.addEventListener('DOMContentLoaded', () => {
@@ -1093,7 +1021,7 @@ import { createSpireCameraController } from './spireCameraController.js';
       if (window.fluidSimulationInstance) {
         window.fluidSimulationInstance.useCompactAutosave = true;
       }
-    } catch (error) {
+    } catch (_e) {
       // Ignore assignment failures caused by missing window globals during SSR/tests.
     }
   });
@@ -1130,7 +1058,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   const getCurrentMoteDispenseRate = idleBankCtrl.getCurrentMoteDispenseRate;
   const getCurrentFluidDropBank = idleBankCtrl.getCurrentFluidDropBank;
   const spendFluidSerendipity = idleBankCtrl.spendFluidSerendipity;
-  const getCurrentFluidDispenseRate = idleBankCtrl.getCurrentFluidDispenseRate;
+  const _getCurrentFluidDispenseRate = idleBankCtrl.getCurrentFluidDispenseRate;
   const addIdleMoteBank = idleBankCtrl.addIdleMoteBank;
   const getLamedSparkBank = idleBankCtrl.getLamedSparkBank;
   const setLamedSparkBank = idleBankCtrl.setLamedSparkBank;
@@ -1288,7 +1216,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   let tsadiDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
   let tsadiOptionsBound = false;
-  let shinSimulationInstance = null;
+  let _shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
   let kufUiInitialized = false;
   let cardinalWardenInitialized = false;
@@ -1390,17 +1318,17 @@ import { createSpireCameraController } from './spireCameraController.js';
     updateMoteStatsDisplays,
     updatePowderStockpileDisplay,
     updatePowderLedger,
-    triggerPowderBasinPulse,
+    triggerPowderBasinPulse: _triggerPowderBasinPulse,
     applyPowderGain,
-    toggleSandfallStability,
-    surveyRidgeHeight,
-    chargeCrystalMatrix,
+    toggleSandfallStability: _toggleSandfallStability,
+    surveyRidgeHeight: _surveyRidgeHeight,
+    chargeCrystalMatrix: _chargeCrystalMatrix,
     refreshPowderSystems,
     updatePowderDisplay,
     notifyIdleTime,
-    grantSpireMinuteIncome,
+    grantSpireMinuteIncome: _grantSpireMinuteIncome,
     bindSpireClickIncome,
-    calculateIdleSpireSummary,
+    calculateIdleSpireSummary: _calculateIdleSpireSummary,
     getPowderCurrency,
     setPowderCurrency,
     getCurrentPowderBonuses,
@@ -1584,7 +1512,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   });
 
   const {
-    applyPowderViewportTransform,
+    applyPowderViewportTransform: _applyPowderViewportTransform,
     handlePowderViewTransformChange,
     handlePowderWallMetricsChange,
     updatePowderWallGapFromGlyphs,
@@ -1615,9 +1543,9 @@ import { createSpireCameraController } from './spireCameraController.js';
   });
 
   // Thin delegates so existing call sites continue to work unchanged.
-  const resetPowderCameraTransform = cameraCtrl.resetPowderCameraTransform;
+  const _resetPowderCameraTransform = cameraCtrl.resetPowderCameraTransform;
   const setPowderCameraMode = cameraCtrl.setPowderCameraMode;
-  const resetFluidCameraTransform = cameraCtrl.resetFluidCameraTransform;
+  const _resetFluidCameraTransform = cameraCtrl.resetFluidCameraTransform;
   const syncFluidCameraModeUi = cameraCtrl.syncFluidCameraModeUi;
   const setFluidCameraMode = cameraCtrl.setFluidCameraMode;
   const bindFluidCameraModeToggle = cameraCtrl.bindFluidCameraModeToggle;
@@ -1716,10 +1644,10 @@ import { createSpireCameraController } from './spireCameraController.js';
   const handleLevelSelection = levelCombatCtrl.handleLevelSelection;
   const cancelPendingLevel = levelCombatCtrl.cancelPendingLevel;
   const confirmPendingLevel = levelCombatCtrl.confirmPendingLevel;
-  const startLevel = levelCombatCtrl.startLevel;
+  const _startLevel = levelCombatCtrl.startLevel;
   const leaveActiveLevel = levelCombatCtrl.leaveActiveLevel;
   const updateCognitiveRealmVisibility = levelCombatCtrl.updateCognitiveRealmVisibility;
-  const focusLeaveLevelButton = levelCombatCtrl.focusLeaveLevelButton;
+  const _focusLeaveLevelButton = levelCombatCtrl.focusLeaveLevelButton;
 
   // Allow the overlay confirmation gesture to begin levels through the shared controller.
   if (levelOverlayController) {
@@ -1917,7 +1845,7 @@ import { createSpireCameraController } from './spireCameraController.js';
   function buildLevelCards() { levelGridCtrl.buildLevelCards(); }
   function updateLevelCards() { levelGridCtrl.updateLevelCards(); }
   function updateActiveLevelBanner() { levelGridCtrl.updateActiveLevelBanner(); }
-  function updateLevelSetLocks() { levelGridCtrl.updateLevelSetLocks(); }
+  function _updateLevelSetLocks() { levelGridCtrl.updateLevelSetLocks(); }
 
   function updateLamedStatistics() {
     lamedSpireUi.updateStatistics(lamedSimulationInstance);
@@ -2029,7 +1957,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
       try {
         event.target.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture failures because the gesture can still continue without capture.
       }
     }
@@ -2042,7 +1970,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
       try {
         event.target.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture failures because cleanup will continue regardless.
       }
     }
@@ -2099,7 +2027,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
       try {
         event.target.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture failures because the gesture can still continue without capture.
       }
     }
@@ -2112,7 +2040,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
       try {
         event.target.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture failures because cleanup will continue regardless.
       }
     }
@@ -2403,7 +2331,7 @@ import { createSpireCameraController } from './spireCameraController.js';
     setActiveTab('powder');
   }
 
-  function handlePowderModeToggle() {
+  function _handlePowderModeToggle() {
     if (!FLUID_STUDY_ENABLED) {
       setActiveTab('powder');
       updatePowderModeButton();
@@ -3282,8 +3210,8 @@ import { createSpireCameraController } from './spireCameraController.js';
     const highestNormalizedRaw = Number.isFinite(info.highestNormalized)
       ? Math.max(0, info.highestNormalized)
       : totalNormalized;
-    const highestNormalized = Math.max(0, Math.min(1, highestNormalizedRaw));
-    const highestDisplay = formatDecimal(Math.max(0, highestNormalizedRaw), 2);
+    const _highestNormalized = Math.max(0, Math.min(1, highestNormalizedRaw));
+    const _highestDisplay = formatDecimal(Math.max(0, highestNormalizedRaw), 2);
 
     powderState.simulatedDuneGain = clampedGain;
     // Capture the current height profile so dune progress resumes accurately after reloads.
@@ -3314,7 +3242,7 @@ import { createSpireCameraController } from './spireCameraController.js';
       powderElements.rightWall.style.setProperty('--powder-wall-shift', wallOffsetValue);
     }
 
-    const basinHeight = rows * cellSize;
+    const _basinHeight = rows * cellSize;
 
     const glyphMetrics = updatePowderGlyphColumns({
       scrollOffset,
@@ -3698,10 +3626,10 @@ import { createSpireCameraController } from './spireCameraController.js';
      */
     function stopTerrariumAnimations() {
       const terrariumSystems = [
-        fluidTerrariumCreatures,
-        fluidTerrariumGrass,
-        fluidTerrariumSkyCycle,
-        fluidTerrariumShrooms,
+        betTerrariumCtrl.getCreatures(),
+        betTerrariumCtrl.getGrass(),
+        betTerrariumCtrl.getSkyCycle(),
+        betTerrariumCtrl.getShrooms(),
       ];
       terrariumSystems.forEach((system) => {
         if (system && typeof system.stop === 'function') {
@@ -3716,10 +3644,10 @@ import { createSpireCameraController } from './spireCameraController.js';
      */
     function startTerrariumAnimations() {
       const terrariumSystems = [
-        fluidTerrariumCreatures,
-        fluidTerrariumGrass,
-        fluidTerrariumSkyCycle,
-        fluidTerrariumShrooms,
+        betTerrariumCtrl.getCreatures(),
+        betTerrariumCtrl.getGrass(),
+        betTerrariumCtrl.getSkyCycle(),
+        betTerrariumCtrl.getShrooms(),
       ];
       terrariumSystems.forEach((system) => {
         if (system && typeof system.start === 'function') {
@@ -4414,8 +4342,8 @@ import { createSpireCameraController } from './spireCameraController.js';
         if (!viewportWidth || !viewportHeight || !contentWidth || !contentHeight) {
           return;
         }
-        const scaledWidth = contentWidth * scale;
-        const scaledHeight = contentHeight * scale;
+        const _scaledWidth = contentWidth * scale;
+        const _scaledHeight = contentHeight * scale;
         
         // Prevent zooming out past the terrarium bounds
         // Calculate minimum scale to ensure content fills the viewport

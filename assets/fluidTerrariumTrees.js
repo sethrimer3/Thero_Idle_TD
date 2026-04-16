@@ -101,7 +101,6 @@ import {
   fttssHandleDragPointerUp,
   fttssEndStoreDrag,
   fttssConsumeStoreItem,
-  STORE_STATUS_DEFAULT,
 } from './fluidTerrariumStoreSystem.js';
 
 // Re-export resolveTerrariumTreeLevel for backward compatibility

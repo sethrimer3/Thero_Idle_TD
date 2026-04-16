@@ -33,7 +33,7 @@ const offlineOverlayElements = {
   prompt: null,
 };
 
-let offlineOverlayAnimating = false;
+let _offlineOverlayAnimating = false;
 let offlineOverlayFadeHandle = null;
 let offlineOverlayPromptHandle = null;
 let offlineOverlayLastFocus = null;
@@ -161,7 +161,7 @@ async function showOfflineOverlay(summary = {}) {
 
   const {
     title,
-    alephRow,
+    alephRow: _alephRow,
     alephMultiplier,
     alephTotal,
     betRow,
@@ -173,9 +173,9 @@ async function showOfflineOverlay(summary = {}) {
     tsadiRow,
     tsadiMultiplier,
     tsadiTotal,
-    waalsRow,
-    waalsMultiplier,
-    waalsTotal,
+    waalsRow: _waalsRow,
+    waalsMultiplier: _waalsMultiplier,
+    waalsTotal: _waalsTotal,
     shinRow,
     shinMultiplier,
     shinTotal,
@@ -412,7 +412,7 @@ export function updatePowderLogDisplay() {
  */
 export function recordPowderEvent(type, context = {}) {
   const powderState = dependencies.powderState || {};
-  const powderConfig = dependencies.powderConfig || {};
+  const _powderConfig = dependencies.powderConfig || {};
   const powderBonuses = dependencies.getCurrentPowderBonuses();
 
   let entry = '';

@@ -6,14 +6,13 @@
  * smoothly restarts after death with animations.
  */
 
-import { CardinalWardenSimulation, getWeaponIds, getWeaponDefinition } from '../scripts/features/towers/cardinalWardenSimulation.js';
+import { CardinalWardenSimulation } from '../scripts/features/towers/cardinalWardenSimulation.js';
 import { formatGameNumber } from '../scripts/core/formatting.js';
 import {
   getShinGlyphs,
   addShinGlyphs,
   getIteronBank,
   spendIterons,
-  addIterons,
   getActivePhonemeDrops,
   collectPhonemeDrop,
   clearActivePhonemeDrops,
@@ -27,11 +26,9 @@ import {
   consumeGrapheme,
   returnGrapheme,
   isWeaponPurchased,
-  getPurchasedWeapons,
   purchaseWeapon,
   getWeaponUnlockCost,
   isSlotUnlocked,
-  getUnlockedSlots,
   unlockSlot,
   getSlotUnlockCost,
   getWeaponAttackLevel,
@@ -343,7 +340,7 @@ function startWeaponDisplayLoop() {
 /**
  * Stop the weapon display update loop.
  */
-function stopWeaponDisplayLoop() {
+function _stopWeaponDisplayLoop() {
   if (weaponDisplayAnimationId) {
     cancelAnimationFrame(weaponDisplayAnimationId);
     weaponDisplayAnimationId = null;
@@ -510,7 +507,7 @@ export function startCardinalSimulation() {
 /**
  * Handle score changes.
  */
-function handleScoreChange(score) {
+function handleScoreChange(_score) {
   // Score is displayed in the canvas UI, no external element needed
   // Update weapons display to reflect purchasable/upgradeable states
   updateWeaponsDisplay();
@@ -607,7 +604,7 @@ function handleGuaranteedGraphemeDrop(waveNumber) {
 /**
  * Handle health changes.
  */
-function handleHealthChange(health, maxHealth) {
+function handleHealthChange(_health, _maxHealth) {
   // Health bar is rendered in the canvas UI
 }
 
@@ -871,7 +868,7 @@ function updateWaveStartOptions() {
   }
   
   // Create carousel items
-  carouselState.availableWaves.forEach((waveIndex, index) => {
+  carouselState.availableWaves.forEach((waveIndex, _index) => {
     const item = document.createElement('div');
     item.className = 'shin-wave-carousel-item';
     const displayWave = waveIndex + 1; // Display as 1-indexed
@@ -1326,7 +1323,7 @@ function handleWeaponUnlock(weaponId) {
   if (result.success) {
     console.log(`Unlocked weapon ${weaponId} for ${cost} Equivalence`);
     updateWeaponsDisplay();
-    updateTotalIterons();
+    updateTotalIteronsDisplay();
   }
 }
 
@@ -1346,7 +1343,7 @@ function handleSlotUnlock(weaponId, slotIndex) {
   if (result.success) {
     console.log(`Unlocked slot ${slotIndex} for weapon ${weaponId} for ${cost} Equivalence`);
     updateWeaponsDisplay();
-    updateTotalIterons();
+    updateTotalIteronsDisplay();
   }
 }
 
@@ -1370,7 +1367,7 @@ function handleAttackUpgrade(weaponId) {
       cardinalSimulation.applyWeaponUpgrades(weaponId, result.newLevel, getWeaponSpeedLevel(weaponId));
     }
     updateWeaponsDisplay();
-    updateTotalIterons();
+    updateTotalIteronsDisplay();
   }
 }
 
@@ -1394,7 +1391,7 @@ function handleSpeedUpgrade(weaponId) {
       cardinalSimulation.applyWeaponUpgrades(weaponId, getWeaponAttackLevel(weaponId), result.newLevel);
     }
     updateWeaponsDisplay();
-    updateTotalIterons();
+    updateTotalIteronsDisplay();
   }
 }
 

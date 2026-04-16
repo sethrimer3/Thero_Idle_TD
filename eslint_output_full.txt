@@ -1,0 +1,391 @@
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/offlinePersistence.js
+   36:5  warning  'offlineOverlayAnimating' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  164:5  warning  'alephRow' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+  176:5  warning  'waalsRow' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+  177:5  warning  'waalsMultiplier' is assigned a value but never used. Allowed unused vars must match /^_/u          no-unused-vars
+  178:5  warning  'waalsTotal' is assigned a value but never used. Allowed unused vars must match /^_/u               no-unused-vars
+  415:9  warning  'powderConfig' is assigned a value but never used. Allowed unused vars must match /^_/u             no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/particleScrollbar.js
+  518:5  warning  'rafHandle' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield.js
+    10:10  warning  'playTowerPlacementNotes' is defined but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+    15:3   warning  'getTowerDefinitions' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+    17:3   warning  'isTowerPlaceable' is defined but never used. Allowed unused vars must match /^_/u                            no-unused-vars
+    19:3   warning  'cancelTowerDrag' is defined but never used. Allowed unused vars must match /^_/u                             no-unused-vars
+    21:3   warning  'getTowerLoadoutState' is defined but never used. Allowed unused vars must match /^_/u                        no-unused-vars
+    22:3   warning  'openTowerUpgradeOverlay' is defined but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+    23:3   warning  'calculateTowerEquationResult' is defined but never used. Allowed unused vars must match /^_/u                no-unused-vars
+    25:3   warning  'unlockTower' is defined but never used. Allowed unused vars must match /^_/u                                 no-unused-vars
+    31:3   warning  'registerEnemyEncounter' is defined but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+    32:3   warning  'getEnemyCodexEntry' is defined but never used. Allowed unused vars must match /^_/u                          no-unused-vars
+    36:3   warning  'getTowerVisualConfig' is defined but never used. Allowed unused vars must match /^_/u                        no-unused-vars
+    37:3   warning  'getOmegaWaveVisualConfig' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+    38:3   warning  'getTowerTierValue' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+    39:3   warning  'samplePaletteGradient' is defined but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+    41:10  warning  'colorToRgbaString' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+    41:29  warning  'resolvePaletteColorStops' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+    42:10  warning  'notifyTowerPlaced' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+    45:10  warning  'easeInCubic' is defined but never used. Allowed unused vars must match /^_/u                                 no-unused-vars
+    45:23  warning  'easeOutCubic' is defined but never used. Allowed unused vars must match /^_/u                                no-unused-vars
+    46:10  warning  'areDamageNumbersEnabled' is defined but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+    46:35  warning  'getDamageNumberMode' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+    46:56  warning  'DAMAGE_NUMBER_MODES' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+    46:77  warning  'getFrameRateLimit' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+    46:96  warning  'updateFpsCounter' is defined but never used. Allowed unused vars must match /^_/u                            no-unused-vars
+    51:3   warning  'PLAYFIELD_VIEW_DRAG_THRESHOLD' is defined but never used. Allowed unused vars must match /^_/u               no-unused-vars
+    52:3   warning  'PLAYFIELD_VIEW_PAN_MARGIN_METERS' is defined but never used. Allowed unused vars must match /^_/u            no-unused-vars
+    79:10  warning  'createCombatStateManager' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+    82:10  warning  'createTowerOrchestrationController' is defined but never used. Allowed unused vars must match /^_/u          no-unused-vars
+    83:10  warning  'createDeveloperToolsService' is defined but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+    84:10  warning  'createWaveUIFormatter' is defined but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+    88:3   warning  'beginPerformanceFrame' is defined but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+    90:3   warning  'beginTowerPerformanceSegment' is defined but never used. Allowed unused vars must match /^_/u                no-unused-vars
+    91:3   warning  'endPerformanceFrame' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+   115:20  warning  'ensureMuStateHelper' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+   117:18  warning  'drawMuMinesHelper' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+   118:22  warning  'teardownMuTowerHelper' is defined but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   121:20  warning  'ensureNuStateHelper' is defined but never used. Allowed unused vars must match /^_/u                         no-unused-vars
+   125:26  warning  'drawNuKillParticlesHelper' is defined but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+   128:30  warning  'clearNuCachedDimensionsHelper' is defined but never used. Allowed unused vars must match /^_/u               no-unused-vars
+   134:18  warning  'drawXiBallsHelper' is defined but never used. Allowed unused vars must match /^_/u                           no-unused-vars
+   138:23  warning  'ensureThetaStateHelper' is defined but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   140:25  warning  'teardownThetaTowerHelper' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+   143:25  warning  'ensureEpsilonStateHelper' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+   145:22  warning  'applyEpsilonHitHelper' is defined but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   165:3   warning  'ETA_MAX_PRESTIGE_MERGES' is defined but never used. Allowed unused vars must match /^_/u                     no-unused-vars
+   205:21  warning  'ensurePhiStateHelper' is defined but never used. Allowed unused vars must match /^_/u                        no-unused-vars
+   207:23  warning  'teardownPhiTowerHelper' is defined but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   217:23  warning  'ensureOmegaStateHelper' is defined but never used. Allowed unused vars must match /^_/u                      no-unused-vars
+   219:25  warning  'teardownOmegaTowerHelper' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+   220:25  warning  'drawOmegaParticlesHelper' is defined but never used. Allowed unused vars must match /^_/u                    no-unused-vars
+   223:3   warning  'getPlayfieldResolutionCap' is defined but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+   228:7   warning  'MAX_PLAYFIELD_DEVICE_PIXEL_RATIO' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+   277:7   warning  'DERIVATIVE_SHIELD_RADIUS_SCALE' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+   278:7   warning  'DERIVATIVE_SHIELD_MIN_RADIUS' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+   279:7   warning  'DERIVATIVE_SHIELD_LINGER_MS' is assigned a value but never used. Allowed unused vars must match /^_/u        no-unused-vars
+   309:7   warning  'EQUILATERAL_TRIANGLE_HEIGHT_RATIO' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   311:7   warning  'PI' is assigned a value but never used. Allowed unused vars must match /^_/u                                 no-unused-vars
+   314:7   warning  'PI_OVER_6' is assigned a value but never used. Allowed unused vars must match /^_/u                          no-unused-vars
+   315:7   warning  'PI_TIMES_1_2' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+   318:7   warning  'BETA_STICK_HIT_COUNT' is assigned a value but never used. Allowed unused vars must match /^_/u               no-unused-vars
+   319:7   warning  'BETA_STICK_HIT_INTERVAL' is assigned a value but never used. Allowed unused vars must match /^_/u            no-unused-vars
+   321:7   warning  'BETA_TRIANGLE_SPEED' is assigned a value but never used. Allowed unused vars must match /^_/u                no-unused-vars
+   323:7   warning  'GAMMA_OUTBOUND_SPEED' is assigned a value but never used. Allowed unused vars must match /^_/u               no-unused-vars
+   325:7   warning  'GAMMA_RETURN_SPEED' is assigned a value but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+   326:7   warning  'GAMMA_STAR_HIT_COUNT' is assigned a value but never used. Allowed unused vars must match /^_/u               no-unused-vars
+   328:7   warning  'GAMMA_STAR_RADIUS_METERS' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+   754:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                              no-unused-vars
+  3764:35  warning  'delta' is defined but never used. Allowed unused args must match /^_/u                                       no-unused-vars
+  4928:21  warning  'segmentRatio' is assigned a value but never used. Allowed unused vars must match /^_/u                       no-unused-vars
+  5448:20  warning  'enemy' is defined but never used. Allowed unused args must match /^_/u                                       no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/controllers/TowerOrchestrationController.js
+    7:3   warning  'getPreviousTowerId' is defined but never used. Allowed unused vars must match /^_/u       no-unused-vars
+  334:23  warning  'expectedNextId' is assigned a value but never used. Allowed unused args must match /^_/u  no-unused-vars
+  350:28  warning  'nextId' is not defined                                                                    no-undef
+  350:56  warning  'nextId' is not defined                                                                    no-undef
+  461:10  warning  'previousId' is not defined                                                                no-undef
+  475:51  warning  'previousId' is not defined                                                                no-undef
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/input/InputController.js
+    3:3   warning  'MOTE_GEM_COLLECTION_RADIUS' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  366:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  395:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  413:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  472:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  499:22  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  523:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+  547:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u              no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/managers/CombatStateManager.js
+   6:3  warning  'getEnemyCodexEntry' is defined but never used. Allowed unused vars must match /^_/u             no-unused-vars
+   9:3  warning  'spawnMoteGemDrop' is defined but never used. Allowed unused vars must match /^_/u               no-unused-vars
+  10:3  warning  'resolveEnemyGemDropMultiplier' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  53:7  warning  'enemyDeathParticles' is assigned a value but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  54:7  warning  'enemySwirlImpacts' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  55:7  warning  'gammaStarBursts' is assigned a value but never used. Allowed unused vars must match /^_/u       no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/playfieldPreferences.js
+  34:5  warning  'renderOverlapRow' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/render/CanvasRenderer.js
+  205:10  warning  'clamp' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/render/SubstrateEffect.js
+  113:7  warning  'CYCLE_DURATION_MS' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/render/TetrisBlockEffect.js
+  176:17  warning  'key' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/render/layers/EnemyRenderer.js
+    69:7   warning  'RHO_SPARKLE_GLOW' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  1142:13  warning  'remaining' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/ConnectionSystem.js
+  191:35  warning  'tower' is defined but never used. Allowed unused args must match /^_/u        no-unused-vars
+  514:11  warning  'nx' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  515:11  warning  'ny' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/EnemyUpdateSystem.js
+   24:3   warning  'cleanupHypernode' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  358:46  warning  'delta' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/IotaPhaseProjectionSystem.js
+  118:30  warning  'position' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/PathGeometrySystem.js
+  192:7  warning  'tunnelStartIndex' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/QuantumProjectionSystem.js
+  85:42  warning  'hitPos' is defined but never used. Allowed unused args must match /^_/u   no-unused-vars
+  85:50  warning  'truePos' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/TowerInteractionSystem.js
+    4:10  warning  'convertMathExpressionToPlainText' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+    9:3   warning  'getTowerEquationBlueprint' is defined but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  263:9   warning  'cleanupFunctions' is assigned a value but never used. Allowed unused vars must match /^_/u         no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/systems/WaveQueueSystem.js
+  188:25  warning  'priority' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/ui/HudBindings.js
+  237:7  warning  'insufficientEnergy' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  249:9  warning  'remaining' is assigned a value but never used. Allowed unused vars must match /^_/u           no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfield/ui/TowerSelectionWheel.js
+   15:7   warning  'VISIBLE_TOWER_COUNT' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  252:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                no-unused-vars
+  275:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfieldMenu.js
+   76:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u      no-unused-vars
+  268:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u      no-unused-vars
+  296:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u      no-unused-vars
+  336:18  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u      no-unused-vars
+  447:11  warning  'playfield' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfieldOutcome.js
+  119:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  182:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/playfieldStatsPanel.js
+  619:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  626:12  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/powderDisplay.js
+  45:3  warning  'getIteronBank' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/powderSpirePreferences.js
+  36:5  warning  'renderOverlapRow' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/powderUiDomHelpers.js
+  26:5  warning  'formatGameNumber' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/spireCameraController.js
+  24:5  warning  'getSandSimulation' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/spireOptionsDropdowns.js
+  11:42  warning  'menu' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/spireStoryManager.js
+  37:3  warning  'isStoryOnlyLevel' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/towerLoadoutController.js
+   26:9   warning  'MAX_VISIBLE_LOADOUT_ITEMS' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  466:33  warning  'immediate' is assigned a value but never used. Allowed unused args must match /^_/u                  no-unused-vars
+  720:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                      no-unused-vars
+  772:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                      no-unused-vars
+  836:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                      no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/towerTreeMap.js
+  685:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  727:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  804:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/towerUpgradeOverlayController.js
+    83:12  warning  'escapeRegExp' is defined but never used. Allowed unused vars must match /^_/u    no-unused-vars
+   509:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  1313:16  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/towersTab.js
+     2:3   warning  'MATH_SYMBOL_REGEX' is defined but never used. Allowed unused vars must match /^_/u                 no-unused-vars
+     4:3   warning  'isLikelyMathExpression' is defined but never used. Allowed unused vars must match /^_/u            no-unused-vars
+     5:3   warning  'annotateMathText' is defined but never used. Allowed unused vars must match /^_/u                  no-unused-vars
+    13:3   warning  'formatPercentage' is defined but never used. Allowed unused vars must match /^_/u                  no-unused-vars
+    14:3   warning  'formatSignedPercentage' is defined but never used. Allowed unused vars must match /^_/u            no-unused-vars
+   712:10  warning  'getEquippedLoadoutCount' is defined but never used. Allowed unused vars must match /^_/u           no-unused-vars
+  1202:10  warning  'createPreviewId' is defined but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+  1413:10  warning  'formatTowerVariableValue' is defined but never used. Allowed unused vars must match /^_/u          no-unused-vars
+  1423:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u                    no-unused-vars
+  1514:10  warning  'buildVariableGlyphControls' is defined but never used. Allowed unused vars must match /^_/u        no-unused-vars
+  1578:10  warning  'resolveTowerVariableSubEquations' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  1637:10  warning  'formatTowerEquationResultValue' is defined but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  1647:10  warning  'extractTowerCardEquation' is defined but never used. Allowed unused vars must match /^_/u          no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/tsadiMoleculeNameGenerator.js
+  293:10  warning  'pickFromCategoryGroup' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/uiHelpers.js
+  172:14  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+  180:12  warning  'error' is defined but never used. Allowed unused caught errors must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/assets/waveEncoder.js
+  76:10  warning  'waveNumPart' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/alphaTower.js
+  221:34  warning  'delta' is defined but never used. Allowed unused args must match /^_/u              no-unused-vars
+  254:35  warning  'delta' is defined but never used. Allowed unused args must match /^_/u              no-unused-vars
+  497:15  warning  'distance' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWarden/CardinalWardenCombatSystem.js
+  622:28  warning  'isKilled' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWarden/CardinalWardenEntities.js
+   12:3   warning  'INNER_RING_CONFIGS' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  278:20  warning  'normalX' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+  278:29  warning  'normalY' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+  752:20  warning  'normalX' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+  752:29  warning  'normalY' is defined but never used. Allowed unused args must match /^_/u             no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWarden/CardinalWardenSpawnSystem.js
+  451:46  warning  'boss' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWarden/CardinalWardenStateAPI.js
+  383:32  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  393:43  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  403:31  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  413:42  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  459:29  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  469:31  warning  'weaponId' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWarden/CardinalWardenWeaponSystem.js
+  232:9  warning  'massiveBulletSlot' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/cardinalWardenSimulation.js
+  71:3  warning  'OrbitalSquare' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  72:3  warning  'RingSquare' is defined but never used. Allowed unused vars must match /^_/u     no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/epsilonTower.js
+  10:9  warning  'def' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/fluidTower.js
+    8:3   warning  'MIN_MOTE_LANE_CELL_PX' is defined but never used. Allowed unused vars must match /^_/u   no-unused-vars
+  208:11  warning  'attrHeight' is assigned a value but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  832:11  warning  'releasedDrops' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/DensityCollapseTower.js
+  138:28  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  240:53  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  282:38  warning  'cx' is defined but never used. Allowed unused args must match /^_/u   no-unused-vars
+  282:42  warning  'cy' is defined but never used. Allowed unused args must match /^_/u   no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/EquationDisplay.js
+  148:26  warning  'name' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/GraphRenderer.js
+  176:53  warning  'scale' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/GraphTowerBase.js
+   24:10  warning  'clamp' is defined but never used. Allowed unused vars must match /^_/u    no-unused-vars
+  211:11  warning  'dt' is defined but never used. Allowed unused args must match /^_/u       no-unused-vars
+  211:15  warning  'now' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  223:16  warning  'ctx' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  223:21  warning  'toPixel' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  223:30  warning  'radius' is defined but never used. Allowed unused args must match /^_/u   no-unused-vars
+  223:38  warning  'scale' is defined but never used. Allowed unused args must match /^_/u    no-unused-vars
+  223:45  warning  'cx' is defined but never used. Allowed unused args must match /^_/u       no-unused-vars
+  223:49  warning  'cy' is defined but never used. Allowed unused args must match /^_/u       no-unused-vars
+  223:53  warning  'now' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  226:17  warning  'point' is defined but never used. Allowed unused args must match /^_/u    no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/OrbitalCollapseTower.js
+   88:15  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  183:53  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/PolynomialEngineTower.js
+  102:15  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  206:53  warning  'now' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/graphTowers/RegressionTower.js
+   16:10  warning  'clamp' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   96:15  warning  'now' is defined but never used. Allowed unused args must match /^_/u    no-unused-vars
+  179:53  warning  'now' is defined but never used. Allowed unused args must match /^_/u    no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/lambdaTower.js
+  496:11  warning  'totalDuration' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/lamedTower.js
+  20:3  warning  'BLACK_HOLE_MAX_DIAMETER_PERCENT' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  21:3  warning  'COLLAPSE_ANIMATION_SECONDS' is defined but never used. Allowed unused vars must match /^_/u       no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/lamedTowerPhysics.js
+  360:9  warning  'starVisualRadius' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  687:9  warning  'dpr' is assigned a value but never used. Allowed unused vars must match /^_/u               no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/lamedTowerRenderer.js
+  127:19  warning  'nextTier' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/nuTower.js
+  34:10  warning  'clamp' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/omegaTower.js
+  60:52  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/omicronTower.js
+  667:17  warning  'enemyHpBefore' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/phiTower.js
+  22:10  warning  'metersToPixels' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/piTower.js
+   62:32  warning  'playfield' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+   62:43  warning  'tower' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  252:54  warning  'delta' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  438:35  warning  'playfield' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  438:46  warning  'tower' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+  446:35  warning  'playfield' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+  446:46  warning  'tower' is defined but never used. Allowed unused args must match /^_/u      no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/powderTower.js
+  16:3  warning  'computeMotePaletteFromTheme' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  23:3  warning  'resolvePaletteColorStops' is defined but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  44:3  warning  'MIN_MOTE_LANE_CELL_PX' is defined but never used. Allowed unused vars must match /^_/u        no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/psiTower.js
+    4:3   warning  'calculateTowerEquationResult' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+   24:50  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u              no-unused-vars
+  216:7   warning  'maxProgressPosition' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/sigmaTower.js
+  92:52  warning  'delta' is defined but never used. Allowed unused args must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/tsadiBindingSystem.js
+  582:7  warning  'discoveredNewMolecule' is assigned a value but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/tsadiTower.js
+  12:3   warning  'GREEK_SEQUENCE_LENGTH' is defined but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  17:3   warning  'WAVE_FADE_RATE' is defined but never used. Allowed unused vars must match /^_/u            no-unused-vars
+  18:3   warning  'WAVE_EXPANSION_RATE' is defined but never used. Allowed unused vars must match /^_/u       no-unused-vars
+  19:3   warning  'WAVE_FORCE_DECAY_RATE' is defined but never used. Allowed unused vars must match /^_/u     no-unused-vars
+  20:3   warning  'WAVE_FORCE_DECAY_LOG' is defined but never used. Allowed unused vars must match /^_/u      no-unused-vars
+  21:3   warning  'WAVE_MIN_FORCE_THRESHOLD' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+  22:3   warning  'WAVE_MIN_DISTANCE' is defined but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  26:3   warning  'toRomanNumeral' is defined but never used. Allowed unused vars must match /^_/u            no-unused-vars
+  29:3   warning  'applyAlphaToColor' is defined but never used. Allowed unused vars must match /^_/u         no-unused-vars
+  31:3   warning  'Quadtree' is defined but never used. Allowed unused vars must match /^_/u                  no-unused-vars
+  33:18  warning  'HALF_PI' is defined but never used. Allowed unused vars must match /^_/u                   no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/tsadiTowerRenderer.js
+  352:10  warning  'renderBackgroundMolecules' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/voronoiSubdivisionSimulation.js
+  11:10  warning  'samplePalette' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+/home/runner/work/Thero_Idle_TD/Thero_Idle_TD/scripts/features/towers/xiTower.js
+  25:3  warning  'getTowerEquationBlueprint' is defined but never used. Allowed unused vars must match /^_/u  no-unused-vars
+
+✖ 250 problems (0 errors, 250 warnings)
+

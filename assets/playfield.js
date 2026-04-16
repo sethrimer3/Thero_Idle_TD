@@ -7,50 +7,25 @@ import {
   INFINITY_PARTICLE_CONFIG,
 } from '../scripts/features/towers/infinityTower.js';
 import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
-import { playTowerPlacementNotes } from './audioSystem.js';
 import {
   getTowerDefinition,
   getNextTowerId,
   getPreviousTowerId,
-  getTowerDefinitions,
   isTowerUnlocked,
-  isTowerPlaceable,
   refreshTowerLoadoutDisplay,
-  cancelTowerDrag,
   getTowerEquationBlueprint,
-  getTowerLoadoutState,
-  openTowerUpgradeOverlay,
-  calculateTowerEquationResult,
   computeTowerVariableValue,
-  unlockTower,
 } from './towersTab.js';
 import {
   spawnMoteGemDrop,
 } from './enemies.js';
-import {
-  registerEnemyEncounter,
-  getEnemyCodexEntry,
-} from './codex.js';
 import { levelConfigs } from './levels.js';
-import {
-  getTowerVisualConfig,
-  getOmegaWaveVisualConfig,
-  getTowerTierValue,
-  samplePaletteGradient,
-} from './colorSchemeUtils.js';
-import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
-import { notifyTowerPlaced } from './achievementsTab.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
-import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter, areBackgroundParticlesEnabled } from './preferences.js';
+import { areBackgroundParticlesEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
-import {
-  PLAYFIELD_VIEW_DRAG_THRESHOLD,
-  PLAYFIELD_VIEW_PAN_MARGIN_METERS,
-} from './playfield/constants.js';
 import * as InputController from './playfield/input/InputController.js';
 import * as GestureController from './playfield/input/GestureController.js';
 import { TOWER_HOLD_ACTIVATION_MS } from './playfield/input/GestureController.js';
@@ -76,19 +51,12 @@ import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
-import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
 import { createCombatStatsManager } from './playfield/managers/CombatStatsManager.js';
 import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycleManager.js';
-import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
-import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
-import { createWaveUIFormatter } from './playfield/ui/WaveUIFormatter.js';
 import { createTowerMenuSystem } from './playfield/ui/TowerMenuSystem.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
-  beginPerformanceFrame,
   beginPerformanceSegment,
-  beginTowerPerformanceSegment,
-  endPerformanceFrame,
 } from './performanceMonitor.js';
 import {
   determinePreferredOrientation,
@@ -112,37 +80,26 @@ import {
 } from '../scripts/features/towers/kappaTower.js';
 import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
 import {
-  ensureMuState as ensureMuStateHelper,
   updateMuTower as updateMuTowerHelper,
-  drawMuMines as drawMuMinesHelper,
-  teardownMuTower as teardownMuTowerHelper,
 } from '../scripts/features/towers/muTower.js';
 import {
-  ensureNuState as ensureNuStateHelper,
   updateNuTower as updateNuTowerHelper,
   trackNuKill as trackNuKillHelper,
   spawnNuKillParticle as spawnNuKillParticleHelper,
-  drawNuKillParticles as drawNuKillParticlesHelper,
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
-  clearNuCachedDimensions as clearNuCachedDimensionsHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
   ensureXiState as ensureXiStateHelper,
   updateXiTower as updateXiTowerHelper,
   fireXiChain as fireXiChainHelper,
-  drawXiBalls as drawXiBallsHelper,
   teardownXiTower as teardownXiTowerHelper,
 } from '../scripts/features/towers/xiTower.js';
 import {
-  ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
-  teardownThetaTower as teardownThetaTowerHelper,
 } from '../scripts/features/towers/thetaTower.js';
 import {
-  ensureEpsilonState as ensureEpsilonStateHelper,
   updateEpsilonTower as updateEpsilonTowerHelper,
-  applyEpsilonHit as applyEpsilonHitHelper,
 } from '../scripts/features/towers/epsilonTower.js';
 import {
   updateZetaTower as updateZetaTowerHelper,
@@ -162,7 +119,6 @@ import {
   updateEtaTower as updateEtaTowerHelper,
   fireEtaLaser as fireEtaLaserHelper,
   applyEtaDamage as applyEtaDamageHelper,
-  ETA_MAX_PRESTIGE_MERGES,
 } from '../scripts/features/towers/etaTower.js';
 import {
   deployDeltaSoldier as deployDeltaSoldierHelper,
@@ -202,9 +158,7 @@ import {
   updateUpsilonTower as updateUpsilonTowerHelper,
 } from '../scripts/features/towers/upsilonTower.js';
 import {
-  ensurePhiState as ensurePhiStateHelper,
   updatePhiTower as updatePhiTowerHelper,
-  teardownPhiTower as teardownPhiTowerHelper,
   triggerPhiBurst as triggerPhiBurstHelper,
 } from '../scripts/features/towers/phiTower.js';
 import {
@@ -214,18 +168,14 @@ import {
   triggerPsiClusterAoE as triggerPsiClusterAoEHelper,
 } from '../scripts/features/towers/psiTower.js';
 import {
-  ensureOmegaState as ensureOmegaStateHelper,
   updateOmegaTower as updateOmegaTowerHelper,
-  teardownOmegaTower as teardownOmegaTowerHelper,
-  drawOmegaParticles as drawOmegaParticlesHelper,
 } from '../scripts/features/towers/omegaTower.js';
 import {
-  getPlayfieldResolutionCap,
   PLAYFIELD_RESOLUTION_EVENT,
 } from './playfield/playfieldPreferences.js';
 
 // Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
-const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
+const _MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 // Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
 const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
@@ -274,9 +224,9 @@ const DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 // Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
 const DERIVATIVE_SHIELD_SYMBOL = '∂';
-const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
-const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
-const DERIVATIVE_SHIELD_LINGER_MS = 160;
+const _DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
+const _DERIVATIVE_SHIELD_MIN_RADIUS = 96;
+const _DERIVATIVE_SHIELD_LINGER_MS = 160;
 const DEFAULT_POLYGON_SIDES = 6;
 const POLYGON_SPLIT_COUNT = 2;
 const DEBUFF_ICON_SYMBOLS = {
@@ -306,26 +256,26 @@ const STANDARD_SHOT_RADIUS_METERS = 0.15;
 // Standardize enemy hitboxes using a 0.4 meter diameter circle for consistent collision detection.
 const STANDARD_ENEMY_RADIUS_METERS = 0.2;
 // Preserve β triangle proportions when reflecting shots back to the tower.
-const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
+const _EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Pre-calculated constants for performance optimization in tight render loops
-const PI = Math.PI;
+const _PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
-const PI_OVER_6 = Math.PI / 6;
-const PI_TIMES_1_2 = Math.PI * 1.2;
+const _PI_OVER_6 = Math.PI / 6;
+const _PI_TIMES_1_2 = Math.PI * 1.2;
 const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
-const BETA_STICK_HIT_COUNT = 3;
-const BETA_STICK_HIT_INTERVAL = 0.18;
+const _BETA_STICK_HIT_COUNT = 3;
+const _BETA_STICK_HIT_INTERVAL = 0.18;
 const BETA_SLOW_DURATION_SECONDS = 0.5;
-const BETA_TRIANGLE_SPEED = 144;
+const _BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
-const GAMMA_OUTBOUND_SPEED = 260;
+const _GAMMA_OUTBOUND_SPEED = 260;
 const GAMMA_STAR_SPEED = 200;
-const GAMMA_RETURN_SPEED = 260;
-const GAMMA_STAR_HIT_COUNT = 5;
+const _GAMMA_RETURN_SPEED = 260;
+const _GAMMA_STAR_HIT_COUNT = 5;
 // Keep γ's impact star compact so the pattern hugs the enemy model.
-const GAMMA_STAR_RADIUS_METERS = 0.45;
+const _GAMMA_STAR_RADIUS_METERS = 0.45;
 const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
 
 export class SimplePlayfield {
@@ -751,7 +701,7 @@ export class SimplePlayfield {
     if (typeof this.dependencies.isLowGraphicsMode === 'function') {
       try {
         return Boolean(this.dependencies.isLowGraphicsMode());
-      } catch (error) {
+      } catch (_e) {
         return false;
       }
     }
@@ -1916,13 +1866,6 @@ export class SimplePlayfield {
    */
   ensureNuState(tower) {
     return TowerManager.ensureNuState.call(this, tower);
-  }
-
-  /**
-   * Emit ν piercing laser bursts using the shared particle animation stack.
-   */
-  spawnNuAttackBurst(tower, targetInfo, options = {}) {
-    return TowerManager.spawnNuAttackBurst.call(this, tower, targetInfo, options);
   }
 
   /**
@@ -3768,7 +3711,7 @@ export class SimplePlayfield {
   /**
    * Route a connected lattice's cadence into its downstream partner instead of enemies.
    */
-  updateConnectionSupplier(tower, delta) {
+  updateConnectionSupplier(tower, _delta) {
     if (!tower || !tower.linkTargetId) {
       return;
     }
@@ -4932,7 +4875,7 @@ export class SimplePlayfield {
             if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
               // Enemy is in this tunnel - calculate opacity based on position
               const distanceIntoSegment = targetDistance - traversed;
-              const segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+              const _segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
               
               // Define fade zones: first 20% and last 20% of tunnel
               const FADE_ZONE_RATIO = 0.2;
@@ -5452,7 +5395,7 @@ Object.assign(SimplePlayfield.prototype, {
       this.combatStatsManager.recordKillEvent(tower);
     }
   },
-  notifyEnemyDeath(enemy) {
+  notifyEnemyDeath(_enemy) {
     // Hook for external systems to observe enemy deaths. Actual defeat handling is
     // performed by processEnemyDefeat; this no-op satisfies the CombatStateManager
     // callback contract so the game loop is not interrupted by a missing method.

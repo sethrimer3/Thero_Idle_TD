@@ -494,7 +494,7 @@ export function collectMoteGemDrop(gem, context = {}) {
 
 // Collect any mote gems within a radius of the provided battlefield point.
 // Returns an object with the count and details of collected gems.
-export function collectMoteGemsWithinRadius(center, radius, context = {}) {
+export function collectMoteGemsWithinRadius(center, radius, _context = {}) {
   if (!center || !Number.isFinite(center.x) || !Number.isFinite(center.y)) {
     return { count: 0, gems: [] };
   }

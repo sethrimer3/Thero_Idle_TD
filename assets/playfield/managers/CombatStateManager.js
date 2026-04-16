@@ -2,12 +2,6 @@
 // Manages wave progression, enemy lifecycle, and victory/defeat conditions
 
 import {
-  registerEnemyEncounter,
-  getEnemyCodexEntry,
-} from '../../codex.js';
-import {
-  spawnMoteGemDrop,
-  resolveEnemyGemDropMultiplier,
   assignRandomShell,
 } from '../../enemies.js';
 

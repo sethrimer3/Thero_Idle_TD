@@ -1,6 +1,5 @@
 import {
   collectMoteGemsWithinRadius,
-  MOTE_GEM_COLLECTION_RADIUS,
 } from '../../enemies.js';
 import { metersToPixels } from '../../gameUnits.js';
 import { PLAYFIELD_VIEW_DRAG_THRESHOLD } from '../constants.js';
@@ -363,7 +362,7 @@ function handleCanvasPointerDown(event) {
     if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
       try {
         this.canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture errors so connection drags still function without capture.
       }
     }
@@ -392,7 +391,7 @@ function handleCanvasPointerDown(event) {
     if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
       try {
         this.canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture errors so delta drags still function without capture.
       }
     }
@@ -410,7 +409,7 @@ function handleCanvasPointerDown(event) {
     if (!isTouchPointer && typeof this.canvas?.setPointerCapture === 'function') {
       try {
         this.canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore pointer capture failures so mouse dragging still functions.
       }
     }
@@ -469,7 +468,7 @@ function handleCanvasPointerUp(event) {
     if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
       try {
         this.canvas.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore browsers that throw if the pointer was not previously captured.
       }
     }
@@ -496,7 +495,7 @@ function handleCanvasPointerUp(event) {
           if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
             try {
               this.canvas.releasePointerCapture(event.pointerId);
-            } catch (error) {
+            } catch (_e) {
               // Ignore browsers that throw if the pointer was not previously captured.
             }
           }
@@ -520,7 +519,7 @@ function handleCanvasPointerUp(event) {
     if (!isTouchPointer && typeof this.canvas?.releasePointerCapture === 'function') {
       try {
         this.canvas.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore browsers that throw if the pointer was not previously captured.
       }
     }
@@ -544,7 +543,7 @@ function handleCanvasPointerUp(event) {
     try {
       // Release mouse pointer capture so future drags start from a clean state.
       this.canvas.releasePointerCapture(event.pointerId);
-    } catch (error) {
+    } catch (_e) {
       // Ignore browsers that throw if the pointer was not previously captured.
     }
   }

@@ -153,7 +153,7 @@ export function createLevelEditorController({
     if (canvas && typeof canvas.releasePointerCapture === 'function' && levelEditorState.pointerId !== null) {
       try {
         canvas.releasePointerCapture(levelEditorState.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // Ignore release failures.
       }
     }
@@ -769,7 +769,7 @@ export function createLevelEditorController({
       levelEditorState.pointerId = event.pointerId;
       try {
         canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_e) {
         // ignore pointer capture errors
       }
       if (isOverlayEditorSurface() && canvas.classList) {
@@ -787,7 +787,7 @@ export function createLevelEditorController({
     levelEditorState.pointerId = event.pointerId;
     try {
       canvas.setPointerCapture(event.pointerId);
-    } catch (error) {
+    } catch (_e) {
       // ignore pointer capture errors
     }
     if (isOverlayEditorSurface() && canvas.classList) {
