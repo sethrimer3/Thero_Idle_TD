@@ -414,7 +414,7 @@ async function loadAndColorSvg(iconUrl, palette) {
     
     return svgElement;
   } catch (_error) {
-    console.warn(`Error loading tower icon SVG: ${iconUrl}`, error);
+    console.warn(`Error loading tower icon SVG: ${iconUrl}`, _error);
     return null;
   }
 }
@@ -1588,7 +1588,7 @@ function _resolveTowerVariableSubEquations(variable, context = {}) {
       try {
         collect(entry(context));
       } catch (_error) {
-        console.warn('Failed to evaluate tower variable sub-equation', error);
+        console.warn('Failed to evaluate tower variable sub-equation', _error);
       }
       return;
     }

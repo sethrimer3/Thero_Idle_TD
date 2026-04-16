@@ -692,7 +692,7 @@ export function createTowerUpgradeOverlayController({
         try {
           collect(entry(context));
         } catch (_error) {
-          console.warn('Failed to evaluate tower variable sub-equation', error);
+          console.warn('Failed to evaluate tower variable sub-equation', _error);
         }
         return;
       }
@@ -1159,7 +1159,7 @@ export function createTowerUpgradeOverlayController({
             formatComponent,
           });
         } catch (_error) {
-          console.warn('Failed to format base equation values', error);
+          console.warn('Failed to format base equation values', _error);
         }
       }
 

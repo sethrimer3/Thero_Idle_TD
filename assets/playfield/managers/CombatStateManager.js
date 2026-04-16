@@ -48,9 +48,6 @@ export function createCombatStateManager(config) {
   // Fast O(1) enemy lookup by id, kept in sync with the enemies array.
   let enemyById = new Map();
   let enemyIdCounter = 0;
-  let _enemyDeathParticles = [];
-  let _enemySwirlImpacts = [];
-  let _gammaStarBursts = [];
 
   // Victory/defeat state
   let lives = 0;
@@ -152,9 +149,6 @@ export function createCombatStateManager(config) {
     enemies = [];
     enemyById = new Map();
     enemyIdCounter = 0;
-    _enemyDeathParticles = [];
-    _enemySwirlImpacts = [];
-    _gammaStarBursts = [];
     waveTimer = 0;
     
     baseWaveCount = levelConfig.waves?.length || 0;
@@ -555,9 +549,6 @@ export function createCombatStateManager(config) {
     enemies = [];
     enemyById = new Map();
     enemyIdCounter = 0;
-    _enemyDeathParticles = [];
-    _enemySwirlImpacts = [];
-    _gammaStarBursts = [];
     resolvedOutcome = null;
     combatActive = false;
     energy = 0;
