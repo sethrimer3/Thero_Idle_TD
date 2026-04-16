@@ -181,7 +181,7 @@ export const xi = {
   computeResult(values) {
     const nuValue = Math.max(0, Number.isFinite(values.nu) ? values.nu : 0);
     const aleph5 = Math.max(0, Number.isFinite(values.aleph5) ? values.aleph5 : 0);
-    const chainExponent = 1 + 0.1 * aleph5;
+    const _chainExponent = 1 + 0.1 * aleph5;
     // Result is base damage (nu) for 1 chain
     // Actual damage per chain is nu × (chainNumber^chainExponent)
     return nuValue;

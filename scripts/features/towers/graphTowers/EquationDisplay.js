@@ -145,7 +145,7 @@ export class EquationDisplay {
   // ── Internal DOM Helpers ──────────────────────────────────────────────────
 
   /** Create a new equation display element. */
-  _createEquationElement(name) {
+  _createEquationElement(_name) {
     const wrapper = document.createElement('div');
     wrapper.className = `${CSS_PREFIX}-wrapper`;
     wrapper.style.marginBottom = '6px';

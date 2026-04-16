@@ -115,7 +115,7 @@ export function projectIotaPhaseDamage(playfield, enemy, appliedDmg, opts = {}) 
 
     // Apply projected damage to each neighbour.
     for (let n = 0; n < neighbours.length; n++) {
-      const { enemy: target, position } = neighbours[n];
+      const { enemy: target, position: _position } = neighbours[n];
       if (!target || target.hp <= 0) continue;
       // Apply damage with recursion guard flag.
       playfield.applyDamageToEnemy(target, projectedDamage, {

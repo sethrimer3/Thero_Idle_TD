@@ -188,7 +188,7 @@ export function createConnectionSystem(playfield) {
   /**
    * Resolve the baseline body radius so orbit math can stay consistent across render scales.
    */
-  function resolveTowerBodyRadius(tower) {
+  function resolveTowerBodyRadius(_tower) {
     const width = playfield.renderWidth || (playfield.canvas ? playfield.canvas.clientWidth : 0) || 0;
     const height = playfield.renderHeight || (playfield.canvas ? playfield.canvas.clientHeight : 0) || 0;
     const minDimension = width > 0 && height > 0 ? Math.min(width, height) : Math.max(width, height);
@@ -511,8 +511,8 @@ export function createConnectionSystem(playfield) {
     const dx = target.x - source.x;
     const dy = target.y - source.y;
     const distance = Math.hypot(dx, dy) || 1;
-    const nx = dx / distance;
-    const ny = dy / distance;
+    const _nx = dx / distance;
+    const _ny = dy / distance;
     const appendSeeds = (count, type) => {
       for (let index = 0; index < count; index += 1) {
         seeds.push({

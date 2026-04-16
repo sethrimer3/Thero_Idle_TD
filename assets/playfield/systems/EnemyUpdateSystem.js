@@ -21,7 +21,6 @@ import {
   initHypernode,
   updateHypernode,
   updateTowerDisableStates,
-  cleanupHypernode,
 } from './HypernodeBossSystem.js';
 
 // Scale factor applied to a derivative-shield enemy's visual radius to determine coverage area.
@@ -355,7 +354,7 @@ export function updateEnemies(delta) {
 }
 
 // Maintain derivative shield coverage so the mitigation state follows the projector as it marches down the path.
-export function updateDerivativeShieldStates(delta) {
+export function updateDerivativeShieldStates(_delta) {
   if (!Array.isArray(this.enemies) || !this.enemies.length) {
     return;
   }

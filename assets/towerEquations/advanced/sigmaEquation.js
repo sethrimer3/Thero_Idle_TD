@@ -12,7 +12,7 @@ import {
 } from '../../../scripts/core/formatting.js';
 import { blueprintContext } from '../blueprintContext.js';
 
-const ctx = () => blueprintContext;
+const _ctx = () => blueprintContext;
 
 function resolveSigmaStat(dynamicContext, key) {
   const stats = dynamicContext?.stats || {};

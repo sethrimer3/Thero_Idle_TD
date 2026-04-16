@@ -23,7 +23,7 @@ export function createTowerLoadoutController({
   const LOADOUT_SCROLL_STEP_PX = 28; // Drag distance required to advance the wheel to the next item.
   const LOADOUT_DRAG_CANCEL_DISTANCE = 6; // Mouse/pen threshold that cancels the hold timer so drags can begin immediately.
   const LOADOUT_DRAG_CANCEL_DISTANCE_TOUCH = 14; // Slightly looser touch threshold to tolerate finger jitter during holds.
-  const MAX_VISIBLE_LOADOUT_ITEMS = 3; // Maximum number of tower options visible in the loadout wheel at once.
+  const _MAX_VISIBLE_LOADOUT_ITEMS = 3; // Maximum number of tower options visible in the loadout wheel at once.
   // Store the last rendered tower order signature so the DOM only rebuilds when selection changes.
   let renderedLoadoutSignature = null;
   // Track the active drag interaction so pointer events can be cancelled cleanly.
@@ -463,7 +463,7 @@ export function createTowerLoadoutController({
    * Render exactly 3 tower icons stacked vertically: previous, current (center), and next.
    * Simplified inline display with step-wise navigation.
    */
-  function renderLoadoutWheel({ immediate = false } = {}) {
+  function renderLoadoutWheel({ immediate: _immediate = false } = {}) {
     const { list, towers } = wheelState;
     if (!list || !Array.isArray(towers) || !towers.length) {
       return;
@@ -717,7 +717,7 @@ export function createTowerLoadoutController({
     if (dragState.element) {
       try {
         dragState.element.releasePointerCapture(dragState.pointerId);
-      } catch (error) {
+      } catch (_error) {
         // Ignore pointer capture errors so drag cleanup always completes.
       }
       dragState.element.removeAttribute('data-state');
@@ -769,7 +769,7 @@ export function createTowerLoadoutController({
     if (dragState.element) {
       try {
         dragState.element.releasePointerCapture(dragState.pointerId);
-      } catch (error) {
+      } catch (_error) {
         // Ignore pointer capture errors so cleanup still happens.
       }
       dragState.element.removeAttribute('data-state');
@@ -833,7 +833,7 @@ export function createTowerLoadoutController({
       if (event.pointerType !== 'touch') {
         element.setPointerCapture(event.pointerId);
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore pointer capture errors while still keeping drag state active.
     }
 

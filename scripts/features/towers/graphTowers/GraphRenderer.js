@@ -173,7 +173,7 @@ export class GraphRenderer {
    * @param {Function} toPixelY
    * @param {number}   scale
    */
-  _drawPoints(ctx, points, now, toPixelX, toPixelY, scale) {
+  _drawPoints(ctx, points, now, toPixelX, toPixelY, _scale) {
     if (!points || points.length === 0) return;
 
     for (let i = 0; i < points.length; i++) {

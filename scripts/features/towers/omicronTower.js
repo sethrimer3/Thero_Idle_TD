@@ -664,7 +664,7 @@ function updateOmicronUnit(playfield, tower, unit, state, delta) {
         
         // Apply triangle attack damage
         if (target.hp > 0) {
-          const enemyHpBefore = target.hp;
+          const _enemyHpBefore = target.hp;
           target.hp = Math.max(0, target.hp - unit.attack);
           
           if (target.hp <= 0) {

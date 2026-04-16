@@ -357,7 +357,7 @@ export function spawnShootingStar() {
   const dpr = this.getEffectiveDevicePixelRatio();
 
   // Use the shared radius helper so spawn logic mirrors rendering scale.
-  const starVisualRadius = this.calculateCoreRadius();
+  const _starVisualRadius = this.calculateCoreRadius();
   const maxR = Math.min(this.width, this.height) / (2 * dpr);
   const spawnRadius = (maxR + this.rng.range(20, 80)) * dpr;
   const angle = this.rng.next() * Math.PI * 2;
@@ -684,7 +684,7 @@ export function spawnGeyserBurst(impactAngle, massGain, tier, contactPointCss, s
  */
 export function updateDustParticles(deltaTime) {
   const dt = deltaTime / 1000;
-  const dpr = this.getEffectiveDevicePixelRatio();
+  const _dpr = this.getEffectiveDevicePixelRatio();
 
   for (let i = this.dustParticles.length - 1; i >= 0; i--) {
     const dust = this.dustParticles[i];

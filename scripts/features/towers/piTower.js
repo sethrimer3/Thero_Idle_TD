@@ -59,7 +59,7 @@ function resolvePiLaserColor(rotationDegrees = 0) {
 /**
  * Calculate Pi tower parameters from equations.
  */
-function calculatePiParameters(playfield, tower) {
+function calculatePiParameters(_playfield, _tower) {
   // Get omicron power for damage calculation
   const omicronPower = Math.max(1, calculateTowerEquationResult('omicron') || 1);
 
@@ -249,7 +249,7 @@ function calculateAngularDifference(currentAngle, previousAngle) {
  * Creates new beams for new enemies, updates angles for existing enemies,
  * and removes beams for enemies that leave range.
  */
-function updateBeamTracking(playfield, tower, state, delta) {
+function updateBeamTracking(playfield, tower, state, _delta) {
   const enemiesInRange = getEnemiesInRange(playfield, tower);
   const maxLasers = state.parameters.maxLasers;
   
@@ -435,7 +435,7 @@ export function drawPiLockOnLines(playfield, tower) {
 /**
  * Draw frozen lock-on lines during attack (deprecated - kept for compatibility).
  */
-export function drawPiFrozenLines(playfield, tower) {
+export function drawPiFrozenLines(_playfield, _tower) {
   // No longer used in new beam system - beams are always active
   return;
 }
@@ -443,7 +443,7 @@ export function drawPiFrozenLines(playfield, tower) {
 /**
  * Draw rotating radial laser with trail (deprecated - kept for compatibility).
  */
-export function drawPiRadialLaser(playfield, tower) {
+export function drawPiRadialLaser(_playfield, _tower) {
   // No longer used in new beam system - individual beams replace rotating laser
   return;
 }

@@ -561,7 +561,7 @@ export function updateTsadiBindingAgents(dt) {
       : normalizeTierList(agent.connections.map((connection) => connection.tier));
     const combinations = tiersPresent.length >= 2 ? generateTierCombinations(tiersPresent) : [];
     agent.activeMolecules = [];
-    let discoveredNewMolecule = false;
+    let _discoveredNewMolecule = false;
     let queuedManualDiscovery = false;
     for (const combo of combinations) {
       const descriptor = this.createCombinationDescriptor(combo);
@@ -579,7 +579,7 @@ export function updateTsadiBindingAgents(dt) {
         continue;
       }
       this.queuePendingMolecule(agent, descriptor);
-      discoveredNewMolecule = true;
+      _discoveredNewMolecule = true;
       queuedManualDiscovery = true;
     }
 

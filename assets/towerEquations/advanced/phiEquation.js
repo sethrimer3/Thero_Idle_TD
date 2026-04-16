@@ -13,7 +13,7 @@ const PHI_SEED_PIERCE = 2; // Enemies a seed can pierce before reseeding.
 const PHI_GOLDEN_RATIO = 1.61803398875;
 const PHI_GOLDEN_ANGLE_DEGREES = 137.5;
 
-function resolvePhiPower() {
+function _resolvePhiPower() {
   const helpers = ctx();
   const phiRaw = typeof helpers?.calculateTowerEquationResult === 'function'
     ? helpers.calculateTowerEquationResult('phi')

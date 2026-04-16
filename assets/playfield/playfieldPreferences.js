@@ -31,7 +31,7 @@ const MAX_RENDER_OVERLAP_LEVEL = 2;
 
 let settings = { ...DEFAULT_SETTINGS };
 let renderOverlapSelect = null;
-let renderOverlapRow = null;
+let _renderOverlapRow = null;
 // Cache the playfield resolution toggle elements for quick UI updates.
 let highResolutionToggle = null;
 let highResolutionState = null;
@@ -153,7 +153,7 @@ function applyRenderOverlapLayout() {
  */
 export function bindPlayfieldOptions() {
   renderOverlapSelect = document.getElementById('playfield-render-size-select');
-  renderOverlapRow = document.getElementById('playfield-render-size-row');
+  _renderOverlapRow = document.getElementById('playfield-render-size-row');
   highResolutionToggle = document.getElementById('playfield-high-res-toggle');
   highResolutionState = document.getElementById('playfield-high-res-state');
 

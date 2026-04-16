@@ -290,7 +290,7 @@ function pick(rng, arr) {
  * @param {Object} groupObj - Object containing category arrays.
  * @returns {{ category: string, value: string }} Selected category and value.
  */
-function pickFromCategoryGroup(rng, groupObj) {
+function _pickFromCategoryGroup(rng, groupObj) {
   const categories = Object.keys(groupObj);
   const cat = pick(rng, categories);
   const value = pick(rng, groupObj[cat]);

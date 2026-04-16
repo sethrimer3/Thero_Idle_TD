@@ -34,7 +34,7 @@ export function createSpireStoryManager({
   getLevelStoryScreen,
   levelBlueprints,
   getLevelState,
-  isStoryOnlyLevel,
+  isStoryOnlyLevel: _isStoryOnlyLevel,
   commitAutoSave,
 }) {
   /**

@@ -1,8 +1,5 @@
 import {
-  MATH_SYMBOL_REGEX,
   renderMathElement,
-  isLikelyMathExpression,
-  annotateMathText,
   convertMathExpressionToPlainText,
 } from '../scripts/core/mathText.js';
 import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
@@ -10,8 +7,6 @@ import {
   formatGameNumber,
   formatWholeNumber,
   formatDecimal,
-  formatPercentage,
-  formatSignedPercentage,
 } from '../scripts/core/formatting.js';
 import {
   canvasFractionToMeters,
@@ -418,7 +413,7 @@ async function loadAndColorSvg(iconUrl, palette) {
     applySvgPaletteColors(svgElement, palette);
     
     return svgElement;
-  } catch (error) {
+  } catch (_error) {
     console.warn(`Error loading tower icon SVG: ${iconUrl}`, error);
     return null;
   }
@@ -709,7 +704,7 @@ function normalizeLoadoutSlots() {
 /**
  * Count the number of equipped towers ignoring placeholder slots.
  */
-function getEquippedLoadoutCount() {
+function _getEquippedLoadoutCount() {
   return normalizeLoadoutSlots().filter((towerId) => typeof towerId === 'string').length;
 }
 
@@ -1199,7 +1194,7 @@ export function unlockTower(towerId, { silent = false } = {}) {
   return true;
 }
 
-function createPreviewId(prefix, value) {
+function _createPreviewId(prefix, value) {
   const slug = String(value || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -1410,7 +1405,7 @@ export function toggleTowerSelection(towerId, { anchorButton = null } = {}) {
 }
 
 
-function formatTowerVariableValue(variable, value) {
+function _formatTowerVariableValue(variable, value) {
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -1420,7 +1415,7 @@ function formatTowerVariableValue(variable, value) {
       if (typeof formatted === 'string') {
         return formatted;
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore formatting errors and fall back to default formatting.
     }
   }
@@ -1511,7 +1506,7 @@ function getAvailableCurrency(currencyKey = 'aleph') {
   return Math.max(0, Math.floor(towerTabState.glyphCurrency || 0));
 }
 
-function buildVariableGlyphControls(variable, towerId, level, options = {}) {
+function _buildVariableGlyphControls(variable, towerId, level, options = {}) {
   const { asAttachment = false } = options;
   const controls = document.createElement('div');
   controls.className = 'tower-upgrade-variable-controls';
@@ -1575,7 +1570,7 @@ function buildVariableGlyphControls(variable, towerId, level, options = {}) {
   return controls;
 }
 
-function resolveTowerVariableSubEquations(variable, context = {}) {
+function _resolveTowerVariableSubEquations(variable, context = {}) {
   if (!variable) {
     return [];
   }
@@ -1592,7 +1587,7 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
     if (typeof entry === 'function') {
       try {
         collect(entry(context));
-      } catch (error) {
+      } catch (_error) {
         console.warn('Failed to evaluate tower variable sub-equation', error);
       }
       return;
@@ -1634,7 +1629,7 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
   return lines;
 }
 
-function formatTowerEquationResultValue(value) {
+function _formatTowerEquationResultValue(value) {
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -1644,7 +1639,7 @@ function formatTowerEquationResultValue(value) {
   return formatDecimal(value, 2);
 }
 
-function extractTowerCardEquation(card) {
+function _extractTowerCardEquation(card) {
   if (!(card instanceof HTMLElement)) {
     return '';
   }

@@ -22,7 +22,6 @@
 
 import {
   calculateTowerEquationResult,
-  getTowerEquationBlueprint,
   computeTowerVariableValue,
 } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';

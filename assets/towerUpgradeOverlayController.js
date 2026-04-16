@@ -80,7 +80,7 @@ export function createTowerUpgradeOverlayController({
   /**
    * Escape special characters so variable keys can be used in RegExp patterns.
    */
-  function escapeRegExp(value) {
+  function _escapeRegExp(value) {
     if (typeof value !== 'string') {
       return '';
     }
@@ -506,7 +506,7 @@ export function createTowerUpgradeOverlayController({
         if (typeof formatted === 'string') {
           return formatted;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore formatting errors and fall back to default formatting.
       }
     }
@@ -691,7 +691,7 @@ export function createTowerUpgradeOverlayController({
       if (typeof entry === 'function') {
         try {
           collect(entry(context));
-        } catch (error) {
+        } catch (_error) {
           console.warn('Failed to evaluate tower variable sub-equation', error);
         }
         return;
@@ -1158,7 +1158,7 @@ export function createTowerUpgradeOverlayController({
             result,
             formatComponent,
           });
-        } catch (error) {
+        } catch (_error) {
           console.warn('Failed to format base equation values', error);
         }
       }
@@ -1310,7 +1310,7 @@ export function createTowerUpgradeOverlayController({
     if (towerTabState.lastTowerUpgradeTrigger && typeof towerTabState.lastTowerUpgradeTrigger.focus === 'function') {
       try {
         towerTabState.lastTowerUpgradeTrigger.focus({ preventScroll: true });
-      } catch (error) {
+      } catch (_error) {
         towerTabState.lastTowerUpgradeTrigger.focus();
       }
     }

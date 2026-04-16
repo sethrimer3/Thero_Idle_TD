@@ -21,7 +21,6 @@
 import { GlyphEquation, createGlyphCounts } from './GlyphEquation.js';
 import { GraphPointPool } from './GraphPointPool.js';
 import { GraphRenderer } from './GraphRenderer.js';
-import { clamp } from '../shared/TowerUtils.js';
 
 // ─── Shared Equations ────────────────────────────────────────────────────────
 
@@ -208,7 +207,7 @@ export class GraphTowerBase {
    * @param {number} dt  - Delta time in seconds.
    * @param {number} now - Current game time in seconds.
    */
-  _onTick(dt, now) { /* default no-op */ }
+  _onTick(_dt, _now) { /* default no-op */ }
 
   /**
    * Custom rendering overlay drawn after grid + points.
@@ -220,10 +219,10 @@ export class GraphTowerBase {
    * @param {number}   cy       - Canvas center y.
    * @param {number}   now      - Current time.
    */
-  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, now) { /* default no-op */ }
+  _drawOverlay(_ctx, _toPixel, _radius, _scale, _cx, _cy, _now) { /* default no-op */ }
 
   /** Hook called after a point is acquired from the pool. */
-  _onPointAdded(point) { /* default no-op */ }
+  _onPointAdded(_point) { /* default no-op */ }
 
   /** Hook called after all points are released. */
   _onReset() { /* default no-op */ }

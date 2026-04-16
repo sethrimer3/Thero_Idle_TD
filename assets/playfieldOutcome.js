@@ -116,7 +116,7 @@ export function hidePlayfieldOutcome({ restoreFocus = false } = {}) {
   if (startButton && typeof startButton.focus === 'function') {
     try {
       startButton.focus({ preventScroll: true });
-    } catch (error) {
+    } catch (_error) {
       startButton.focus();
     }
   }
@@ -179,7 +179,7 @@ export function showPlayfieldOutcome({
   if (typeof overlay.focus === 'function') {
     try {
       overlay.focus({ preventScroll: true });
-    } catch (error) {
+    } catch (_error) {
       overlay.focus();
     }
   }

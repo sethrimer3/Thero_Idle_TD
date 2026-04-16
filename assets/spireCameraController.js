@@ -21,7 +21,7 @@ export function createSpireCameraController(deps) {
     powderState,
     getPowderSimulation,
     getFluidSimulation,
-    getSandSimulation,
+    getSandSimulation: _getSandSimulation,
     getFluidElements,
     getFluidTerrariumTrees,
     handlePowderViewTransformChange,

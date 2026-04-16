@@ -83,7 +83,7 @@ export const pi = {
       },
       getSubEquations({ blueprint, towerId, level, value }) {
         const helpers = ctx();
-        const effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
+        const _effectiveBlueprint = blueprint || helpers.getTowerEquationBlueprint?.(towerId) || null;
         const resolvedLevel = Math.max(0, Math.floor(Number.isFinite(level) ? level : 0));
         const bet1 = Math.max(0, Math.min(99, Number.isFinite(value) ? value : resolvedLevel));
         const divisor = Math.max(1, 100 - bet1);
@@ -156,7 +156,7 @@ export const pi = {
       baseValue: 4,
       upgradable: false,
       includeInMasterEquation: false,
-      format: (value) => `${formatDecimal(4, 2)}m`,
+      format: (_value) => `${formatDecimal(4, 2)}m`,
       getSubEquations() {
         return [
           {

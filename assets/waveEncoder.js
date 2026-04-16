@@ -73,7 +73,7 @@ function parseWaveSegment(segment) {
   if (!segment) return null;
 
   // Split by colon to separate wave number from wave data
-  const [waveNumPart, ...dataParts] = segment.split(':');
+  const [_waveNumPart, ...dataParts] = segment.split(':');
   if (dataParts.length === 0) return null;
 
   const waveData = dataParts.join(':');

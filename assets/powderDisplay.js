@@ -42,7 +42,6 @@ export function createPowderDisplaySystem({
   evaluateAchievements,
   spireMenuController,
   gameStats,
-  getIteronBank,
   onTsadiBindingAgentsChange,
 }) {
   let powderCurrency = 0;

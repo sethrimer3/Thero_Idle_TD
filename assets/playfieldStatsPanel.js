@@ -616,14 +616,14 @@ export function focusPanel() {
   if (typeof scrollPanelToElement === 'function') {
     try {
       scrollPanelToElement(container, { offset: 24 });
-    } catch (error) {
+    } catch (_error) {
       // Fall back to native scrolling if the helper throws.
     }
   }
 
   try {
     container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (error) {
+  } catch (_error) {
     container.scrollIntoView(true);
   }
 }

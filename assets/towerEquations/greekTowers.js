@@ -239,8 +239,8 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₁`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
-        const effective = blueprint || ctx().getTowerEquationBlueprint(towerId);
+      getSubEquations({ blueprint, towerId, level: _level, value }) {
+        const _effective = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const spd = 10 * Math.log(rank + 1);
         return [
@@ -260,7 +260,7 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₂`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, level: _level, value }) {
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const rng = 5 * Math.log(rank + 2);
         return [
@@ -280,7 +280,7 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₃`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, level: _level, value }) {
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const component = rank <= 0 ? 0 : rank * Math.log(rank);
         const spr = 2 * (10 - component);
@@ -291,7 +291,7 @@ export const epsilon = {
       },
     },
   ],
-  computeResult(values) {
+  computeResult(_values) {
     // Not a simple multiplicative base; leave as 0 to avoid misleading total.
     return 0;
   },
@@ -1203,7 +1203,7 @@ export const theta = {
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const aleph2 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const _aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const entryPercent = Math.max(0, 100 * Math.exp(1 / aleph2));
         return [
           {

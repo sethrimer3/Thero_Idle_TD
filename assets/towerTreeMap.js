@@ -682,7 +682,7 @@ function cancelNodeDrag(event) {
     try {
       // Release any lingering capture so the cursor state resets cleanly.
       nodeRecord.orbit.releasePointerCapture(event.pointerId);
-    } catch (error) {
+    } catch (_error) {
       // Ignore browsers that throw when the capture is already cleared.
     }
     nodeRecord.orbit.removeAttribute('data-dragging');
@@ -724,7 +724,7 @@ function handleTreePointerDown(event) {
   if (typeof towerTreeState.mapContainer.setPointerCapture === 'function') {
     try {
       towerTreeState.mapContainer.setPointerCapture(event.pointerId);
-    } catch (error) {
+    } catch (_error) {
       // Ignore pointer capture failures so panning continues smoothly without it.
     }
   }
@@ -801,7 +801,7 @@ function handleTreePointerUp(event) {
   if (typeof towerTreeState.mapContainer?.releasePointerCapture === 'function') {
     try {
       towerTreeState.mapContainer.releasePointerCapture(event.pointerId);
-    } catch (error) {
+    } catch (_error) {
       // Ignore release errors so cleanup continues even if capture was not set.
     }
   }

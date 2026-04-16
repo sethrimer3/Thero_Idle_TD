@@ -5,7 +5,7 @@ import {
 } from '../../../scripts/core/formatting.js';
 import { blueprintContext } from '../blueprintContext.js';
 
-const ctx = () => blueprintContext;
+const _ctx = () => blueprintContext;
 
 export const upsilon = {
   mathSymbol: String.raw`\upsilon`,

@@ -89,7 +89,7 @@ export function absorbSigmaDamage(playfield, tower, damage, { sourceTower } = {}
 /**
  * Release σ shots only when damage is available.
  */
-export function updateSigmaTower(playfield, tower, delta) {
+export function updateSigmaTower(playfield, tower, _delta) {
   if (!playfield || !tower || tower.type !== 'sigma') {
     return;
   }
