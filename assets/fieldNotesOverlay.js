@@ -393,7 +393,7 @@ function focusFieldNotesElement(element) {
   }
   try {
     element.focus({ preventScroll: true });
-  } catch (error) {
+  } catch (_e) {
     element.focus();
   }
 }

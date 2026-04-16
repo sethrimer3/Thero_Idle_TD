@@ -6,20 +6,14 @@
  */
 
 import {
-  getKufAllocations,
   getKufGlyphs,
-  getKufHighScore,
   getKufMapHighScores,
-  getKufLastResult,
   getKufRemainingShards,
   getKufTotalShards,
   getKufShardsAvailableForUnits,
   getKufEncounteredEnemies,
-  calculateKufMarineStats,
   calculateKufUnitStats,
   calculateKufCoreShipStats,
-  updateKufAllocation,
-  resetKufAllocations,
   recordKufBattleOutcome,
   onKufStateChange,
   getKufUnits,
@@ -29,15 +23,11 @@ import {
   allocateKufUpgrade,
   deallocateKufUpgrade,
   recordKufEnemyEncounters,
-  getKufShardsSpentOnUpgrades,
   getCoreShipLevel,
   getCoreShipNextLevelCost,
   isCoreShipUpgradeUnlocked,
   getAvailableCoreShipUpgrades,
   upgradeCoreShipLevel,
-  KUF_MARINE_BASE_STATS,
-  KUF_SNIPER_BASE_STATS,
-  KUF_SPLAYER_BASE_STATS,
   KUF_UNIT_COSTS,
 } from './kufState.js';
 
@@ -55,8 +45,8 @@ let kufElements = {};
 let stateChangeUnsubscribe = null;
 let runCompleteCallback = null;
 let currentOpenDropdown = null;
-let holdTimers = new Map(); // For hold-to-spam functionality
-let currentExpandedView = null; // Track which view is currently expanded
+let _holdTimers = new Map(); // For hold-to-spam functionality
+let _currentExpandedView = null; // Track which view is currently expanded
 let getDeveloperModeActive = () => false; // Provide developer visibility overrides for the almanac.
 const KUF_FALLBACK_MAP_ID = 'forward-bastion';
 
@@ -272,7 +262,7 @@ function showExpandedView(viewName) {
   const targetView = viewMap[viewName];
   if (targetView) {
     targetView.hidden = false;
-    currentExpandedView = viewName;
+    _currentExpandedView = viewName;
     
     // Update Kuf info when showing that view
     if (viewName === 'kuf') {
@@ -298,7 +288,7 @@ function hideExpandedView() {
   if (kufElements.unitsView) kufElements.unitsView.hidden = true;
   if (kufElements.kufInfoView) kufElements.kufInfoView.hidden = true;
   
-  currentExpandedView = null;
+  _currentExpandedView = null;
 }
 
 function updateKufInfo() {

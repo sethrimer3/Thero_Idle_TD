@@ -470,7 +470,7 @@ export function recordKufBattleOutcome({ goldEarned = 0, victory = false, destro
   const sanitizedGold = sanitizeInteger(goldEarned, 0);
   const sanitizedTurrets = sanitizeInteger(destroyedTurrets, 0);
   const normalizedMapId = typeof mapId === 'string' && mapId.trim() ? mapId : null;
-  const previousHigh = kufState.highScore;
+  const _previousHigh = kufState.highScore;
   const previousGlyphs = kufState.glyphs;
 
   kufState.lastResult = {

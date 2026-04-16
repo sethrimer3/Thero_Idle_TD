@@ -614,7 +614,7 @@ export function fttpsPlaceActiveStoreItem(point, storeItem = this.getActiveStore
       storeItem,
     });
     if (celestialPlaced) {
-      const bodyName = storeItem.celestialBody === 'sun' ? 'sun' : 'moon';
+      const _bodyName = storeItem.celestialBody === 'sun' ? 'sun' : 'moon';
       const message = storeItem.celestialBody === 'sun' 
         ? 'The sun rises. Day comes to the terrarium.'
         : 'The moon rises. Night illuminates the sky.';

@@ -1919,13 +1919,6 @@ export class SimplePlayfield {
   }
 
   /**
-   * Emit ν piercing laser bursts using the shared particle animation stack.
-   */
-  spawnNuAttackBurst(tower, targetInfo, options = {}) {
-    return TowerManager.spawnNuAttackBurst.call(this, tower, targetInfo, options);
-  }
-
-  /**
    * Update ν tower kill tracking and particle effects.
    */
   updateNuTower(tower, delta) {

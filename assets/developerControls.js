@@ -452,7 +452,7 @@ function setDeveloperIterationRate(value) {
   recordDeveloperAdjustment('iterationRate', normalized);
 }
 
-function setDeveloperLamedBank(value) {
+function setDeveloperLamedBank(_value) {
   // No-op: Lamed sparkBank has been removed in favor of generation-per-minute system
   recordDeveloperAdjustment('lamedBank', 0);
 }
@@ -469,7 +469,7 @@ function setDeveloperLamedRate(value) {
   recordDeveloperAdjustment('lamedRate', normalized);
 }
 
-function setDeveloperTsadiBank(value) {
+function setDeveloperTsadiBank(_value) {
   // No-op: Tsadi particleBank has been removed in favor of generation-per-minute system
   recordDeveloperAdjustment('tsadiBank', 0);
 }

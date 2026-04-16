@@ -341,6 +341,12 @@ export function createTowerOrchestrationController(config) {
     if (playfield.levelConfig?.isGlyphTrialLevel) {
       if (messageEl && !silent) {
         messageEl.textContent = 'Tower tiers are sealed in a Glyph Trial — assign glyphs to enhance performance.';
+      }
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
+      return false;
+    }
     const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
     if (!nextDefinition) {
       if (messageEl && !silent) {
@@ -446,6 +452,12 @@ export function createTowerOrchestrationController(config) {
     if (playfield.levelConfig?.isGlyphTrialLevel) {
       if (messageEl && !silent) {
         messageEl.textContent = 'Tower tiers are sealed in a Glyph Trial — assign glyphs to enhance performance.';
+      }
+      if (audio && !silent) {
+        audio.playSfx('error');
+      }
+      return false;
+    }
     if (!previousId) {
       if (tower.type === 'alpha') {
         sellTower(tower, { silent });

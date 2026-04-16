@@ -714,11 +714,11 @@ export function fttssHandleStoreListPointerMove(event) {
  * Stop drag-to-scroll tracking for the store list.
  * @param {PointerEvent} event
  */
-export function fttssHandleStoreListPointerUp(event) {
+export function fttssHandleStoreListPointerUp(_event) {
   if (this.storeList?.releasePointerCapture && this.storeListDragState.pointerId !== null) {
     try {
       this.storeList.releasePointerCapture(this.storeListDragState.pointerId);
-    } catch (error) {
+    } catch (_e) {
       // Silently ignore capture release errors so UI continues to respond.
     }
   }

@@ -1,4 +1,4 @@
-import { formatGameNumber, formatWholeNumber } from '../scripts/core/formatting.js';
+import { formatWholeNumber } from '../scripts/core/formatting.js';
 import {
   moteGemState,
   resolveGemDefinition,

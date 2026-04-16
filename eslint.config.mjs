@@ -86,7 +86,11 @@ export default [
       }
     },
     rules: {
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["warn", {
+        "varsIgnorePattern": "^_",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }],
       "no-undef": "warn",
       "no-redeclare": "error",
       "no-unreachable": "warn",
