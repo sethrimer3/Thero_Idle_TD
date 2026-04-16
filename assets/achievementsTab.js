@@ -1094,7 +1094,7 @@ function ensureAchievementOverlay() {
       return;
     }
 
-    const { overlay: overlayEl, iconTarget: iconEl, content: contentEl } = overlayElements;
+    const { overlay: overlayEl, iconTarget: _iconEl, content: _contentEl } = overlayElements;
     clearOverlayRevealTimer();
     if (overlayEl.classList.contains('closing')) {
       finalizeAchievementOverlayDismissal();

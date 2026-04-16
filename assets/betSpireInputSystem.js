@@ -184,7 +184,7 @@ export function handlePointerMove(event) {
   }
 }
 
-export function handlePointerUp(event) {
+export function handlePointerUp(_event) {
   if (!this.interactionsEnabled) return;
 
   if (!this.isInteracting) return;

@@ -18,7 +18,7 @@ const MAX_RENDER_OVERLAP_LEVEL = 2;
 
 let settings = { ...DEFAULT_SETTINGS };
 let renderOverlapSelect = null;
-let renderOverlapRow = null;
+let _renderOverlapRow = null;
 
 /**
  * Persist the current Achievement Terrarium visual settings into storage.
@@ -96,7 +96,7 @@ function applyRenderOverlapLayout() {
  */
 export function bindAchievementsTerrariumOptions() {
   renderOverlapSelect = document.getElementById('achievements-terrarium-render-size-select');
-  renderOverlapRow = document.getElementById('achievements-terrarium-render-size-row');
+  _renderOverlapRow = document.getElementById('achievements-terrarium-render-size-row');
 
   if (renderOverlapSelect) {
     renderOverlapSelect.addEventListener('change', (event) => {

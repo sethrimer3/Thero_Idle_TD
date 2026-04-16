@@ -13,7 +13,7 @@ const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|iemobile|mobile/i;
  * Detect whether the game is running in a mobile browser environment so audio defaults can
  * avoid hijacking the device-wide media session (which would pause Spotify/audiobooks).
  */
-function isLikelyMobileBrowser() {
+function _isLikelyMobileBrowser() {
   if (typeof navigator === 'undefined') {
     return false;
   }
@@ -284,7 +284,7 @@ export class AudioManager {
       if (shouldRestart) {
         try {
           audio.currentTime = 0;
-        } catch (error) {
+        } catch (_e) {
           audio.src = audio.src;
         }
       }
@@ -340,7 +340,7 @@ export class AudioManager {
     audio.pause();
     try {
       audio.currentTime = 0;
-    } catch (error) {
+    } catch (_e) {
       audio.src = audio.src;
     }
     this.currentMusicKey = null;
@@ -401,7 +401,7 @@ export class AudioManager {
       if (restartLoop || !shouldLoop || audio.paused) {
         try {
           audio.currentTime = 0;
-        } catch (error) {
+        } catch (_e) {
           audio.src = audio.src;
         }
       }
@@ -441,7 +441,7 @@ export class AudioManager {
       if (options.reset !== false) {
         try {
           audio.currentTime = 0;
-        } catch (error) {
+        } catch (_e) {
           audio.src = audio.src;
         }
       }
@@ -535,7 +535,7 @@ export class AudioManager {
         fromAudio.pause();
         try {
           fromAudio.currentTime = 0;
-        } catch (error) {
+        } catch (_e) {
           fromAudio.src = fromAudio.src;
         }
       }
@@ -574,7 +574,7 @@ export class AudioManager {
           fromAudio.pause();
           try {
             fromAudio.currentTime = 0;
-          } catch (error) {
+          } catch (_e) {
             fromAudio.src = fromAudio.src;
           }
         }
@@ -613,7 +613,7 @@ export class AudioManager {
       fromEntry.audio.pause();
       try {
         fromEntry.audio.currentTime = 0;
-      } catch (error) {
+      } catch (_e) {
         fromEntry.audio.src = fromEntry.audio.src;
       }
     }

@@ -766,7 +766,7 @@ export function bindCodexControls({
         if (musicSlider && typeof musicSlider.focus === 'function') {
           try {
             musicSlider.focus({ preventScroll: true });
-          } catch (error) {
+          } catch (_e) {
             musicSlider.focus();
           }
         }

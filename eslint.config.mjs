@@ -73,6 +73,16 @@ export default [
         globalThis: "readonly",
         structuredClone: "readonly",
         queueMicrotask: "readonly",
+        Audio: "readonly",
+        alert: "readonly",
+        confirm: "readonly",
+        prompt: "readonly",
+        self: "readonly",
+        OffscreenCanvas: "readonly",
+        Node: "readonly",
+        HTMLImageElement: "readonly",
+        CSS: "readonly",
+        SVGElement: "readonly",
       }
     },
     rules: {

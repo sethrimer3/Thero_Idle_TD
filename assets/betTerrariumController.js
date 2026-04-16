@@ -84,15 +84,15 @@ export function createBetTerrariumController(deps) {
   let fluidTerrariumItemsDropdown = null;
 
   // Achievements terrarium mirrors Bet terrarium but in achievements tab.
-  let achievementsTerrariumCreatures = null;
-  let achievementsTerrariumBirds = null;
-  let achievementsTerrariumCrystal = null;
-  let achievementsTerrariumTrees = null;
-  let achievementsTerrariumGrass = null;
-  let achievementsTerrariumWater = null;
-  let achievementsTerrariumSkyCycle = null;
-  let achievementsTerrariumCelestialBodies = null;
-  let achievementsTerrariumShrooms = null;
+  let _achievementsTerrariumCreatures = null;
+  let _achievementsTerrariumBirds = null;
+  let _achievementsTerrariumCrystal = null;
+  let _achievementsTerrariumTrees = null;
+  let _achievementsTerrariumGrass = null;
+  let _achievementsTerrariumWater = null;
+  let _achievementsTerrariumSkyCycle = null;
+  let _achievementsTerrariumCelestialBodies = null;
+  let _achievementsTerrariumShrooms = null;
 
   // Expose Bet terrarium overlays to the visual settings module.
   setFluidTerrariumGetters({
@@ -723,7 +723,7 @@ export function createBetTerrariumController(deps) {
       emptyMessage: fluidElements.terrariumItemsEmpty,
       itemsList: fluidElements.terrariumItemsList,
       getSerendipityBalance: () => 0,
-      spendScintillae: (amount) => {
+      spendScintillae: (_amount) => {
         return 0;
       },
       getProducerCount: (id) => {
