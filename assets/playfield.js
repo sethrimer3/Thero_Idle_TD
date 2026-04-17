@@ -22,7 +22,6 @@ import {
 import { levelConfigs } from './levels.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
-import { areBackgroundParticlesEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
@@ -40,11 +39,14 @@ import * as LevelResetSystem from './playfield/systems/LevelResetSystem.js';
 import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js';
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
+import * as ConnectionDragSystem from './playfield/systems/ConnectionDragSystem.js';
 import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
 import * as EnemyFocusSystem from './playfield/systems/EnemyFocusSystem.js';
+import * as GammaStarBurstSystem from './playfield/systems/GammaStarBurstSystem.js';
 import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
 import { projectIotaPhaseDamage } from './playfield/systems/IotaPhaseProjectionSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
+import * as TrackRiverSystem from './playfield/systems/TrackRiverSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
@@ -271,12 +273,10 @@ const BETA_SLOW_DURATION_SECONDS = 0.5;
 const _BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
 const _GAMMA_OUTBOUND_SPEED = 260;
-const GAMMA_STAR_SPEED = 200;
 const _GAMMA_RETURN_SPEED = 260;
 const _GAMMA_STAR_HIT_COUNT = 5;
 // Keep γ's impact star compact so the pattern hugs the enemy model.
 const _GAMMA_STAR_RADIUS_METERS = 0.45;
-const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
 
 export class SimplePlayfield {
   constructor(options) {
@@ -2603,184 +2603,22 @@ export class SimplePlayfield {
    * Refresh connection drag highlights so compatible towers glow while the cursor moves.
    */
   updateConnectionDragHighlights(position) {
-    const dragState = this.connectionDragState;
-    if (!dragState || !dragState.originTowerId) {
-      return;
-    }
-    const origin = this.getTowerById(dragState.originTowerId);
-    if (!origin) {
-      this.clearConnectionDragState();
-      return;
-    }
-    const entries = [];
-    if (origin.linkTargetId) {
-      entries.push({
-        action: 'disconnect',
-        sourceId: origin.id,
-        targetId: origin.linkTargetId,
-        towerId: origin.linkTargetId,
-        role: 'existingTarget',
-      });
-    }
-    if (origin.linkSources instanceof Set) {
-      origin.linkSources.forEach((sourceId) => {
-        entries.push({
-          action: 'disconnect',
-          sourceId,
-          targetId: origin.id,
-          towerId: sourceId,
-          role: 'linkedSource',
-        });
-      });
-    }
-    this.towers.forEach((candidate) => {
-      if (!candidate || candidate.id === origin.id) {
-        return;
-      }
-      if (this.areTowersConnectionCompatible(origin, candidate)) {
-        entries.push({
-          action: 'connect',
-          sourceId: origin.id,
-          targetId: candidate.id,
-          towerId: candidate.id,
-          role: 'candidate',
-        });
-      }
-    });
-    dragState.highlightEntries = entries;
-    dragState.hoverEntry = this.resolveConnectionHoverEntry(entries, position);
+    return ConnectionDragSystem.updateConnectionDragHighlights.call(this, position);
   }
 
   /**
    * Select the highlight entry the pointer is currently hovering.
    */
   resolveConnectionHoverEntry(entries, position) {
-    if (!Array.isArray(entries) || !entries.length || !position) {
-      return null;
-    }
-    const hoverRadius = Math.max(18, Math.min(this.renderWidth || 0, this.renderHeight || 0) * 0.045);
-    let best = null;
-    let bestDistance = Infinity;
-    entries.forEach((entry) => {
-      const tower = this.getTowerById(entry.towerId);
-      if (!tower) {
-        return;
-      }
-      const dx = position.x - tower.x;
-      const dy = position.y - tower.y;
-      const distance = Math.hypot(dx, dy);
-      if (!Number.isFinite(distance)) {
-        return;
-      }
-      if (distance <= hoverRadius && distance < bestDistance) {
-        best = entry;
-        bestDistance = distance;
-      }
-    });
-    return best;
+    return ConnectionDragSystem.resolveConnectionHoverEntry.call(this, entries, position);
   }
 
   updateDeltaCommandDrag(position) {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState || !dragState.towerId) {
-      return;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      this.clearDeltaCommandDragState();
-      return;
-    }
-    const towerLabel = tower.type === 'omicron'
-      ? 'ο wing'
-      : tower.type === 'upsilon'
-        ? 'υ flight'
-        : 'Δ cohort';
-    dragState.currentPosition = position ? { x: position.x, y: position.y } : null;
-    if (!position) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const projection = this.getClosestPointOnPath(position);
-    if (!projection?.point) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const distance = Math.hypot(position.x - projection.point.x, position.y - projection.point.y);
-    dragState.trackDistance = distance;
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const tolerance = Math.max(24, minDimension * 0.05);
-    const withinTrack = Number.isFinite(distance) && distance <= tolerance;
-    if (withinTrack) {
-      dragState.trackAnchor = {
-        point: { x: projection.point.x, y: projection.point.y },
-        progress: Number.isFinite(projection.progress)
-          ? Math.max(0, Math.min(1, projection.progress))
-          : 0,
-      };
-      if (!dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Release to anchor the ${towerLabel} to the glyph lane.`;
-      }
-      dragState.anchorAvailable = true;
-    } else {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-    }
+    return ConnectionDragSystem.updateDeltaCommandDrag.call(this, position);
   }
 
   commitDeltaCommandDrag() {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState?.towerId || !dragState.trackAnchor) {
-      return false;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      return false;
-    }
-    const anchor = {
-      x: dragState.trackAnchor.point.x,
-      y: dragState.trackAnchor.point.y,
-      progress: dragState.trackAnchor.progress,
-    };
-    let assigned = false;
-    if (tower.type === 'omicron') {
-      assigned = this.assignOmicronTrackHoldAnchor(tower, anchor);
-    } else if (tower.type === 'upsilon') {
-      assigned = this.assignUpsilonTrackHoldAnchor(tower, anchor);
-    } else {
-      assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
-    }
-    if (assigned) {
-      if (this.audio && typeof this.audio.playSfx === 'function') {
-        this.audio.playSfx('uiConfirm');
-      }
-      if (this.messageEl) {
-        const towerLabel = tower.type === 'omicron'
-          ? 'ο wing anchor locked to the glyph lane.'
-          : tower.type === 'upsilon'
-            ? 'υ flight path locked to the glyph lane.'
-            : 'Δ cohort orbit anchored to the glyph lane.';
-        this.messageEl.textContent = towerLabel;
-      }
-      if (!this.shouldAnimate) {
-        this.draw();
-      }
-    }
-    return assigned;
+    return ConnectionDragSystem.commitDeltaCommandDrag.call(this);
   }
 
   // ========================================================================
@@ -3385,85 +3223,7 @@ export class SimplePlayfield {
   }
 
   updateTrackRiverParticles(delta) {
-    if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
-      return;
-    }
-    // Track river particles are purely decorative; skip updates when ambient particles are disabled.
-    if (!areBackgroundParticlesEnabled()) {
-      return;
-    }
-
-    const dt = Math.max(0, Math.min(delta, 0.08));
-    this.trackRiverPulse = Number.isFinite(this.trackRiverPulse) ? this.trackRiverPulse : 0;
-    this.trackRiverPulse += dt * 0.6;
-    const fullTurn = TWO_PI;
-    if (this.trackRiverPulse >= fullTurn) {
-      this.trackRiverPulse -= fullTurn;
-    }
-
-    const wrapProgress = (value) => {
-      if (value > 1) {
-        return value - 1;
-      }
-      if (value < 0) {
-        return value + 1;
-      }
-      return value;
-    };
-
-    this.trackRiverParticles.forEach((particle) => {
-      if (!particle) {
-        return;
-      }
-      const speed = Number.isFinite(particle.speed) ? particle.speed : 0.05;
-      const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-      particle.progress = wrapProgress(progress + speed * dt);
-
-      const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1;
-      const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-      particle.phase = nextPhase % fullTurn;
-
-      const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-      particle.driftTimer = driftTimer - dt;
-      if (particle.driftTimer <= 0) {
-        particle.offsetTarget = (Math.random() - 0.5) * 0.8;
-        particle.driftTimer = 0.6 + Math.random() * 1.3;
-      }
-
-      const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 0.6;
-      const easing = Math.min(1, dt * driftRate);
-      const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-      const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-      particle.offset = offset + (target - offset) * easing;
-    });
-
-    if (Array.isArray(this.trackRiverTracerParticles) && this.trackRiverTracerParticles.length) {
-      this.trackRiverTracerParticles.forEach((particle) => {
-        if (!particle) {
-          return;
-        }
-        const speed = Number.isFinite(particle.speed) ? particle.speed : 0.14;
-        const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-        particle.progress = wrapProgress(progress + speed * dt);
-
-        const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1.6;
-        const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-        particle.phase = nextPhase % fullTurn;
-
-        const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-        particle.driftTimer = driftTimer - dt;
-        if (particle.driftTimer <= 0) {
-          particle.offsetTarget = (Math.random() - 0.5) * 0.3;
-          particle.driftTimer = 0.25 + Math.random() * 0.5;
-        }
-
-        const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 2.4;
-        const easing = Math.min(1, dt * driftRate);
-        const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-        const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-        particle.offset = offset + (target - offset) * easing;
-      });
-    }
+    return TrackRiverSystem.updateTrackRiverParticles.call(this, delta);
   }
 
   update(delta) {
@@ -3817,89 +3577,7 @@ export class SimplePlayfield {
    * Update gamma star burst effects on enemies that were hit by gamma projectiles.
    */
   updateGammaStarBursts(delta) {
-    if (!Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
-      return;
-    }
-    
-    const sequence = GAMMA_STAR_SEQUENCE;
-    
-    for (let i = this.gammaStarBursts.length - 1; i >= 0; i--) {
-      const burst = this.gammaStarBursts[i];
-      burst.lifetime = (burst.lifetime || 0) + delta;
-      burst.starElapsed = (burst.starElapsed || 0) + delta;
-      
-      // Remove if lifetime exceeded
-      if (burst.lifetime >= burst.maxLifetime) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      // Update center to track enemy if it still exists
-      const enemy = this.getEnemyById(burst.enemyId);
-      if (enemy) {
-        const enemyPos = this.getEnemyPosition(enemy);
-        if (enemyPos) {
-          burst.center = { ...enemyPos };
-        }
-      }
-      
-      // Update star tracing animation
-      const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
-      const atEndOfSequence = edgeIndex >= sequence.length - 1;
-      
-      if (atEndOfSequence && burst.burstDuration <= 0) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0 && burst.starElapsed >= burst.burstDuration) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0) {
-        burst.starEdgeIndex = 0;
-        burst.starEdgeProgress = 0;
-        continue;
-      }
-      
-      // Calculate star edge distance and progress
-      const radius = burst.starRadius || 22;
-      const angles = [];
-      for (let step = 0; step < 5; step += 1) {
-        angles.push(-HALF_PI + (step * TWO_PI) / 5);
-      }
-      const starPoints = angles.map((angle) => ({
-        x: burst.center.x + Math.cos(angle) * radius,
-        y: burst.center.y + Math.sin(angle) * radius,
-      }));
-      
-      const fromIndex = sequence[edgeIndex];
-      const toIndex = sequence[edgeIndex + 1];
-      const fromPoint = starPoints[fromIndex];
-      const toPoint = starPoints[toIndex];
-      
-      if (!fromPoint || !toPoint) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
-      const starSpeed = burst.starSpeed || GAMMA_STAR_SPEED;
-      const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
-      const progress = Math.min(1, (burst.starEdgeProgress || 0) + delta / edgeDuration);
-      
-      burst.currentPosition = {
-        x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
-        y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
-      };
-      burst.starEdgeProgress = progress;
-      
-      if (progress >= 1) {
-        burst.starEdgeIndex = edgeIndex + 1;
-        burst.starEdgeProgress = 0;
-      }
-    }
+    return GammaStarBurstSystem.updateGammaStarBursts.call(this, delta);
   }
 
   /**

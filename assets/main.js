@@ -505,6 +505,7 @@ import { clampNormalizedCoordinate } from './geometryHelpers.js';
 import { createIdleResourceBankController } from './idleResourceBankController.js';
 import { createPlayfieldLayoutController } from './playfieldLayoutController.js';
 import { createSpireCameraController } from './spireCameraController.js';
+import { createDeveloperSpamController } from './developerSpamController.js';
 
 (() => {
   'use strict';
@@ -1208,13 +1209,16 @@ import { createSpireCameraController } from './spireCameraController.js';
   let powderSimulation = null;
   let fluidSimulationInstance = null;
   let lamedSimulationInstance = null;
-  let lamedDeveloperSpamHandle = null;
-  let lamedDeveloperSpamActive = false;
-  let lamedDeveloperSpamAttached = false;
-  let tsadiDeveloperSpamHandle = null;
-  let tsadiDeveloperSpamActive = false;
-  let tsadiDeveloperSpamAttached = false;
   let tsadiSimulationInstance = null;
+  // ── Developer spam controller (extracted from main.js) ────────────────
+  const developerSpamCtrl = createDeveloperSpamController({
+    isDeveloperModeActive: () => developerModeActive,
+    getLamedSimulation: () => lamedSimulationInstance,
+    getTsadiSimulation: () => tsadiSimulationInstance,
+  });
+  const stopLamedDeveloperSpamLoop = developerSpamCtrl.stopLamedSpamLoop;
+  const attachLamedDeveloperSpamTarget = developerSpamCtrl.attachLamedSpamTarget;
+  const attachTsadiDeveloperSpamTarget = developerSpamCtrl.attachTsadiSpamTarget;
   let tsadiOptionsBound = false;
   let _shinSimulationInstance = null;
   let tsadiBindingUiInitialized = false;
@@ -1908,155 +1912,6 @@ import { createSpireCameraController } from './spireCameraController.js';
     return;
   }
 
-  function stopLamedDeveloperSpamLoop() {
-    lamedDeveloperSpamActive = false;
-    if (lamedDeveloperSpamHandle) {
-      cancelAnimationFrame(lamedDeveloperSpamHandle);
-      lamedDeveloperSpamHandle = null;
-    }
-  }
-
-  function runLamedDeveloperSpawnLoop() {
-    if (!lamedDeveloperSpamActive) {
-      stopLamedDeveloperSpamLoop();
-      return;
-    }
-    if (!developerModeActive || !lamedSimulationInstance || typeof lamedSimulationInstance.spawnStar !== 'function') {
-      stopLamedDeveloperSpamLoop();
-      return;
-    }
-
-    for (let i = 0; i < 4; i++) {
-      if (!lamedSimulationInstance.spawnStar()) {
-        break;
-      }
-    }
-
-    lamedDeveloperSpamHandle = window.requestAnimationFrame(() => runLamedDeveloperSpawnLoop());
-  }
-
-  function handleLamedDeveloperSpamPointerDown(event) {
-    if (!developerModeActive || !lamedSimulationInstance || typeof lamedSimulationInstance.spawnStar !== 'function') {
-      return;
-    }
-    
-    // Capture click position for star spawning
-    if (event && event.target) {
-      const rect = event.target.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      if (typeof lamedSimulationInstance.setClickPosition === 'function') {
-        lamedSimulationInstance.setClickPosition(x, y);
-      }
-    }
-
-    lamedDeveloperSpamActive = true;
-    if (typeof event?.preventDefault === 'function') {
-      event.preventDefault();
-    }
-    if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
-      try {
-        event.target.setPointerCapture(event.pointerId);
-      } catch (_e) {
-        // Ignore pointer capture failures because the gesture can still continue without capture.
-      }
-    }
-    if (!lamedDeveloperSpamHandle) {
-      runLamedDeveloperSpawnLoop();
-    }
-  }
-
-  function handleLamedDeveloperSpamPointerUp(event) {
-    if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
-      try {
-        event.target.releasePointerCapture(event.pointerId);
-      } catch (_e) {
-        // Ignore pointer capture failures because cleanup will continue regardless.
-      }
-    }
-    stopLamedDeveloperSpamLoop();
-  }
-
-  function attachLamedDeveloperSpamTarget(canvas) {
-    if (!canvas || lamedDeveloperSpamAttached) {
-      return;
-    }
-    lamedDeveloperSpamAttached = true;
-    canvas.addEventListener('pointerdown', handleLamedDeveloperSpamPointerDown);
-    canvas.addEventListener('pointerup', handleLamedDeveloperSpamPointerUp);
-    canvas.addEventListener('pointerleave', handleLamedDeveloperSpamPointerUp);
-    canvas.addEventListener('pointercancel', handleLamedDeveloperSpamPointerUp);
-  }
-
-  function stopTsadiDeveloperSpamLoop() {
-    tsadiDeveloperSpamActive = false;
-    if (tsadiDeveloperSpamHandle) {
-      cancelAnimationFrame(tsadiDeveloperSpamHandle);
-      tsadiDeveloperSpamHandle = null;
-    }
-  }
-
-  function runTsadiDeveloperSpawnLoop() {
-    if (!tsadiDeveloperSpamActive) {
-      stopTsadiDeveloperSpamLoop();
-      return;
-    }
-    if (!developerModeActive || !tsadiSimulationInstance || typeof tsadiSimulationInstance.spawnParticle !== 'function') {
-      stopTsadiDeveloperSpamLoop();
-      return;
-    }
-
-    for (let i = 0; i < 4; i++) {
-      if (!tsadiSimulationInstance.spawnParticle()) {
-        break;
-      }
-    }
-
-    tsadiDeveloperSpamHandle = window.requestAnimationFrame(() => runTsadiDeveloperSpawnLoop());
-  }
-
-  function handleTsadiDeveloperSpamPointerDown(event) {
-    if (!developerModeActive || !tsadiSimulationInstance || typeof tsadiSimulationInstance.spawnParticle !== 'function') {
-      return;
-    }
-
-    tsadiDeveloperSpamActive = true;
-    if (typeof event?.preventDefault === 'function') {
-      event.preventDefault();
-    }
-    if (typeof event?.target?.setPointerCapture === 'function' && typeof event.pointerId === 'number') {
-      try {
-        event.target.setPointerCapture(event.pointerId);
-      } catch (_e) {
-        // Ignore pointer capture failures because the gesture can still continue without capture.
-      }
-    }
-    if (!tsadiDeveloperSpamHandle) {
-      runTsadiDeveloperSpawnLoop();
-    }
-  }
-
-  function handleTsadiDeveloperSpamPointerUp(event) {
-    if (typeof event?.target?.releasePointerCapture === 'function' && typeof event.pointerId === 'number') {
-      try {
-        event.target.releasePointerCapture(event.pointerId);
-      } catch (_e) {
-        // Ignore pointer capture failures because cleanup will continue regardless.
-      }
-    }
-    stopTsadiDeveloperSpamLoop();
-  }
-
-  function attachTsadiDeveloperSpamTarget(canvas) {
-    if (!canvas || tsadiDeveloperSpamAttached) {
-      return;
-    }
-    tsadiDeveloperSpamAttached = true;
-    canvas.addEventListener('pointerdown', handleTsadiDeveloperSpamPointerDown);
-    canvas.addEventListener('pointerup', handleTsadiDeveloperSpamPointerUp);
-    canvas.addEventListener('pointerleave', handleTsadiDeveloperSpamPointerUp);
-    canvas.addEventListener('pointercancel', handleTsadiDeveloperSpamPointerUp);
-  }
 
   async function applyPowderSimulationMode(mode) {
     if (mode !== 'sand' && mode !== 'fluid') {
