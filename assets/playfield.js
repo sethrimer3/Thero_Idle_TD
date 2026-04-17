@@ -22,7 +22,6 @@ import {
 import { levelConfigs } from './levels.js';
 import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
-import { areBackgroundParticlesEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
@@ -40,11 +39,14 @@ import * as LevelResetSystem from './playfield/systems/LevelResetSystem.js';
 import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js';
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
+import * as ConnectionDragSystem from './playfield/systems/ConnectionDragSystem.js';
+import * as CombatDamageSystem from './playfield/systems/CombatDamageSystem.js';
 import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
 import * as EnemyFocusSystem from './playfield/systems/EnemyFocusSystem.js';
+import * as GammaStarBurstSystem from './playfield/systems/GammaStarBurstSystem.js';
 import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
-import { projectIotaPhaseDamage } from './playfield/systems/IotaPhaseProjectionSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
+import * as TrackRiverSystem from './playfield/systems/TrackRiverSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
@@ -84,8 +86,6 @@ import {
 } from '../scripts/features/towers/muTower.js';
 import {
   updateNuTower as updateNuTowerHelper,
-  trackNuKill as trackNuKillHelper,
-  spawnNuKillParticle as spawnNuKillParticleHelper,
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
 } from '../scripts/features/towers/nuTower.js';
@@ -179,9 +179,6 @@ const _MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 // Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
 const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
-// Allowed required hit counts for prime-counter enemies.  Only small primes are
-// used to keep tower hit demands realistic (max 17 hits).
-const PRIME_HIT_LIST = [2, 3, 5, 7, 11, 13, 17];
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -223,18 +220,11 @@ const DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 
 // Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
-const DERIVATIVE_SHIELD_SYMBOL = '∂';
 const _DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
 const _DERIVATIVE_SHIELD_MIN_RADIUS = 96;
 const _DERIVATIVE_SHIELD_LINGER_MS = 160;
 const DEFAULT_POLYGON_SIDES = 6;
 const POLYGON_SPLIT_COUNT = 2;
-const DEBUFF_ICON_SYMBOLS = {
-  iota: 'ι',
-  rho: 'ρ',
-  theta: 'θ',
-  'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
-};
 /**
  * Standardized Hitbox System
  * 
@@ -271,12 +261,10 @@ const BETA_SLOW_DURATION_SECONDS = 0.5;
 const _BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
 const _GAMMA_OUTBOUND_SPEED = 260;
-const GAMMA_STAR_SPEED = 200;
 const _GAMMA_RETURN_SPEED = 260;
 const _GAMMA_STAR_HIT_COUNT = 5;
 // Keep γ's impact star compact so the pattern hugs the enemy model.
 const _GAMMA_STAR_RADIUS_METERS = 0.45;
-const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
 
 export class SimplePlayfield {
   constructor(options) {
@@ -2603,184 +2591,22 @@ export class SimplePlayfield {
    * Refresh connection drag highlights so compatible towers glow while the cursor moves.
    */
   updateConnectionDragHighlights(position) {
-    const dragState = this.connectionDragState;
-    if (!dragState || !dragState.originTowerId) {
-      return;
-    }
-    const origin = this.getTowerById(dragState.originTowerId);
-    if (!origin) {
-      this.clearConnectionDragState();
-      return;
-    }
-    const entries = [];
-    if (origin.linkTargetId) {
-      entries.push({
-        action: 'disconnect',
-        sourceId: origin.id,
-        targetId: origin.linkTargetId,
-        towerId: origin.linkTargetId,
-        role: 'existingTarget',
-      });
-    }
-    if (origin.linkSources instanceof Set) {
-      origin.linkSources.forEach((sourceId) => {
-        entries.push({
-          action: 'disconnect',
-          sourceId,
-          targetId: origin.id,
-          towerId: sourceId,
-          role: 'linkedSource',
-        });
-      });
-    }
-    this.towers.forEach((candidate) => {
-      if (!candidate || candidate.id === origin.id) {
-        return;
-      }
-      if (this.areTowersConnectionCompatible(origin, candidate)) {
-        entries.push({
-          action: 'connect',
-          sourceId: origin.id,
-          targetId: candidate.id,
-          towerId: candidate.id,
-          role: 'candidate',
-        });
-      }
-    });
-    dragState.highlightEntries = entries;
-    dragState.hoverEntry = this.resolveConnectionHoverEntry(entries, position);
+    return ConnectionDragSystem.updateConnectionDragHighlights.call(this, position);
   }
 
   /**
    * Select the highlight entry the pointer is currently hovering.
    */
   resolveConnectionHoverEntry(entries, position) {
-    if (!Array.isArray(entries) || !entries.length || !position) {
-      return null;
-    }
-    const hoverRadius = Math.max(18, Math.min(this.renderWidth || 0, this.renderHeight || 0) * 0.045);
-    let best = null;
-    let bestDistance = Infinity;
-    entries.forEach((entry) => {
-      const tower = this.getTowerById(entry.towerId);
-      if (!tower) {
-        return;
-      }
-      const dx = position.x - tower.x;
-      const dy = position.y - tower.y;
-      const distance = Math.hypot(dx, dy);
-      if (!Number.isFinite(distance)) {
-        return;
-      }
-      if (distance <= hoverRadius && distance < bestDistance) {
-        best = entry;
-        bestDistance = distance;
-      }
-    });
-    return best;
+    return ConnectionDragSystem.resolveConnectionHoverEntry.call(this, entries, position);
   }
 
   updateDeltaCommandDrag(position) {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState || !dragState.towerId) {
-      return;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      this.clearDeltaCommandDragState();
-      return;
-    }
-    const towerLabel = tower.type === 'omicron'
-      ? 'ο wing'
-      : tower.type === 'upsilon'
-        ? 'υ flight'
-        : 'Δ cohort';
-    dragState.currentPosition = position ? { x: position.x, y: position.y } : null;
-    if (!position) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const projection = this.getClosestPointOnPath(position);
-    if (!projection?.point) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const distance = Math.hypot(position.x - projection.point.x, position.y - projection.point.y);
-    dragState.trackDistance = distance;
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const tolerance = Math.max(24, minDimension * 0.05);
-    const withinTrack = Number.isFinite(distance) && distance <= tolerance;
-    if (withinTrack) {
-      dragState.trackAnchor = {
-        point: { x: projection.point.x, y: projection.point.y },
-        progress: Number.isFinite(projection.progress)
-          ? Math.max(0, Math.min(1, projection.progress))
-          : 0,
-      };
-      if (!dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Release to anchor the ${towerLabel} to the glyph lane.`;
-      }
-      dragState.anchorAvailable = true;
-    } else {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-    }
+    return ConnectionDragSystem.updateDeltaCommandDrag.call(this, position);
   }
 
   commitDeltaCommandDrag() {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState?.towerId || !dragState.trackAnchor) {
-      return false;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      return false;
-    }
-    const anchor = {
-      x: dragState.trackAnchor.point.x,
-      y: dragState.trackAnchor.point.y,
-      progress: dragState.trackAnchor.progress,
-    };
-    let assigned = false;
-    if (tower.type === 'omicron') {
-      assigned = this.assignOmicronTrackHoldAnchor(tower, anchor);
-    } else if (tower.type === 'upsilon') {
-      assigned = this.assignUpsilonTrackHoldAnchor(tower, anchor);
-    } else {
-      assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
-    }
-    if (assigned) {
-      if (this.audio && typeof this.audio.playSfx === 'function') {
-        this.audio.playSfx('uiConfirm');
-      }
-      if (this.messageEl) {
-        const towerLabel = tower.type === 'omicron'
-          ? 'ο wing anchor locked to the glyph lane.'
-          : tower.type === 'upsilon'
-            ? 'υ flight path locked to the glyph lane.'
-            : 'Δ cohort orbit anchored to the glyph lane.';
-        this.messageEl.textContent = towerLabel;
-      }
-      if (!this.shouldAnimate) {
-        this.draw();
-      }
-    }
-    return assigned;
+    return ConnectionDragSystem.commitDeltaCommandDrag.call(this);
   }
 
   // ========================================================================
@@ -3385,85 +3211,7 @@ export class SimplePlayfield {
   }
 
   updateTrackRiverParticles(delta) {
-    if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
-      return;
-    }
-    // Track river particles are purely decorative; skip updates when ambient particles are disabled.
-    if (!areBackgroundParticlesEnabled()) {
-      return;
-    }
-
-    const dt = Math.max(0, Math.min(delta, 0.08));
-    this.trackRiverPulse = Number.isFinite(this.trackRiverPulse) ? this.trackRiverPulse : 0;
-    this.trackRiverPulse += dt * 0.6;
-    const fullTurn = TWO_PI;
-    if (this.trackRiverPulse >= fullTurn) {
-      this.trackRiverPulse -= fullTurn;
-    }
-
-    const wrapProgress = (value) => {
-      if (value > 1) {
-        return value - 1;
-      }
-      if (value < 0) {
-        return value + 1;
-      }
-      return value;
-    };
-
-    this.trackRiverParticles.forEach((particle) => {
-      if (!particle) {
-        return;
-      }
-      const speed = Number.isFinite(particle.speed) ? particle.speed : 0.05;
-      const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-      particle.progress = wrapProgress(progress + speed * dt);
-
-      const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1;
-      const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-      particle.phase = nextPhase % fullTurn;
-
-      const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-      particle.driftTimer = driftTimer - dt;
-      if (particle.driftTimer <= 0) {
-        particle.offsetTarget = (Math.random() - 0.5) * 0.8;
-        particle.driftTimer = 0.6 + Math.random() * 1.3;
-      }
-
-      const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 0.6;
-      const easing = Math.min(1, dt * driftRate);
-      const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-      const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-      particle.offset = offset + (target - offset) * easing;
-    });
-
-    if (Array.isArray(this.trackRiverTracerParticles) && this.trackRiverTracerParticles.length) {
-      this.trackRiverTracerParticles.forEach((particle) => {
-        if (!particle) {
-          return;
-        }
-        const speed = Number.isFinite(particle.speed) ? particle.speed : 0.14;
-        const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-        particle.progress = wrapProgress(progress + speed * dt);
-
-        const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1.6;
-        const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-        particle.phase = nextPhase % fullTurn;
-
-        const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-        particle.driftTimer = driftTimer - dt;
-        if (particle.driftTimer <= 0) {
-          particle.offsetTarget = (Math.random() - 0.5) * 0.3;
-          particle.driftTimer = 0.25 + Math.random() * 0.5;
-        }
-
-        const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 2.4;
-        const easing = Math.min(1, dt * driftRate);
-        const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-        const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-        particle.offset = offset + (target - offset) * easing;
-      });
-    }
+    return TrackRiverSystem.updateTrackRiverParticles.call(this, delta);
   }
 
   update(delta) {
@@ -3817,89 +3565,7 @@ export class SimplePlayfield {
    * Update gamma star burst effects on enemies that were hit by gamma projectiles.
    */
   updateGammaStarBursts(delta) {
-    if (!Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
-      return;
-    }
-    
-    const sequence = GAMMA_STAR_SEQUENCE;
-    
-    for (let i = this.gammaStarBursts.length - 1; i >= 0; i--) {
-      const burst = this.gammaStarBursts[i];
-      burst.lifetime = (burst.lifetime || 0) + delta;
-      burst.starElapsed = (burst.starElapsed || 0) + delta;
-      
-      // Remove if lifetime exceeded
-      if (burst.lifetime >= burst.maxLifetime) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      // Update center to track enemy if it still exists
-      const enemy = this.getEnemyById(burst.enemyId);
-      if (enemy) {
-        const enemyPos = this.getEnemyPosition(enemy);
-        if (enemyPos) {
-          burst.center = { ...enemyPos };
-        }
-      }
-      
-      // Update star tracing animation
-      const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
-      const atEndOfSequence = edgeIndex >= sequence.length - 1;
-      
-      if (atEndOfSequence && burst.burstDuration <= 0) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0 && burst.starElapsed >= burst.burstDuration) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0) {
-        burst.starEdgeIndex = 0;
-        burst.starEdgeProgress = 0;
-        continue;
-      }
-      
-      // Calculate star edge distance and progress
-      const radius = burst.starRadius || 22;
-      const angles = [];
-      for (let step = 0; step < 5; step += 1) {
-        angles.push(-HALF_PI + (step * TWO_PI) / 5);
-      }
-      const starPoints = angles.map((angle) => ({
-        x: burst.center.x + Math.cos(angle) * radius,
-        y: burst.center.y + Math.sin(angle) * radius,
-      }));
-      
-      const fromIndex = sequence[edgeIndex];
-      const toIndex = sequence[edgeIndex + 1];
-      const fromPoint = starPoints[fromIndex];
-      const toPoint = starPoints[toIndex];
-      
-      if (!fromPoint || !toPoint) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
-      const starSpeed = burst.starSpeed || GAMMA_STAR_SPEED;
-      const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
-      const progress = Math.min(1, (burst.starEdgeProgress || 0) + delta / edgeDuration);
-      
-      burst.currentPosition = {
-        x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
-        y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
-      };
-      burst.starEdgeProgress = progress;
-      
-      if (progress >= 1) {
-        burst.starEdgeIndex = edgeIndex + 1;
-        burst.starEdgeProgress = 0;
-      }
-    }
+    return GammaStarBurstSystem.updateGammaStarBursts.call(this, delta);
   }
 
   /**
@@ -4043,271 +3709,31 @@ export class SimplePlayfield {
 
 
   computeEnemyDamageMultiplier(enemy) {
-    if (!enemy) {
-      return 1;
-    }
-    let additive = 0;
-    if (enemy.damageAmplifiers instanceof Map) {
-      enemy.damageAmplifiers.forEach((effect) => {
-        if (!effect) {
-          return;
-        }
-        const strength = Number.isFinite(effect.strength) ? Math.max(0, effect.strength) : 0;
-        additive += strength;
-      });
-    }
-    return Math.max(0, 1 + additive);
+    return CombatDamageSystem.computeEnemyDamageMultiplier.call(this, enemy);
   }
 
   // Apply mitigation from derivative shield carriers before other multipliers modify the strike.
   // When attackType is 'melee', shields are bypassed entirely (universal melee-vs-shield rule).
-  applyDerivativeShieldMitigation(enemy, baseDamage, { attackType } = {}) {
-    // Melee attacks bypass all shield layers and apply damage directly to health.
-    if (attackType === 'melee') {
-      return baseDamage;
-    }
-    if (!enemy || !enemy.derivativeShield || !Number.isFinite(baseDamage) || baseDamage <= 0) {
-      return baseDamage;
-    }
-    const effect = enemy.derivativeShield;
-    if (!effect.active) {
-      return baseDamage;
-    }
-    if (effect.mode === 'sqrt') {
-      return Math.max(0, Math.sqrt(baseDamage));
-    }
-    const stack = Number.isFinite(effect.stack) && effect.stack >= 0 ? effect.stack : 0;
-    const mitigation = Math.pow(0.5, stack + 1);
-    effect.stack = stack + 1;
-    return Math.max(0, baseDamage * mitigation);
+  applyDerivativeShieldMitigation(enemy, baseDamage, options = {}) {
+    return CombatDamageSystem.applyDerivativeShieldMitigation.call(this, enemy, baseDamage, options);
   }
 
   /**
    * Track when a debuff first lands on an enemy so the renderer can order icons chronologically.
    */
   registerEnemyDebuff(enemy, type) {
-    if (!enemy || !type) {
-      return;
-    }
-    if (!Array.isArray(enemy.debuffIndicators)) {
-      enemy.debuffIndicators = [];
-    }
-    const now =
-      typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
-    const existing = enemy.debuffIndicators.find((entry) => entry?.type === type);
-    if (existing) {
-      existing.lastSeen = now;
-      return;
-    }
-    enemy.debuffIndicators.push({ type, appliedAt: now, lastSeen: now });
+    return CombatDamageSystem.registerEnemyDebuff.call(this, enemy, type);
   }
 
   /**
    * Provide ordered debuff metadata to the renderer with pre-resolved glyphs for each effect.
    */
   getEnemyDebuffIndicators(enemy) {
-    if (!enemy) {
-      return [];
-    }
-    const activeTypes = this.resolveActiveDebuffTypes(enemy);
-    const entries = this.syncEnemyDebuffIndicators(enemy, activeTypes);
-    return entries.map((entry) => ({
-      type: entry.type,
-      symbol: DEBUFF_ICON_SYMBOLS[entry.type] || entry.type?.[0] || '·',
-    }));
+    return CombatDamageSystem.getEnemyDebuffIndicators.call(this, enemy);
   }
 
-  applyDamageToEnemy(enemy, baseDamage, { sourceTower, attackType, isPhaseProjection } = {}) {
-    if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
-      return 0;
-    }
-    
-    // Check if enemy is in a tunnel - if so, they cannot take damage
-    const tunnelState = this.getEnemyTunnelState(enemy);
-    if (tunnelState.inTunnel) {
-      // Enemy is in a tunnel, show "Miss" instead of damage
-      this.spawnMissText(enemy);
-      return 0;
-    }
-
-    // ─── Imaginary Strider: post-hit invulnerability window ────────────────
-    // While isInvulnerable is true all incoming damage is ignored entirely.
-    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
-      if (enemy.isInvulnerable) {
-        return 0;
-      }
-    }
-
-    // ─── Prime-Counter: hit-count-based health — ignore damage magnitude ──
-    // Only counts discrete hits; each hit increments currentHitCount by 1.
-    if ((enemy.codexId || enemy.typeId) === 'prime') {
-      if (!Number.isFinite(enemy.requiredHitCount)) {
-        // Initialise hit-count health using a random prime from the module-scope PRIME_HIT_LIST
-        const idx = Math.floor(Math.random() * PRIME_HIT_LIST.length);
-        enemy.requiredHitCount = PRIME_HIT_LIST[idx];
-        enemy.currentHitCount = 0;
-      }
-      enemy.currentHitCount = (enemy.currentHitCount || 0) + 1;
-      // Debug log — removable without affecting gameplay
-      console.log(`[Prime Hit Count Updated] id=${enemy.id} hits=${enemy.currentHitCount}/${enemy.requiredHitCount}`);
-      if (sourceTower) {
-        this.recordDamageEvent({ tower: sourceTower, enemy, damage: 1 });
-      }
-      if (enemy.currentHitCount >= enemy.requiredHitCount) {
-        if (sourceTower) {
-          this.recordKillEvent(sourceTower);
-        }
-        this.processEnemyDefeat(enemy);
-      }
-      return 1;
-    }
-
-    const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage, { attackType });
-
-    // Directional saturation: enemies with sector-based resistance reduce damage
-    // from repeatedly attacked directions. Constants inlined from
-    // DirectionalSaturationSystem.js to avoid import in this hot path.
-    // ⚠ Keep in sync: DIR_SAT_BUILDUP_PER_HIT (0.12), DIR_SAT_BOSS_BUILDUP_SCALE (0.6)
-    let dirSatMultiplier = 1;
-    if (enemy._dirSat && sourceTower) {
-      const enemyPos = this.getEnemyPosition(enemy);
-      const sourcePos = { x: sourceTower.x, y: sourceTower.y };
-      if (enemyPos && Number.isFinite(sourcePos.x) && Number.isFinite(sourcePos.y)) {
-        const sectors = enemy._dirSat.sectors;
-        const sectorCount = sectors.length;
-        const dx = sourcePos.x - enemyPos.x;
-        const dy = sourcePos.y - enemyPos.y;
-        let angle = Math.atan2(dy, dx);
-        if (angle < 0) angle += Math.PI * 2;
-        const sectorSize = (Math.PI * 2) / sectorCount;
-        const sectorIdx = Math.min(sectorCount - 1, Math.floor(angle / sectorSize));
-        dirSatMultiplier = Math.max(0, 1 - sectors[sectorIdx]);
-        // Build up resistance: 0.12 normal, 0.12 * 0.6 = 0.072 for bosses
-        const buildup = enemy.isBoss ? 0.072 : 0.12;
-        sectors[sectorIdx] = Math.min(1.0, sectors[sectorIdx] + buildup);
-        enemy._dirSat.totalHits++;
-      }
-    }
-
-    // Weierstrass Prism: fractal vulnerability window reduces damage outside vulnerable phases.
-    const weierMult = (enemy._weierstrass && !enemy._weierstrass.vulnerable) ? 0.15 : 1;
-
-    // Integral Accumulator: damage resistance decreases with path progress.
-    // ⚠ Keep in sync: INTEGRAL_MIN_MULTIPLIER (0.05), INTEGRAL_CURVE_POWER (0.8)
-    // from IntegralEnemySystem.js. Inlined here to avoid import in the hot damage path.
-    let integralMult = 1;
-    if ((enemy.codexId || enemy.typeId) === 'integral-accumulator' && Number.isFinite(enemy.progress)) {
-      const p = Math.max(0, Math.min(1, enemy.progress));
-      integralMult = Math.max(0.05, Math.pow(p, 0.8));
-    }
-
-    // Superposition: state 0 has higher damage resistance (0.3x damage taken).
-    let superpositionMult = 1;
-    if ((enemy.codexId || enemy.typeId) === 'superposition') {
-      superpositionMult = enemy.currentState === 0 ? 0.3 : 1.0;
-    }
-
-    const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult * superpositionMult;
-    const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
-    if (Number.isFinite(enemy.hp)) {
-      enemy.hp -= applied;
-    } else {
-      enemy.hp = -applied;
-    }
-
-    // ─── Recursive Relay: spawn one additional standard enemy on first hit ─
-    if ((enemy.codexId || enemy.typeId) === 'recursive-relay' && !enemy.hasTriggeredRelaySpawn) {
-      enemy.hasTriggeredRelaySpawn = true;
-      // baseSpawnType can be set by a wave configuration to override the spawned type.
-      // It defaults to 'etype' (the basic Epsilon Type enemy) when not explicitly specified.
-      const spawnType = enemy.baseSpawnType || 'etype';
-      this.spawnRelayEnemy(enemy, spawnType);
-    }
-
-    // ─── Imaginary Strider: enter invulnerable state after receiving damage ─
-    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
-      enemy.isInvulnerable = true;
-      enemy.invulnerabilityTimer = 3.0;
-    }
-
-    // ─── Quantum-Tunneler: create a TunnelZone on damage ──────────────────
-    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
-      this.createTunnelZone(enemy);
-    }
-
-    // Quantum Tunneler projection: check if a projection layer should collapse after damage.
-    // ⚠ Keep in sync: QUANTUM_LAYER_HP_FRACTION (0.2), QUANTUM_COLLAPSE_THRESHOLD (3),
-    // QUANTUM_COLLAPSED_HP_SCALE (0.4) from QuantumProjectionSystem.js.
-    if (enemy._quantum && !enemy._quantum.collapsed && Number.isFinite(enemy.maxHp) && enemy.maxHp > 0) {
-      const hpFraction = Math.max(0, enemy.hp) / enemy.maxHp;
-      const layerFraction = 0.2;
-      const collapseThreshold = 3;
-      const nextCollapseAt = 1 - (enemy._quantum.collapses + 1) * layerFraction;
-      if (hpFraction <= nextCollapseAt && enemy._quantum.collapses < collapseThreshold) {
-        enemy._quantum.collapses++;
-        if (!enemy._quantum._collapsedIndices) {
-          enemy._quantum._collapsedIndices = new Set();
-        }
-        enemy._quantum._collapsedIndices.add(enemy._quantum.activeIndex);
-        enemy._quantum.switchTimer = 0;
-        const remaining = enemy._quantum.projections - enemy._quantum.collapses;
-        if (remaining <= 0 || enemy._quantum.collapses >= collapseThreshold) {
-          enemy._quantum.collapsed = true;
-          const collapsedScale = 0.4;
-          enemy.hp = Math.max(0, enemy.hp) * collapsedScale;
-          enemy.maxHp = Math.max(1, enemy.hp);
-        } else {
-          enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
-          let safety = enemy._quantum.projections;
-          while (enemy._quantum._collapsedIndices.has(enemy._quantum.activeIndex) && safety-- > 0) {
-            enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
-          }
-        }
-      }
-    }
-
-    // ─── Iota Phase Projection: project the applied hit to field neighbours ──
-    // Only fires for non-projection hits to prevent recursive cascading.
-    if (applied > 0 && !isPhaseProjection) {
-      projectIotaPhaseDamage(this, enemy, applied, { sourceTower, isPhaseProjection: false });
-    }
-
-    if (sourceTower) {
-      this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
-    }
-    // Pass through pre-hit HP so the renderer can scale the damage number impact.
-    this.spawnDamageNumber(enemy, applied, { sourceTower, enemyHpBefore: hpBefore });
-    // Capture the hit vector so the swirl renderer can push particles along the impact path.
-    const sourcePosition =
-      sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)
-        ? { x: sourceTower.x, y: sourceTower.y }
-        : null;
-    this.recordEnemySwirlImpact(enemy, { sourcePosition, damageApplied: applied, enemyHpBefore: hpBefore });
-    if (enemy.hp <= 0) {
-      // Track kill and overkill damage for Nu towers
-      if (sourceTower && sourceTower.type === 'nu') {
-        const overkillDamage = Math.max(0, applied - hpBefore);
-        trackNuKillHelper(sourceTower, overkillDamage);
-
-        // Spawn kill particle at enemy position
-        const enemyPos = this.getEnemyPosition(enemy);
-        if (enemyPos) {
-          spawnNuKillParticleHelper(this, sourceTower, enemyPos);
-        }
-      }
-      // ─── Nullifier: disable the killing tower for 5 seconds ───────────
-      if ((enemy.codexId || enemy.typeId) === 'nullifier' && sourceTower) {
-        this.disableTower(sourceTower, 5.0);
-      }
-      if (sourceTower) {
-        this.recordKillEvent(sourceTower);
-      }
-      this.processEnemyDefeat(enemy);
-    }
-    return applied;
+  applyDamageToEnemy(enemy, baseDamage, options = {}) {
+    return CombatDamageSystem.applyDamageToEnemy.call(this, enemy, baseDamage, options);
   }
 
   // ─── Recursive Relay: spawn one standard enemy at the relay's current position ──
