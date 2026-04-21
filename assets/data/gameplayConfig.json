@@ -442,7 +442,7 @@
     {
       "set": "Glyph Trials",
       "id": "Glyph Trial - 1",
-      "campaign": "GlyphTrials",
+      "campaign": "Challenges",
       "title": "Alpha Lattice",
       "path": "Twin α sentinels flank a linear approach—assign glyphs to refine their output.",
       "focus": "Strengthen pre-placed α towers through glyph investment alone.",
@@ -451,7 +451,7 @@
     {
       "set": "Glyph Trials",
       "id": "Glyph Trial - 2",
-      "campaign": "GlyphTrials",
+      "campaign": "Challenges",
       "title": "Beta Weave",
       "path": "A curving corridor guarded by α and β anchors awaiting your symbolic touch.",
       "focus": "Coordinate glyph allocation across α and β towers on a bending lane.",
@@ -460,7 +460,7 @@
     {
       "set": "Glyph Trials",
       "id": "Glyph Trial - 3",
-      "campaign": "GlyphTrials",
+      "campaign": "Challenges",
       "title": "Gamma Surge",
       "path": "Three-tower formation across a zigzag path; γ splash shapes the battlefield.",
       "focus": "Distribute glyphs across α, β, and γ to contain a surging enemy tide.",
@@ -469,7 +469,7 @@
     {
       "set": "Glyph Trials",
       "id": "Glyph Trial - 4",
-      "campaign": "GlyphTrials",
+      "campaign": "Challenges",
       "title": "Full Resonance",
       "path": "Four anchors hold the spiral—master glyph resonance to seal the final proof.",
       "focus": "Achieve full resonance by optimally investing glyphs across all four towers.",
