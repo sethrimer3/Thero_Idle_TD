@@ -20,7 +20,7 @@ import {
   spawnMoteGemDrop,
 } from './enemies.js';
 import { levelConfigs } from './levels.js';
-import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
+import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
@@ -29,6 +29,7 @@ import * as InputController from './playfield/input/InputController.js';
 import * as GestureController from './playfield/input/GestureController.js';
 import { TOWER_HOLD_ACTIVATION_MS } from './playfield/input/GestureController.js';
 import * as FloaterSystem from './playfield/systems/FloaterSystem.js';
+import * as TowerGlyphTransitionSystem from './playfield/systems/TowerGlyphTransitionSystem.js';
 import * as BackgroundSwimmerSystem from './playfield/systems/BackgroundSwimmerSystem.js';
 import * as ProjectileUpdateSystem from './playfield/systems/ProjectileUpdateSystem.js';
 import * as TowerDispatchSystem from './playfield/systems/TowerDispatchSystem.js';
@@ -208,15 +209,6 @@ export function configurePlayfieldSystem(options = {}) {
 
 // Promotion/demotion glyph effects borrow these tuning constants so both gestures feel distinct yet cohesive.
 const TOWER_PRESS_GLOW_FADE_MS = 200;
-const TOWER_GLYPH_NEW_SYMBOL_DELAY_MS = 120;
-const TOWER_GLYPH_NEW_SYMBOL_FADE_MS = 420;
-const TOWER_GLYPH_FLASH_DURATION_MS = 520;
-const TOWER_GLYPH_FLASH_HOLD_MS = 160;
-const TOWER_GLYPH_FROM_SYMBOL_FADE_MS = 260;
-const TOWER_GLYPH_MIN_PARTICLES = 14;
-const TOWER_GLYPH_MAX_PARTICLES = 28;
-const DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
-const DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 
 // Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
@@ -935,181 +927,6 @@ export class SimplePlayfield {
     });
   }
 
-  computeFloaterCount(width, height) {
-    if (!Number.isFinite(width) || !Number.isFinite(height)) {
-      return 0;
-    }
-    const area = Math.max(0, width * height);
-    const base = Math.round(area / 24000);
-    return Math.max(18, Math.min(64, base));
-  }
-
-  randomFloaterRadiusFactor() {
-    return 0.0075 + Math.random() * 0.0045;
-  }
-
-  createFloater(width, height) {
-    // Support both legacy width/height calls and explicit ambient-bounds objects.
-    const bounds = (typeof width === 'object' && width)
-      ? width
-      : { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
-    const boundsWidth = Math.max(1, Number.isFinite(bounds.width) ? bounds.width : (bounds.maxX - bounds.minX));
-    const boundsHeight = Math.max(1, Number.isFinite(bounds.height) ? bounds.height : (bounds.maxY - bounds.minY));
-    const margin = Math.min(boundsWidth, boundsHeight) * 0.08;
-    const usableWidth = Math.max(1, boundsWidth - margin * 2);
-    const usableHeight = Math.max(1, boundsHeight - margin * 2);
-    return {
-      // Seed floater positions across the full ambient effect bounds so zoomed-out edges stay populated.
-      x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
-      y: (Number.isFinite(bounds.minY) ? bounds.minY : 0) + margin + Math.random() * usableHeight,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.5) * 12,
-      ax: 0,
-      ay: 0,
-      radiusFactor: this.randomFloaterRadiusFactor(),
-      opacity: 0,
-      opacityTarget: 0,
-    };
-  }
-
-  getAmbientEffectBounds() {
-    const width = this.renderWidth || 0;
-    const height = this.renderHeight || 0;
-    if (!width || !height) {
-      return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
-    }
-    // Expand ambient/background effect bounds to match what the camera can reveal at the minimum zoom scale.
-    const minScale = Math.max(this.minViewScale || 1, 0.0001);
-    const overflowX = Math.max(0, ((1 / minScale) - 1) * width * 0.5);
-    const overflowY = Math.max(0, ((1 / minScale) - 1) * height * 0.5);
-    return {
-      minX: -overflowX,
-      minY: -overflowY,
-      maxX: width + overflowX,
-      maxY: height + overflowY,
-      width: width + overflowX * 2,
-      height: height + overflowY * 2,
-    };
-  }
-
-  ensureFloatersLayout() {
-    const width = this.renderWidth || 0;
-    const height = this.renderHeight || 0;
-    const ambientBounds = this.getAmbientEffectBounds();
-
-    if (!this.levelConfig || !width || !height) {
-      this.floaters = [];
-      this.floaterConnections = [];
-      this.floaterBounds = { ...ambientBounds };
-      this.backgroundSwimmers = [];
-      this.swimmerBounds = { ...ambientBounds };
-      return;
-    }
-
-    const previousFloaterBounds = this.floaterBounds || ambientBounds;
-    const previousSwimmerBounds = this.swimmerBounds || ambientBounds;
-    const previousWidth = Math.max(1, previousFloaterBounds.width || width);
-    const previousHeight = Math.max(1, previousFloaterBounds.height || height);
-    const previousSwimmerWidth = Math.max(1, previousSwimmerBounds.width || width);
-    const previousSwimmerHeight = Math.max(1, previousSwimmerBounds.height || height);
-
-    if (this.floaters.length && (
-      previousFloaterBounds.minX !== ambientBounds.minX ||
-      previousFloaterBounds.minY !== ambientBounds.minY ||
-      previousWidth !== ambientBounds.width ||
-      previousHeight !== ambientBounds.height
-    )) {
-      this.floaters.forEach((floater) => {
-        // Preserve normalized floater placement when ambient bounds change (resize/zoom setting changes).
-        const normalizedX = (floater.x - (previousFloaterBounds.minX || 0)) / previousWidth;
-        const normalizedY = (floater.y - (previousFloaterBounds.minY || 0)) / previousHeight;
-        floater.x = ambientBounds.minX + normalizedX * ambientBounds.width;
-        floater.y = ambientBounds.minY + normalizedY * ambientBounds.height;
-      });
-    }
-
-    if (this.backgroundSwimmers.length && (
-      previousSwimmerBounds.minX !== ambientBounds.minX ||
-      previousSwimmerBounds.minY !== ambientBounds.minY ||
-      previousSwimmerWidth !== ambientBounds.width ||
-      previousSwimmerHeight !== ambientBounds.height
-    )) {
-      this.backgroundSwimmers.forEach((swimmer) => {
-        // Keep swimmer distribution stable while remapping to the updated ambient bounds.
-        const normalizedX = (swimmer.x - (previousSwimmerBounds.minX || 0)) / previousSwimmerWidth;
-        const normalizedY = (swimmer.y - (previousSwimmerBounds.minY || 0)) / previousSwimmerHeight;
-        swimmer.x = ambientBounds.minX + normalizedX * ambientBounds.width;
-        swimmer.y = ambientBounds.minY + normalizedY * ambientBounds.height;
-      });
-    }
-
-    const desired = this.computeFloaterCount(ambientBounds.width, ambientBounds.height);
-
-    if (!this.floaters.length) {
-      this.floaters = [];
-    }
-
-    if (this.floaters.length < desired) {
-      const needed = desired - this.floaters.length;
-      for (let index = 0; index < needed; index += 1) {
-        this.floaters.push(this.createFloater(ambientBounds));
-      }
-    } else if (this.floaters.length > desired) {
-      this.floaters.length = desired;
-    }
-
-    const desiredSwimmers = this.computeSwimmerCount(ambientBounds.width, ambientBounds.height);
-    if (!this.backgroundSwimmers.length) {
-      this.backgroundSwimmers = [];
-    }
-
-    if (this.backgroundSwimmers.length < desiredSwimmers) {
-      const needed = desiredSwimmers - this.backgroundSwimmers.length;
-      for (let index = 0; index < needed; index += 1) {
-        this.backgroundSwimmers.push(this.createBackgroundSwimmer(ambientBounds));
-      }
-    } else if (this.backgroundSwimmers.length > desiredSwimmers) {
-      this.backgroundSwimmers.length = desiredSwimmers;
-    }
-
-    const safeMargin = Math.min(ambientBounds.width, ambientBounds.height) * 0.04;
-    this.floaters.forEach((floater) => {
-      // Clamp floaters inside ambient bounds so they can populate zoomed-out edges without escaping forever.
-      floater.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, floater.x));
-      floater.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, floater.y));
-      if (!Number.isFinite(floater.vx)) {
-        floater.vx = 0;
-      }
-      if (!Number.isFinite(floater.vy)) {
-        floater.vy = 0;
-      }
-      if (!Number.isFinite(floater.radiusFactor)) {
-        floater.radiusFactor = this.randomFloaterRadiusFactor();
-      }
-      floater.opacity = Number.isFinite(floater.opacity) ? floater.opacity : 0;
-      floater.opacityTarget = Number.isFinite(floater.opacityTarget)
-        ? floater.opacityTarget
-        : 0;
-      floater.ax = Number.isFinite(floater.ax) ? floater.ax : 0;
-      floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
-    });
-
-    this.backgroundSwimmers.forEach((swimmer) => {
-      // Clamp swimmers to the same ambient region so all decorative layers share matching extents.
-      swimmer.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, swimmer.x));
-      swimmer.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, swimmer.y));
-      swimmer.vx = Number.isFinite(swimmer.vx) ? swimmer.vx : 0;
-      swimmer.vy = Number.isFinite(swimmer.vy) ? swimmer.vy : 0;
-      swimmer.ax = Number.isFinite(swimmer.ax) ? swimmer.ax : 0;
-      swimmer.ay = Number.isFinite(swimmer.ay) ? swimmer.ay : 0;
-      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
-      swimmer.sizeScale = Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1;
-    });
-
-    this.floaterBounds = { ...ambientBounds };
-    this.swimmerBounds = { ...ambientBounds };
-  }
-
   ensureLoop() {
     this.renderCoordinator.startRenderLoop();
   }
@@ -1347,125 +1164,6 @@ export class SimplePlayfield {
     const nextCost = this.getCurrentTowerCost(nextId);
     const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
     return `Swipe ↑ to upgrade (${this.theroSymbol}${costLabel}) · Swipe ↓ to demote`;
-  }
-
-  /**
-   * Schedule a glyph transition animation so promotions/demotions feel tactile.
-   */
-  queueTowerGlyphTransition(
-    tower,
-    { fromSymbol = '', toSymbol = '', mode = 'promote', swipeVector = null } = {},
-  ) {
-    if (!tower?.id || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-      return;
-    }
-    if (!this.towerGlyphTransitions) {
-      this.towerGlyphTransitions = new Map();
-    }
-    const fallbackDirection = mode === 'demote' ? DEFAULT_DEMOTION_VECTOR : DEFAULT_PROMOTION_VECTOR;
-    const { direction, magnitude } = this.normalizeSwipeVector(swipeVector, fallbackDirection);
-    const now = this.getCurrentTimestamp();
-    const strengthRatio = Math.min(1.35, Math.max(0.65, 0.45 + magnitude / 90));
-    const entry = {
-      towerId: tower.id,
-      startedAt: now,
-      mode,
-      fromSymbol: typeof fromSymbol === 'string' ? fromSymbol : '',
-      toSymbol: typeof toSymbol === 'string' ? toSymbol : '',
-      direction,
-      swipeStrength: magnitude,
-      strengthRatio,
-      newSymbolDelay: TOWER_GLYPH_NEW_SYMBOL_DELAY_MS,
-      newSymbolFade: TOWER_GLYPH_NEW_SYMBOL_FADE_MS,
-      flashDuration: TOWER_GLYPH_FLASH_DURATION_MS,
-      flashHold: TOWER_GLYPH_FLASH_HOLD_MS,
-      fromSymbolFade: TOWER_GLYPH_FROM_SYMBOL_FADE_MS,
-    };
-    entry.particles = this.buildTowerGlyphParticles(entry);
-    const longestParticle = entry.particles.reduce(
-      (max, particle) => Math.max(max, (particle.delay || 0) + (particle.duration || 0)),
-      0,
-    );
-    entry.totalDuration =
-      Math.max(
-        entry.flashDuration + entry.flashHold + 120,
-        entry.newSymbolDelay + entry.newSymbolFade,
-        entry.fromSymbolFade + 90,
-        longestParticle,
-      ) + 60;
-    this.towerGlyphTransitions.set(tower.id, entry);
-  }
-
-  /**
-   * Generate particle descriptors that trail the departing glyph.
-   */
-  buildTowerGlyphParticles(entry = {}) {
-    const baseRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR);
-    const ratio = Number.isFinite(entry.strengthRatio) ? Math.max(0.65, entry.strengthRatio) : 1;
-    const normalized = Math.min(1, ratio / 1.35);
-    const particleCount = Math.max(
-      TOWER_GLYPH_MIN_PARTICLES,
-      Math.round(TOWER_GLYPH_MIN_PARTICLES + (TOWER_GLYPH_MAX_PARTICLES - TOWER_GLYPH_MIN_PARTICLES) * normalized),
-    );
-    const particles = [];
-    for (let index = 0; index < particleCount; index += 1) {
-      const duration = 360 + Math.random() * 360;
-      particles.push({
-        delay: Math.random() * 90,
-        duration,
-        maxDistance: baseRadius * (0.85 + Math.random() * 1.25) * ratio,
-        lateral: baseRadius * 0.35 * (Math.random() - 0.5) * ratio,
-        offsetX: (Math.random() - 0.5) * baseRadius * 0.3,
-        offsetY: (Math.random() - 0.5) * baseRadius * 0.3,
-        size: Math.max(1.5, baseRadius * 0.08) * (0.6 + Math.random() * 0.9),
-        alpha: 0.65 + Math.random() * 0.3,
-        hueShift: Math.random(),
-      });
-    }
-    return particles;
-  }
-
-  /**
-   * Normalize swipe vectors so the renderer knows which way particles should depart.
-   */
-  normalizeSwipeVector(vector, fallbackDirection = DEFAULT_PROMOTION_VECTOR) {
-    const fallback = fallbackDirection || DEFAULT_PROMOTION_VECTOR;
-    const fallbackLength = Math.hypot(fallback.x || 0, fallback.y || 0) || 1;
-    const fallbackNormalized = { x: (fallback.x || 0) / fallbackLength, y: (fallback.y || 0) / fallbackLength };
-    if (!vector || (!Number.isFinite(vector.x) && !Number.isFinite(vector.y))) {
-      return { direction: fallbackNormalized, magnitude: 0 };
-    }
-    const dx = Number.isFinite(vector.x) ? vector.x : 0;
-    const dy = Number.isFinite(vector.y) ? vector.y : 0;
-    const length = Math.hypot(dx, dy);
-    if (!length) {
-      return { direction: fallbackNormalized, magnitude: 0 };
-    }
-    return { direction: { x: dx / length, y: dy / length }, magnitude: length };
-  }
-
-  /**
-   * Advance glyph transitions and retire finished entries.
-   */
-  updateTowerGlyphTransitions() {
-    if (!this.towerGlyphTransitions || this.towerGlyphTransitions.size === 0) {
-      return;
-    }
-    const now = this.getCurrentTimestamp();
-    const expired = [];
-    this.towerGlyphTransitions.forEach((entry, towerId) => {
-      if (!entry) {
-        expired.push(towerId);
-        return;
-      }
-      const elapsed = now - (entry.startedAt || 0);
-      entry.elapsed = elapsed;
-      const cap = Number.isFinite(entry.totalDuration) ? entry.totalDuration : 600;
-      if (elapsed >= cap) {
-        expired.push(towerId);
-      }
-    });
-    expired.forEach((towerId) => this.towerGlyphTransitions.delete(towerId));
   }
 
   /**
@@ -4730,9 +4428,22 @@ Object.assign(SimplePlayfield.prototype, {
   handleTowerPointerRelease: GestureController.handleTowerPointerRelease,
 });
 
-// Floater particle system methods
+// Floater particle system methods — update, layout, and ambient bounds
 Object.assign(SimplePlayfield.prototype, {
   updateFloaters: FloaterSystem.updateFloaters,
+  computeFloaterCount: FloaterSystem.computeFloaterCount,
+  randomFloaterRadiusFactor: FloaterSystem.randomFloaterRadiusFactor,
+  createFloater: FloaterSystem.createFloater,
+  getAmbientEffectBounds: FloaterSystem.getAmbientEffectBounds,
+  ensureFloatersLayout: FloaterSystem.ensureFloatersLayout,
+});
+
+// Tower glyph transition system methods (promotion/demotion animation state and lifecycle)
+Object.assign(SimplePlayfield.prototype, {
+  queueTowerGlyphTransition: TowerGlyphTransitionSystem.queueTowerGlyphTransition,
+  buildTowerGlyphParticles: TowerGlyphTransitionSystem.buildTowerGlyphParticles,
+  normalizeSwipeVector: TowerGlyphTransitionSystem.normalizeSwipeVector,
+  updateTowerGlyphTransitions: TowerGlyphTransitionSystem.updateTowerGlyphTransitions,
 });
 
 // Background swimmer system methods

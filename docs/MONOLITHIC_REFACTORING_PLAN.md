@@ -37,6 +37,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 > **Note (Build 693):** `main.js` reduced from 5,402 to 4,780 lines (−622) via two new controller extractions: `spireResourcePersistence.js` (persistence/serialization logic, ~234 lines) and `levelCombatController.js` (level start/victory/defeat lifecycle, ~460 lines). `playfield.js` reduced from 5,754 to 5,593 lines (−161) via `EnemyFocusSystem.js` extraction (enemy focus, tooltip, hover, and visual metrics logic).
 >
 > **Note (Build 710):** `main.js` reduced from 4,714 to 4,569 lines (−145) via `developerSpamController.js` extraction (Lamed/Tsadi rapid-fire spawn loops). `playfield.js` reduced from 5,558 to 4,984 lines (−574) via four new system extractions: `ConnectionDragSystem.js` (connection and delta command drag interactions, ~192 lines), `TrackRiverSystem.js` (decorative track river particle animation, ~94 lines), `GammaStarBurstSystem.js` (pentagram star trace effects, ~101 lines), and `CombatDamageSystem.js` (damage calculation, mitigation, shield mechanics, debuff tracking, and special enemy mechanics, ~280 lines).
+>
+> **Note (Build 712):** `playfield.js` reduced from 4,984 to 4,694 lines (−290) via two new system extractions: floater layout methods (`computeFloaterCount`, `randomFloaterRadiusFactor`, `createFloater`, `getAmbientEffectBounds`, `ensureFloatersLayout`) merged into `FloaterSystem.js` (~175 lines); tower glyph transition management (`queueTowerGlyphTransition`, `buildTowerGlyphParticles`, `normalizeSwipeVector`, `updateTowerGlyphTransitions`) extracted into new `TowerGlyphTransitionSystem.js` (~116 lines). All methods remain accessible via prototype delegation.
 
 ### Performance Baseline Requirements
 
