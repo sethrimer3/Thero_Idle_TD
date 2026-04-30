@@ -50,6 +50,8 @@ import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSys
 import * as TrackRiverSystem from './playfield/systems/TrackRiverSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as ViewportCoordinateSystem from './playfield/systems/ViewportCoordinateSystem.js';
+import * as SupplyChainSystem from './playfield/systems/SupplyChainSystem.js';
+import * as SpecialEnemyMechanicsSystem from './playfield/systems/SpecialEnemyMechanicsSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
@@ -250,7 +252,6 @@ const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
 const _BETA_STICK_HIT_COUNT = 3;
 const _BETA_STICK_HIT_INTERVAL = 0.18;
-const BETA_SLOW_DURATION_SECONDS = 0.5;
 const _BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
 const _GAMMA_OUTBOUND_SPEED = 260;
@@ -3157,75 +3158,10 @@ export class SimplePlayfield {
 
   /**
    * Route a connected lattice's cadence into its downstream partner instead of enemies.
+   * Delegates to SupplyChainSystem.
    */
-  updateConnectionSupplier(tower, _delta) {
-    if (!tower || !tower.linkTargetId) {
-      return;
-    }
-    const target = this.getTowerById(tower.linkTargetId);
-    if (!target) {
-      this.removeTowerConnection(tower.id, tower.linkTargetId);
-      return;
-    }
-    if (!this.combatActive) {
-      return;
-    }
-    if (tower.cooldown > 0) {
-      return;
-    }
-    const rate = Number.isFinite(tower.rate) ? Math.max(0, tower.rate) : 0;
-    if (rate <= 0) {
-      tower.cooldown = 0;
-      return;
-    }
-    const baseCooldown = 1 / Math.max(0.0001, rate);
-    if (tower.type === 'alpha' && target.type === 'beta') {
-      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'beta' && target.type === 'gamma') {
-      const payload = {
-        type: 'beta',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'alpha' && target.type === 'iota') {
-      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'beta' && target.type === 'iota') {
-      const payload = {
-        type: 'beta',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'gamma' && target.type === 'iota') {
-      const payload = {
-        type: 'gamma',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-        betaShots: Math.max(0, tower.storedBetaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedBetaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      tower.storedBetaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    this.removeTowerConnection(tower.id, target.id);
+  updateConnectionSupplier(tower, delta) {
+    return SupplyChainSystem.updateConnectionSupplier.call(this, tower, delta);
   }
 
   /**
@@ -3333,77 +3269,19 @@ export class SimplePlayfield {
 
   /**
    * Locate the nearest σ lattice within range so idle towers can feed it.
+   * Delegates to SupplyChainSystem.
    */
   findSigmaFriendlyTarget(tower) {
-    if (!tower || tower.type === 'sigma') {
-      return null;
-    }
-    const range = Number.isFinite(tower.range) ? tower.range : 0;
-    if (range <= 0) {
-      return null;
-    }
-    let selected = null;
-    let nearest = Infinity;
-    this.towers.forEach((candidate) => {
-      if (!candidate || candidate.type !== 'sigma' || candidate.id === tower.id) {
-        return;
-      }
-      const distance = Math.hypot(candidate.x - tower.x, candidate.y - tower.y);
-      if (distance > range) {
-        return;
-      }
-      if (distance < nearest) {
-        selected = { sigma: candidate, position: { x: candidate.x, y: candidate.y } };
-        nearest = distance;
-      }
-    });
-    return selected;
+    return SupplyChainSystem.findSigmaFriendlyTarget.call(this, tower);
   }
 
 
   /**
    * Apply a delivered supply shot to its destination lattice.
+   * Delegates to SupplyChainSystem.
    */
   handleSupplyImpact(projectile) {
-    if (!projectile || !projectile.targetTowerId) {
-      return;
-    }
-    const target = this.getTowerById(projectile.targetTowerId);
-    if (!target) {
-      return;
-    }
-    const payload = projectile.payload || {};
-    if (payload.type === 'alpha') {
-      target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + 1);
-      target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + 3);
-      this.transferSupplySeedsToOrbit(target, projectile);
-      return;
-    }
-    if (payload.type === 'beta') {
-      target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + 1);
-      target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + 3);
-      const alphaShots = Math.max(0, payload.alphaShots || 0);
-      if (alphaShots > 0) {
-        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
-        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
-      }
-      this.transferSupplySeedsToOrbit(target, projectile);
-      return;
-    }
-    if (payload.type === 'gamma') {
-      target.storedGammaShots = Math.min(999, (target.storedGammaShots || 0) + 1);
-      const betaShots = Math.max(0, payload.betaShots || 0);
-      if (betaShots > 0) {
-        target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + betaShots);
-        target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + betaShots * 3);
-      }
-      const alphaShots = Math.max(0, payload.alphaShots || 0);
-      if (alphaShots > 0) {
-        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
-        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
-      }
-      this.transferSupplySeedsToOrbit(target, projectile);
-    }
+    return SupplyChainSystem.handleSupplyImpact.call(this, projectile);
   }
 
 
@@ -3437,172 +3315,48 @@ export class SimplePlayfield {
 
   // ─── Recursive Relay: spawn one standard enemy at the relay's current position ──
   // Spawning is one-shot; the relay flag prevents infinite recursion.
+  // Delegates to SpecialEnemyMechanicsSystem.
   spawnRelayEnemy(relay, spawnTypeId) {
-    if (!relay || !spawnTypeId) {
-      return;
-    }
-    const pos = this.getEnemyPosition(relay);
-    if (!pos) {
-      return;
-    }
-    // Build a minimal enemy object inheriting from the relay's wave context
-    const nextId = (this._nextEnemyId = ((this._nextEnemyId || 0) + 1));
-    const spawnEnemy = {
-      id: nextId,
-      typeId: spawnTypeId,
-      codexId: spawnTypeId,
-      label: spawnTypeId,
-      color: '#4a90e2',
-      speed: 50,
-      baseSpeed: 50,
-      hp: relay.hp > 0 ? Math.max(1, relay.hp * 0.5) : 1,
-      maxHp: relay.maxHp > 0 ? Math.max(1, relay.maxHp * 0.5) : 1,
-      progress: Math.max(0, relay.progress || 0),
-      reward: 0,
-      x: pos.x,
-      y: pos.y,
-      hpExponent: this.calculateHealthExponent ? this.calculateHealthExponent(1) : 0,
-      gemDropMultiplier: 1,
-      moteFactor: 1,
-      symbol: spawnTypeId[0] || 'ε',
-      polygonSides: 0,
-    };
-    this.enemies.push(spawnEnemy);
-    this.combatStateManager?.registerEnemy?.(spawnEnemy);
-    // Visual feedback: radial pulse at relay position
-    if (typeof this.spawnRelaySpawnEffect === 'function') {
-      this.spawnRelaySpawnEffect(pos);
-    }
-    // Debug log — removable without affecting gameplay
-    console.log(`[Relay Spawn Triggered] relay id=${relay.id} spawned typeId=${spawnTypeId} at progress=${relay.progress?.toFixed(3)}`);
+    return SpecialEnemyMechanicsSystem.spawnRelayEnemy.call(this, relay, spawnTypeId);
   }
 
   // ─── Quantum-Tunneler: create a 4-second TunnelZone at the enemy's position ──
   // teleportDistance is 7.5% of total path length (mid-range of 5–10%).
+  // Delegates to SpecialEnemyMechanicsSystem.
   createTunnelZone(enemy) {
-    if (!enemy) {
-      return;
-    }
-    const pos = this.getEnemyPosition(enemy);
-    if (!pos) {
-      return;
-    }
-    if (!Array.isArray(this.tunnelZones)) {
-      this.tunnelZones = [];
-    }
-    const zone = {
-      position: { x: pos.x, y: pos.y },
-      elapsed: 0,
-      teleportDistance: 0.075, // 7.5% of normalised path length
-      _teleportedIds: new Set(),
-    };
-    this.tunnelZones.push(zone);
-    // Debug log — removable without affecting gameplay
-    console.log(`[Quantum Tunnel Created] at (${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) teleportDist=0.075`);
+    return SpecialEnemyMechanicsSystem.createTunnelZone.call(this, enemy);
   }
 
   // ─── Nullifier: disable a tower for a fixed duration ──────────────────────
   // Uses tower.disabledUntil (epoch seconds) so multiple nullifier hits don't stack
   // indefinitely — only extends if the new expiry is later.
+  // Delegates to SpecialEnemyMechanicsSystem.
   disableTower(tower, durationSeconds) {
-    if (!tower || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      return;
-    }
-    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
-      ? performance.now()
-      : Date.now()) / 1000;
-    const newExpiry = now + durationSeconds;
-    // Do not stack: only extend if the new expiry is later than the existing one
-    if (Number.isFinite(tower.disabledUntil) && tower.disabledUntil >= newExpiry) {
-      return;
-    }
-    tower.disabledUntil = newExpiry;
-    // Visual feedback: show ∅ symbol and darken the tower sprite
-    if (!Array.isArray(tower._nullifierEffects)) {
-      tower._nullifierEffects = [];
-    }
-    tower._nullifierEffects.push({ startedAt: now, duration: durationSeconds });
-    // Debug log — removable without affecting gameplay
-    console.log(`[Nullifier Disabled Tower] tower id=${tower.id} type=${tower.type} for ${durationSeconds}s`);
+    return SpecialEnemyMechanicsSystem.disableTower.call(this, tower, durationSeconds);
   }
 
   // ─── Visual feedback: radial pulse + ripple for relay spawn ───────────────
+  // Delegates to SpecialEnemyMechanicsSystem.
   spawnRelaySpawnEffect(position) {
-    if (!position) {
-      return;
-    }
-    if (typeof this.spawnPsiAoeEffect === 'function') {
-      // Reuse the existing radial pulse effect at a small radius
-      this.spawnPsiAoeEffect(position, 40);
-    }
+    return SpecialEnemyMechanicsSystem.spawnRelaySpawnEffect.call(this, position);
   }
 
-  // Helper to create a damage projectile with travel time for towers that use particle bursts
+  // Helper to create a damage projectile with travel time for towers that use particle bursts.
+  // Delegates to SupplyChainSystem.
   createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
-    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
-      return;
-    }
-    if (!Number.isFinite(baseTravelSpeed) || baseTravelSpeed <= 0) {
-      baseTravelSpeed = 300; // Default fallback speed
-    }
-    const sourcePosition = { x: tower.x, y: tower.y };
-    const targetPosition = effectPosition || sourcePosition;
-    const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
-    const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
-    const maxLifetime = Math.max(0.24, travelTime);
-    this.projectiles.push({
-      source: sourcePosition,
-      targetId: enemy.id,
-      target: targetPosition,
-      lifetime: 0,
-      maxLifetime,
-      travelTime,
-      damage: resolvedDamage,
-      towerId: tower.id,
-      hitRadius: this.getStandardShotHitRadius(),
-    });
+    return SupplyChainSystem.createParticleDamageProjectile.call(this, tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed);
   }
 
   // Alternate β triangle shots so successive returns mirror across the firing line.
+  // Delegates to SupplyChainSystem.
   resolveNextBetaTriangleOrientation(tower) {
-    if (!tower) {
-      return 1;
-    }
-    const lastOrientation = Number.isFinite(tower.nextBetaTriangleOrientation)
-      ? tower.nextBetaTriangleOrientation
-      : 1;
-    const orientation = lastOrientation === -1 ? -1 : 1;
-    tower.nextBetaTriangleOrientation = orientation * -1;
-    return orientation;
+    return SupplyChainSystem.resolveNextBetaTriangleOrientation.call(this, tower);
   }
 
   // Apply the β slow formula while a triangle bolt is attached to an enemy.
+  // Delegates to SupplyChainSystem.
   applyBetaStickSlow(enemy, tower, glyphRank = 0) {
-    if (!enemy || !tower) {
-      return;
-    }
-    const bet1 = Math.max(0, Number.isFinite(glyphRank) ? glyphRank : 0);
-    const slowPercent = Math.min(60, 20 + 2 * bet1);
-    const multiplier = Math.max(0, 1 - slowPercent / 100);
-    const slwTime = computeTowerVariableValue('beta', 'slwTime');
-    const slowDurationSeconds = Number.isFinite(slwTime)
-      ? Math.max(0, slwTime)
-      : BETA_SLOW_DURATION_SECONDS;
-    const expiresAt =
-      (typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now()) /
-      1000 +
-      slowDurationSeconds;
-    if (!(enemy.slowEffects instanceof Map)) {
-      enemy.slowEffects = new Map();
-    }
-    enemy.slowEffects.set(tower.id, {
-      type: 'beta',
-      multiplier,
-      slowPercent,
-      expiresAt,
-    });
+    return SupplyChainSystem.applyBetaStickSlow.call(this, enemy, tower, glyphRank);
   }
 
 

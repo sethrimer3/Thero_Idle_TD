@@ -42,6 +42,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 >
 > **Note (Build 713):** `playfield.js` reduced from 4,694 to 4,430 lines (−264) via two new system extractions: path navigation methods (`getPointAlongPath`, `getPathSpeedMultiplierAtProgress`, `getEnemyTunnelState`, `getProgressAtPointIndex`, `getEnemyPosition`) added to `PathGeometrySystem.js` (~192 lines); viewport and coordinate transformation methods (`getCanvasPosition`, `getPixelsForMeters`, `getNormalizedFromCanvasPosition`, `clampNormalized`, `getCanvasRelativeFromClient`, `getViewCenter`, `setViewCenterFromWorld`, `clampViewCenterNormalized`, `applyViewConstraints`, `screenToWorld`, `worldToScreen`) extracted into new `ViewportCoordinateSystem.js` (~236 lines). All methods remain accessible via prototype delegation.
 
+> **Note (Build 714):** `playfield.js` reduced from 4,430 to 4,184 lines (−246) via two new system extractions: supply chain mechanics (`updateConnectionSupplier`, `findSigmaFriendlyTarget`, `handleSupplyImpact`, `createParticleDamageProjectile`, `resolveNextBetaTriangleOrientation`, `applyBetaStickSlow`) extracted into new `SupplyChainSystem.js` (~202 lines); special enemy ability mechanics (`spawnRelayEnemy`, `createTunnelZone`, `disableTower`, `spawnRelaySpawnEffect`) extracted into new `SpecialEnemyMechanicsSystem.js` (~110 lines). The `BETA_SLOW_DURATION_SECONDS` constant moved to `SupplyChainSystem.js` where it is exclusively used. All methods remain accessible via prototype delegation.
+
 ### Performance Baseline Requirements
 
 Before any refactoring begins, establish these baseline metrics:
