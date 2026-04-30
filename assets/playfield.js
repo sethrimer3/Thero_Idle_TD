@@ -49,6 +49,7 @@ import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
 import * as TrackRiverSystem from './playfield/systems/TrackRiverSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
+import * as ViewportCoordinateSystem from './playfield/systems/ViewportCoordinateSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
@@ -3756,341 +3757,75 @@ export class SimplePlayfield {
     return HudBindings.updateProgress.call(this);
   }
 
+  // ── Viewport coordinate helpers (extracted to ViewportCoordinateSystem, Build 713) ──
+
   getCanvasPosition(normalized) {
-    return {
-      x: normalized.x * this.renderWidth,
-      y: normalized.y * this.renderHeight,
-    };
+    return ViewportCoordinateSystem.getCanvasPosition.call(this, normalized);
   }
 
   getPixelsForMeters(meters) {
-    const minDimension = Math.min(this.renderWidth, this.renderHeight) || 0;
-    return metersToPixels(meters, minDimension); // Translate standardized meters into on-screen pixels using the current viewport.
+    return ViewportCoordinateSystem.getPixelsForMeters.call(this, meters);
   }
 
   getNormalizedFromCanvasPosition(position) {
-    if (!position || !this.canvas) {
-      return null;
-    }
-    const width = this.renderWidth || this.canvas.width || 1;
-    const height = this.renderHeight || this.canvas.height || 1;
-    if (!width || !height) {
-      return null;
-    }
-    const normalized = {
-      x: position.x / width,
-      y: position.y / height,
-    };
-    return this.clampNormalized(normalized);
+    return ViewportCoordinateSystem.getNormalizedFromCanvasPosition.call(this, position);
   }
 
   clampNormalized(normalized) {
-    if (!normalized) {
-      return null;
-    }
-    const clamp = (value) => {
-      if (!Number.isFinite(value)) {
-        return 0.5;
-      }
-      return Math.min(Math.max(value, 0.04), 0.96);
-    };
-    return {
-      x: clamp(normalized.x),
-      y: clamp(normalized.y),
-    };
+    return ViewportCoordinateSystem.clampNormalized.call(this, normalized);
   }
 
   getCanvasRelativeFromClient(point) {
-    if (!this.canvas || !point) {
-      return null;
-    }
-    const rect = this.canvas.getBoundingClientRect();
-    const x = point.clientX - rect.left;
-    const y = point.clientY - rect.top;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      return null;
-    }
-    return { x, y };
+    return ViewportCoordinateSystem.getCanvasRelativeFromClient.call(this, point);
   }
 
   getViewCenter() {
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const normalized = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
-    return {
-      x: width * normalized.x,
-      y: height * normalized.y,
-    };
+    return ViewportCoordinateSystem.getViewCenter.call(this);
   }
 
   setViewCenterFromWorld(world) {
-    if (!world) {
-      return;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    if (!width || !height) {
-      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-      return;
-    }
-    const normalized = {
-      x: world.x / width,
-      y: world.y / height,
-    };
-    this.viewCenterNormalized = this.clampViewCenterNormalized(normalized);
+    return ViewportCoordinateSystem.setViewCenterFromWorld.call(this, world);
   }
 
   clampViewCenterNormalized(normalized) {
-    if (!normalized) {
-      return { x: 0.5, y: 0.5 };
-    }
-    const scale = Math.max(this.viewScale || 1, 0.0001);
-    // Calculate the half-viewport size in normalized coordinates (0-1 space)
-    const halfWidth = 0.5 / scale;
-    const halfHeight = 0.5 / scale;
-    
-    // Allow camera to move right up to the edges when zoomed in
-    // The camera center can be as close to the edge as halfWidth/halfHeight
-    // This ensures the viewport edge aligns with the playfield boundary
-    const clamp = (value, min, max) => {
-      if (min > max) {
-        return 0.5;
-      }
-      return Math.min(Math.max(value, min), max);
-    };
-    return {
-      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
-      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
-    };
+    return ViewportCoordinateSystem.clampViewCenterNormalized.call(this, normalized);
   }
 
   applyViewConstraints() {
-    this.viewCenterNormalized = this.clampViewCenterNormalized(
-      this.viewCenterNormalized || { x: 0.5, y: 0.5 },
-    );
+    return ViewportCoordinateSystem.applyViewConstraints.call(this);
   }
 
   screenToWorld(point) {
-    if (!point) {
-      return null;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const scale = this.viewScale || 1;
-    if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-      return null;
-    }
-    const center = this.getViewCenter();
-    return {
-      x: center.x + (point.x - width * HALF) / scale,
-      y: center.y + (point.y - height * HALF) / scale,
-    };
+    return ViewportCoordinateSystem.screenToWorld.call(this, point);
   }
 
   worldToScreen(point) {
-    if (!point) {
-      return null;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const scale = this.viewScale || 1;
-    if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-      return null;
-    }
-    const center = this.getViewCenter();
-    return {
-      x: width * HALF + (point.x - center.x) * scale,
-      y: height * HALF + (point.y - center.y) * scale,
-    };
+    return ViewportCoordinateSystem.worldToScreen.call(this, point);
   }
+
+  // ── Path navigation helpers (extracted to PathGeometrySystem, Build 713) ──
 
   getPointAlongPath(progress) {
-    if (!this.pathSegments.length) {
-      return { x: 0, y: 0 };
-    }
-
-    const target = Math.min(progress, 1) * this.pathLength;
-    let traversed = 0;
-
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
-      if (traversed + segment.length >= target) {
-        const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
-        return {
-          x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
-          y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
-        };
-      }
-      traversed += segment.length;
-    }
-
-    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+    return PathGeometrySystem.getPointAlongPath.call(this, progress);
   }
 
-  /**
-   * Get the path speed multiplier at a given progress point.
-   * Returns the speed multiplier of the segment the enemy is currently on.
-   */
+  /** Returns the speed multiplier of the path segment at the given progress. */
   getPathSpeedMultiplierAtProgress(progress) {
-    if (!this.pathSegments.length) {
-      return 1;
-    }
-
-    const target = Math.min(progress, 1) * this.pathLength;
-    let traversed = 0;
-
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
-      if (traversed + segment.length >= target) {
-        // Interpolate speed multiplier within the segment based on position
-        const distanceIntoSegment = target - traversed;
-        const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
-        
-        const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
-        const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
-        
-        return startSpeed + (endSpeed - startSpeed) * t;
-      }
-      traversed += segment.length;
-    }
-
-    // Default to the last point's speed if no segment found
-    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
-      return lastSegment.end.speedMultiplier;
-    }
-    return 1;
+    return PathGeometrySystem.getPathSpeedMultiplierAtProgress.call(this, progress);
   }
 
-  /**
-   * Check if an enemy is currently in a tunnel and get tunnel opacity info
-   * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }
-   */
+  /** Returns tunnel opacity state for an enemy at its current path progress. */
   getEnemyTunnelState(enemy) {
-    if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
-      return { inTunnel: false, opacity: 1, isFadeZone: false };
-    }
-
-    const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
-    const targetDistance = progress * this.pathLength;
-    let traversed = 0;
-
-    // Find which segment the enemy is on
-    for (let i = 0; i < this.pathSegments.length; i += 1) {
-      const segment = this.pathSegments[i];
-      const segmentEnd = traversed + segment.length;
-      
-      if (targetDistance <= segmentEnd) {
-        // Enemy is on this segment - check if it's in a tunnel
-        if (segment.inTunnel) {
-          // Find which tunnel zone this segment belongs to
-          for (const tunnel of this.tunnelSegments) {
-            // Check if this segment falls within the tunnel zone
-            // Guard against zero pathLength
-            if (this.pathLength <= 0) {
-              continue;
-            }
-            const segmentProgress = traversed / this.pathLength;
-            const segmentEndProgress = segmentEnd / this.pathLength;
-            const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
-            const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
-            
-            if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
-              // Enemy is in this tunnel - calculate opacity based on position
-              const distanceIntoSegment = targetDistance - traversed;
-              const _segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
-              
-              // Define fade zones: first 20% and last 20% of tunnel
-              const FADE_ZONE_RATIO = 0.2;
-              const tunnelLength = tunnelEndProgress - tunnelStartProgress;
-              
-              // Guard against zero-length tunnels
-              if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
-                return { inTunnel: true, opacity: 0, isFadeZone: false };
-              }
-              
-              const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
-              
-              let opacity = 0; // Default to invisible in tunnel
-              let isFadeZone = false;
-              
-              if (progressInTunnel < FADE_ZONE_RATIO) {
-                // Entry fade zone - fade from 1 to 0
-                opacity = 1 - (progressInTunnel / FADE_ZONE_RATIO);
-                isFadeZone = true;
-              } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
-                // Exit fade zone - fade from 0 to 1
-                opacity = (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
-                isFadeZone = true;
-              }
-              
-              return { inTunnel: true, opacity, isFadeZone };
-            }
-          }
-        }
-        break;
-      }
-      
-      traversed = segmentEnd;
-    }
-
-    return { inTunnel: false, opacity: 1, isFadeZone: false };
+    return PathGeometrySystem.getEnemyTunnelState.call(this, enemy);
   }
 
-  /**
-   * Get the progress (0-1) at a specific path point index
-   */
+  /** Returns the normalised progress at a specific path point index. */
   getProgressAtPointIndex(pointIndex) {
-    if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
-      return 0;
-    }
-    
-    let distance = 0;
-    for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
-      distance += this.pathSegments[i].length;
-    }
-    
-    return this.pathLength > 0 ? distance / this.pathLength : 0;
+    return PathGeometrySystem.getProgressAtPointIndex.call(this, pointIndex);
   }
 
   getEnemyPosition(enemy) {
-    if (!enemy) {
-      return { x: 0, y: 0 };
-    }
-
-    // Handle radial spawn enemies (spawn from edges, move to center)
-    if (enemy.radialSpawnX !== undefined && enemy.radialSpawnY !== undefined && this.levelConfig?.centerSpawn) {
-      // Get center position (should be at path[0] for radial levels)
-      const center = this.levelConfig.path && this.levelConfig.path.length > 0
-        ? { x: this.levelConfig.path[0].x * this.renderWidth, y: this.levelConfig.path[0].y * this.renderHeight }
-        : { x: this.renderWidth * 0.5, y: this.renderHeight * 0.5 };
-      
-      const start = {
-        x: enemy.radialSpawnX * this.renderWidth,
-        y: enemy.radialSpawnY * this.renderHeight
-      };
-      
-      const clamped = Math.max(0, Math.min(1, enemy.progress));
-      return {
-        x: start.x + (center.x - start.x) * clamped,
-        y: start.y + (center.y - start.y) * clamped,
-      };
-    }
-
-    if (enemy.pathMode === 'direct' && this.pathSegments.length) {
-      const startSegment = this.pathSegments[0];
-      const endSegment = this.pathSegments[this.pathSegments.length - 1];
-      const start = startSegment ? startSegment.start : { x: 0, y: 0 };
-      const end = endSegment ? endSegment.end : start;
-      const clamped = Math.max(0, Math.min(1, enemy.progress));
-      return {
-        x: start.x + (end.x - start.x) * clamped,
-        y: start.y + (end.y - start.y) * clamped,
-      };
-    }
-
-    return this.getPointAlongPath(enemy.progress);
+    return PathGeometrySystem.getEnemyPosition.call(this, enemy);
   }
 
   draw() {
