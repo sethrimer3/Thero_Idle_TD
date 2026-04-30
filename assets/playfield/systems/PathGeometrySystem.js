@@ -361,3 +361,196 @@ export function distanceBetween(a, b) {
   const dy = b.y - a.y;
   return Math.hypot(dx, dy);
 }
+
+/**
+ * Returns the interpolated world position at a normalised path progress value (0–1).
+ * Falls back to { x: 0, y: 0 } when no path segments exist.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getPointAlongPath(progress) {
+  if (!this.pathSegments.length) {
+    return { x: 0, y: 0 };
+  }
+
+  const target = Math.min(progress, 1) * this.pathLength;
+  let traversed = 0;
+
+  for (let index = 0; index < this.pathSegments.length; index += 1) {
+    const segment = this.pathSegments[index];
+    if (traversed + segment.length >= target) {
+      const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
+      return {
+        x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
+        y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
+      };
+    }
+    traversed += segment.length;
+  }
+
+  const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+  return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+}
+
+/**
+ * Returns the interpolated speed multiplier of the path segment at the given progress (0–1).
+ * Used to modulate enemy movement velocity on sections with custom speed zones.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getPathSpeedMultiplierAtProgress(progress) {
+  if (!this.pathSegments.length) {
+    return 1;
+  }
+
+  const target = Math.min(progress, 1) * this.pathLength;
+  let traversed = 0;
+
+  for (let index = 0; index < this.pathSegments.length; index += 1) {
+    const segment = this.pathSegments[index];
+    if (traversed + segment.length >= target) {
+      const distanceIntoSegment = target - traversed;
+      const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+
+      const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
+      const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
+
+      return startSpeed + (endSpeed - startSpeed) * t;
+    }
+    traversed += segment.length;
+  }
+
+  const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+  if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
+    return lastSegment.end.speedMultiplier;
+  }
+  return 1;
+}
+
+// Ratio of the tunnel length used as an entry/exit fade zone.
+const TUNNEL_FADE_ZONE_RATIO = 0.2;
+
+/**
+ * Determines if an enemy is currently inside a tunnel segment and computes its opacity.
+ * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getEnemyTunnelState(enemy) {
+  if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
+    return { inTunnel: false, opacity: 1, isFadeZone: false };
+  }
+
+  const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
+  const targetDistance = progress * this.pathLength;
+  let traversed = 0;
+
+  for (let i = 0; i < this.pathSegments.length; i += 1) {
+    const segment = this.pathSegments[i];
+    const segmentEnd = traversed + segment.length;
+
+    if (targetDistance <= segmentEnd) {
+      if (segment.inTunnel) {
+        for (const tunnel of this.tunnelSegments) {
+          if (this.pathLength <= 0) {
+            continue;
+          }
+          const segmentProgress = traversed / this.pathLength;
+          const segmentEndProgress = segmentEnd / this.pathLength;
+          const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
+          const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
+
+          if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
+            const tunnelLength = tunnelEndProgress - tunnelStartProgress;
+
+            if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
+              return { inTunnel: true, opacity: 0, isFadeZone: false };
+            }
+
+            const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
+
+            let opacity = 0;
+            let isFadeZone = false;
+
+            if (progressInTunnel < TUNNEL_FADE_ZONE_RATIO) {
+              opacity = 1 - (progressInTunnel / TUNNEL_FADE_ZONE_RATIO);
+              isFadeZone = true;
+            } else if (progressInTunnel > (1 - TUNNEL_FADE_ZONE_RATIO)) {
+              opacity = (progressInTunnel - (1 - TUNNEL_FADE_ZONE_RATIO)) / TUNNEL_FADE_ZONE_RATIO;
+              isFadeZone = true;
+            }
+
+            return { inTunnel: true, opacity, isFadeZone };
+          }
+        }
+      }
+      break;
+    }
+
+    traversed = segmentEnd;
+  }
+
+  return { inTunnel: false, opacity: 1, isFadeZone: false };
+}
+
+/**
+ * Returns the normalised path progress (0–1) at a specific path point index.
+ * Used by tunnel-zone calculations to map tunnel start/end indices to progress values.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getProgressAtPointIndex(pointIndex) {
+  if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
+    return 0;
+  }
+
+  let distance = 0;
+  for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
+    distance += this.pathSegments[i].length;
+  }
+
+  return this.pathLength > 0 ? distance / this.pathLength : 0;
+}
+
+/**
+ * Returns the world-space position of an enemy based on its path progress.
+ * Handles radial spawn, direct path mode, and standard Catmull-Rom path modes.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getEnemyPosition(enemy) {
+  if (!enemy) {
+    return { x: 0, y: 0 };
+  }
+
+  if (enemy.radialSpawnX !== undefined && enemy.radialSpawnY !== undefined && this.levelConfig?.centerSpawn) {
+    const center = this.levelConfig.path && this.levelConfig.path.length > 0
+      ? { x: this.levelConfig.path[0].x * this.renderWidth, y: this.levelConfig.path[0].y * this.renderHeight }
+      : { x: this.renderWidth * 0.5, y: this.renderHeight * 0.5 };
+
+    const start = {
+      x: enemy.radialSpawnX * this.renderWidth,
+      y: enemy.radialSpawnY * this.renderHeight,
+    };
+
+    const clamped = Math.max(0, Math.min(1, enemy.progress));
+    return {
+      x: start.x + (center.x - start.x) * clamped,
+      y: start.y + (center.y - start.y) * clamped,
+    };
+  }
+
+  if (enemy.pathMode === 'direct' && this.pathSegments.length) {
+    const startSegment = this.pathSegments[0];
+    const endSegment = this.pathSegments[this.pathSegments.length - 1];
+    const start = startSegment ? startSegment.start : { x: 0, y: 0 };
+    const end = endSegment ? endSegment.end : start;
+    const clamped = Math.max(0, Math.min(1, enemy.progress));
+    return {
+      x: start.x + (end.x - start.x) * clamped,
+      y: start.y + (end.y - start.y) * clamped,
+    };
+  }
+
+  return this.getPointAlongPath(enemy.progress);
+}
