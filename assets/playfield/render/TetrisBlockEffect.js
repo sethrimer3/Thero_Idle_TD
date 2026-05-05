@@ -173,7 +173,7 @@ export function createTetrisBlockEffect() {
     const frontier = [];
     const occupiedKeys = new Set(cells.keys());
 
-    for (const [key, cell] of cells) {
+    for (const [_key, cell] of cells) {
       if (cell.state === 'fadingOut') continue;
       for (const nb of neighbours(cell.col, cell.row)) {
         const k = cellKey(nb.col, nb.row);

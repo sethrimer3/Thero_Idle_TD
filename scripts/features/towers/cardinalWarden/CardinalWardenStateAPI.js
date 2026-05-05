@@ -380,7 +380,7 @@ export function getAvailableWeapons() {
  * @deprecated All 3 weapon slots are always active - no purchase needed
  * @returns {boolean} Always returns false
  */
-export function purchaseWeapon(weaponId) {
+export function purchaseWeapon(_weaponId) {
   // All weapon slots are always active - no purchase needed
   return false;
 }
@@ -390,7 +390,7 @@ export function purchaseWeapon(weaponId) {
  * @deprecated All 3 weapon slots are always active - no purchase needed
  * @returns {boolean} Always returns false
  */
-export function purchaseWeaponWithoutCost(weaponId) {
+export function purchaseWeaponWithoutCost(_weaponId) {
   // All weapon slots are always active - no purchase needed
   return false;
 }
@@ -400,7 +400,7 @@ export function purchaseWeaponWithoutCost(weaponId) {
  * @deprecated Weapon upgrades will be handled by lexemes in the future
  * @returns {boolean} Always returns false
  */
-export function upgradeWeapon(weaponId) {
+export function upgradeWeapon(_weaponId) {
   // Weapon upgrades will be handled by lexemes in the future
   return false;
 }
@@ -410,7 +410,7 @@ export function upgradeWeapon(weaponId) {
  * @deprecated Weapon upgrades will be handled by lexemes in the future
  * @returns {boolean} Always returns false
  */
-export function upgradeWeaponWithoutCost(weaponId) {
+export function upgradeWeaponWithoutCost(_weaponId) {
   // Weapon upgrades will be handled by lexemes in the future
   return false;
 }
@@ -456,7 +456,7 @@ export function getWeaponSpeedMultiplier(weaponId) {
  * @deprecated All 3 weapon slots are always equipped
  * @returns {boolean} Always returns false
  */
-export function equipWeapon(weaponId) {
+export function equipWeapon(_weaponId) {
   // All 3 weapon slots are always equipped
   return false;
 }
@@ -466,7 +466,7 @@ export function equipWeapon(weaponId) {
  * @deprecated All 3 weapon slots are always equipped
  * @returns {boolean} Always returns false
  */
-export function unequipWeapon(weaponId) {
+export function unequipWeapon(_weaponId) {
   // All 3 weapon slots are always equipped
   return false;
 }

@@ -7,54 +7,29 @@ import {
   INFINITY_PARTICLE_CONFIG,
 } from '../scripts/features/towers/infinityTower.js';
 import { convertMathExpressionToPlainText } from '../scripts/core/mathText.js';
-import { playTowerPlacementNotes } from './audioSystem.js';
 import {
   getTowerDefinition,
   getNextTowerId,
   getPreviousTowerId,
-  getTowerDefinitions,
   isTowerUnlocked,
-  isTowerPlaceable,
   refreshTowerLoadoutDisplay,
-  cancelTowerDrag,
   getTowerEquationBlueprint,
-  getTowerLoadoutState,
-  openTowerUpgradeOverlay,
-  calculateTowerEquationResult,
   computeTowerVariableValue,
-  unlockTower,
 } from './towersTab.js';
 import {
   spawnMoteGemDrop,
 } from './enemies.js';
-import {
-  registerEnemyEncounter,
-  getEnemyCodexEntry,
-} from './codex.js';
 import { levelConfigs } from './levels.js';
-import {
-  getTowerVisualConfig,
-  getOmegaWaveVisualConfig,
-  getTowerTierValue,
-  samplePaletteGradient,
-} from './colorSchemeUtils.js';
-import { colorToRgbaString, resolvePaletteColorStops } from '../scripts/features/towers/powderTower.js';
-import { notifyTowerPlaced } from './achievementsTab.js';
-import { metersToPixels, ALPHA_BASE_RADIUS_FACTOR } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
+import { metersToPixels } from './gameUnits.js'; // Allow playfield interactions to convert standardized meters into pixels.
 import { formatCombatNumber } from './playfield/utils/formatting.js';
-import { easeInCubic, easeOutCubic } from './playfield/utils/math.js';
-import { areDamageNumbersEnabled, getDamageNumberMode, DAMAGE_NUMBER_MODES, getFrameRateLimit, updateFpsCounter, areBackgroundParticlesEnabled } from './preferences.js';
 import * as CanvasRenderer from './playfield/render/CanvasRenderer.js';
 import { getCrystallineMosaicManager } from './playfield/render/CrystallineMosaic.js';
 import { createRenderCoordinator } from './playfield/render/RenderCoordinator.js';
-import {
-  PLAYFIELD_VIEW_DRAG_THRESHOLD,
-  PLAYFIELD_VIEW_PAN_MARGIN_METERS,
-} from './playfield/constants.js';
 import * as InputController from './playfield/input/InputController.js';
 import * as GestureController from './playfield/input/GestureController.js';
 import { TOWER_HOLD_ACTIVATION_MS } from './playfield/input/GestureController.js';
 import * as FloaterSystem from './playfield/systems/FloaterSystem.js';
+import * as TowerGlyphTransitionSystem from './playfield/systems/TowerGlyphTransitionSystem.js';
 import * as BackgroundSwimmerSystem from './playfield/systems/BackgroundSwimmerSystem.js';
 import * as ProjectileUpdateSystem from './playfield/systems/ProjectileUpdateSystem.js';
 import * as TowerDispatchSystem from './playfield/systems/TowerDispatchSystem.js';
@@ -65,29 +40,29 @@ import * as LevelResetSystem from './playfield/systems/LevelResetSystem.js';
 import * as VisualEffectsSystem from './playfield/systems/VisualEffectsSystem.js';
 import * as PathGeometrySystem from './playfield/systems/PathGeometrySystem.js';
 import { createConnectionSystem } from './playfield/systems/ConnectionSystem.js';
+import * as ConnectionDragSystem from './playfield/systems/ConnectionDragSystem.js';
+import * as CombatDamageSystem from './playfield/systems/CombatDamageSystem.js';
 import * as EnemyLifecycleSystem from './playfield/systems/EnemyLifecycleSystem.js';
 import * as EnemyFocusSystem from './playfield/systems/EnemyFocusSystem.js';
+import * as GammaStarBurstSystem from './playfield/systems/GammaStarBurstSystem.js';
 import * as DecimalSwarmSystem from './playfield/systems/DecimalSwarmSystem.js';
 import * as TowerInteractionSystem from './playfield/systems/TowerInteractionSystem.js';
+import * as TrackRiverSystem from './playfield/systems/TrackRiverSystem.js';
 import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
+import * as ViewportCoordinateSystem from './playfield/systems/ViewportCoordinateSystem.js';
+import * as SupplyChainSystem from './playfield/systems/SupplyChainSystem.js';
+import * as SpecialEnemyMechanicsSystem from './playfield/systems/SpecialEnemyMechanicsSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
 import { createFloatingFeedbackController } from './playfield/ui/FloatingFeedback.js';
 import * as TowerManager from './playfield/managers/TowerManager.js';
-import { createCombatStateManager } from './playfield/managers/CombatStateManager.js';
 import { createCombatStatsManager } from './playfield/managers/CombatStatsManager.js';
 import { createLevelLifecycleManager } from './playfield/managers/LevelLifecycleManager.js';
-import { createTowerOrchestrationController } from './playfield/controllers/TowerOrchestrationController.js';
-import { createDeveloperToolsService } from './playfield/services/DeveloperToolsService.js';
-import { createWaveUIFormatter } from './playfield/ui/WaveUIFormatter.js';
 import { createTowerMenuSystem } from './playfield/ui/TowerMenuSystem.js';
 import * as StatsPanel from './playfieldStatsPanel.js';
 import {
-  beginPerformanceFrame,
   beginPerformanceSegment,
-  beginTowerPerformanceSegment,
-  endPerformanceFrame,
 } from './performanceMonitor.js';
 import {
   determinePreferredOrientation,
@@ -111,37 +86,24 @@ import {
 } from '../scripts/features/towers/kappaTower.js';
 import { updateLambdaTower as updateLambdaTowerHelper } from '../scripts/features/towers/lambdaTower.js';
 import {
-  ensureMuState as ensureMuStateHelper,
   updateMuTower as updateMuTowerHelper,
-  drawMuMines as drawMuMinesHelper,
-  teardownMuTower as teardownMuTowerHelper,
 } from '../scripts/features/towers/muTower.js';
 import {
-  ensureNuState as ensureNuStateHelper,
   updateNuTower as updateNuTowerHelper,
-  trackNuKill as trackNuKillHelper,
-  spawnNuKillParticle as spawnNuKillParticleHelper,
-  drawNuKillParticles as drawNuKillParticlesHelper,
   updateNuBursts as updateNuBurstsHelper,
   teardownNuTower as teardownNuTowerHelper,
-  clearNuCachedDimensions as clearNuCachedDimensionsHelper,
 } from '../scripts/features/towers/nuTower.js';
 import {
   ensureXiState as ensureXiStateHelper,
   updateXiTower as updateXiTowerHelper,
   fireXiChain as fireXiChainHelper,
-  drawXiBalls as drawXiBallsHelper,
   teardownXiTower as teardownXiTowerHelper,
 } from '../scripts/features/towers/xiTower.js';
 import {
-  ensureThetaState as ensureThetaStateHelper,
   updateThetaTower as updateThetaTowerHelper,
-  teardownThetaTower as teardownThetaTowerHelper,
 } from '../scripts/features/towers/thetaTower.js';
 import {
-  ensureEpsilonState as ensureEpsilonStateHelper,
   updateEpsilonTower as updateEpsilonTowerHelper,
-  applyEpsilonHit as applyEpsilonHitHelper,
 } from '../scripts/features/towers/epsilonTower.js';
 import {
   updateZetaTower as updateZetaTowerHelper,
@@ -161,7 +123,6 @@ import {
   updateEtaTower as updateEtaTowerHelper,
   fireEtaLaser as fireEtaLaserHelper,
   applyEtaDamage as applyEtaDamageHelper,
-  ETA_MAX_PRESTIGE_MERGES,
 } from '../scripts/features/towers/etaTower.js';
 import {
   deployDeltaSoldier as deployDeltaSoldierHelper,
@@ -201,9 +162,7 @@ import {
   updateUpsilonTower as updateUpsilonTowerHelper,
 } from '../scripts/features/towers/upsilonTower.js';
 import {
-  ensurePhiState as ensurePhiStateHelper,
   updatePhiTower as updatePhiTowerHelper,
-  teardownPhiTower as teardownPhiTowerHelper,
   triggerPhiBurst as triggerPhiBurstHelper,
 } from '../scripts/features/towers/phiTower.js';
 import {
@@ -213,24 +172,17 @@ import {
   triggerPsiClusterAoE as triggerPsiClusterAoEHelper,
 } from '../scripts/features/towers/psiTower.js';
 import {
-  ensureOmegaState as ensureOmegaStateHelper,
   updateOmegaTower as updateOmegaTowerHelper,
-  teardownOmegaTower as teardownOmegaTowerHelper,
-  drawOmegaParticles as drawOmegaParticlesHelper,
 } from '../scripts/features/towers/omegaTower.js';
 import {
-  getPlayfieldResolutionCap,
   PLAYFIELD_RESOLUTION_EVENT,
 } from './playfield/playfieldPreferences.js';
 
 // Limit the backing resolution for the playfield canvas to keep GPU memory usage stable on dense displays.
-const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
+const _MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
 // Limit hot-loop HUD writes because the DOM does not need 60 FPS updates to stay readable.
 const HUD_UPDATE_INTERVAL_SECONDS = 1 / 15;
 
-// Allowed required hit counts for prime-counter enemies.  Only small primes are
-// used to keep tower hit demands realistic (max 17 hits).
-const PRIME_HIT_LIST = [2, 3, 5, 7, 11, 13, 17];
 
 // Dependency container allows the main module to provide shared helpers without creating circular imports.
 const defaultDependencies = {
@@ -260,30 +212,14 @@ export function configurePlayfieldSystem(options = {}) {
 
 // Promotion/demotion glyph effects borrow these tuning constants so both gestures feel distinct yet cohesive.
 const TOWER_PRESS_GLOW_FADE_MS = 200;
-const TOWER_GLYPH_NEW_SYMBOL_DELAY_MS = 120;
-const TOWER_GLYPH_NEW_SYMBOL_FADE_MS = 420;
-const TOWER_GLYPH_FLASH_DURATION_MS = 520;
-const TOWER_GLYPH_FLASH_HOLD_MS = 160;
-const TOWER_GLYPH_FROM_SYMBOL_FADE_MS = 260;
-const TOWER_GLYPH_MIN_PARTICLES = 14;
-const TOWER_GLYPH_MAX_PARTICLES = 28;
-const DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
-const DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
 
 // Rho debuff visuals should linger briefly so the sparkle ring can be noticed as enemies leave the field.
 const RHO_SPARKLE_LINGER_SECONDS = 0.9;
-const DERIVATIVE_SHIELD_SYMBOL = '∂';
-const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
-const DERIVATIVE_SHIELD_MIN_RADIUS = 96;
-const DERIVATIVE_SHIELD_LINGER_MS = 160;
+const _DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
+const _DERIVATIVE_SHIELD_MIN_RADIUS = 96;
+const _DERIVATIVE_SHIELD_LINGER_MS = 160;
 const DEFAULT_POLYGON_SIDES = 6;
 const POLYGON_SPLIT_COUNT = 2;
-const DEBUFF_ICON_SYMBOLS = {
-  iota: 'ι',
-  rho: 'ρ',
-  theta: 'θ',
-  'derivative-shield': DERIVATIVE_SHIELD_SYMBOL,
-};
 /**
  * Standardized Hitbox System
  * 
@@ -305,27 +241,24 @@ const STANDARD_SHOT_RADIUS_METERS = 0.15;
 // Standardize enemy hitboxes using a 0.4 meter diameter circle for consistent collision detection.
 const STANDARD_ENEMY_RADIUS_METERS = 0.2;
 // Preserve β triangle proportions when reflecting shots back to the tower.
-const EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
+const _EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Pre-calculated constants for performance optimization in tight render loops
-const PI = Math.PI;
+const _PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
-const PI_OVER_6 = Math.PI / 6;
-const PI_TIMES_1_2 = Math.PI * 1.2;
+const _PI_OVER_6 = Math.PI / 6;
+const _PI_TIMES_1_2 = Math.PI * 1.2;
 const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
-const BETA_STICK_HIT_COUNT = 3;
-const BETA_STICK_HIT_INTERVAL = 0.18;
-const BETA_SLOW_DURATION_SECONDS = 0.5;
-const BETA_TRIANGLE_SPEED = 144;
+const _BETA_STICK_HIT_COUNT = 3;
+const _BETA_STICK_HIT_INTERVAL = 0.18;
+const _BETA_TRIANGLE_SPEED = 144;
 // Tunables for the γ piercing/star/return sequence.
-const GAMMA_OUTBOUND_SPEED = 260;
-const GAMMA_STAR_SPEED = 200;
-const GAMMA_RETURN_SPEED = 260;
-const GAMMA_STAR_HIT_COUNT = 5;
+const _GAMMA_OUTBOUND_SPEED = 260;
+const _GAMMA_RETURN_SPEED = 260;
+const _GAMMA_STAR_HIT_COUNT = 5;
 // Keep γ's impact star compact so the pattern hugs the enemy model.
-const GAMMA_STAR_RADIUS_METERS = 0.45;
-const GAMMA_STAR_SEQUENCE = [0, 2, 4, 1, 3, 0];
+const _GAMMA_STAR_RADIUS_METERS = 0.45;
 
 export class SimplePlayfield {
   constructor(options) {
@@ -750,7 +683,7 @@ export class SimplePlayfield {
     if (typeof this.dependencies.isLowGraphicsMode === 'function') {
       try {
         return Boolean(this.dependencies.isLowGraphicsMode());
-      } catch (error) {
+      } catch (_e) {
         return false;
       }
     }
@@ -996,181 +929,6 @@ export class SimplePlayfield {
     });
   }
 
-  computeFloaterCount(width, height) {
-    if (!Number.isFinite(width) || !Number.isFinite(height)) {
-      return 0;
-    }
-    const area = Math.max(0, width * height);
-    const base = Math.round(area / 24000);
-    return Math.max(18, Math.min(64, base));
-  }
-
-  randomFloaterRadiusFactor() {
-    return 0.0075 + Math.random() * 0.0045;
-  }
-
-  createFloater(width, height) {
-    // Support both legacy width/height calls and explicit ambient-bounds objects.
-    const bounds = (typeof width === 'object' && width)
-      ? width
-      : { minX: 0, minY: 0, maxX: width, maxY: height, width, height };
-    const boundsWidth = Math.max(1, Number.isFinite(bounds.width) ? bounds.width : (bounds.maxX - bounds.minX));
-    const boundsHeight = Math.max(1, Number.isFinite(bounds.height) ? bounds.height : (bounds.maxY - bounds.minY));
-    const margin = Math.min(boundsWidth, boundsHeight) * 0.08;
-    const usableWidth = Math.max(1, boundsWidth - margin * 2);
-    const usableHeight = Math.max(1, boundsHeight - margin * 2);
-    return {
-      // Seed floater positions across the full ambient effect bounds so zoomed-out edges stay populated.
-      x: (Number.isFinite(bounds.minX) ? bounds.minX : 0) + margin + Math.random() * usableWidth,
-      y: (Number.isFinite(bounds.minY) ? bounds.minY : 0) + margin + Math.random() * usableHeight,
-      vx: (Math.random() - 0.5) * 12,
-      vy: (Math.random() - 0.5) * 12,
-      ax: 0,
-      ay: 0,
-      radiusFactor: this.randomFloaterRadiusFactor(),
-      opacity: 0,
-      opacityTarget: 0,
-    };
-  }
-
-  getAmbientEffectBounds() {
-    const width = this.renderWidth || 0;
-    const height = this.renderHeight || 0;
-    if (!width || !height) {
-      return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
-    }
-    // Expand ambient/background effect bounds to match what the camera can reveal at the minimum zoom scale.
-    const minScale = Math.max(this.minViewScale || 1, 0.0001);
-    const overflowX = Math.max(0, ((1 / minScale) - 1) * width * 0.5);
-    const overflowY = Math.max(0, ((1 / minScale) - 1) * height * 0.5);
-    return {
-      minX: -overflowX,
-      minY: -overflowY,
-      maxX: width + overflowX,
-      maxY: height + overflowY,
-      width: width + overflowX * 2,
-      height: height + overflowY * 2,
-    };
-  }
-
-  ensureFloatersLayout() {
-    const width = this.renderWidth || 0;
-    const height = this.renderHeight || 0;
-    const ambientBounds = this.getAmbientEffectBounds();
-
-    if (!this.levelConfig || !width || !height) {
-      this.floaters = [];
-      this.floaterConnections = [];
-      this.floaterBounds = { ...ambientBounds };
-      this.backgroundSwimmers = [];
-      this.swimmerBounds = { ...ambientBounds };
-      return;
-    }
-
-    const previousFloaterBounds = this.floaterBounds || ambientBounds;
-    const previousSwimmerBounds = this.swimmerBounds || ambientBounds;
-    const previousWidth = Math.max(1, previousFloaterBounds.width || width);
-    const previousHeight = Math.max(1, previousFloaterBounds.height || height);
-    const previousSwimmerWidth = Math.max(1, previousSwimmerBounds.width || width);
-    const previousSwimmerHeight = Math.max(1, previousSwimmerBounds.height || height);
-
-    if (this.floaters.length && (
-      previousFloaterBounds.minX !== ambientBounds.minX ||
-      previousFloaterBounds.minY !== ambientBounds.minY ||
-      previousWidth !== ambientBounds.width ||
-      previousHeight !== ambientBounds.height
-    )) {
-      this.floaters.forEach((floater) => {
-        // Preserve normalized floater placement when ambient bounds change (resize/zoom setting changes).
-        const normalizedX = (floater.x - (previousFloaterBounds.minX || 0)) / previousWidth;
-        const normalizedY = (floater.y - (previousFloaterBounds.minY || 0)) / previousHeight;
-        floater.x = ambientBounds.minX + normalizedX * ambientBounds.width;
-        floater.y = ambientBounds.minY + normalizedY * ambientBounds.height;
-      });
-    }
-
-    if (this.backgroundSwimmers.length && (
-      previousSwimmerBounds.minX !== ambientBounds.minX ||
-      previousSwimmerBounds.minY !== ambientBounds.minY ||
-      previousSwimmerWidth !== ambientBounds.width ||
-      previousSwimmerHeight !== ambientBounds.height
-    )) {
-      this.backgroundSwimmers.forEach((swimmer) => {
-        // Keep swimmer distribution stable while remapping to the updated ambient bounds.
-        const normalizedX = (swimmer.x - (previousSwimmerBounds.minX || 0)) / previousSwimmerWidth;
-        const normalizedY = (swimmer.y - (previousSwimmerBounds.minY || 0)) / previousSwimmerHeight;
-        swimmer.x = ambientBounds.minX + normalizedX * ambientBounds.width;
-        swimmer.y = ambientBounds.minY + normalizedY * ambientBounds.height;
-      });
-    }
-
-    const desired = this.computeFloaterCount(ambientBounds.width, ambientBounds.height);
-
-    if (!this.floaters.length) {
-      this.floaters = [];
-    }
-
-    if (this.floaters.length < desired) {
-      const needed = desired - this.floaters.length;
-      for (let index = 0; index < needed; index += 1) {
-        this.floaters.push(this.createFloater(ambientBounds));
-      }
-    } else if (this.floaters.length > desired) {
-      this.floaters.length = desired;
-    }
-
-    const desiredSwimmers = this.computeSwimmerCount(ambientBounds.width, ambientBounds.height);
-    if (!this.backgroundSwimmers.length) {
-      this.backgroundSwimmers = [];
-    }
-
-    if (this.backgroundSwimmers.length < desiredSwimmers) {
-      const needed = desiredSwimmers - this.backgroundSwimmers.length;
-      for (let index = 0; index < needed; index += 1) {
-        this.backgroundSwimmers.push(this.createBackgroundSwimmer(ambientBounds));
-      }
-    } else if (this.backgroundSwimmers.length > desiredSwimmers) {
-      this.backgroundSwimmers.length = desiredSwimmers;
-    }
-
-    const safeMargin = Math.min(ambientBounds.width, ambientBounds.height) * 0.04;
-    this.floaters.forEach((floater) => {
-      // Clamp floaters inside ambient bounds so they can populate zoomed-out edges without escaping forever.
-      floater.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, floater.x));
-      floater.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, floater.y));
-      if (!Number.isFinite(floater.vx)) {
-        floater.vx = 0;
-      }
-      if (!Number.isFinite(floater.vy)) {
-        floater.vy = 0;
-      }
-      if (!Number.isFinite(floater.radiusFactor)) {
-        floater.radiusFactor = this.randomFloaterRadiusFactor();
-      }
-      floater.opacity = Number.isFinite(floater.opacity) ? floater.opacity : 0;
-      floater.opacityTarget = Number.isFinite(floater.opacityTarget)
-        ? floater.opacityTarget
-        : 0;
-      floater.ax = Number.isFinite(floater.ax) ? floater.ax : 0;
-      floater.ay = Number.isFinite(floater.ay) ? floater.ay : 0;
-    });
-
-    this.backgroundSwimmers.forEach((swimmer) => {
-      // Clamp swimmers to the same ambient region so all decorative layers share matching extents.
-      swimmer.x = Math.min(ambientBounds.maxX - safeMargin, Math.max(ambientBounds.minX + safeMargin, swimmer.x));
-      swimmer.y = Math.min(ambientBounds.maxY - safeMargin, Math.max(ambientBounds.minY + safeMargin, swimmer.y));
-      swimmer.vx = Number.isFinite(swimmer.vx) ? swimmer.vx : 0;
-      swimmer.vy = Number.isFinite(swimmer.vy) ? swimmer.vy : 0;
-      swimmer.ax = Number.isFinite(swimmer.ax) ? swimmer.ax : 0;
-      swimmer.ay = Number.isFinite(swimmer.ay) ? swimmer.ay : 0;
-      swimmer.flicker = Number.isFinite(swimmer.flicker) ? swimmer.flicker : 0;
-      swimmer.sizeScale = Number.isFinite(swimmer.sizeScale) ? swimmer.sizeScale : 1;
-    });
-
-    this.floaterBounds = { ...ambientBounds };
-    this.swimmerBounds = { ...ambientBounds };
-  }
-
   ensureLoop() {
     this.renderCoordinator.startRenderLoop();
   }
@@ -1408,125 +1166,6 @@ export class SimplePlayfield {
     const nextCost = this.getCurrentTowerCost(nextId);
     const costLabel = formatCombatNumber(Math.max(0, Number.isFinite(nextCost) ? nextCost : 0));
     return `Swipe ↑ to upgrade (${this.theroSymbol}${costLabel}) · Swipe ↓ to demote`;
-  }
-
-  /**
-   * Schedule a glyph transition animation so promotions/demotions feel tactile.
-   */
-  queueTowerGlyphTransition(
-    tower,
-    { fromSymbol = '', toSymbol = '', mode = 'promote', swipeVector = null } = {},
-  ) {
-    if (!tower?.id || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
-      return;
-    }
-    if (!this.towerGlyphTransitions) {
-      this.towerGlyphTransitions = new Map();
-    }
-    const fallbackDirection = mode === 'demote' ? DEFAULT_DEMOTION_VECTOR : DEFAULT_PROMOTION_VECTOR;
-    const { direction, magnitude } = this.normalizeSwipeVector(swipeVector, fallbackDirection);
-    const now = this.getCurrentTimestamp();
-    const strengthRatio = Math.min(1.35, Math.max(0.65, 0.45 + magnitude / 90));
-    const entry = {
-      towerId: tower.id,
-      startedAt: now,
-      mode,
-      fromSymbol: typeof fromSymbol === 'string' ? fromSymbol : '',
-      toSymbol: typeof toSymbol === 'string' ? toSymbol : '',
-      direction,
-      swipeStrength: magnitude,
-      strengthRatio,
-      newSymbolDelay: TOWER_GLYPH_NEW_SYMBOL_DELAY_MS,
-      newSymbolFade: TOWER_GLYPH_NEW_SYMBOL_FADE_MS,
-      flashDuration: TOWER_GLYPH_FLASH_DURATION_MS,
-      flashHold: TOWER_GLYPH_FLASH_HOLD_MS,
-      fromSymbolFade: TOWER_GLYPH_FROM_SYMBOL_FADE_MS,
-    };
-    entry.particles = this.buildTowerGlyphParticles(entry);
-    const longestParticle = entry.particles.reduce(
-      (max, particle) => Math.max(max, (particle.delay || 0) + (particle.duration || 0)),
-      0,
-    );
-    entry.totalDuration =
-      Math.max(
-        entry.flashDuration + entry.flashHold + 120,
-        entry.newSymbolDelay + entry.newSymbolFade,
-        entry.fromSymbolFade + 90,
-        longestParticle,
-      ) + 60;
-    this.towerGlyphTransitions.set(tower.id, entry);
-  }
-
-  /**
-   * Generate particle descriptors that trail the departing glyph.
-   */
-  buildTowerGlyphParticles(entry = {}) {
-    const baseRadius = Math.max(12, Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR);
-    const ratio = Number.isFinite(entry.strengthRatio) ? Math.max(0.65, entry.strengthRatio) : 1;
-    const normalized = Math.min(1, ratio / 1.35);
-    const particleCount = Math.max(
-      TOWER_GLYPH_MIN_PARTICLES,
-      Math.round(TOWER_GLYPH_MIN_PARTICLES + (TOWER_GLYPH_MAX_PARTICLES - TOWER_GLYPH_MIN_PARTICLES) * normalized),
-    );
-    const particles = [];
-    for (let index = 0; index < particleCount; index += 1) {
-      const duration = 360 + Math.random() * 360;
-      particles.push({
-        delay: Math.random() * 90,
-        duration,
-        maxDistance: baseRadius * (0.85 + Math.random() * 1.25) * ratio,
-        lateral: baseRadius * 0.35 * (Math.random() - 0.5) * ratio,
-        offsetX: (Math.random() - 0.5) * baseRadius * 0.3,
-        offsetY: (Math.random() - 0.5) * baseRadius * 0.3,
-        size: Math.max(1.5, baseRadius * 0.08) * (0.6 + Math.random() * 0.9),
-        alpha: 0.65 + Math.random() * 0.3,
-        hueShift: Math.random(),
-      });
-    }
-    return particles;
-  }
-
-  /**
-   * Normalize swipe vectors so the renderer knows which way particles should depart.
-   */
-  normalizeSwipeVector(vector, fallbackDirection = DEFAULT_PROMOTION_VECTOR) {
-    const fallback = fallbackDirection || DEFAULT_PROMOTION_VECTOR;
-    const fallbackLength = Math.hypot(fallback.x || 0, fallback.y || 0) || 1;
-    const fallbackNormalized = { x: (fallback.x || 0) / fallbackLength, y: (fallback.y || 0) / fallbackLength };
-    if (!vector || (!Number.isFinite(vector.x) && !Number.isFinite(vector.y))) {
-      return { direction: fallbackNormalized, magnitude: 0 };
-    }
-    const dx = Number.isFinite(vector.x) ? vector.x : 0;
-    const dy = Number.isFinite(vector.y) ? vector.y : 0;
-    const length = Math.hypot(dx, dy);
-    if (!length) {
-      return { direction: fallbackNormalized, magnitude: 0 };
-    }
-    return { direction: { x: dx / length, y: dy / length }, magnitude: length };
-  }
-
-  /**
-   * Advance glyph transitions and retire finished entries.
-   */
-  updateTowerGlyphTransitions() {
-    if (!this.towerGlyphTransitions || this.towerGlyphTransitions.size === 0) {
-      return;
-    }
-    const now = this.getCurrentTimestamp();
-    const expired = [];
-    this.towerGlyphTransitions.forEach((entry, towerId) => {
-      if (!entry) {
-        expired.push(towerId);
-        return;
-      }
-      const elapsed = now - (entry.startedAt || 0);
-      entry.elapsed = elapsed;
-      const cap = Number.isFinite(entry.totalDuration) ? entry.totalDuration : 600;
-      if (elapsed >= cap) {
-        expired.push(towerId);
-      }
-    });
-    expired.forEach((towerId) => this.towerGlyphTransitions.delete(towerId));
   }
 
   /**
@@ -1915,13 +1554,6 @@ export class SimplePlayfield {
    */
   ensureNuState(tower) {
     return TowerManager.ensureNuState.call(this, tower);
-  }
-
-  /**
-   * Emit ν piercing laser bursts using the shared particle animation stack.
-   */
-  spawnNuAttackBurst(tower, targetInfo, options = {}) {
-    return TowerManager.spawnNuAttackBurst.call(this, tower, targetInfo, options);
   }
 
   /**
@@ -2659,184 +2291,22 @@ export class SimplePlayfield {
    * Refresh connection drag highlights so compatible towers glow while the cursor moves.
    */
   updateConnectionDragHighlights(position) {
-    const dragState = this.connectionDragState;
-    if (!dragState || !dragState.originTowerId) {
-      return;
-    }
-    const origin = this.getTowerById(dragState.originTowerId);
-    if (!origin) {
-      this.clearConnectionDragState();
-      return;
-    }
-    const entries = [];
-    if (origin.linkTargetId) {
-      entries.push({
-        action: 'disconnect',
-        sourceId: origin.id,
-        targetId: origin.linkTargetId,
-        towerId: origin.linkTargetId,
-        role: 'existingTarget',
-      });
-    }
-    if (origin.linkSources instanceof Set) {
-      origin.linkSources.forEach((sourceId) => {
-        entries.push({
-          action: 'disconnect',
-          sourceId,
-          targetId: origin.id,
-          towerId: sourceId,
-          role: 'linkedSource',
-        });
-      });
-    }
-    this.towers.forEach((candidate) => {
-      if (!candidate || candidate.id === origin.id) {
-        return;
-      }
-      if (this.areTowersConnectionCompatible(origin, candidate)) {
-        entries.push({
-          action: 'connect',
-          sourceId: origin.id,
-          targetId: candidate.id,
-          towerId: candidate.id,
-          role: 'candidate',
-        });
-      }
-    });
-    dragState.highlightEntries = entries;
-    dragState.hoverEntry = this.resolveConnectionHoverEntry(entries, position);
+    return ConnectionDragSystem.updateConnectionDragHighlights.call(this, position);
   }
 
   /**
    * Select the highlight entry the pointer is currently hovering.
    */
   resolveConnectionHoverEntry(entries, position) {
-    if (!Array.isArray(entries) || !entries.length || !position) {
-      return null;
-    }
-    const hoverRadius = Math.max(18, Math.min(this.renderWidth || 0, this.renderHeight || 0) * 0.045);
-    let best = null;
-    let bestDistance = Infinity;
-    entries.forEach((entry) => {
-      const tower = this.getTowerById(entry.towerId);
-      if (!tower) {
-        return;
-      }
-      const dx = position.x - tower.x;
-      const dy = position.y - tower.y;
-      const distance = Math.hypot(dx, dy);
-      if (!Number.isFinite(distance)) {
-        return;
-      }
-      if (distance <= hoverRadius && distance < bestDistance) {
-        best = entry;
-        bestDistance = distance;
-      }
-    });
-    return best;
+    return ConnectionDragSystem.resolveConnectionHoverEntry.call(this, entries, position);
   }
 
   updateDeltaCommandDrag(position) {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState || !dragState.towerId) {
-      return;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      this.clearDeltaCommandDragState();
-      return;
-    }
-    const towerLabel = tower.type === 'omicron'
-      ? 'ο wing'
-      : tower.type === 'upsilon'
-        ? 'υ flight'
-        : 'Δ cohort';
-    dragState.currentPosition = position ? { x: position.x, y: position.y } : null;
-    if (!position) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const projection = this.getClosestPointOnPath(position);
-    if (!projection?.point) {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-      dragState.trackDistance = Infinity;
-      return;
-    }
-
-    const distance = Math.hypot(position.x - projection.point.x, position.y - projection.point.y);
-    dragState.trackDistance = distance;
-    const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
-    const tolerance = Math.max(24, minDimension * 0.05);
-    const withinTrack = Number.isFinite(distance) && distance <= tolerance;
-    if (withinTrack) {
-      dragState.trackAnchor = {
-        point: { x: projection.point.x, y: projection.point.y },
-        progress: Number.isFinite(projection.progress)
-          ? Math.max(0, Math.min(1, projection.progress))
-          : 0,
-      };
-      if (!dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Release to anchor the ${towerLabel} to the glyph lane.`;
-      }
-      dragState.anchorAvailable = true;
-    } else {
-      if (dragState.anchorAvailable && this.messageEl) {
-        this.messageEl.textContent = `Drag onto the glyph lane to position the ${towerLabel}.`;
-      }
-      dragState.trackAnchor = null;
-      dragState.anchorAvailable = false;
-    }
+    return ConnectionDragSystem.updateDeltaCommandDrag.call(this, position);
   }
 
   commitDeltaCommandDrag() {
-    const dragState = this.deltaCommandDragState;
-    if (!dragState?.towerId || !dragState.trackAnchor) {
-      return false;
-    }
-    const tower = this.getTowerById(dragState.towerId);
-    if (!tower) {
-      return false;
-    }
-    const anchor = {
-      x: dragState.trackAnchor.point.x,
-      y: dragState.trackAnchor.point.y,
-      progress: dragState.trackAnchor.progress,
-    };
-    let assigned = false;
-    if (tower.type === 'omicron') {
-      assigned = this.assignOmicronTrackHoldAnchor(tower, anchor);
-    } else if (tower.type === 'upsilon') {
-      assigned = this.assignUpsilonTrackHoldAnchor(tower, anchor);
-    } else {
-      assigned = this.assignDeltaTrackHoldAnchor(tower, anchor);
-    }
-    if (assigned) {
-      if (this.audio && typeof this.audio.playSfx === 'function') {
-        this.audio.playSfx('uiConfirm');
-      }
-      if (this.messageEl) {
-        const towerLabel = tower.type === 'omicron'
-          ? 'ο wing anchor locked to the glyph lane.'
-          : tower.type === 'upsilon'
-            ? 'υ flight path locked to the glyph lane.'
-            : 'Δ cohort orbit anchored to the glyph lane.';
-        this.messageEl.textContent = towerLabel;
-      }
-      if (!this.shouldAnimate) {
-        this.draw();
-      }
-    }
-    return assigned;
+    return ConnectionDragSystem.commitDeltaCommandDrag.call(this);
   }
 
   // ========================================================================
@@ -3441,85 +2911,7 @@ export class SimplePlayfield {
   }
 
   updateTrackRiverParticles(delta) {
-    if (!Array.isArray(this.trackRiverParticles) || !this.trackRiverParticles.length) {
-      return;
-    }
-    // Track river particles are purely decorative; skip updates when ambient particles are disabled.
-    if (!areBackgroundParticlesEnabled()) {
-      return;
-    }
-
-    const dt = Math.max(0, Math.min(delta, 0.08));
-    this.trackRiverPulse = Number.isFinite(this.trackRiverPulse) ? this.trackRiverPulse : 0;
-    this.trackRiverPulse += dt * 0.6;
-    const fullTurn = TWO_PI;
-    if (this.trackRiverPulse >= fullTurn) {
-      this.trackRiverPulse -= fullTurn;
-    }
-
-    const wrapProgress = (value) => {
-      if (value > 1) {
-        return value - 1;
-      }
-      if (value < 0) {
-        return value + 1;
-      }
-      return value;
-    };
-
-    this.trackRiverParticles.forEach((particle) => {
-      if (!particle) {
-        return;
-      }
-      const speed = Number.isFinite(particle.speed) ? particle.speed : 0.05;
-      const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-      particle.progress = wrapProgress(progress + speed * dt);
-
-      const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1;
-      const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-      particle.phase = nextPhase % fullTurn;
-
-      const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-      particle.driftTimer = driftTimer - dt;
-      if (particle.driftTimer <= 0) {
-        particle.offsetTarget = (Math.random() - 0.5) * 0.8;
-        particle.driftTimer = 0.6 + Math.random() * 1.3;
-      }
-
-      const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 0.6;
-      const easing = Math.min(1, dt * driftRate);
-      const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-      const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-      particle.offset = offset + (target - offset) * easing;
-    });
-
-    if (Array.isArray(this.trackRiverTracerParticles) && this.trackRiverTracerParticles.length) {
-      this.trackRiverTracerParticles.forEach((particle) => {
-        if (!particle) {
-          return;
-        }
-        const speed = Number.isFinite(particle.speed) ? particle.speed : 0.14;
-        const progress = Number.isFinite(particle.progress) ? particle.progress : Math.random();
-        particle.progress = wrapProgress(progress + speed * dt);
-
-        const phaseSpeed = Number.isFinite(particle.phaseSpeed) ? particle.phaseSpeed : 1.6;
-        const nextPhase = (Number.isFinite(particle.phase) ? particle.phase : 0) + phaseSpeed * dt;
-        particle.phase = nextPhase % fullTurn;
-
-        const driftTimer = Number.isFinite(particle.driftTimer) ? particle.driftTimer : 0;
-        particle.driftTimer = driftTimer - dt;
-        if (particle.driftTimer <= 0) {
-          particle.offsetTarget = (Math.random() - 0.5) * 0.3;
-          particle.driftTimer = 0.25 + Math.random() * 0.5;
-        }
-
-        const driftRate = Number.isFinite(particle.driftRate) ? particle.driftRate : 2.4;
-        const easing = Math.min(1, dt * driftRate);
-        const offset = Number.isFinite(particle.offset) ? particle.offset : 0;
-        const target = Number.isFinite(particle.offsetTarget) ? particle.offsetTarget : 0;
-        particle.offset = offset + (target - offset) * easing;
-      });
-    }
+    return TrackRiverSystem.updateTrackRiverParticles.call(this, delta);
   }
 
   update(delta) {
@@ -3766,75 +3158,10 @@ export class SimplePlayfield {
 
   /**
    * Route a connected lattice's cadence into its downstream partner instead of enemies.
+   * Delegates to SupplyChainSystem.
    */
   updateConnectionSupplier(tower, delta) {
-    if (!tower || !tower.linkTargetId) {
-      return;
-    }
-    const target = this.getTowerById(tower.linkTargetId);
-    if (!target) {
-      this.removeTowerConnection(tower.id, tower.linkTargetId);
-      return;
-    }
-    if (!this.combatActive) {
-      return;
-    }
-    if (tower.cooldown > 0) {
-      return;
-    }
-    const rate = Number.isFinite(tower.rate) ? Math.max(0, tower.rate) : 0;
-    if (rate <= 0) {
-      tower.cooldown = 0;
-      return;
-    }
-    const baseCooldown = 1 / Math.max(0.0001, rate);
-    if (tower.type === 'alpha' && target.type === 'beta') {
-      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'beta' && target.type === 'gamma') {
-      const payload = {
-        type: 'beta',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'alpha' && target.type === 'iota') {
-      this.spawnSupplyProjectile(tower, target, { payload: { type: 'alpha' } });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'beta' && target.type === 'iota') {
-      const payload = {
-        type: 'beta',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    if (tower.type === 'gamma' && target.type === 'iota') {
-      const payload = {
-        type: 'gamma',
-        alphaShots: Math.max(0, tower.storedAlphaShots || 0),
-        betaShots: Math.max(0, tower.storedBetaShots || 0),
-      };
-      tower.storedAlphaShots = 0;
-      tower.storedBetaShots = 0;
-      tower.storedAlphaSwirl = 0;
-      tower.storedBetaSwirl = 0;
-      this.spawnSupplyProjectile(tower, target, { payload });
-      tower.cooldown = baseCooldown;
-      return;
-    }
-    this.removeTowerConnection(tower.id, target.id);
+    return SupplyChainSystem.updateConnectionSupplier.call(this, tower, delta);
   }
 
   /**
@@ -3873,89 +3200,7 @@ export class SimplePlayfield {
    * Update gamma star burst effects on enemies that were hit by gamma projectiles.
    */
   updateGammaStarBursts(delta) {
-    if (!Array.isArray(this.gammaStarBursts) || this.gammaStarBursts.length === 0) {
-      return;
-    }
-    
-    const sequence = GAMMA_STAR_SEQUENCE;
-    
-    for (let i = this.gammaStarBursts.length - 1; i >= 0; i--) {
-      const burst = this.gammaStarBursts[i];
-      burst.lifetime = (burst.lifetime || 0) + delta;
-      burst.starElapsed = (burst.starElapsed || 0) + delta;
-      
-      // Remove if lifetime exceeded
-      if (burst.lifetime >= burst.maxLifetime) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      // Update center to track enemy if it still exists
-      const enemy = this.getEnemyById(burst.enemyId);
-      if (enemy) {
-        const enemyPos = this.getEnemyPosition(enemy);
-        if (enemyPos) {
-          burst.center = { ...enemyPos };
-        }
-      }
-      
-      // Update star tracing animation
-      const edgeIndex = Number.isFinite(burst.starEdgeIndex) ? burst.starEdgeIndex : 0;
-      const atEndOfSequence = edgeIndex >= sequence.length - 1;
-      
-      if (atEndOfSequence && burst.burstDuration <= 0) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0 && burst.starElapsed >= burst.burstDuration) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      if (atEndOfSequence && burst.burstDuration > 0) {
-        burst.starEdgeIndex = 0;
-        burst.starEdgeProgress = 0;
-        continue;
-      }
-      
-      // Calculate star edge distance and progress
-      const radius = burst.starRadius || 22;
-      const angles = [];
-      for (let step = 0; step < 5; step += 1) {
-        angles.push(-HALF_PI + (step * TWO_PI) / 5);
-      }
-      const starPoints = angles.map((angle) => ({
-        x: burst.center.x + Math.cos(angle) * radius,
-        y: burst.center.y + Math.sin(angle) * radius,
-      }));
-      
-      const fromIndex = sequence[edgeIndex];
-      const toIndex = sequence[edgeIndex + 1];
-      const fromPoint = starPoints[fromIndex];
-      const toPoint = starPoints[toIndex];
-      
-      if (!fromPoint || !toPoint) {
-        this.gammaStarBursts.splice(i, 1);
-        continue;
-      }
-      
-      const edgeDistance = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y) || 1;
-      const starSpeed = burst.starSpeed || GAMMA_STAR_SPEED;
-      const edgeDuration = Math.max(0.0001, edgeDistance / Math.max(1, starSpeed));
-      const progress = Math.min(1, (burst.starEdgeProgress || 0) + delta / edgeDuration);
-      
-      burst.currentPosition = {
-        x: fromPoint.x + (toPoint.x - fromPoint.x) * progress,
-        y: fromPoint.y + (toPoint.y - fromPoint.y) * progress,
-      };
-      burst.starEdgeProgress = progress;
-      
-      if (progress >= 1) {
-        burst.starEdgeIndex = edgeIndex + 1;
-        burst.starEdgeProgress = 0;
-      }
-    }
+    return GammaStarBurstSystem.updateGammaStarBursts.call(this, delta);
   }
 
   /**
@@ -4024,510 +3269,94 @@ export class SimplePlayfield {
 
   /**
    * Locate the nearest σ lattice within range so idle towers can feed it.
+   * Delegates to SupplyChainSystem.
    */
   findSigmaFriendlyTarget(tower) {
-    if (!tower || tower.type === 'sigma') {
-      return null;
-    }
-    const range = Number.isFinite(tower.range) ? tower.range : 0;
-    if (range <= 0) {
-      return null;
-    }
-    let selected = null;
-    let nearest = Infinity;
-    this.towers.forEach((candidate) => {
-      if (!candidate || candidate.type !== 'sigma' || candidate.id === tower.id) {
-        return;
-      }
-      const distance = Math.hypot(candidate.x - tower.x, candidate.y - tower.y);
-      if (distance > range) {
-        return;
-      }
-      if (distance < nearest) {
-        selected = { sigma: candidate, position: { x: candidate.x, y: candidate.y } };
-        nearest = distance;
-      }
-    });
-    return selected;
+    return SupplyChainSystem.findSigmaFriendlyTarget.call(this, tower);
   }
 
 
   /**
    * Apply a delivered supply shot to its destination lattice.
+   * Delegates to SupplyChainSystem.
    */
   handleSupplyImpact(projectile) {
-    if (!projectile || !projectile.targetTowerId) {
-      return;
-    }
-    const target = this.getTowerById(projectile.targetTowerId);
-    if (!target) {
-      return;
-    }
-    const payload = projectile.payload || {};
-    if (payload.type === 'alpha') {
-      target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + 1);
-      target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + 3);
-      this.transferSupplySeedsToOrbit(target, projectile);
-      return;
-    }
-    if (payload.type === 'beta') {
-      target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + 1);
-      target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + 3);
-      const alphaShots = Math.max(0, payload.alphaShots || 0);
-      if (alphaShots > 0) {
-        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
-        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
-      }
-      this.transferSupplySeedsToOrbit(target, projectile);
-      return;
-    }
-    if (payload.type === 'gamma') {
-      target.storedGammaShots = Math.min(999, (target.storedGammaShots || 0) + 1);
-      const betaShots = Math.max(0, payload.betaShots || 0);
-      if (betaShots > 0) {
-        target.storedBetaShots = Math.min(999, (target.storedBetaShots || 0) + betaShots);
-        target.storedBetaSwirl = Math.min(30, (target.storedBetaSwirl || 0) + betaShots * 3);
-      }
-      const alphaShots = Math.max(0, payload.alphaShots || 0);
-      if (alphaShots > 0) {
-        target.storedAlphaShots = Math.min(999, (target.storedAlphaShots || 0) + alphaShots);
-        target.storedAlphaSwirl = Math.min(30, (target.storedAlphaSwirl || 0) + alphaShots * 3);
-      }
-      this.transferSupplySeedsToOrbit(target, projectile);
-    }
+    return SupplyChainSystem.handleSupplyImpact.call(this, projectile);
   }
 
 
   computeEnemyDamageMultiplier(enemy) {
-    if (!enemy) {
-      return 1;
-    }
-    let additive = 0;
-    if (enemy.damageAmplifiers instanceof Map) {
-      enemy.damageAmplifiers.forEach((effect) => {
-        if (!effect) {
-          return;
-        }
-        const strength = Number.isFinite(effect.strength) ? Math.max(0, effect.strength) : 0;
-        additive += strength;
-      });
-    }
-    return Math.max(0, 1 + additive);
+    return CombatDamageSystem.computeEnemyDamageMultiplier.call(this, enemy);
   }
 
   // Apply mitigation from derivative shield carriers before other multipliers modify the strike.
   // When attackType is 'melee', shields are bypassed entirely (universal melee-vs-shield rule).
-  applyDerivativeShieldMitigation(enemy, baseDamage, { attackType } = {}) {
-    // Melee attacks bypass all shield layers and apply damage directly to health.
-    if (attackType === 'melee') {
-      return baseDamage;
-    }
-    if (!enemy || !enemy.derivativeShield || !Number.isFinite(baseDamage) || baseDamage <= 0) {
-      return baseDamage;
-    }
-    const effect = enemy.derivativeShield;
-    if (!effect.active) {
-      return baseDamage;
-    }
-    if (effect.mode === 'sqrt') {
-      return Math.max(0, Math.sqrt(baseDamage));
-    }
-    const stack = Number.isFinite(effect.stack) && effect.stack >= 0 ? effect.stack : 0;
-    const mitigation = Math.pow(0.5, stack + 1);
-    effect.stack = stack + 1;
-    return Math.max(0, baseDamage * mitigation);
+  applyDerivativeShieldMitigation(enemy, baseDamage, options = {}) {
+    return CombatDamageSystem.applyDerivativeShieldMitigation.call(this, enemy, baseDamage, options);
   }
 
   /**
    * Track when a debuff first lands on an enemy so the renderer can order icons chronologically.
    */
   registerEnemyDebuff(enemy, type) {
-    if (!enemy || !type) {
-      return;
-    }
-    if (!Array.isArray(enemy.debuffIndicators)) {
-      enemy.debuffIndicators = [];
-    }
-    const now =
-      typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
-    const existing = enemy.debuffIndicators.find((entry) => entry?.type === type);
-    if (existing) {
-      existing.lastSeen = now;
-      return;
-    }
-    enemy.debuffIndicators.push({ type, appliedAt: now, lastSeen: now });
+    return CombatDamageSystem.registerEnemyDebuff.call(this, enemy, type);
   }
 
   /**
    * Provide ordered debuff metadata to the renderer with pre-resolved glyphs for each effect.
    */
   getEnemyDebuffIndicators(enemy) {
-    if (!enemy) {
-      return [];
-    }
-    const activeTypes = this.resolveActiveDebuffTypes(enemy);
-    const entries = this.syncEnemyDebuffIndicators(enemy, activeTypes);
-    return entries.map((entry) => ({
-      type: entry.type,
-      symbol: DEBUFF_ICON_SYMBOLS[entry.type] || entry.type?.[0] || '·',
-    }));
+    return CombatDamageSystem.getEnemyDebuffIndicators.call(this, enemy);
   }
 
-  applyDamageToEnemy(enemy, baseDamage, { sourceTower, attackType } = {}) {
-    if (!enemy || !Number.isFinite(baseDamage) || baseDamage <= 0) {
-      return 0;
-    }
-    
-    // Check if enemy is in a tunnel - if so, they cannot take damage
-    const tunnelState = this.getEnemyTunnelState(enemy);
-    if (tunnelState.inTunnel) {
-      // Enemy is in a tunnel, show "Miss" instead of damage
-      this.spawnMissText(enemy);
-      return 0;
-    }
-
-    // ─── Imaginary Strider: post-hit invulnerability window ────────────────
-    // While isInvulnerable is true all incoming damage is ignored entirely.
-    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
-      if (enemy.isInvulnerable) {
-        return 0;
-      }
-    }
-
-    // ─── Prime-Counter: hit-count-based health — ignore damage magnitude ──
-    // Only counts discrete hits; each hit increments currentHitCount by 1.
-    if ((enemy.codexId || enemy.typeId) === 'prime') {
-      if (!Number.isFinite(enemy.requiredHitCount)) {
-        // Initialise hit-count health using a random prime from the module-scope PRIME_HIT_LIST
-        const idx = Math.floor(Math.random() * PRIME_HIT_LIST.length);
-        enemy.requiredHitCount = PRIME_HIT_LIST[idx];
-        enemy.currentHitCount = 0;
-      }
-      enemy.currentHitCount = (enemy.currentHitCount || 0) + 1;
-      // Debug log — removable without affecting gameplay
-      console.log(`[Prime Hit Count Updated] id=${enemy.id} hits=${enemy.currentHitCount}/${enemy.requiredHitCount}`);
-      if (sourceTower) {
-        this.recordDamageEvent({ tower: sourceTower, enemy, damage: 1 });
-      }
-      if (enemy.currentHitCount >= enemy.requiredHitCount) {
-        if (sourceTower) {
-          this.recordKillEvent(sourceTower);
-        }
-        this.processEnemyDefeat(enemy);
-      }
-      return 1;
-    }
-
-    const mitigatedBase = this.applyDerivativeShieldMitigation(enemy, baseDamage, { attackType });
-
-    // Directional saturation: enemies with sector-based resistance reduce damage
-    // from repeatedly attacked directions. Constants inlined from
-    // DirectionalSaturationSystem.js to avoid import in this hot path.
-    // ⚠ Keep in sync: DIR_SAT_BUILDUP_PER_HIT (0.12), DIR_SAT_BOSS_BUILDUP_SCALE (0.6)
-    let dirSatMultiplier = 1;
-    if (enemy._dirSat && sourceTower) {
-      const enemyPos = this.getEnemyPosition(enemy);
-      const sourcePos = { x: sourceTower.x, y: sourceTower.y };
-      if (enemyPos && Number.isFinite(sourcePos.x) && Number.isFinite(sourcePos.y)) {
-        const sectors = enemy._dirSat.sectors;
-        const sectorCount = sectors.length;
-        const dx = sourcePos.x - enemyPos.x;
-        const dy = sourcePos.y - enemyPos.y;
-        let angle = Math.atan2(dy, dx);
-        if (angle < 0) angle += Math.PI * 2;
-        const sectorSize = (Math.PI * 2) / sectorCount;
-        const sectorIdx = Math.min(sectorCount - 1, Math.floor(angle / sectorSize));
-        dirSatMultiplier = Math.max(0, 1 - sectors[sectorIdx]);
-        // Build up resistance: 0.12 normal, 0.12 * 0.6 = 0.072 for bosses
-        const buildup = enemy.isBoss ? 0.072 : 0.12;
-        sectors[sectorIdx] = Math.min(1.0, sectors[sectorIdx] + buildup);
-        enemy._dirSat.totalHits++;
-      }
-    }
-
-    // Weierstrass Prism: fractal vulnerability window reduces damage outside vulnerable phases.
-    const weierMult = (enemy._weierstrass && !enemy._weierstrass.vulnerable) ? 0.15 : 1;
-
-    // Integral Accumulator: damage resistance decreases with path progress.
-    // ⚠ Keep in sync: INTEGRAL_MIN_MULTIPLIER (0.05), INTEGRAL_CURVE_POWER (0.8)
-    // from IntegralEnemySystem.js. Inlined here to avoid import in the hot damage path.
-    let integralMult = 1;
-    if ((enemy.codexId || enemy.typeId) === 'integral-accumulator' && Number.isFinite(enemy.progress)) {
-      const p = Math.max(0, Math.min(1, enemy.progress));
-      integralMult = Math.max(0.05, Math.pow(p, 0.8));
-    }
-
-    // Superposition: state 0 has higher damage resistance (0.3x damage taken).
-    let superpositionMult = 1;
-    if ((enemy.codexId || enemy.typeId) === 'superposition') {
-      superpositionMult = enemy.currentState === 0 ? 0.3 : 1.0;
-    }
-
-    const multiplier = this.computeEnemyDamageMultiplier(enemy);
-    const applied = mitigatedBase * multiplier * dirSatMultiplier * weierMult * integralMult * superpositionMult;
-    const hpBefore = Number.isFinite(enemy.hp) ? enemy.hp : 0;
-    if (Number.isFinite(enemy.hp)) {
-      enemy.hp -= applied;
-    } else {
-      enemy.hp = -applied;
-    }
-
-    // ─── Recursive Relay: spawn one additional standard enemy on first hit ─
-    if ((enemy.codexId || enemy.typeId) === 'recursive-relay' && !enemy.hasTriggeredRelaySpawn) {
-      enemy.hasTriggeredRelaySpawn = true;
-      // baseSpawnType can be set by a wave configuration to override the spawned type.
-      // It defaults to 'etype' (the basic Epsilon Type enemy) when not explicitly specified.
-      const spawnType = enemy.baseSpawnType || 'etype';
-      this.spawnRelayEnemy(enemy, spawnType);
-    }
-
-    // ─── Imaginary Strider: enter invulnerable state after receiving damage ─
-    if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
-      enemy.isInvulnerable = true;
-      enemy.invulnerabilityTimer = 3.0;
-    }
-
-    // ─── Quantum-Tunneler: create a TunnelZone on damage ──────────────────
-    if ((enemy.codexId || enemy.typeId) === 'quantum-tunneler') {
-      this.createTunnelZone(enemy);
-    }
-
-    // Quantum Tunneler projection: check if a projection layer should collapse after damage.
-    // ⚠ Keep in sync: QUANTUM_LAYER_HP_FRACTION (0.2), QUANTUM_COLLAPSE_THRESHOLD (3),
-    // QUANTUM_COLLAPSED_HP_SCALE (0.4) from QuantumProjectionSystem.js.
-    if (enemy._quantum && !enemy._quantum.collapsed && Number.isFinite(enemy.maxHp) && enemy.maxHp > 0) {
-      const hpFraction = Math.max(0, enemy.hp) / enemy.maxHp;
-      const layerFraction = 0.2;
-      const collapseThreshold = 3;
-      const nextCollapseAt = 1 - (enemy._quantum.collapses + 1) * layerFraction;
-      if (hpFraction <= nextCollapseAt && enemy._quantum.collapses < collapseThreshold) {
-        enemy._quantum.collapses++;
-        if (!enemy._quantum._collapsedIndices) {
-          enemy._quantum._collapsedIndices = new Set();
-        }
-        enemy._quantum._collapsedIndices.add(enemy._quantum.activeIndex);
-        enemy._quantum.switchTimer = 0;
-        const remaining = enemy._quantum.projections - enemy._quantum.collapses;
-        if (remaining <= 0 || enemy._quantum.collapses >= collapseThreshold) {
-          enemy._quantum.collapsed = true;
-          const collapsedScale = 0.4;
-          enemy.hp = Math.max(0, enemy.hp) * collapsedScale;
-          enemy.maxHp = Math.max(1, enemy.hp);
-        } else {
-          enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
-          let safety = enemy._quantum.projections;
-          while (enemy._quantum._collapsedIndices.has(enemy._quantum.activeIndex) && safety-- > 0) {
-            enemy._quantum.activeIndex = (enemy._quantum.activeIndex + 1) % enemy._quantum.projections;
-          }
-        }
-      }
-    }
-
-    if (sourceTower) {
-      this.recordDamageEvent({ tower: sourceTower, enemy, damage: applied });
-    }
-    // Pass through pre-hit HP so the renderer can scale the damage number impact.
-    this.spawnDamageNumber(enemy, applied, { sourceTower, enemyHpBefore: hpBefore });
-    // Capture the hit vector so the swirl renderer can push particles along the impact path.
-    const sourcePosition =
-      sourceTower && Number.isFinite(sourceTower.x) && Number.isFinite(sourceTower.y)
-        ? { x: sourceTower.x, y: sourceTower.y }
-        : null;
-    this.recordEnemySwirlImpact(enemy, { sourcePosition, damageApplied: applied, enemyHpBefore: hpBefore });
-    if (enemy.hp <= 0) {
-      // Track kill and overkill damage for Nu towers
-      if (sourceTower && sourceTower.type === 'nu') {
-        const overkillDamage = Math.max(0, applied - hpBefore);
-        trackNuKillHelper(sourceTower, overkillDamage);
-
-        // Spawn kill particle at enemy position
-        const enemyPos = this.getEnemyPosition(enemy);
-        if (enemyPos) {
-          spawnNuKillParticleHelper(this, sourceTower, enemyPos);
-        }
-      }
-      // ─── Nullifier: disable the killing tower for 5 seconds ───────────
-      if ((enemy.codexId || enemy.typeId) === 'nullifier' && sourceTower) {
-        this.disableTower(sourceTower, 5.0);
-      }
-      if (sourceTower) {
-        this.recordKillEvent(sourceTower);
-      }
-      this.processEnemyDefeat(enemy);
-    }
-    return applied;
+  applyDamageToEnemy(enemy, baseDamage, options = {}) {
+    return CombatDamageSystem.applyDamageToEnemy.call(this, enemy, baseDamage, options);
   }
 
   // ─── Recursive Relay: spawn one standard enemy at the relay's current position ──
   // Spawning is one-shot; the relay flag prevents infinite recursion.
+  // Delegates to SpecialEnemyMechanicsSystem.
   spawnRelayEnemy(relay, spawnTypeId) {
-    if (!relay || !spawnTypeId) {
-      return;
-    }
-    const pos = this.getEnemyPosition(relay);
-    if (!pos) {
-      return;
-    }
-    // Build a minimal enemy object inheriting from the relay's wave context
-    const nextId = (this._nextEnemyId = ((this._nextEnemyId || 0) + 1));
-    const spawnEnemy = {
-      id: nextId,
-      typeId: spawnTypeId,
-      codexId: spawnTypeId,
-      label: spawnTypeId,
-      color: '#4a90e2',
-      speed: 50,
-      baseSpeed: 50,
-      hp: relay.hp > 0 ? Math.max(1, relay.hp * 0.5) : 1,
-      maxHp: relay.maxHp > 0 ? Math.max(1, relay.maxHp * 0.5) : 1,
-      progress: Math.max(0, relay.progress || 0),
-      reward: 0,
-      x: pos.x,
-      y: pos.y,
-      hpExponent: this.calculateHealthExponent ? this.calculateHealthExponent(1) : 0,
-      gemDropMultiplier: 1,
-      moteFactor: 1,
-      symbol: spawnTypeId[0] || 'ε',
-      polygonSides: 0,
-    };
-    this.enemies.push(spawnEnemy);
-    this.combatStateManager?.registerEnemy?.(spawnEnemy);
-    // Visual feedback: radial pulse at relay position
-    if (typeof this.spawnRelaySpawnEffect === 'function') {
-      this.spawnRelaySpawnEffect(pos);
-    }
-    // Debug log — removable without affecting gameplay
-    console.log(`[Relay Spawn Triggered] relay id=${relay.id} spawned typeId=${spawnTypeId} at progress=${relay.progress?.toFixed(3)}`);
+    return SpecialEnemyMechanicsSystem.spawnRelayEnemy.call(this, relay, spawnTypeId);
   }
 
   // ─── Quantum-Tunneler: create a 4-second TunnelZone at the enemy's position ──
   // teleportDistance is 7.5% of total path length (mid-range of 5–10%).
+  // Delegates to SpecialEnemyMechanicsSystem.
   createTunnelZone(enemy) {
-    if (!enemy) {
-      return;
-    }
-    const pos = this.getEnemyPosition(enemy);
-    if (!pos) {
-      return;
-    }
-    if (!Array.isArray(this.tunnelZones)) {
-      this.tunnelZones = [];
-    }
-    const zone = {
-      position: { x: pos.x, y: pos.y },
-      elapsed: 0,
-      teleportDistance: 0.075, // 7.5% of normalised path length
-      _teleportedIds: new Set(),
-    };
-    this.tunnelZones.push(zone);
-    // Debug log — removable without affecting gameplay
-    console.log(`[Quantum Tunnel Created] at (${pos.x.toFixed(3)}, ${pos.y.toFixed(3)}) teleportDist=0.075`);
+    return SpecialEnemyMechanicsSystem.createTunnelZone.call(this, enemy);
   }
 
   // ─── Nullifier: disable a tower for a fixed duration ──────────────────────
   // Uses tower.disabledUntil (epoch seconds) so multiple nullifier hits don't stack
   // indefinitely — only extends if the new expiry is later.
+  // Delegates to SpecialEnemyMechanicsSystem.
   disableTower(tower, durationSeconds) {
-    if (!tower || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-      return;
-    }
-    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
-      ? performance.now()
-      : Date.now()) / 1000;
-    const newExpiry = now + durationSeconds;
-    // Do not stack: only extend if the new expiry is later than the existing one
-    if (Number.isFinite(tower.disabledUntil) && tower.disabledUntil >= newExpiry) {
-      return;
-    }
-    tower.disabledUntil = newExpiry;
-    // Visual feedback: show ∅ symbol and darken the tower sprite
-    if (!Array.isArray(tower._nullifierEffects)) {
-      tower._nullifierEffects = [];
-    }
-    tower._nullifierEffects.push({ startedAt: now, duration: durationSeconds });
-    // Debug log — removable without affecting gameplay
-    console.log(`[Nullifier Disabled Tower] tower id=${tower.id} type=${tower.type} for ${durationSeconds}s`);
+    return SpecialEnemyMechanicsSystem.disableTower.call(this, tower, durationSeconds);
   }
 
   // ─── Visual feedback: radial pulse + ripple for relay spawn ───────────────
+  // Delegates to SpecialEnemyMechanicsSystem.
   spawnRelaySpawnEffect(position) {
-    if (!position) {
-      return;
-    }
-    if (typeof this.spawnPsiAoeEffect === 'function') {
-      // Reuse the existing radial pulse effect at a small radius
-      this.spawnPsiAoeEffect(position, 40);
-    }
+    return SpecialEnemyMechanicsSystem.spawnRelaySpawnEffect.call(this, position);
   }
 
-  // Helper to create a damage projectile with travel time for towers that use particle bursts
+  // Helper to create a damage projectile with travel time for towers that use particle bursts.
+  // Delegates to SupplyChainSystem.
   createParticleDamageProjectile(tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed) {
-    if (!tower || !enemy || !resolvedDamage || resolvedDamage <= 0) {
-      return;
-    }
-    if (!Number.isFinite(baseTravelSpeed) || baseTravelSpeed <= 0) {
-      baseTravelSpeed = 300; // Default fallback speed
-    }
-    const sourcePosition = { x: tower.x, y: tower.y };
-    const targetPosition = effectPosition || sourcePosition;
-    const travelDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.y - sourcePosition.y);
-    const travelTime = Math.max(0.08, travelDistance / baseTravelSpeed);
-    const maxLifetime = Math.max(0.24, travelTime);
-    this.projectiles.push({
-      source: sourcePosition,
-      targetId: enemy.id,
-      target: targetPosition,
-      lifetime: 0,
-      maxLifetime,
-      travelTime,
-      damage: resolvedDamage,
-      towerId: tower.id,
-      hitRadius: this.getStandardShotHitRadius(),
-    });
+    return SupplyChainSystem.createParticleDamageProjectile.call(this, tower, enemy, effectPosition, resolvedDamage, baseTravelSpeed);
   }
 
   // Alternate β triangle shots so successive returns mirror across the firing line.
+  // Delegates to SupplyChainSystem.
   resolveNextBetaTriangleOrientation(tower) {
-    if (!tower) {
-      return 1;
-    }
-    const lastOrientation = Number.isFinite(tower.nextBetaTriangleOrientation)
-      ? tower.nextBetaTriangleOrientation
-      : 1;
-    const orientation = lastOrientation === -1 ? -1 : 1;
-    tower.nextBetaTriangleOrientation = orientation * -1;
-    return orientation;
+    return SupplyChainSystem.resolveNextBetaTriangleOrientation.call(this, tower);
   }
 
   // Apply the β slow formula while a triangle bolt is attached to an enemy.
+  // Delegates to SupplyChainSystem.
   applyBetaStickSlow(enemy, tower, glyphRank = 0) {
-    if (!enemy || !tower) {
-      return;
-    }
-    const bet1 = Math.max(0, Number.isFinite(glyphRank) ? glyphRank : 0);
-    const slowPercent = Math.min(60, 20 + 2 * bet1);
-    const multiplier = Math.max(0, 1 - slowPercent / 100);
-    const slwTime = computeTowerVariableValue('beta', 'slwTime');
-    const slowDurationSeconds = Number.isFinite(slwTime)
-      ? Math.max(0, slwTime)
-      : BETA_SLOW_DURATION_SECONDS;
-    const expiresAt =
-      (typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now()) /
-      1000 +
-      slowDurationSeconds;
-    if (!(enemy.slowEffects instanceof Map)) {
-      enemy.slowEffects = new Map();
-    }
-    enemy.slowEffects.set(tower.id, {
-      type: 'beta',
-      multiplier,
-      slowPercent,
-      expiresAt,
-    });
+    return SupplyChainSystem.applyBetaStickSlow.call(this, enemy, tower, glyphRank);
   }
 
 
@@ -4682,341 +3511,75 @@ export class SimplePlayfield {
     return HudBindings.updateProgress.call(this);
   }
 
+  // ── Viewport coordinate helpers (extracted to ViewportCoordinateSystem, Build 713) ──
+
   getCanvasPosition(normalized) {
-    return {
-      x: normalized.x * this.renderWidth,
-      y: normalized.y * this.renderHeight,
-    };
+    return ViewportCoordinateSystem.getCanvasPosition.call(this, normalized);
   }
 
   getPixelsForMeters(meters) {
-    const minDimension = Math.min(this.renderWidth, this.renderHeight) || 0;
-    return metersToPixels(meters, minDimension); // Translate standardized meters into on-screen pixels using the current viewport.
+    return ViewportCoordinateSystem.getPixelsForMeters.call(this, meters);
   }
 
   getNormalizedFromCanvasPosition(position) {
-    if (!position || !this.canvas) {
-      return null;
-    }
-    const width = this.renderWidth || this.canvas.width || 1;
-    const height = this.renderHeight || this.canvas.height || 1;
-    if (!width || !height) {
-      return null;
-    }
-    const normalized = {
-      x: position.x / width,
-      y: position.y / height,
-    };
-    return this.clampNormalized(normalized);
+    return ViewportCoordinateSystem.getNormalizedFromCanvasPosition.call(this, position);
   }
 
   clampNormalized(normalized) {
-    if (!normalized) {
-      return null;
-    }
-    const clamp = (value) => {
-      if (!Number.isFinite(value)) {
-        return 0.5;
-      }
-      return Math.min(Math.max(value, 0.04), 0.96);
-    };
-    return {
-      x: clamp(normalized.x),
-      y: clamp(normalized.y),
-    };
+    return ViewportCoordinateSystem.clampNormalized.call(this, normalized);
   }
 
   getCanvasRelativeFromClient(point) {
-    if (!this.canvas || !point) {
-      return null;
-    }
-    const rect = this.canvas.getBoundingClientRect();
-    const x = point.clientX - rect.left;
-    const y = point.clientY - rect.top;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      return null;
-    }
-    return { x, y };
+    return ViewportCoordinateSystem.getCanvasRelativeFromClient.call(this, point);
   }
 
   getViewCenter() {
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const normalized = this.viewCenterNormalized || { x: 0.5, y: 0.5 };
-    return {
-      x: width * normalized.x,
-      y: height * normalized.y,
-    };
+    return ViewportCoordinateSystem.getViewCenter.call(this);
   }
 
   setViewCenterFromWorld(world) {
-    if (!world) {
-      return;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    if (!width || !height) {
-      this.viewCenterNormalized = { x: 0.5, y: 0.5 };
-      return;
-    }
-    const normalized = {
-      x: world.x / width,
-      y: world.y / height,
-    };
-    this.viewCenterNormalized = this.clampViewCenterNormalized(normalized);
+    return ViewportCoordinateSystem.setViewCenterFromWorld.call(this, world);
   }
 
   clampViewCenterNormalized(normalized) {
-    if (!normalized) {
-      return { x: 0.5, y: 0.5 };
-    }
-    const scale = Math.max(this.viewScale || 1, 0.0001);
-    // Calculate the half-viewport size in normalized coordinates (0-1 space)
-    const halfWidth = 0.5 / scale;
-    const halfHeight = 0.5 / scale;
-    
-    // Allow camera to move right up to the edges when zoomed in
-    // The camera center can be as close to the edge as halfWidth/halfHeight
-    // This ensures the viewport edge aligns with the playfield boundary
-    const clamp = (value, min, max) => {
-      if (min > max) {
-        return 0.5;
-      }
-      return Math.min(Math.max(value, min), max);
-    };
-    return {
-      x: clamp(normalized.x, halfWidth, 1 - halfWidth),
-      y: clamp(normalized.y, halfHeight, 1 - halfHeight),
-    };
+    return ViewportCoordinateSystem.clampViewCenterNormalized.call(this, normalized);
   }
 
   applyViewConstraints() {
-    this.viewCenterNormalized = this.clampViewCenterNormalized(
-      this.viewCenterNormalized || { x: 0.5, y: 0.5 },
-    );
+    return ViewportCoordinateSystem.applyViewConstraints.call(this);
   }
 
   screenToWorld(point) {
-    if (!point) {
-      return null;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const scale = this.viewScale || 1;
-    if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-      return null;
-    }
-    const center = this.getViewCenter();
-    return {
-      x: center.x + (point.x - width * HALF) / scale,
-      y: center.y + (point.y - height * HALF) / scale,
-    };
+    return ViewportCoordinateSystem.screenToWorld.call(this, point);
   }
 
   worldToScreen(point) {
-    if (!point) {
-      return null;
-    }
-    const width = this.renderWidth || (this.canvas ? this.canvas.clientWidth : 0) || 0;
-    const height = this.renderHeight || (this.canvas ? this.canvas.clientHeight : 0) || 0;
-    const scale = this.viewScale || 1;
-    if (!width || !height || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-      return null;
-    }
-    const center = this.getViewCenter();
-    return {
-      x: width * HALF + (point.x - center.x) * scale,
-      y: height * HALF + (point.y - center.y) * scale,
-    };
+    return ViewportCoordinateSystem.worldToScreen.call(this, point);
   }
+
+  // ── Path navigation helpers (extracted to PathGeometrySystem, Build 713) ──
 
   getPointAlongPath(progress) {
-    if (!this.pathSegments.length) {
-      return { x: 0, y: 0 };
-    }
-
-    const target = Math.min(progress, 1) * this.pathLength;
-    let traversed = 0;
-
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
-      if (traversed + segment.length >= target) {
-        const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
-        return {
-          x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
-          y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
-        };
-      }
-      traversed += segment.length;
-    }
-
-    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+    return PathGeometrySystem.getPointAlongPath.call(this, progress);
   }
 
-  /**
-   * Get the path speed multiplier at a given progress point.
-   * Returns the speed multiplier of the segment the enemy is currently on.
-   */
+  /** Returns the speed multiplier of the path segment at the given progress. */
   getPathSpeedMultiplierAtProgress(progress) {
-    if (!this.pathSegments.length) {
-      return 1;
-    }
-
-    const target = Math.min(progress, 1) * this.pathLength;
-    let traversed = 0;
-
-    for (let index = 0; index < this.pathSegments.length; index += 1) {
-      const segment = this.pathSegments[index];
-      if (traversed + segment.length >= target) {
-        // Interpolate speed multiplier within the segment based on position
-        const distanceIntoSegment = target - traversed;
-        const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
-        
-        const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
-        const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
-        
-        return startSpeed + (endSpeed - startSpeed) * t;
-      }
-      traversed += segment.length;
-    }
-
-    // Default to the last point's speed if no segment found
-    const lastSegment = this.pathSegments[this.pathSegments.length - 1];
-    if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
-      return lastSegment.end.speedMultiplier;
-    }
-    return 1;
+    return PathGeometrySystem.getPathSpeedMultiplierAtProgress.call(this, progress);
   }
 
-  /**
-   * Check if an enemy is currently in a tunnel and get tunnel opacity info
-   * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }
-   */
+  /** Returns tunnel opacity state for an enemy at its current path progress. */
   getEnemyTunnelState(enemy) {
-    if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
-      return { inTunnel: false, opacity: 1, isFadeZone: false };
-    }
-
-    const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
-    const targetDistance = progress * this.pathLength;
-    let traversed = 0;
-
-    // Find which segment the enemy is on
-    for (let i = 0; i < this.pathSegments.length; i += 1) {
-      const segment = this.pathSegments[i];
-      const segmentEnd = traversed + segment.length;
-      
-      if (targetDistance <= segmentEnd) {
-        // Enemy is on this segment - check if it's in a tunnel
-        if (segment.inTunnel) {
-          // Find which tunnel zone this segment belongs to
-          for (const tunnel of this.tunnelSegments) {
-            // Check if this segment falls within the tunnel zone
-            // Guard against zero pathLength
-            if (this.pathLength <= 0) {
-              continue;
-            }
-            const segmentProgress = traversed / this.pathLength;
-            const segmentEndProgress = segmentEnd / this.pathLength;
-            const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
-            const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
-            
-            if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
-              // Enemy is in this tunnel - calculate opacity based on position
-              const distanceIntoSegment = targetDistance - traversed;
-              const segmentRatio = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
-              
-              // Define fade zones: first 20% and last 20% of tunnel
-              const FADE_ZONE_RATIO = 0.2;
-              const tunnelLength = tunnelEndProgress - tunnelStartProgress;
-              
-              // Guard against zero-length tunnels
-              if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
-                return { inTunnel: true, opacity: 0, isFadeZone: false };
-              }
-              
-              const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
-              
-              let opacity = 0; // Default to invisible in tunnel
-              let isFadeZone = false;
-              
-              if (progressInTunnel < FADE_ZONE_RATIO) {
-                // Entry fade zone - fade from 1 to 0
-                opacity = 1 - (progressInTunnel / FADE_ZONE_RATIO);
-                isFadeZone = true;
-              } else if (progressInTunnel > (1 - FADE_ZONE_RATIO)) {
-                // Exit fade zone - fade from 0 to 1
-                opacity = (progressInTunnel - (1 - FADE_ZONE_RATIO)) / FADE_ZONE_RATIO;
-                isFadeZone = true;
-              }
-              
-              return { inTunnel: true, opacity, isFadeZone };
-            }
-          }
-        }
-        break;
-      }
-      
-      traversed = segmentEnd;
-    }
-
-    return { inTunnel: false, opacity: 1, isFadeZone: false };
+    return PathGeometrySystem.getEnemyTunnelState.call(this, enemy);
   }
 
-  /**
-   * Get the progress (0-1) at a specific path point index
-   */
+  /** Returns the normalised progress at a specific path point index. */
   getProgressAtPointIndex(pointIndex) {
-    if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
-      return 0;
-    }
-    
-    let distance = 0;
-    for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
-      distance += this.pathSegments[i].length;
-    }
-    
-    return this.pathLength > 0 ? distance / this.pathLength : 0;
+    return PathGeometrySystem.getProgressAtPointIndex.call(this, pointIndex);
   }
 
   getEnemyPosition(enemy) {
-    if (!enemy) {
-      return { x: 0, y: 0 };
-    }
-
-    // Handle radial spawn enemies (spawn from edges, move to center)
-    if (enemy.radialSpawnX !== undefined && enemy.radialSpawnY !== undefined && this.levelConfig?.centerSpawn) {
-      // Get center position (should be at path[0] for radial levels)
-      const center = this.levelConfig.path && this.levelConfig.path.length > 0
-        ? { x: this.levelConfig.path[0].x * this.renderWidth, y: this.levelConfig.path[0].y * this.renderHeight }
-        : { x: this.renderWidth * 0.5, y: this.renderHeight * 0.5 };
-      
-      const start = {
-        x: enemy.radialSpawnX * this.renderWidth,
-        y: enemy.radialSpawnY * this.renderHeight
-      };
-      
-      const clamped = Math.max(0, Math.min(1, enemy.progress));
-      return {
-        x: start.x + (center.x - start.x) * clamped,
-        y: start.y + (center.y - start.y) * clamped,
-      };
-    }
-
-    if (enemy.pathMode === 'direct' && this.pathSegments.length) {
-      const startSegment = this.pathSegments[0];
-      const endSegment = this.pathSegments[this.pathSegments.length - 1];
-      const start = startSegment ? startSegment.start : { x: 0, y: 0 };
-      const end = endSegment ? endSegment.end : start;
-      const clamped = Math.max(0, Math.min(1, enemy.progress));
-      return {
-        x: start.x + (end.x - start.x) * clamped,
-        y: start.y + (end.y - start.y) * clamped,
-      };
-    }
-
-    return this.getPointAlongPath(enemy.progress);
+    return PathGeometrySystem.getEnemyPosition.call(this, enemy);
   }
 
   draw() {
@@ -5242,8 +3805,23 @@ export class SimplePlayfield {
     return CanvasRenderer.drawOmicronUnits.call(this);
   }
 
+  // Render complex-plane field overlays for active Iota towers with Phase Coupling.
+  drawIotaFieldOverlays() {
+    return CanvasRenderer.drawIotaFieldOverlays.call(this);
+  }
+
+  // Render phase projection visual effects (pulses, arcs) for Iota Phase Coupling.
+  drawIotaPhaseEffects() {
+    return CanvasRenderer.drawIotaPhaseEffects.call(this);
+  }
+
   drawEnemies() {
     return CanvasRenderer.drawEnemies.call(this);
+  }
+
+  // Render Hypernode prismatic polygon shield and connection lines above enemies.
+  drawHypernodeShield() {
+    return CanvasRenderer.drawHypernodeShield.call(this);
   }
 
   // Render particle fragments from defeated enemies so the battlefield reflects recent combat.
@@ -5339,9 +3917,22 @@ Object.assign(SimplePlayfield.prototype, {
   handleTowerPointerRelease: GestureController.handleTowerPointerRelease,
 });
 
-// Floater particle system methods
+// Floater particle system methods — update, layout, and ambient bounds
 Object.assign(SimplePlayfield.prototype, {
   updateFloaters: FloaterSystem.updateFloaters,
+  computeFloaterCount: FloaterSystem.computeFloaterCount,
+  randomFloaterRadiusFactor: FloaterSystem.randomFloaterRadiusFactor,
+  createFloater: FloaterSystem.createFloater,
+  getAmbientEffectBounds: FloaterSystem.getAmbientEffectBounds,
+  ensureFloatersLayout: FloaterSystem.ensureFloatersLayout,
+});
+
+// Tower glyph transition system methods (promotion/demotion animation state and lifecycle)
+Object.assign(SimplePlayfield.prototype, {
+  queueTowerGlyphTransition: TowerGlyphTransitionSystem.queueTowerGlyphTransition,
+  buildTowerGlyphParticles: TowerGlyphTransitionSystem.buildTowerGlyphParticles,
+  normalizeSwipeVector: TowerGlyphTransitionSystem.normalizeSwipeVector,
+  updateTowerGlyphTransitions: TowerGlyphTransitionSystem.updateTowerGlyphTransitions,
 });
 
 // Background swimmer system methods
@@ -5430,7 +4021,7 @@ Object.assign(SimplePlayfield.prototype, {
       this.combatStatsManager.recordKillEvent(tower);
     }
   },
-  notifyEnemyDeath(enemy) {
+  notifyEnemyDeath(_enemy) {
     // Hook for external systems to observe enemy deaths. Actual defeat handling is
     // performed by processEnemyDefeat; this no-op satisfies the CombatStateManager
     // callback contract so the game loop is not interrupted by a missing method.

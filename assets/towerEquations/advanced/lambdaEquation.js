@@ -144,7 +144,7 @@ export const lambda = {
     const enemyWeight = Number.isFinite(values.enemyWeight) ? values.enemyWeight : 1;
     return kappa * enemyWeight;
   },
-  formatBaseEquationValues({ values, result, formatComponent }) {
+  formatBaseEquationValues({ values, result: _result, formatComponent }) {
     const kappa = Number.isFinite(values.kappa) ? values.kappa : 0;
     const enemyWeight = Number.isFinite(values.enemyWeight) ? values.enemyWeight : 1;
     const total = kappa * enemyWeight;

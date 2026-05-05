@@ -2,26 +2,7 @@
 // Support classes and constants extracted from FluidTerrariumShrooms.
 // Provides TerrainCollider, Spore, BaseShroom, PhiShroom, and PsiShroom.
 
-/**
- * Clamp a value between min and max bounds.
- * @param {number} value
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-/**
- * Generate a random float within the provided range.
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-function randomBetween(min, max) {
-  return min + Math.random() * (max - min);
-}
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
 
 // Phi shroom color variants - bright glowing colors
 export const PHI_SHROOM_COLORS = {

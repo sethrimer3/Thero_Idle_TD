@@ -82,7 +82,7 @@ export function updateQuantumProjection(enemy, delta) {
  * @param {object} truePos - true enemy position on the path
  * @returns {{ hit: boolean, collapse: boolean }}
  */
-export function resolveQuantumHit(enemy, hitPos, truePos) {
+export function resolveQuantumHit(enemy, _hitPos, _truePos) {
   if (!enemy || !enemy._quantum) {
     return { hit: true, collapse: false };
   }

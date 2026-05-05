@@ -80,7 +80,7 @@ export function createTowerUpgradeOverlayController({
   /**
    * Escape special characters so variable keys can be used in RegExp patterns.
    */
-  function escapeRegExp(value) {
+  function _escapeRegExp(value) {
     if (typeof value !== 'string') {
       return '';
     }
@@ -506,7 +506,7 @@ export function createTowerUpgradeOverlayController({
         if (typeof formatted === 'string') {
           return formatted;
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore formatting errors and fall back to default formatting.
       }
     }
@@ -576,25 +576,35 @@ export function createTowerUpgradeOverlayController({
   }
 
   function getVariableCurrencyKey(variable) {
-    return variable?.glyphCurrency === 'bet' ? 'bet' : 'aleph';
+    if (variable?.glyphCurrency === 'bet') return 'bet';
+    if (variable?.glyphCurrency === 'tsadi') return 'tsadi';
+    return 'aleph';
   }
 
   function getCurrencyMeta(currencyKey = 'aleph') {
     if (currencyKey === 'bet') {
       return { singular: 'Bet glyph', plural: 'Bet glyphs', short: 'Bet Glyphs', symbol: 'בּ' };
     }
+    if (currencyKey === 'tsadi') {
+      return { singular: 'Tsadi glyph', plural: 'Tsadi glyphs', short: 'Tsadi Glyphs', symbol: 'צ' };
+    }
     return { singular: 'glyph', plural: 'glyphs', short: 'Glyphs', symbol: 'ℵ' };
   }
 
   function getAvailableCurrency(currencyKey = 'aleph') {
-    const balance = currencyKey === 'bet' ? towerTabState.betGlyphCurrency : towerTabState.glyphCurrency;
-    return Math.max(0, Math.floor(balance || 0));
+    if (currencyKey === 'bet') return Math.max(0, Math.floor(towerTabState.betGlyphCurrency || 0));
+    if (currencyKey === 'tsadi') return Math.max(0, Math.floor(towerTabState.tsadiGlyphCurrency || 0));
+    return Math.max(0, Math.floor(towerTabState.glyphCurrency || 0));
   }
 
   function adjustCurrencyBalance(currencyKey = 'aleph', delta = 0) {
     if (currencyKey === 'bet') {
       towerTabState.betGlyphCurrency = Math.max(0, Math.floor((towerTabState.betGlyphCurrency || 0) + delta));
       return towerTabState.betGlyphCurrency;
+    }
+    if (currencyKey === 'tsadi') {
+      towerTabState.tsadiGlyphCurrency = Math.max(0, Math.floor((towerTabState.tsadiGlyphCurrency || 0) + delta));
+      return towerTabState.tsadiGlyphCurrency;
     }
     towerTabState.glyphCurrency = Math.max(0, Math.floor((towerTabState.glyphCurrency || 0) + delta));
     return towerTabState.glyphCurrency;
@@ -681,8 +691,8 @@ export function createTowerUpgradeOverlayController({
       if (typeof entry === 'function') {
         try {
           collect(entry(context));
-        } catch (error) {
-          console.warn('Failed to evaluate tower variable sub-equation', error);
+        } catch (_error) {
+          console.warn('Failed to evaluate tower variable sub-equation', _error);
         }
         return;
       }
@@ -1148,8 +1158,8 @@ export function createTowerUpgradeOverlayController({
             result,
             formatComponent,
           });
-        } catch (error) {
-          console.warn('Failed to format base equation values', error);
+        } catch (_error) {
+          console.warn('Failed to format base equation values', _error);
         }
       }
 
@@ -1300,7 +1310,7 @@ export function createTowerUpgradeOverlayController({
     if (towerTabState.lastTowerUpgradeTrigger && typeof towerTabState.lastTowerUpgradeTrigger.focus === 'function') {
       try {
         towerTabState.lastTowerUpgradeTrigger.focus({ preventScroll: true });
-      } catch (error) {
+      } catch (_error) {
         towerTabState.lastTowerUpgradeTrigger.focus();
       }
     }

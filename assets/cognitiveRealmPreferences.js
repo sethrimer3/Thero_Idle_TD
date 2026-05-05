@@ -33,7 +33,7 @@ let nodeDriftState = null;
 let randomizedLayoutToggle = null;
 let randomizedLayoutState = null;
 let renderOverlapSelect = null;
-let renderOverlapRow = null;
+let _renderOverlapRow = null;
 
 /**
  * Persist the current settings to localStorage.
@@ -191,7 +191,7 @@ export function bindCognitiveRealmOptions() {
   }
 
   renderOverlapSelect = document.getElementById('cognitive-realm-render-size-select');
-  renderOverlapRow = document.getElementById('cognitive-realm-render-size-row');
+  _renderOverlapRow = document.getElementById('cognitive-realm-render-size-row');
 
   if (renderOverlapSelect) {
     renderOverlapSelect.addEventListener('change', (event) => {

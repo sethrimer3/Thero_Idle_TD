@@ -264,6 +264,23 @@
       "lore": "It arrives wrapped in the certainty of zero, but each step adds a sliver of doubt until the integral converges to its doom.",
       "formula": "(m(x) = \\max(0.05,\\; x^{0.8}))",
       "formulaLabel": "Exposure Curve"
+    },
+    {
+      "id": "hypernode",
+      "symbol": "⬡",
+      "name": "Hypernode",
+      "summary": "A network-anchor boss that forms defensive connections to nearby enemies, creating a prismatic polygonal shield that blocks projectiles and disables towers inside it.",
+      "traits": [
+        "Connects to up to 10 nearby enemies, forming a convex hull polygon shield.",
+        "Any projectile crossing the polygon boundary or interior is destroyed instantly.",
+        "Towers whose center lies inside the polygon are disabled until they leave.",
+        "Connections recalculate every 0.25 seconds and immediately when enemies die.",
+        "Fewer than 2 connections: lines are drawn but no polygon is formed."
+      ],
+      "counter": "Eliminate connected minions to collapse the polygon, then strike the exposed Hypernode directly.",
+      "lore": "A prismatic intelligence woven from graph theory, it binds lesser constructs into a shimmering lattice of mutual defense.",
+      "formula": "(\\text{hull} = \\operatorname{ConvexHull}(H \\cup \\{e_1, \\ldots, e_n\\}))",
+      "formulaLabel": "Shield Polygon"
     }
   ],
   "maps": [
@@ -421,6 +438,42 @@
       "path": "The ultimate proof—all concepts converge.",
       "focus": "Master every mechanic in the ultimate challenge.",
       "example": "Trial: Prove your mastery of all theorems."
+    },
+    {
+      "set": "Glyph Trials",
+      "id": "Glyph Trial - 1",
+      "campaign": "Challenges",
+      "title": "Alpha Lattice",
+      "path": "Twin α sentinels flank a linear approach—assign glyphs to refine their output.",
+      "focus": "Strengthen pre-placed α towers through glyph investment alone.",
+      "example": "Glyph Trial: No new towers—only your glyph choices determine the outcome."
+    },
+    {
+      "set": "Glyph Trials",
+      "id": "Glyph Trial - 2",
+      "campaign": "Challenges",
+      "title": "Beta Weave",
+      "path": "A curving corridor guarded by α and β anchors awaiting your symbolic touch.",
+      "focus": "Coordinate glyph allocation across α and β towers on a bending lane.",
+      "example": "Glyph Trial: Invest glyphs wisely—the weave tightens with each wave."
+    },
+    {
+      "set": "Glyph Trials",
+      "id": "Glyph Trial - 3",
+      "campaign": "Challenges",
+      "title": "Gamma Surge",
+      "path": "Three-tower formation across a zigzag path; γ splash shapes the battlefield.",
+      "focus": "Distribute glyphs across α, β, and γ to contain a surging enemy tide.",
+      "example": "Glyph Trial: Each glyph tier multiplies the surge—balance or be overwhelmed."
+    },
+    {
+      "set": "Glyph Trials",
+      "id": "Glyph Trial - 4",
+      "campaign": "Challenges",
+      "title": "Full Resonance",
+      "path": "Four anchors hold the spiral—master glyph resonance to seal the final proof.",
+      "focus": "Achieve full resonance by optimally investing glyphs across all four towers.",
+      "example": "Glyph Trial: The resonance is yours—prove it with symbols, not placements."
     },
     {
       "set": "Chapter 2",
@@ -7446,6 +7499,135 @@
           "x": 0.78,
           "y": 0.28
         }
+      ]
+    },
+    {
+      "id": "Glyph Trial - 1",
+      "displayName": "Alpha Lattice",
+      "isGlyphTrialLevel": true,
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 20,
+      "waves": "1:6A2.0e3/1.8|2:8A4.0e3/1.6|3:10A8.0e3/1.5|4:12A1.6e4/1.4|5:14A3.2e4/1.3",
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.18,
+      "path": [
+        { "x": 0.05, "y": 0.5 },
+        { "x": 0.25, "y": 0.5 },
+        { "x": 0.5,  "y": 0.5 },
+        { "x": 0.75, "y": 0.5 },
+        { "x": 0.95, "y": 0.5 }
+      ],
+      "autoAnchors": [],
+      "preplacedTowers": [
+        { "type": "alpha", "x": 0.38, "y": 0.32 },
+        { "type": "alpha", "x": 0.62, "y": 0.68 }
+      ]
+    },
+    {
+      "id": "Glyph Trial - 2",
+      "displayName": "Beta Weave",
+      "isGlyphTrialLevel": true,
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 18,
+      "waves": "1:8A4.0e3/1.8|2:6B2.0e4+4A1.0e4/1.6|3:8B4.0e4+6A2.0e4/1.5|4:10B8.0e4+8A4.0e4/1.4|5:12B1.6e5+10A8.0e4/1.3",
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.16,
+      "path": [
+        { "x": 0.05, "y": 0.7 },
+        { "x": 0.25, "y": 0.7 },
+        { "x": 0.4,  "y": 0.5 },
+        { "x": 0.55, "y": 0.3 },
+        { "x": 0.7,  "y": 0.3 },
+        { "x": 0.85, "y": 0.5 },
+        { "x": 0.95, "y": 0.5 }
+      ],
+      "autoAnchors": [],
+      "preplacedTowers": [
+        { "type": "alpha", "x": 0.22, "y": 0.5 },
+        { "type": "beta",  "x": 0.48, "y": 0.68 },
+        { "type": "alpha", "x": 0.72, "y": 0.5 }
+      ]
+    },
+    {
+      "id": "Glyph Trial - 3",
+      "displayName": "Gamma Surge",
+      "isGlyphTrialLevel": true,
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 15,
+      "waves": "1:10A8.0e3/1.8|2:8B4.0e4+6A2.0e4/1.6|3:10B8.0e4+8A4.0e4+4C2.0e5/1.5|4:12B1.6e5+10A8.0e4+6C4.0e5/1.4|5:14B3.2e5+12A1.6e5+8C8.0e5/1.3",
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.15,
+      "path": [
+        { "x": 0.05, "y": 0.5 },
+        { "x": 0.2,  "y": 0.25 },
+        { "x": 0.4,  "y": 0.5 },
+        { "x": 0.6,  "y": 0.75 },
+        { "x": 0.8,  "y": 0.5 },
+        { "x": 0.95, "y": 0.5 }
+      ],
+      "autoAnchors": [],
+      "preplacedTowers": [
+        { "type": "alpha", "x": 0.15, "y": 0.62 },
+        { "type": "gamma", "x": 0.4,  "y": 0.3  },
+        { "type": "alpha", "x": 0.62, "y": 0.62 },
+        { "type": "beta",  "x": 0.8,  "y": 0.3  }
+      ]
+    },
+    {
+      "id": "Glyph Trial - 4",
+      "displayName": "Full Resonance",
+      "isGlyphTrialLevel": true,
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 12,
+      "waves": "1:10B8.0e4+8A4.0e4/1.8|2:12B1.6e5+10A8.0e4+6C4.0e5/1.6|3:14B3.2e5+12A1.6e5+8C8.0e5/1.5|4:16B6.4e5+14A3.2e5+10C1.6e6/1.4|5:18B1.28e6+16A6.4e5+12C3.2e6/1.3",
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.14,
+      "path": [
+        { "x": 0.05, "y": 0.5  },
+        { "x": 0.2,  "y": 0.25 },
+        { "x": 0.4,  "y": 0.2  },
+        { "x": 0.6,  "y": 0.3  },
+        { "x": 0.75, "y": 0.5  },
+        { "x": 0.6,  "y": 0.7  },
+        { "x": 0.4,  "y": 0.8  },
+        { "x": 0.2,  "y": 0.75 },
+        { "x": 0.1,  "y": 0.6  },
+        { "x": 0.15, "y": 0.45 },
+        { "x": 0.3,  "y": 0.35 },
+        { "x": 0.5,  "y": 0.4  },
+        { "x": 0.7,  "y": 0.45 },
+        { "x": 0.95, "y": 0.5  }
+      ],
+      "autoAnchors": [],
+      "preplacedTowers": [
+        { "type": "alpha", "x": 0.28, "y": 0.38 },
+        { "type": "beta",  "x": 0.55, "y": 0.2  },
+        { "type": "gamma", "x": 0.82, "y": 0.38 },
+        { "type": "alpha", "x": 0.5,  "y": 0.68 }
       ]
     }
   ]

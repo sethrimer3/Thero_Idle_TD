@@ -57,7 +57,7 @@ function updateTrail(particle) {
 /**
  * Ensure Ω tower state is initialized and up-to-date with current sub-equation values.
  */
-export function ensureOmegaState(playfield, tower, options = {}) {
+export function ensureOmegaState(playfield, tower, _options = {}) {
   if (!playfield || !tower || tower.type !== 'omega') {
     return null;
   }

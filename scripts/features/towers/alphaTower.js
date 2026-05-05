@@ -218,7 +218,7 @@ function resolveTarget(playfield, burst) {
 }
 
 // Drive the initial circular swirl that collapses particles toward α's core.
-function updateSwirlPhase(burst, delta) {
+function updateSwirlPhase(burst, _delta) {
   const duration = burst.swirlDuration;
   const progress = duration > 0 ? clamp(burst.phaseTime / duration, 0, 1) : 1;
   const eased = easeOutCubic(progress);
@@ -251,7 +251,7 @@ function updateSwirlPhase(burst, delta) {
 }
 
 // Hold particles briefly near the center to build tension before the firing vector forms.
-function updateChargePhase(burst, delta) {
+function updateChargePhase(burst, _delta) {
   const duration = burst.chargeDuration;
   const progress = duration > 0 ? clamp(burst.phaseTime / duration, 0, 1) : 1;
   burst.particles.forEach((particle) => {
@@ -494,7 +494,7 @@ function updateDashPhase(playfield, burst, delta) {
         const currentCycle = Math.floor(progress * ALPHA_OSCILLATION_CYCLES);
         
         // Calculate key points
-        const distance = Math.hypot(dx, dy);
+        const _distance = Math.hypot(dx, dy);
         const midX = start.x + dx * 0.5;
         const midY = start.y + dy * 0.5;
         

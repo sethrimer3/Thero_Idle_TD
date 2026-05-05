@@ -135,7 +135,7 @@ export class DensityCollapseTower extends GraphTowerBase {
    * @param {Array} points - Active point array.
    * @param {number} now   - Current game time.
    */
-  _triggerCollapse(points, now) {
+  _triggerCollapse(points, _now) {
     // Compute centroid: x̄ = Σx/n, ȳ = Σy/n
     let cx = 0, cy = 0;
     for (let i = 0; i < points.length; i++) {
@@ -237,7 +237,7 @@ export class DensityCollapseTower extends GraphTowerBase {
 
   // ── Rendering Overlay ────────────────────────────────────────────────────
 
-  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, now) {
+  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, _now) {
     // Draw heatmap.
     this._drawHeatmap(ctx, radius, scale, cx, cy);
 
@@ -279,7 +279,7 @@ export class DensityCollapseTower extends GraphTowerBase {
   }
 
   /** Draw the collapse explosion animation. */
-  _drawCollapse(ctx, toPixel, scale, cx, cy) {
+  _drawCollapse(ctx, toPixel, scale, _cx, _cy) {
     const progress = 1 - this._collapseTimer / COLLAPSE_ANIM_DURATION;
     const center = toPixel(this._collapseCentroid.x, this._collapseCentroid.y);
     const collapseRadius = this.getCollapseRadius() * scale;

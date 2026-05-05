@@ -1,7 +1,7 @@
 // Boosts section UI for the achievements tab.
 // Provides in-app purchase option and ad-based boost buttons.
 
-import { formatWholeNumber } from '../scripts/core/formatting.js';
+import '../scripts/core/formatting.js';
 import {
   loadMonetizationState,
   getMonetizationState,

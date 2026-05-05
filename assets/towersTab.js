@@ -1,8 +1,5 @@
 import {
-  MATH_SYMBOL_REGEX,
   renderMathElement,
-  isLikelyMathExpression,
-  annotateMathText,
   convertMathExpressionToPlainText,
 } from '../scripts/core/mathText.js';
 import { tokenizeEquationParts } from '../scripts/core/mathTokens.js';
@@ -10,8 +7,6 @@ import {
   formatGameNumber,
   formatWholeNumber,
   formatDecimal,
-  formatPercentage,
-  formatSignedPercentage,
 } from '../scripts/core/formatting.js';
 import {
   canvasFractionToMeters,
@@ -220,6 +215,7 @@ const towerTabState = {
   playfield: null,
   glyphCurrency: 0,
   betGlyphCurrency: 0,
+  tsadiGlyphCurrency: 0,
   hideUpgradeMatrix: null,
   renderUpgradeMatrix: null,
   discoveredVariables: new Map(),
@@ -417,8 +413,8 @@ async function loadAndColorSvg(iconUrl, palette) {
     applySvgPaletteColors(svgElement, palette);
     
     return svgElement;
-  } catch (error) {
-    console.warn(`Error loading tower icon SVG: ${iconUrl}`, error);
+  } catch (_error) {
+    console.warn(`Error loading tower icon SVG: ${iconUrl}`, _error);
     return null;
   }
 }
@@ -708,7 +704,7 @@ function normalizeLoadoutSlots() {
 /**
  * Count the number of equipped towers ignoring placeholder slots.
  */
-function getEquippedLoadoutCount() {
+function _getEquippedLoadoutCount() {
   return normalizeLoadoutSlots().filter((towerId) => typeof towerId === 'string').length;
 }
 
@@ -808,6 +804,24 @@ export function addBetGlyphCurrency(delta) {
 
 export function getBetGlyphCurrency() {
   return towerTabState.betGlyphCurrency;
+}
+
+export function setTsadiGlyphCurrency(value) {
+  if (Number.isFinite(value)) {
+    towerTabState.tsadiGlyphCurrency = Math.max(0, Math.floor(value));
+    updateTowerUpgradeGlyphDisplay();
+    updateStatusDisplaysCallback?.();
+  }
+}
+
+export function addTsadiGlyphCurrency(delta) {
+  if (Number.isFinite(delta)) {
+    setTsadiGlyphCurrency(towerTabState.tsadiGlyphCurrency + delta);
+  }
+}
+
+export function getTsadiGlyphCurrency() {
+  return towerTabState.tsadiGlyphCurrency;
 }
 
 export function setTheroSymbol(symbol = 'þ') {
@@ -1180,7 +1194,7 @@ export function unlockTower(towerId, { silent = false } = {}) {
   return true;
 }
 
-function createPreviewId(prefix, value) {
+function _createPreviewId(prefix, value) {
   const slug = String(value || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -1391,7 +1405,7 @@ export function toggleTowerSelection(towerId, { anchorButton = null } = {}) {
 }
 
 
-function formatTowerVariableValue(variable, value) {
+function _formatTowerVariableValue(variable, value) {
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -1401,7 +1415,7 @@ function formatTowerVariableValue(variable, value) {
       if (typeof formatted === 'string') {
         return formatted;
       }
-    } catch (error) {
+    } catch (_error) {
       // Ignore formatting errors and fall back to default formatting.
     }
   }
@@ -1471,22 +1485,28 @@ function getVariableGlyphLabel(variable) {
 }
 
 function getVariableCurrencyKey(variable) {
-  return variable?.glyphCurrency === 'bet' ? 'bet' : 'aleph';
+  if (variable?.glyphCurrency === 'bet') return 'bet';
+  if (variable?.glyphCurrency === 'tsadi') return 'tsadi';
+  return 'aleph';
 }
 
 function getCurrencyMeta(currencyKey = 'aleph') {
   if (currencyKey === 'bet') {
     return { singular: 'Bet glyph', plural: 'Bet glyphs', short: 'Bet Glyphs', symbol: 'בּ' };
   }
+  if (currencyKey === 'tsadi') {
+    return { singular: 'Tsadi glyph', plural: 'Tsadi glyphs', short: 'Tsadi Glyphs', symbol: 'צ' };
+  }
   return { singular: 'glyph', plural: 'glyphs', short: 'Glyphs', symbol: 'ℵ' };
 }
 
 function getAvailableCurrency(currencyKey = 'aleph') {
-  const balance = currencyKey === 'bet' ? towerTabState.betGlyphCurrency : towerTabState.glyphCurrency;
-  return Math.max(0, Math.floor(balance || 0));
+  if (currencyKey === 'bet') return Math.max(0, Math.floor(towerTabState.betGlyphCurrency || 0));
+  if (currencyKey === 'tsadi') return Math.max(0, Math.floor(towerTabState.tsadiGlyphCurrency || 0));
+  return Math.max(0, Math.floor(towerTabState.glyphCurrency || 0));
 }
 
-function buildVariableGlyphControls(variable, towerId, level, options = {}) {
+function _buildVariableGlyphControls(variable, towerId, level, options = {}) {
   const { asAttachment = false } = options;
   const controls = document.createElement('div');
   controls.className = 'tower-upgrade-variable-controls';
@@ -1550,7 +1570,7 @@ function buildVariableGlyphControls(variable, towerId, level, options = {}) {
   return controls;
 }
 
-function resolveTowerVariableSubEquations(variable, context = {}) {
+function _resolveTowerVariableSubEquations(variable, context = {}) {
   if (!variable) {
     return [];
   }
@@ -1567,8 +1587,8 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
     if (typeof entry === 'function') {
       try {
         collect(entry(context));
-      } catch (error) {
-        console.warn('Failed to evaluate tower variable sub-equation', error);
+      } catch (_error) {
+        console.warn('Failed to evaluate tower variable sub-equation', _error);
       }
       return;
     }
@@ -1609,7 +1629,7 @@ function resolveTowerVariableSubEquations(variable, context = {}) {
   return lines;
 }
 
-function formatTowerEquationResultValue(value) {
+function _formatTowerEquationResultValue(value) {
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -1619,7 +1639,7 @@ function formatTowerEquationResultValue(value) {
   return formatDecimal(value, 2);
 }
 
-function extractTowerCardEquation(card) {
+function _extractTowerCardEquation(card) {
   if (!(card instanceof HTMLElement)) {
     return '';
   }

@@ -19,7 +19,7 @@ const PARTICLE_GENERATORS = PARTICLE_TIERS.map(tier => ({
  * Create the BET spire upgrade menu system
  */
 export function createBetSpireUpgradeMenu({
-  formatWholeNumber = (value) => String(Math.floor(value)),
+  _formatWholeNumber = (value) => String(Math.floor(value)),
   formatGameNumber = (value) => String(value),
   formatDecimal = (value, places = 2) => value?.toFixed ? value.toFixed(places) : String(value),
   state = {},
@@ -231,7 +231,7 @@ export function createBetSpireUpgradeMenu({
     // Add particle factor equation display
     const equationElement = document.getElementById('bet-particle-equation');
     if (equationElement) {
-      const equationParts = [];
+      const _equationParts = [];
       const unlockedTiers = [];
       
       // Get unlocked tiers from render instance

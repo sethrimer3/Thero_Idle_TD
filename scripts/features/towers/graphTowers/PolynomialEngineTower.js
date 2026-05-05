@@ -99,7 +99,7 @@ export class PolynomialEngineTower extends GraphTowerBase {
 
   // ── Per-Frame Logic ──────────────────────────────────────────────────────
 
-  _onTick(dt, now) {
+  _onTick(dt, _now) {
     const points = this.pointPool.active;
 
     // Determine effective degree.
@@ -203,7 +203,7 @@ export class PolynomialEngineTower extends GraphTowerBase {
 
   // ── Rendering Overlay ────────────────────────────────────────────────────
 
-  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, now) {
+  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, _now) {
     if (this._curvePoints.length === 0) return;
 
     const curveWidth = this._curveWidthEq.evaluate(this.glyphs) * scale;

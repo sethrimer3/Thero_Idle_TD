@@ -17,6 +17,12 @@ import {
   updateWeierstrass,
 } from './WeierstrassBossSystem.js';
 
+import {
+  initHypernode,
+  updateHypernode,
+  updateTowerDisableStates,
+} from './HypernodeBossSystem.js';
+
 // Scale factor applied to a derivative-shield enemy's visual radius to determine coverage area.
 const DERIVATIVE_SHIELD_RADIUS_SCALE = 4.2;
 // Minimum pixel radius for the derivative shield coverage zone regardless of enemy size.
@@ -280,6 +286,19 @@ export function updateEnemies(delta) {
       updateWeierstrass(enemy, delta);
     }
 
+    // Hypernode: initialise network-anchor boss state and update connections/polygon.
+    if ((enemy.codexId || enemy.typeId) === 'hypernode') {
+      initHypernode(enemy);
+      updateHypernode(
+        enemy,
+        delta,
+        this.enemies,
+        (e) => this.getEnemyPosition(e),
+        (id) => this.getEnemyById(id),
+      );
+      updateTowerDisableStates(enemy, this.towers);
+    }
+
     // Imaginary Strider: temporary placeholder invulnerability after each hit (3-second window).
     if ((enemy.codexId || enemy.typeId) === 'imaginary-strider') {
       if (enemy.isInvulnerable && Number.isFinite(enemy.invulnerabilityTimer)) {
@@ -335,7 +354,7 @@ export function updateEnemies(delta) {
 }
 
 // Maintain derivative shield coverage so the mitigation state follows the projector as it marches down the path.
-export function updateDerivativeShieldStates(delta) {
+export function updateDerivativeShieldStates(_delta) {
   if (!Array.isArray(this.enemies) || !this.enemies.length) {
     return;
   }

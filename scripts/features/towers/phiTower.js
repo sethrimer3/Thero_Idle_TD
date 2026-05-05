@@ -19,7 +19,6 @@
  *   - Return phase: T_OUT + T_SPIN ≤ t < T_OUT + T_SPIN + T_BACK
  */
 
-import { metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
 
 // Golden ratio and related constants

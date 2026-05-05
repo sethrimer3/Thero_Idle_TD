@@ -4,7 +4,7 @@ import {
 } from '../../../scripts/core/formatting.js';
 import { blueprintContext } from '../blueprintContext.js';
 
-const ctx = () => blueprintContext;
+const _ctx = () => blueprintContext;
 
 export const omega = {
   mathSymbol: String.raw`\Omega`,
@@ -34,7 +34,7 @@ export const omega = {
       getSubEquations({ value }) {
         const boost = Math.max(0, Number.isFinite(value) ? value : 1.0);
         const multiplier = 1 + boost;
-        const rank = Math.max(0, Math.floor(boost / 0.15));
+        const _rank = Math.max(0, Math.floor(boost / 0.15));
         const rangeMeters = 7.0 * multiplier;
         return [
           { expression: String.raw`\( \text{R}_{\Omega} = 1 + 0.15 \times \aleph_{1} \)` },
@@ -97,7 +97,7 @@ export const omega = {
       getSubEquations({ value }) {
         const boost = Math.max(0, Number.isFinite(value) ? value : 1.0);
         const multiplier = 1 + boost;
-        const rank = Math.max(0, Math.floor(boost / 0.2));
+        const _rank = Math.max(0, Math.floor(boost / 0.2));
         const cooldown = 4.0 / multiplier;
         return [
           { expression: String.raw`\( \text{C}^{-1} = 1 + 0.2 \times \aleph_{3} \)` },

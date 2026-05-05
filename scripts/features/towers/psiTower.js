@@ -1,7 +1,6 @@
 // ψ tower helper module for merge mechanics that combine enemies into powerful PsiClusters.
 import {
   computeTowerVariableValue,
-  calculateTowerEquationResult,
 } from '../../../assets/towersTab.js';
 import { metersToPixels } from '../../../assets/gameUnits.js';
 
@@ -21,7 +20,7 @@ const DEFAULT_MERGE_SPEED_EXPONENT = 0.5;
 /**
  * Ensure ψ towers maintain their merge state and timing information.
  */
-export function ensurePsiState(playfield, tower, options = {}) {
+export function ensurePsiState(playfield, tower, _options = {}) {
   if (!playfield || !tower || tower.type !== 'psi') {
     return null;
   }
@@ -213,7 +212,7 @@ function performMerge(playfield, tower, selectedEnemies, state) {
   let totalSpeed = 0;
   let totalReward = 0;
   let maxProgress = -Infinity;
-  let maxProgressPosition = null;
+  let _maxProgressPosition = null;
 
   selectedEnemies.forEach(({ enemy, position }) => {
     totalHp += Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
@@ -223,7 +222,7 @@ function performMerge(playfield, tower, selectedEnemies, state) {
     const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
     if (progress > maxProgress) {
       maxProgress = progress;
-      maxProgressPosition = position;
+      _maxProgressPosition = position;
     }
   });
 

@@ -11,8 +11,9 @@ import {
   Spore,
   PhiShroom,
   PsiShroom,
-  SHROOM_CONFIG,
+  SHROOM_CONFIG as _SHROOM_CONFIG,
 } from './fluidTerrariumShroomSimulation.js';
+import { clamp, randomBetween } from '../scripts/core/mathUtils.js';
 
 /**
  * Main controller for the terrarium shroom system.

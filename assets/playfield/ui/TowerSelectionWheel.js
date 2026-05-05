@@ -12,7 +12,7 @@ const HALF = 0.5;
 const POINTER_RELEASE_GRACE_PERIOD_MS = 100;
 
 // Show exactly 3 towers: previous, current (center), next
-const VISIBLE_TOWER_COUNT = 3;
+const _VISIBLE_TOWER_COUNT = 3;
 
 // Slot height for layout calculations - the center slot is at 1.25x this height
 const BASE_SLOT_SIZE = 56;
@@ -249,7 +249,7 @@ export function openTowerSelectionWheel(tower) {
         if (event.pointerType !== 'touch') {
           wheel.container.setPointerCapture(event.pointerId);
         }
-      } catch (error) {
+      } catch (_error) {
         // Ignore pointer-capture errors to keep scrolling responsive.
       }
     }
@@ -272,7 +272,7 @@ export function openTowerSelectionWheel(tower) {
     if (wheel.dragState.isDragging) {
       try {
         wheel.container.releasePointerCapture(event.pointerId);
-      } catch (error) {
+      } catch (_error) {
         // Ignore pointer-capture errors when the pointer ends.
       }
     }

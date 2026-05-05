@@ -239,8 +239,8 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₁`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
-        const effective = blueprint || ctx().getTowerEquationBlueprint(towerId);
+      getSubEquations({ blueprint, towerId, level: _level, value }) {
+        const _effective = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const spd = 10 * Math.log(rank + 1);
         return [
@@ -260,7 +260,7 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₂`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, level: _level, value }) {
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const rng = 5 * Math.log(rank + 2);
         return [
@@ -280,7 +280,7 @@ export const epsilon = {
       upgradable: true,
       format: (value) => `${formatWholeNumber(value)} ℵ₃`,
       cost: (level) => Math.max(1, 1 + level),
-      getSubEquations({ blueprint, towerId, level, value }) {
+      getSubEquations({ blueprint: _blueprint, towerId: _towerId, level: _level, value }) {
         const rank = Math.max(0, Number.isFinite(value) ? value : 0);
         const component = rank <= 0 ? 0 : rank * Math.log(rank);
         const spr = 2 * (10 - component);
@@ -291,7 +291,7 @@ export const epsilon = {
       },
     },
   ],
-  computeResult(values) {
+  computeResult(_values) {
     // Not a simple multiplicative base; leave as 0 to avoid misleading total.
     return 0;
   },
@@ -1203,7 +1203,7 @@ export const theta = {
       getSubEquations({ blueprint, towerId }) {
         const effectiveBlueprint = blueprint || ctx().getTowerEquationBlueprint(towerId);
         const aleph2 = Math.max(1, ctx().computeTowerVariableValue(towerId, 'aleph2', effectiveBlueprint));
-        const aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
+        const _aleph3 = Math.max(0, ctx().computeTowerVariableValue(towerId, 'aleph3', effectiveBlueprint));
         const entryPercent = Math.max(0, 100 * Math.exp(1 / aleph2));
         return [
           {
@@ -1406,7 +1406,44 @@ export const iota = {
       },
     },
     {
-      key: 'attack',
+      key: 'phaseCoupling',
+      symbol: 'φ_c',
+      equationSymbol: 'φ_c',
+      glyphLabel: 'צ',
+      glyphCurrency: 'tsadi',
+      name: 'Phase Coupling',
+      description: 'Complex-plane projection strength. Damage and status effects applied to one enemy inside the Iota field are multiplied by this coupling factor and projected onto every other enemy in the same field.',
+      baseValue: 0,
+      step: 1,
+      upgradable: true,
+      attachedToVariable: 'attack',
+      cost: (level) => Math.max(1, 3 + Math.max(0, Math.floor(Number.isFinite(level) ? level : 0))),
+      format: (value) => {
+        const rank = Math.max(0, Number.isFinite(value) ? Math.floor(value) : 0);
+        // Coupling curve: 0.20·rank with slight acceleration
+        const coupling = rank <= 0 ? 0 : 0.20 * rank + 0.05 * Math.max(0, rank - 3);
+        return `${formatDecimal(coupling, 2)}× coupling`;
+      },
+      getSubEquations({ level, value }) {
+        const rank = Math.max(0, Number.isFinite(level) ? Math.floor(level) : 0);
+        const resolved = Number.isFinite(value) ? Math.max(0, value) : rank;
+        const coupling = resolved <= 0 ? 0 : 0.20 * resolved + 0.05 * Math.max(0, resolved - 3);
+        return [
+          {
+            expression: String.raw`\( \varphi_c = 0.20\,\text{rank} + 0.05 \max(0, \text{rank} - 3) \)`,
+          },
+          {
+            values: String.raw`\( ${formatDecimal(coupling, 2)} = 0.20 \times ${formatWholeNumber(Math.floor(resolved))} + 0.05 \times \max(0,\, ${formatWholeNumber(Math.floor(resolved))} - 3) \)`,
+            variant: 'values',
+            glyphEquation: true,
+          },
+          {
+            expression: String.raw`\( z' = z \cdot \varphi_c \, e^{i\theta} \quad \forall\, e \in \text{field},\; e \neq \text{target} \)`,
+          },
+        ];
+      },
+    },
+    {
       symbol: 'Atk',
       equationSymbol: 'Atk',
       name: 'Pulse Attack',

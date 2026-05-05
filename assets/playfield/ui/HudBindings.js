@@ -222,7 +222,7 @@ function autoAnchorTowers() {
 
   const tolerance = this.anchorTolerance;
   let placed = 0;
-  let insufficientEnergy = false;
+  let _insufficientEnergy = false;
 
   for (const anchor of anchors) {
     const occupied = this.towers.some((tower) => {
@@ -234,7 +234,7 @@ function autoAnchorTowers() {
       continue;
     }
     if (this.energy < this.levelConfig.towerCost) {
-      insufficientEnergy = true;
+      _insufficientEnergy = true;
       break;
     }
     // Use the tower type specified in the anchor, if provided
@@ -246,7 +246,7 @@ function autoAnchorTowers() {
   }
 
   const { total, placed: nowPlaced } = this.getAutoAnchorStatus();
-  const remaining = Math.max(0, total - nowPlaced);
+  const _remaining = Math.max(0, total - nowPlaced);
 
   if (typeof this.dependencies.notifyAutoAnchorUsed === 'function') {
     this.dependencies.notifyAutoAnchorUsed(nowPlaced, total);

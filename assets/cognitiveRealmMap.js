@@ -41,13 +41,13 @@ const COLOR_ENEMY_CONNECTION = 'rgba(255, 84, 130, 0.32)';
 const COLOR_NEUTRAL_FILL = 'rgba(247, 247, 245, 0.05)';
 const COLOR_NEUTRAL_STROKE = 'rgba(247, 247, 245, 0.25)';
 const COLOR_BG = '#000a14'; // Very very dark blue background
-const COLOR_UI_BG = 'rgba(0, 10, 20, 0.85)';
-const COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
-const COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
-const COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
-const COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
-const COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
-const COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
+const _COLOR_UI_BG = 'rgba(0, 10, 20, 0.85)';
+const _COLOR_UI_BORDER = 'rgba(139, 247, 255, 0.3)';
+const _COLOR_TEXT = 'rgba(247, 247, 245, 0.9)';
+const _COLOR_TEXT_PLAYER = 'rgba(139, 247, 255, 0.9)';
+const _COLOR_TEXT_ENEMY = 'rgba(255, 125, 235, 0.9)';
+const _COLOR_TEXT_MUTED = 'rgba(247, 247, 245, 0.6)';
+const _COLOR_NODE_GLOW = 'rgba(139, 247, 255, 0.5)';
 const FLOATING_LIGHT_COUNT = 56;
 const COLOR_PLAYER_GLOW = 'rgba(160, 242, 255, 0.36)';
 const COLOR_ENEMY_GLOW = 'rgba(255, 84, 130, 0.36)';
@@ -80,8 +80,8 @@ let mapCanvas = null;
 let mapContext = null;
 let mapContainer = null;
 let lockOverlay = null;
-let backgroundWidth = 0;
-let backgroundHeight = 0;
+let _backgroundWidth = 0;
+let _backgroundHeight = 0;
 
 // Animation frame reference
 let animationFrameId = null;
@@ -89,7 +89,7 @@ let lastRenderTimestamp = performance.now ? performance.now() : Date.now();
 let lastStatsUpdate = 0;
 
 // Selected node for showing description
-let selectedNode = null;
+let _selectedNode = null;
 let descriptionModal = null;
 let floatingLights = [];
 
@@ -104,7 +104,7 @@ const NODE_DRIFT_SPEED = 0.0008; // Speed of drift movement
 const NODE_DRIFT_DAMPING = 0.92; // Velocity damping for smooth motion
 const NODE_DRIFT_CHANGE_INTERVAL = 8000; // Time between drift target changes (ms)
 const INITIAL_LAYOUT_SPREAD = 0.44; // Fraction of map width/height used for randomized start scatter
-const ROPE_SEGMENTS = 5; // Number of segments in each rope connection
+const _ROPE_SEGMENTS = 5; // Number of segments in each rope connection
 
 // Connection limits for different node types
 const MAX_CONNECTIONS_MAJOR = 5; // Maximum connections for archetype (major) nodes
@@ -317,7 +317,7 @@ function calculateNodeConnections(nodePositions) {
       .sort((a, b) => a.distance - b.distance);
     
     // Add connections to nearest nodes, respecting constraints
-    for (const { node: node2, distance } of distances) {
+    for (const { node: node2, distance: _distance } of distances) {
       // Check if we've reached max connections for this node
       if (currentConnections.size >= maxConnections) {
         break;
@@ -381,7 +381,7 @@ function buildConnectedNodePairs(nodePositions) {
 /**
  * Check if two nodes should be connected
  */
-function areNodesConnected(node1, node2) {
+function _areNodesConnected(node1, node2) {
   const connections = nodeConnections.get(node1.territory.id);
   return connections && connections.has(node2.territory.id);
 }
@@ -393,7 +393,7 @@ export function markConnectionsDirty() {
 
 // Seed background neuron wisps and floating lights for ambient depth.
 function seedBackgroundElements(width, height) {
-  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, (_, index) => {
+  floatingLights = Array.from({ length: FLOATING_LIGHT_COUNT }, (_, _index) => {
     const ownershipRoll = Math.random();
     const hue = ownershipRoll < 0.4 ? 'player' : ownershipRoll < 0.8 ? 'enemy' : 'neutral';
     return {
@@ -510,8 +510,8 @@ function resizeCanvas() {
   // Set the internal canvas buffer size with DPR scaling
   mapCanvas.width = width * dpr;
   mapCanvas.height = height * dpr;
-  backgroundWidth = width;
-  backgroundHeight = height;
+  _backgroundWidth = width;
+  _backgroundHeight = height;
 
   if (mapContext) {
     mapContext.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -786,7 +786,7 @@ function createDescriptionModal() {
 function closeDescriptionModal() {
   if (descriptionModal) {
     descriptionModal.hidden = true;
-    selectedNode = null;
+    _selectedNode = null;
   }
 }
 
@@ -851,7 +851,7 @@ function showNodeDescription(territory) {
   }
 
   descriptionModal.hidden = false;
-  selectedNode = territory;
+  _selectedNode = territory;
 }
 
 /**
@@ -1078,7 +1078,7 @@ function updateFloatingLights(deltaMs, width, height) {
 }
 
 // Paint softly glowing floating lights above the map layer
-function renderFloatingLightsOverlay(ctx, width, height) {
+function renderFloatingLightsOverlay(ctx, _width, _height) {
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   ctx.globalAlpha = 0.32;
@@ -1372,7 +1372,7 @@ function renderRealmNode(ctx, node, glowEnabled = true) {
 /**
  * Render UI overlay (currently empty - stats moved to DOM)
  */
-function renderUIOverlay(ctx, width, height) {
+function renderUIOverlay(_ctx, _width, _height) {
   // UI overlay removed - stats are now in the DOM below the map
 }
 

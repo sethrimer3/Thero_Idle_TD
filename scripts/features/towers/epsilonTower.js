@@ -7,7 +7,7 @@ export function ensureEpsilonState(playfield, tower) {
   if (!tower || tower.type !== 'epsilon') {
     return null;
   }
-  const def = tower.definition || getTowerDefinition('epsilon') || {};
+  const _def = tower.definition || getTowerDefinition('epsilon') || {};
   // Aleph variables controlled by glyph upgrades
   const aleph1 = Math.max(0, computeTowerVariableValue('epsilon', 'aleph1'));
   const aleph2 = Math.max(0, computeTowerVariableValue('epsilon', 'aleph2'));

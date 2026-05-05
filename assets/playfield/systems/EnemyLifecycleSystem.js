@@ -3,6 +3,7 @@
 
 import { resolveEnemyGemDropMultiplier } from '../../enemies.js';
 import { formatCombatNumber } from '../utils/formatting.js';
+import { cleanupHypernode } from './HypernodeBossSystem.js';
 
 // Offset radial spawns beyond the playfield so they begin off-screen even at max zoom out.
 const RADIAL_SPAWN_OFFSCREEN_MARGIN = 0.08;
@@ -148,6 +149,10 @@ export function syncEnemyDebuffIndicators(enemy, activeTypes = []) {
 export function handleEnemyBreach(enemy) {
   this.clearEnemySlowEffects(enemy);
   this.clearEnemyDamageAmplifiers(enemy);
+  // Hypernode: clean up polygon connections and re-enable disabled towers on breach.
+  if ((enemy.codexId || enemy.typeId) === 'hypernode') {
+    cleanupHypernode(enemy, this.towers);
+  }
   const damage = this.estimateEnemyBreachDamage(enemy);
   this.lives = Math.max(0, this.lives - damage);
   if (this.audio) {
@@ -210,6 +215,11 @@ export function processEnemyDefeat(enemy) {
   }
 
   this.handlePolygonSplitOnDefeat(enemy);
+
+  // Hypernode: clean up polygon connections and re-enable disabled towers on boss death.
+  if ((enemy.codexId || enemy.typeId) === 'hypernode') {
+    cleanupHypernode(enemy, this.towers);
+  }
 
   // Fling orbital particles outward when a decimal-swarm enemy is defeated.
   if (typeof this.flingDecimalSwarmParticles === 'function') {

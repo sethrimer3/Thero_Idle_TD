@@ -23,7 +23,7 @@ export function createPowderUiDomHelpers(options = {}) {
     fluidGlyphColumns = [],
     moteGemState,
     formatWholeNumber,
-    formatGameNumber,
+    formatGameNumber: _formatGameNumber,
     getMoteGemColor,
     getGemSpriteAssetPath,
   } = options;

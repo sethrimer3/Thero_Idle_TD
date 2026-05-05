@@ -5,13 +5,16 @@
  * multiple individual tower files.  Extracting them here prevents drift between
  * implementations and keeps tower modules focused on their unique mechanics.
  *
+ * Core math helpers (clamp, lerp) are now defined in scripts/core/mathUtils.js
+ * and re-exported here so existing tower imports continue to work.
+ *
  * Constants:
  *   - TWO_PI  – Math.PI * 2, avoids repeated multiplication in render loops
  *   - HALF_PI – Math.PI * 0.5, common angle offset constant
  *
  * Math / geometry helpers (Phase 3.1.2):
- *   - lerp     – linear interpolation
- *   - clamp    – numeric clamping used in physics and animation
+ *   - lerp     – linear interpolation  (re-exported from core/mathUtils)
+ *   - clamp    – numeric clamping       (re-exported from core/mathUtils)
  *   - easeInCubic  – cubic ease-in (t³) for smooth acceleration
  *   - easeOutCubic – cubic ease-out (1-(1-t)³) for smooth deceleration
  *   - distancePointToSegmentSquared – beam / laser hit detection
@@ -23,20 +26,13 @@
  *   - getEffectiveDevicePixelRatio – capped DPR for simulation canvases
  */
 
+// Core math helpers live in scripts/core/mathUtils.js; re-export for backwards compatibility.
+import { clamp, lerp } from '../../../core/mathUtils.js';
+export { clamp, lerp };
+
 // Pre-calculated PI constants to avoid repeated Math.PI multiplications in render loops.
 export const TWO_PI = Math.PI * 2;
 export const HALF_PI = Math.PI * 0.5;
-
-/**
- * Linearly interpolate between two values without clamping t.
- * @param {number} a - Start value.
- * @param {number} b - End value.
- * @param {number} t - Blend factor.
- * @returns {number} Interpolated value.
- */
-export function lerp(a, b, t) {
-  return a + (b - a) * t;
-}
 
 /**
  * Cubic ease-in: acceleration from zero velocity.
@@ -57,18 +53,6 @@ export function easeInCubic(t) {
 export function easeOutCubic(t) {
   const inverted = 1 - t;
   return 1 - inverted * inverted * inverted;
-}
-
-/**
- * Clamp a numeric value to the [min, max] range.
- * Returns `Math.min(Math.max(value, min), max)` with no additional overhead.
- * @param {number} value
- * @param {number} min
- * @param {number} max
- * @returns {number}
- */
-export function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 
 /**

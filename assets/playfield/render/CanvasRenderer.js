@@ -40,10 +40,15 @@ import {
   drawOmegaParticles,
 } from './layers/ProjectileRenderer.js';
 import {
+  renderPhaseProjectionEffects,
+  renderIotaFieldOverlays,
+} from '../systems/IotaPhaseProjectionSystem.js';
+import {
   drawEnemies,
   drawEnemyDeathParticles,
   drawSwarmClouds,
   drawDecimalSwarmParticles,
+  drawHypernodeShield,
 } from './layers/EnemyRenderer.js';
 import {
   drawDamageNumbers,
@@ -197,7 +202,7 @@ function isInViewport(position, bounds, radius = 0) {
   );
 }
 
-function clamp(value, min, max) {
+function _clamp(value, min, max) {
   if (!Number.isFinite(value)) {
     return min;
   }
@@ -314,11 +319,14 @@ function draw() {
     this.drawInfinityAuras();
     this.drawDeltaSoldiers();
     this.drawOmicronUnits();
+    this.drawIotaFieldOverlays();
   }
   if (devLayerFlags.enemies) {
     // Mote gems are collectible world entities that share the enemy render pass.
     this.drawMoteGems();
     this.drawEnemies();
+    // Hypernode shield polygon renders above enemies so the prismatic zone is visible.
+    this.drawHypernodeShield();
     this.drawEnemyDeathParticles();
     this.drawSwarmClouds();
     this.drawDecimalSwarmParticles();
@@ -326,6 +334,7 @@ function draw() {
   }
   if (devLayerFlags.projectiles) {
     this.drawProjectiles();
+    this.drawIotaPhaseEffects();
   }
   // Foreground shards render on top of all game elements for a parallax depth effect.
   if (devLayerFlags.background) {
@@ -769,6 +778,25 @@ function drawTunnelZones() {
   ctx.restore();
 }
 
+// ─── Iota Phase Coupling: complex-plane field overlay and projection effects ─
+
+/**
+ * Render complex-plane field overlays for active Iota towers with Phase Coupling.
+ */
+function drawIotaFieldOverlays() {
+  if (!this.ctx) return;
+  const time = (performance.now() / 1000) || 0;
+  renderIotaFieldOverlays(this.ctx, this, time);
+}
+
+/**
+ * Render active phase projection visual effects (pulses, arcs).
+ */
+function drawIotaPhaseEffects() {
+  if (!this.ctx) return;
+  renderPhaseProjectionEffects(this.ctx, this);
+}
+
 
 export {
   applyCanvasShadow,
@@ -805,7 +833,9 @@ export {
   drawEtaOrbits,
   drawDeltaSoldiers,
   drawOmicronUnits,
+  drawIotaFieldOverlays,
   drawEnemies,
+  drawHypernodeShield,
   drawEnemyDeathParticles,
   drawSwarmClouds,
   drawDecimalSwarmParticles,
@@ -813,6 +843,7 @@ export {
   drawFloatingFeedback,
   drawWaveTallies,
   drawProjectiles,
+  drawIotaPhaseEffects,
   drawAlphaBursts,
   drawBetaBursts,
   drawGammaBursts,

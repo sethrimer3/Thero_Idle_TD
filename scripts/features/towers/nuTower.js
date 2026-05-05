@@ -31,7 +31,7 @@ import {
 } from '../../../assets/towersTab.js';
 import { canvasFractionToMeters, metersToPixels } from '../../../assets/gameUnits.js';
 import { samplePaletteGradient } from '../../../assets/colorSchemeUtils.js';
-import { clamp, distancePointToSegmentSquared } from './shared/TowerUtils.js';
+import { distancePointToSegmentSquared } from './shared/TowerUtils.js';
 
 // Constants
 const BASE_RANGE_METERS = 3;

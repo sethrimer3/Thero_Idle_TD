@@ -116,6 +116,7 @@ export function createTowerMenuSystem(playfield) {
       return [];
     }
     const options = [];
+    const isGlyphTrial = Boolean(playfield.levelConfig?.isGlyphTrialLevel);
     const nextId = getNextTowerId(tower.type);
     const nextDefinition = nextId ? getTowerDefinition(nextId) : null;
     const upgradeCost = nextDefinition ? playfield.getCurrentTowerCost(nextDefinition.id) : 0;
@@ -123,23 +124,27 @@ export function createTowerMenuSystem(playfield) {
     const upgradeCostLabel = nextDefinition
       ? `${formatCombatNumber(Math.max(0, upgradeCost))} ${playfield.theroSymbol}`
       : '—';
-    // Surface an upgrade command that mirrors the merge flow and displays the next tier cost inside the radial lattice.
-    options.push({
-      id: 'upgrade',
-      type: 'upgrade',
-      icon: nextDefinition?.symbol || '·',
-      label: nextDefinition ? `Upgrade to ${nextDefinition.symbol}` : 'Upgrade unavailable',
-      costLabel: upgradeCostLabel,
-      disabled: !nextDefinition || !upgradeAffordable,
-      upgradeCost,
-      nextTowerId: nextDefinition?.id || null,
-    });
-    options.push({
-      id: 'sell',
-      type: 'action',
-      icon: '$þ',
-      label: 'Sell lattice',
-    });
+
+    // In glyph trial levels, tower tiers are sealed — only info and targeting options are shown.
+    if (!isGlyphTrial) {
+      // Surface an upgrade command that mirrors the merge flow and displays the next tier cost inside the radial lattice.
+      options.push({
+        id: 'upgrade',
+        type: 'upgrade',
+        icon: nextDefinition?.symbol || '·',
+        label: nextDefinition ? `Upgrade to ${nextDefinition.symbol}` : 'Upgrade unavailable',
+        costLabel: upgradeCostLabel,
+        disabled: !nextDefinition || !upgradeAffordable,
+        upgradeCost,
+        nextTowerId: nextDefinition?.id || null,
+      });
+      options.push({
+        id: 'sell',
+        type: 'action',
+        icon: '$þ',
+        label: 'Sell lattice',
+      });
+    }
     // Surface the tower dossier overlay entry point directly inside the radial menu.
     options.push({
       id: 'info',

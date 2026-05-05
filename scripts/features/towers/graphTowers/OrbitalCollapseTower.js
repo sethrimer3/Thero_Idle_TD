@@ -85,7 +85,7 @@ export class OrbitalCollapseTower extends GraphTowerBase {
 
   // ── Per-Frame Logic ──────────────────────────────────────────────────────
 
-  _onTick(dt, now) {
+  _onTick(dt, _now) {
     // Handle collapse animation phases.
     if (this._collapsePhase !== 'idle') {
       this._collapseTimer -= dt;
@@ -180,7 +180,7 @@ export class OrbitalCollapseTower extends GraphTowerBase {
 
   // ── Rendering Overlay ────────────────────────────────────────────────────
 
-  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, now) {
+  _drawOverlay(ctx, toPixel, radius, scale, cx, cy, _now) {
     const threshold = this._thresholdEq.evaluate(this.glyphs);
 
     // Draw distance rings to communicate radial importance.

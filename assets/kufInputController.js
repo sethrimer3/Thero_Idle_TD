@@ -171,7 +171,7 @@ export function handleWheel(e) {
   this.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.camera.zoom * zoomDelta));
 }
 
-export function handleClick(e) {
+export function handleClick(_e) {
   // This is now mostly handled by handleMouseUp to detect taps vs drags
   // Keep this for compatibility but the main logic is in handleMouseUp
 }

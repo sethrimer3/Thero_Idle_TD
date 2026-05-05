@@ -493,7 +493,7 @@ function drawLambdaLasers(playfield, tower) {
     const age = laser.age || 0;
     const beamDuration = laser.beamDuration || BASE_BEAM_DURATION;
     const dissipateDuration = laser.dissipateDuration || BASE_DISSIPATE_DURATION;
-    const totalDuration = laser.totalDuration || (beamDuration + dissipateDuration);
+    const _totalDuration = laser.totalDuration || (beamDuration + dissipateDuration);
     const baseColor = laser.color || { r: 255, g: 0, b: 0 };
     const baseAlpha = 0.88;
 

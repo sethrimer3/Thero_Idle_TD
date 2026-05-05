@@ -448,7 +448,7 @@ export function updateBosses(deltaTime) {
 /**
  * Spawn a small ship from a boss (used by Circle Carrier).
  */
-export function spawnShipFromBoss(spawnData, boss) {
+export function spawnShipFromBoss(spawnData, _boss) {
   if (!this.canvas) return;
 
   // Create a small, fast ship that launches from the boss position

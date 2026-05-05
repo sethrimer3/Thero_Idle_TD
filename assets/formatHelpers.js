@@ -29,13 +29,24 @@ export function toSubscriptNumber(value) {
 }
 
 /**
+ * Format a glyph label with subscript numbering for the given symbol.
+ * Shared helper used by formatAlephLabel, formatBetLabel, and any future glyph types.
+ * @param {string} symbol - The glyph symbol prefix (e.g., 'ℵ', 'בּ').
+ * @param {number} index - The glyph index (0-based).
+ * @returns {string} Formatted label like "ℵ₀", "בּ₁", etc.
+ */
+export function formatGlyphLabel(symbol, index) {
+  const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+  return `${symbol}${toSubscriptNumber(normalized)}`;
+}
+
+/**
  * Format an Aleph glyph label with subscript numbering
  * @param {number} index - The glyph index (0-based)
  * @returns {string} Formatted label like "ℵ₀", "ℵ₁", "ℵ₂", etc.
  */
 export function formatAlephLabel(index) {
-  const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-  return `ℵ${toSubscriptNumber(normalized)}`;
+  return formatGlyphLabel('ℵ', index);
 }
 
 /**
@@ -46,8 +57,7 @@ export function formatAlephLabel(index) {
  * @returns {string} Formatted label like "בּ₀", "בּ₁", "בּ₂", etc.
  */
 export function formatBetLabel(index) {
-  const normalized = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
-  return `בּ${toSubscriptNumber(normalized)}`;
+  return formatGlyphLabel('בּ', index);
 }
 
 /**

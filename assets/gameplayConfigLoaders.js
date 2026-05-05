@@ -120,7 +120,7 @@ function getJsonModuleImporter() {
       'specifier',
       "return import(specifier, { assert: { type: 'json' } });",
     );
-  } catch (error) {
+  } catch (_e) {
     cachedJsonModuleImporter = null;
   }
 

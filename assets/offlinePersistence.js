@@ -33,7 +33,6 @@ const offlineOverlayElements = {
   prompt: null,
 };
 
-let offlineOverlayAnimating = false;
 let offlineOverlayFadeHandle = null;
 let offlineOverlayPromptHandle = null;
 let offlineOverlayLastFocus = null;
@@ -146,7 +145,6 @@ async function showOfflineOverlay(summary = {}) {
     offlineOverlayFadeHandle = null;
   }
 
-  offlineOverlayAnimating = true;
   const activeElement = document.activeElement;
   offlineOverlayLastFocus = activeElement instanceof HTMLElement ? activeElement : null;
   container.removeAttribute('hidden');
@@ -161,7 +159,7 @@ async function showOfflineOverlay(summary = {}) {
 
   const {
     title,
-    alephRow,
+    alephRow: _alephRow,
     alephMultiplier,
     alephTotal,
     betRow,
@@ -173,9 +171,9 @@ async function showOfflineOverlay(summary = {}) {
     tsadiRow,
     tsadiMultiplier,
     tsadiTotal,
-    waalsRow,
-    waalsMultiplier,
-    waalsTotal,
+    waalsRow: _waalsRow,
+    waalsMultiplier: _waalsMultiplier,
+    waalsTotal: _waalsTotal,
     shinRow,
     shinMultiplier,
     shinTotal,
@@ -295,7 +293,6 @@ async function showOfflineOverlay(summary = {}) {
     }),
   ]);
 
-  offlineOverlayAnimating = false;
   scheduleOfflineOverlayPrompt();
 }
 
@@ -309,7 +306,6 @@ function hideOfflineOverlay() {
     clearTimeout(offlineOverlayFadeHandle);
     offlineOverlayFadeHandle = null;
   }
-  offlineOverlayAnimating = true;
   container.classList.remove('active');
   // Move focus out of the overlay before hiding it from assistive tech to avoid aria-hidden focus warnings.
   if (container.contains(document.activeElement) && document.body && typeof document.body.focus === 'function') {
@@ -319,7 +315,6 @@ function hideOfflineOverlay() {
   offlineOverlayFadeHandle = setTimeout(() => {
     container.setAttribute('hidden', '');
     offlineOverlayFadeHandle = null;
-    offlineOverlayAnimating = false;
     if (
       offlineOverlayLastFocus &&
       typeof offlineOverlayLastFocus.focus === 'function' &&
@@ -412,7 +407,7 @@ export function updatePowderLogDisplay() {
  */
 export function recordPowderEvent(type, context = {}) {
   const powderState = dependencies.powderState || {};
-  const powderConfig = dependencies.powderConfig || {};
+  const _powderConfig = dependencies.powderConfig || {};
   const powderBonuses = dependencies.getCurrentPowderBonuses();
 
   let entry = '';

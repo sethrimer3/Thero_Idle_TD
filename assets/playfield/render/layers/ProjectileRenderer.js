@@ -24,6 +24,7 @@
 import { samplePaletteGradient } from '../../../colorSchemeUtils.js';
 import { colorToRgbaString } from '../../../../scripts/features/towers/powderTower.js';
 import { normalizeProjectileColor } from '../../utils/rendering.js';
+import { clampSafe as clamp } from '../../../../scripts/core/mathUtils.js';
 import {
   drawAlphaBursts as drawAlphaBurstsHelper,
 } from '../../../../scripts/features/towers/alphaTower.js';
@@ -177,19 +178,6 @@ function getOrCreateOmegaWaveSprite(radius) {
 }
 
 // ─── Local utility helpers ────────────────────────────────────────────────────
-
-function clamp(value, min, max) {
-  if (!Number.isFinite(value)) {
-    return min;
-  }
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
 
 /**
  * Calculate the visible viewport bounds in world coordinates.
