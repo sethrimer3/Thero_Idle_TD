@@ -3,6 +3,7 @@
 // These functions use `this` (the SimplePlayfield instance) via `.call()`.
 
 const DEFAULT_POLYGON_SIDES = 6;
+const POLYGON_SPLITTER_CODEX_ID = 'polygon-splitter';
 
 /**
  * Resolve the mote reward factor for an enemy config.
@@ -35,15 +36,14 @@ export function estimateEnemyBreachDamage(enemy) {
     Number.isFinite(this.gateDefense) ? this.gateDefense : null,
   ];
   let defenseValue = 0;
-  let defenseResolved = false;
   // Resolve the first configured defense value so breach math can respect shields or future upgrades.
-  defenseSources.forEach((candidate) => {
-    if (defenseResolved || candidate === null) {
-      return;
+  for (const candidate of defenseSources) {
+    if (candidate === null) {
+      continue;
     }
     defenseValue = Math.max(0, candidate);
-    defenseResolved = true;
-  });
+    break;
+  }
   const mitigatedDamage = Math.max(0, baseDamage - defenseValue);
   if (mitigatedDamage <= 0) {
     return 0;
@@ -79,7 +79,7 @@ export function resolvePolygonSides(config = {}) {
   if (Number.isFinite(config.polygonSides)) {
     return Math.max(1, Math.floor(config.polygonSides));
   }
-  if (config && typeof config.codexId === 'string' && config.codexId === 'polygon-splitter') {
+  if (config && typeof config.codexId === 'string' && config.codexId === POLYGON_SPLITTER_CODEX_ID) {
     return DEFAULT_POLYGON_SIDES;
   }
   return null;
