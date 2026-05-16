@@ -44,6 +44,8 @@ This document provides a detailed, actionable plan for refactoring the largest m
 
 > **Note (Build 714):** `playfield.js` reduced from 4,430 to 4,184 lines (−246) via two new system extractions: supply chain mechanics (`updateConnectionSupplier`, `findSigmaFriendlyTarget`, `handleSupplyImpact`, `createParticleDamageProjectile`, `resolveNextBetaTriangleOrientation`, `applyBetaStickSlow`) extracted into new `SupplyChainSystem.js` (~202 lines); special enemy ability mechanics (`spawnRelayEnemy`, `createTunnelZone`, `disableTower`, `spawnRelaySpawnEffect`) extracted into new `SpecialEnemyMechanicsSystem.js` (~110 lines). The `BETA_SLOW_DURATION_SECONDS` constant moved to `SupplyChainSystem.js` where it is exclusively used. All methods remain accessible via prototype delegation.
 
+> **Note (Build 715):** `playfield.js` reduced from 4,184 to 4,122 lines (−62) via extraction of enemy metadata helpers into `EnemyMetadataSystem.js` (~97 lines): `calculateMoteFactor`, `estimateEnemyBreachDamage`, `resolveEnemyExponentColor`, `resolvePolygonSides`, and `resolveNextPolygonSides`. All methods remain accessible through the same `SimplePlayfield` API via `.call(this)` delegation.
+
 ### Performance Baseline Requirements
 
 Before any refactoring begins, establish these baseline metrics:
@@ -1159,6 +1161,11 @@ Track these metrics to measure progress:
 | Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
 | Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
 | Test coverage | TBD | TBD | TBD | TBD | > 70% |
+
+**Progress Notes (Build 715):**
+- EnemyMetadataSystem.js created in `assets/playfield/systems/`: 97 lines (Phase 1 continuation - enemy metadata and threat-color helpers extracted from SimplePlayfield)
+  - Moved: `calculateMoteFactor`, `estimateEnemyBreachDamage`, `resolveEnemyExponentColor`, `resolvePolygonSides`, `resolveNextPolygonSides` (5 methods)
+  - playfield.js reduced from 4,184 to 4,122 lines (62-line reduction) with thin `.call(this)` delegates
 
 **Progress Notes (Build 630-632):**
 - betTerrariumController.js created in `assets/`: 806 lines (Phase 1 - Bet Spire Terrarium lifecycle extracted from main.js)
