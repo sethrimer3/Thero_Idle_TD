@@ -52,6 +52,7 @@ import * as WaveQueueSystem from './playfield/systems/WaveQueueSystem.js';
 import * as ViewportCoordinateSystem from './playfield/systems/ViewportCoordinateSystem.js';
 import * as SupplyChainSystem from './playfield/systems/SupplyChainSystem.js';
 import * as SpecialEnemyMechanicsSystem from './playfield/systems/SpecialEnemyMechanicsSystem.js';
+import * as EnemyMetadataSystem from './playfield/systems/EnemyMetadataSystem.js';
 import * as HudBindings from './playfield/ui/HudBindings.js';
 import { WaveTallyOverlayManager } from './playfield/ui/WaveTallyOverlays.js';
 import * as TowerSelectionWheel from './playfield/ui/TowerSelectionWheel.js';
@@ -3057,14 +3058,7 @@ export class SimplePlayfield {
   }
 
   calculateMoteFactor(config) {
-    if (!config) {
-      return 1;
-    }
-    if (Number.isFinite(config.moteFactor)) {
-      return Math.max(1, Math.round(config.moteFactor));
-    }
-    const hp = Number.isFinite(config.hp) ? Math.max(1, config.hp) : 60;
-    return Math.max(1, Math.round(hp / 60));
+    return EnemyMetadataSystem.calculateMoteFactor.call(this, config);
   }
 
   // Delegate to wave formatter
@@ -3076,62 +3070,16 @@ export class SimplePlayfield {
 
   // Estimate how much integrity the enemy will strip if it breaches so exponent colors telegraph threat level.
   estimateEnemyBreachDamage(enemy) {
-    if (!enemy) {
-      return 0;
-    }
-    const remainingHp = Number.isFinite(enemy.hp) ? Math.max(0, enemy.hp) : 0;
-    const fallbackHp = Number.isFinite(enemy.maxHp) ? Math.max(0, enemy.maxHp) : 0;
-    const damageSource = remainingHp > 0 ? remainingHp : fallbackHp;
-    const baseDamage = Math.max(0, Math.ceil(damageSource || 0));
-    const defenseSources = [
-      Number.isFinite(enemy.coreDefense) ? enemy.coreDefense : null,
-      Number.isFinite(enemy.defense) ? enemy.defense : null,
-      Number.isFinite(this.gateDefense) ? this.gateDefense : null,
-    ];
-    let defenseValue = 0;
-    let defenseResolved = false;
-    // Resolve the first configured defense value so breach math can respect shields or future upgrades.
-    defenseSources.forEach((candidate) => {
-      if (defenseResolved || candidate === null) {
-        return;
-      }
-      defenseValue = Math.max(0, candidate);
-      defenseResolved = true;
-    });
-    const mitigatedDamage = Math.max(0, baseDamage - defenseValue);
-    if (mitigatedDamage <= 0) {
-      return 0;
-    }
-    return Math.max(1, mitigatedDamage);
+    return EnemyMetadataSystem.estimateEnemyBreachDamage.call(this, enemy);
   }
 
   // Map breach damage to palette cues so players instantly read whether a glyph is lethal, dangerous, or harmless.
   resolveEnemyExponentColor(enemy) {
-    const damage = this.estimateEnemyBreachDamage(enemy);
-    if (damage <= 0) {
-      return 'rgba(120, 235, 255, 0.95)';
-    }
-    const currentLives = Number.isFinite(this.lives) ? Math.max(0, this.lives) : 0;
-    if (currentLives > 0 && damage >= currentLives) {
-      return 'rgba(255, 70, 95, 0.95)';
-    }
-    const maxLives = Number.isFinite(this.levelConfig?.lives)
-      ? Math.max(1, this.levelConfig.lives)
-      : currentLives;
-    if (maxLives > 0 && damage / maxLives < 0.05) {
-      return 'rgba(110, 255, 176, 0.95)';
-    }
-    return 'rgba(255, 168, 92, 0.95)';
+    return EnemyMetadataSystem.resolveEnemyExponentColor.call(this, enemy);
   }
 
   resolvePolygonSides(config = {}) {
-    if (Number.isFinite(config.polygonSides)) {
-      return Math.max(1, Math.floor(config.polygonSides));
-    }
-    if (config && typeof config.codexId === 'string' && config.codexId === 'polygon-splitter') {
-      return DEFAULT_POLYGON_SIDES;
-    }
-    return null;
+    return EnemyMetadataSystem.resolvePolygonSides.call(this, config);
   }
 
   // Delegate to wave formatter
@@ -3142,11 +3090,7 @@ export class SimplePlayfield {
   }
 
   resolveNextPolygonSides(currentSides) {
-    const normalized = Number.isFinite(currentSides) ? Math.max(1, Math.floor(currentSides)) : 0;
-    if (normalized <= 1) {
-      return 0;
-    }
-    return normalized - 1;
+    return EnemyMetadataSystem.resolveNextPolygonSides.call(this, currentSides);
   }
 
   // Delegate to wave formatter
