@@ -1,6 +1,6 @@
 export default [
   {
-    ignores: ["node_modules/**"],
+    ignores: ["node_modules/**", "dist/**"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -104,5 +104,18 @@ export default [
       "no-debugger": "warn",
       "no-empty": "warn",
     }
+  },
+  {
+    files: ["electron/**/*.cjs", "scripts/**/*.cjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
+      globals: {
+        __dirname: "readonly",
+        console: "readonly",
+        process: "readonly",
+        require: "readonly",
+      },
+    },
   }
 ];

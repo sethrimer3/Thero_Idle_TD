@@ -1,4 +1,5 @@
 node_modules/
+dist/
 .env
 test-tsadi-wave.html
 test-animation-capture.js
