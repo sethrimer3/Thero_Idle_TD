@@ -5,6 +5,7 @@ const path = require('path');
 const rootDir = path.resolve(__dirname, '..');
 const distIndex = path.join(rootDir, 'dist', 'index.html');
 const sourceIndex = path.join(rootDir, 'index.html');
+const appIconPath = path.join(rootDir, 'assets', 'icon', 'TheroIcon.ico');
 
 function resolveGameIndex() {
   return fs.existsSync(distIndex) ? distIndex : sourceIndex;
@@ -56,6 +57,7 @@ function createMainWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 540,
+    icon: appIconPath,
     backgroundColor: '#050505',
     title: 'Thero Idle TD',
     webPreferences: {
