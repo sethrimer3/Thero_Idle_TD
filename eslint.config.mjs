@@ -1,6 +1,8 @@
 export default [
   {
     ignores: ["node_modules/**", "dist/**"],
+  },
+  {
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

@@ -246,10 +246,8 @@ const _EQUILATERAL_TRIANGLE_HEIGHT_RATIO = Math.sqrt(3) / 2;
 // Pre-calculated constants for performance optimization in tight render loops
 const _PI = Math.PI;
 const TWO_PI = Math.PI * 2;
-const HALF_PI = Math.PI / 2;
 const _PI_OVER_6 = Math.PI / 6;
 const _PI_TIMES_1_2 = Math.PI * 1.2;
-const HALF = 0.5;
 // Tunables for the β sticking sequence and slow effect cadence.
 const _BETA_STICK_HIT_COUNT = 3;
 const _BETA_STICK_HIT_INTERVAL = 0.18;

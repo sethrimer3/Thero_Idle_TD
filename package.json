@@ -11,7 +11,7 @@
     "desktop": "npm run build && electron .",
     "electron": "electron .",
     "lint": "eslint .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/smoke-test.cjs"
   },
   "repository": {
     "type": "git",
