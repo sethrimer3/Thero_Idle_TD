@@ -324,13 +324,6 @@ export class SimplePlayfield {
     // Track the most recent endless checkpoint so defeat screens can offer a retry.
     this.endlessCheckpoint = null;
     this.endlessCheckpointUsed = false;
-    this.autoWaveEnabled = true;
-    this.autoStartLeadTime = 5;
-    this.autoStartTimer = null;
-    this.autoStartDeadline = 0;
-    // Track the most recent endless checkpoint so defeat screens can offer a retry.
-    this.endlessCheckpoint = null;
-    this.endlessCheckpointUsed = false;
 
     // Combat stats manager will be initialized after needed methods are available
     this.combatStatsManager = null;
@@ -368,7 +361,6 @@ export class SimplePlayfield {
     this.alphaBursts = [];
     this.betaBursts = [];
     this.gammaBursts = [];
-      this.gammaStarBursts = [];
     this.gammaStarBursts = []; // Track star burst effects on enemies hit by gamma projectiles
     this.nuBursts = [];
     // Track swarm clouds from stored shot particles

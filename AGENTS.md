@@ -86,6 +86,15 @@ conventions for all AI collaborators working anywhere inside this repository.
 - **PR descriptions:** Summarize gameplay effects, math changes, and UI adjustments.
   Highlight new formulas and how they influence balance.
 
+### Validation Commands
+- `npm test` — runs `scripts/smoke-test.cjs`, a static check that required files exist,
+  `index.html` references valid startup assets, and local JS imports (checked recursively
+  from the import roots) resolve to real files. No browser code executes.
+- `npm run build` — copies static assets into `dist/` via `scripts/build-static.cjs`; there is
+  no bundler or transpilation step.
+- `npm run lint` — runs ESLint (`eslint.config.mjs`) to catch undefined names (`no-undef`) and
+  surface unused-variable cleanup opportunities (`no-unused-vars`, warning-level).
+
 ## Agent.md File System
 
 This repository uses a distributed agent.md system for context-specific guidance:

@@ -88,7 +88,15 @@ function collectStaticImports(source) {
   return imports;
 }
 
-function assertStaticImportsResolve(relativePath) {
+// Recursively walks static imports starting from `relativePath`, validating that every
+// local (relative) specifier resolves to a file on disk. Non-JS resolved targets (e.g.
+// .json) are checked for existence but not parsed/recursed into.
+function assertStaticImportsResolve(relativePath, visited = new Set()) {
+  if (visited.has(relativePath)) {
+    return;
+  }
+  visited.add(relativePath);
+
   const cleanSource = stripComments(readText(relativePath));
   for (const specifier of collectStaticImports(cleanSource)) {
     const resolved = resolveModulePath(relativePath, specifier);
@@ -98,6 +106,11 @@ function assertStaticImportsResolve(relativePath) {
     if (!fs.existsSync(resolved)) {
       const resolvedRelative = toPosixPath(path.relative(rootDir, resolved));
       failures.push(`${relativePath} imports ${specifier}, but ${resolvedRelative} does not exist.`);
+      continue;
+    }
+    if (resolved.endsWith('.js')) {
+      const resolvedRelative = toPosixPath(path.relative(rootDir, resolved));
+      assertStaticImportsResolve(resolvedRelative, visited);
     }
   }
 }
@@ -140,4 +153,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Smoke test passed: ${requiredFiles.length} required files, ${startupReferences.length} startup assets, and ${importRoots.length} import roots checked.`);
+console.log(`Smoke test passed: ${requiredFiles.length} required files, ${startupReferences.length} startup assets, and ${importRoots.length} import roots (recursively) checked.`);
