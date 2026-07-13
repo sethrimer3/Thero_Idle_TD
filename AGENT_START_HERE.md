@@ -45,7 +45,7 @@
 
 ### Directory Structure
 ```
-Thero_Idle_TD/
+TheroMathTD/
 ├── assets/               # Main game loop, UI, resources
 │   ├── main.js          # Integration hub (wiring only)
 │   └── playfield/       # Playfield subsystems

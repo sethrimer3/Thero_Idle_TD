@@ -43,7 +43,7 @@ You can also use the root batch files:
 
 GitHub Pages currently deploys the repository root as static content. This is
 unchanged; `index.html`, `assets/`, and `scripts/` still use relative paths that
-work under `https://sethrimer3.github.io/Thero_Idle_TD/`.
+work under `https://sethrimer3.github.io/TheroMathTD/`.
 
 ## Troubleshooting
 

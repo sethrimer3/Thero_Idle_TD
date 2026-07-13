@@ -15,16 +15,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sethrimer3/Thero_Idle_TD.git"
+    "url": "git+https://github.com/sethrimer3/TheroMathTD.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/sethrimer3/Thero_Idle_TD/issues"
+    "url": "https://github.com/sethrimer3/TheroMathTD/issues"
   },
-  "homepage": "https://github.com/sethrimer3/Thero_Idle_TD#readme",
+  "homepage": "https://github.com/sethrimer3/TheroMathTD#readme",
   "devDependencies": {
     "electron": "^42.2.0",
     "eslint": "^10.2.0"
