@@ -1,0 +1,556 @@
+/**
+ * PathGeometrySystem - Manages path rendering geometry, tunnel segments, and track river particles
+ * 
+ * Extracted from playfield.js (Build 468) as part of Phase 1.1 refactoring.
+ * Consolidates path curve generation, tunnel zone identification, and river particle initialization.
+ */
+
+import { getPlayfieldResolutionCap } from '../playfieldPreferences.js';
+
+// Constants
+const MAX_PLAYFIELD_DEVICE_PIXEL_RATIO = 1;
+const TWO_PI = Math.PI * 2;
+const HALF = 0.5;
+// Start reducing decorative river particles once the backing store is substantially denser than CSS pixels.
+const HIGH_DPI_TRACK_PARTICLE_PIXEL_RATIO = 1.5;
+// Apply the strongest river-particle reduction on very dense displays to limit fill-rate pressure.
+const ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO = 2.5;
+// Use a moderate spawn reduction on high-DPI boards so the river still reads as active motion.
+const HIGH_DPI_TRACK_PARTICLE_SCALE = 0.65;
+// Cut the river particle budget further on ultra-dense boards where each glow covers more real pixels.
+const ULTRA_DPI_TRACK_PARTICLE_SCALE = 0.45;
+// Keep a small tracer presence even after density-based reductions so the river still feels alive.
+const MIN_TRACK_TRACER_PARTICLE_COUNT = 8;
+
+/**
+ * Synchronizes canvas size with container dimensions and rebuilds path geometry.
+ * Called on initialization and whenever the canvas is resized.
+ */
+export function syncCanvasSize() {
+  if (!this.canvas || !this.ctx) {
+    return;
+  }
+  const rect = this.canvas.getBoundingClientRect();
+  // Clamp the device pixel ratio so the canvas backing store does not balloon on high-resolution devices.
+  // Respect the user-selected playfield resolution cap when calculating backing scale.
+  const resolutionCap = Math.max(MAX_PLAYFIELD_DEVICE_PIXEL_RATIO, getPlayfieldResolutionCap());
+  const ratio = Math.min(window.devicePixelRatio || 1, resolutionCap);
+  const width = Math.max(1, Math.floor(rect.width * ratio));
+  const height = Math.max(1, Math.floor(rect.height * ratio));
+  if (this.canvas.width !== width || this.canvas.height !== height) {
+    this.canvas.width = width;
+    this.canvas.height = height;
+  }
+  this.renderWidth = rect.width || 1;
+  this.renderHeight = rect.height || 1;
+  this.pixelRatio = ratio;
+
+  this.buildPathGeometry();
+  this.updateTowerPositions();
+  this.ensureFloatersLayout();
+  this.applyViewConstraints();
+  this.draw();
+}
+
+/**
+ * Builds path geometry from level configuration, including smooth curve interpolation,
+ * segment speed multipliers, and tunnel zone identification.
+ */
+export function buildPathGeometry() {
+  if (
+    !this.levelConfig ||
+    !Array.isArray(this.levelConfig.path) ||
+    !this.ctx
+  ) {
+    this.pathSegments = [];
+    this.pathPoints = [];
+    this.pathLength = 0;
+    this.trackRiverParticles = [];
+    this.trackRiverTracerParticles = [];
+    this.trackRiverPulse = 0;
+    return;
+  }
+
+  // Handle radial spawn levels (single center point, no traditional path)
+  if (this.levelConfig.radialSpawn && this.levelConfig.centerSpawn && this.levelConfig.path.length === 1) {
+    const centerNode = this.levelConfig.path[0];
+    const centerPoint = {
+      x: centerNode.x * this.renderWidth,
+      y: centerNode.y * this.renderHeight,
+      speedMultiplier: 1,
+      tunnel: false,
+    };
+    
+    // Create a minimal path structure for the center point
+    this.pathPoints = [centerPoint];
+    this.pathSegments = [];
+    // Use nominal length to avoid division by zero in progress calculations
+    const RADIAL_SPAWN_NOMINAL_LENGTH = 1;
+    this.pathLength = RADIAL_SPAWN_NOMINAL_LENGTH;
+    this.tunnelSegments = [];
+    this.trackRiverParticles = [];
+    this.trackRiverTracerParticles = [];
+    this.trackRiverPulse = 0;
+    return;
+  }
+
+  // Normal path handling (2+ points required)
+  if (this.levelConfig.path.length < 2) {
+    this.pathSegments = [];
+    this.pathPoints = [];
+    this.pathLength = 0;
+    this.trackRiverParticles = [];
+    this.trackRiverTracerParticles = [];
+    this.trackRiverPulse = 0;
+    return;
+  }
+
+  const points = this.levelConfig.path.map((node) => ({
+    x: node.x * this.renderWidth,
+    y: node.y * this.renderHeight,
+    speedMultiplier: Number.isFinite(node.speedMultiplier) ? node.speedMultiplier : 1,
+    tunnel: Boolean(node.tunnel),
+  }));
+
+  const smoothPoints = this.generateSmoothPathPoints(points, 14);
+
+  const segments = [];
+  let totalLength = 0;
+  // Calculate speed multipliers for segments based on interpolation between original path points
+  for (let index = 0; index < smoothPoints.length - 1; index += 1) {
+    const start = smoothPoints[index];
+    const end = smoothPoints[index + 1];
+    const length = this.distanceBetween(start, end);
+    
+    // Find which original path segment this smooth segment corresponds to
+    // and interpolate the speed multiplier accordingly
+    let speedMultiplier = 1;
+    if (Number.isFinite(start.speedMultiplier) && Number.isFinite(end.speedMultiplier)) {
+      // Average the speed multipliers at the start and end of this segment
+      speedMultiplier = (start.speedMultiplier + end.speedMultiplier) * HALF;
+    } else if (Number.isFinite(start.speedMultiplier)) {
+      speedMultiplier = start.speedMultiplier;
+    } else if (Number.isFinite(end.speedMultiplier)) {
+      speedMultiplier = end.speedMultiplier;
+    }
+    
+    // Mark if this segment is inside a tunnel
+    const inTunnel = Boolean(start.tunnel && end.tunnel);
+    
+    segments.push({ start, end, length, speedMultiplier, inTunnel });
+    totalLength += length;
+  }
+
+  this.pathPoints = smoothPoints;
+  this.pathSegments = segments;
+  this.pathLength = totalLength || 1;
+  
+  // Identify tunnel zones: consecutive tunnel segments with fade zones at entry/exit
+  this.buildTunnelSegments(smoothPoints);
+  
+  this.initializeTrackRiverParticles();
+}
+
+/**
+ * Identifies consecutive tunnel segments and marks entry/exit zones.
+ * Creates tunnel segment metadata for rendering alpha fade effects.
+ */
+export function buildTunnelSegments(points) {
+  this.tunnelSegments = [];
+  
+  if (!Array.isArray(points) || points.length < 2) {
+    return;
+  }
+  
+  // Find consecutive tunnel points to identify tunnel zones
+  let tunnelStart = null;
+  let _tunnelStartIndex = -1;
+  
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    const isTunnel = Boolean(point.tunnel);
+    
+    if (isTunnel && tunnelStart === null) {
+      // Entering a tunnel zone
+      tunnelStart = i;
+      _tunnelStartIndex = i;
+    } else if (!isTunnel && tunnelStart !== null) {
+      // Exiting a tunnel zone
+      const tunnelEnd = i - 1;
+      
+      // Only create tunnel segment if there are at least 2 points
+      if (tunnelEnd >= tunnelStart) {
+        this.tunnelSegments.push({
+          startIndex: tunnelStart,
+          endIndex: tunnelEnd,
+          startPoint: points[tunnelStart],
+          endPoint: points[tunnelEnd],
+        });
+      }
+      
+      tunnelStart = null;
+      _tunnelStartIndex = -1;
+    }
+  }
+  
+  // Handle case where tunnel extends to the end of the path
+  if (tunnelStart !== null) {
+    const tunnelEnd = points.length - 1;
+    if (tunnelEnd >= tunnelStart) {
+      this.tunnelSegments.push({
+        startIndex: tunnelStart,
+        endIndex: tunnelEnd,
+        startPoint: points[tunnelStart],
+        endPoint: points[tunnelEnd],
+      });
+    }
+  }
+}
+
+/**
+ * Initializes ambient river particles that flow along the path.
+ * Creates both standard river particles and faster tracer particles.
+ */
+export function initializeTrackRiverParticles() {
+  if (!this.pathSegments.length || !Number.isFinite(this.pathLength) || this.pathLength <= 0) {
+    this.trackRiverParticles = [];
+    this.trackRiverTracerParticles = [];
+    this.trackRiverPulse = 0;
+    return;
+  }
+
+  const minDimension = Math.min(this.renderWidth || 0, this.renderHeight || 0) || 1;
+  const lowGraphicsEnabled = this.isLowGraphicsMode();
+  const pixelRatio = Math.max(1, this.pixelRatio || 1);
+  const isHighDpi = pixelRatio >= HIGH_DPI_TRACK_PARTICLE_PIXEL_RATIO;
+  const highDpiPerformanceScale = pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+    ? ULTRA_DPI_TRACK_PARTICLE_SCALE
+    : isHighDpi
+      ? HIGH_DPI_TRACK_PARTICLE_SCALE
+      : 1;
+  const performanceScale = (lowGraphicsEnabled ? 0.6 : 1) * highDpiPerformanceScale;
+  // Reduce the river spawn budget on low fidelity and high-DPI displays so the tracer math stays lightweight.
+  const baseCount = Math.round(
+    (this.pathLength / Math.max(28, minDimension * 0.35)) * performanceScale,
+  );
+  const minimumParticleCount = lowGraphicsEnabled || pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+    ? 20
+    : isHighDpi
+      ? 24
+      : 36;
+  // Keep the river visibly active while scaling the spawn ceiling down as pixel density or low-graphics mode increases.
+  const maximumParticleCount = lowGraphicsEnabled
+    ? 96
+    : pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO
+      ? 88
+      : isHighDpi
+        ? 112
+        : 160;
+  const particleCount = Math.max(minimumParticleCount, Math.min(maximumParticleCount, baseCount));
+  const createParticle = () => ({
+    progress: Math.random(),
+    speed: 0.045 + Math.random() * 0.05,
+    radius: 0.7 + Math.random() * 1.2,
+    offset: (Math.random() - 0.5) * 0.8,
+    offsetTarget: (Math.random() - 0.5) * 0.8,
+    driftRate: 0.5 + Math.random() * 0.9,
+    driftTimer: 0.6 + Math.random() * 1.2,
+    phase: Math.random() * TWO_PI,
+    phaseSpeed: 0.6 + Math.random() * 1.3,
+  });
+
+  // Generate a smaller band of tracer sparks that accelerate along the river track.
+  const createTracerParticle = () => ({
+    progress: Math.random(),
+    speed: 0.12 + Math.random() * 0.08,
+    offset: (Math.random() - 0.5) * 0.3,
+    offsetTarget: (Math.random() - 0.5) * 0.3,
+    driftRate: 2 + Math.random() * 2.2,
+    driftTimer: 0.25 + Math.random() * 0.45,
+    phase: Math.random() * TWO_PI,
+    phaseSpeed: 1.6 + Math.random() * 1.4,
+  });
+
+  this.trackRiverParticles = Array.from({ length: particleCount }, createParticle);
+  const tracerCount = lowGraphicsEnabled
+    ? 0
+    : Math.max(
+        MIN_TRACK_TRACER_PARTICLE_COUNT,
+        Math.round(particleCount * (pixelRatio >= ULTRA_DPI_TRACK_PARTICLE_PIXEL_RATIO ? 0.16 : isHighDpi ? 0.2 : 0.25)),
+      );
+  // Suppress tracer particles entirely in low graphics mode to eliminate the heaviest draw calls.
+  this.trackRiverTracerParticles = lowGraphicsEnabled
+    ? []
+    : Array.from({ length: tracerCount }, createTracerParticle);
+  this.trackRiverPulse = 0;
+}
+
+/**
+ * Generates smooth path points using Catmull-Rom spline interpolation.
+ * Interpolates speed multipliers and preserves tunnel properties.
+ */
+export function generateSmoothPathPoints(points, subdivisions = 12) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return Array.isArray(points) ? points.slice() : [];
+  }
+
+  const smooth = [];
+  const steps = Math.max(1, subdivisions);
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = index > 0 ? points[index - 1] : points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = index + 2 < points.length ? points[index + 2] : next;
+
+    for (let step = 0; step < steps; step += 1) {
+      const t = step / steps;
+      const x = this.catmullRom(previous.x, current.x, next.x, afterNext.x, t);
+      const y = this.catmullRom(previous.y, current.y, next.y, afterNext.y, t);
+      
+      // Interpolate speed multiplier between current and next points
+      const currentSpeed = Number.isFinite(current.speedMultiplier) ? current.speedMultiplier : 1;
+      const nextSpeed = Number.isFinite(next.speedMultiplier) ? next.speedMultiplier : 1;
+      const speedMultiplier = currentSpeed + (nextSpeed - currentSpeed) * t;
+      
+      // Preserve tunnel property - point is in tunnel only if both current and next are tunnels
+      const tunnel = Boolean(current.tunnel && next.tunnel);
+      
+      const point = { x, y, speedMultiplier, tunnel };
+      if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], point) > 0.5) {
+        smooth.push(point);
+      }
+    }
+  }
+
+  const lastPoint = points[points.length - 1];
+  if (!smooth.length || this.distanceBetween(smooth[smooth.length - 1], lastPoint) > 0) {
+    const speedMultiplier = Number.isFinite(lastPoint.speedMultiplier) ? lastPoint.speedMultiplier : 1;
+    const tunnel = Boolean(lastPoint.tunnel);
+    smooth.push({ ...lastPoint, speedMultiplier, tunnel });
+  }
+
+  return smooth;
+}
+
+/**
+ * Catmull-Rom spline interpolation for smooth curve generation.
+ * Used by generateSmoothPathPoints to create fluid path curves.
+ */
+export function catmullRom(p0, p1, p2, p3, t) {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return (
+    0.5 *
+    ((2 * p1) +
+      (-p0 + p2) * t +
+      (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+      (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+  );
+}
+
+/**
+ * Calculates Euclidean distance between two points.
+ * Used throughout path geometry calculations.
+ */
+export function distanceBetween(a, b) {
+  if (!a || !b) {
+    return 0;
+  }
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * Returns the interpolated world position at a normalised path progress value (0–1).
+ * Falls back to { x: 0, y: 0 } when no path segments exist.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getPointAlongPath(progress) {
+  if (!this.pathSegments.length) {
+    return { x: 0, y: 0 };
+  }
+
+  const target = Math.min(progress, 1) * this.pathLength;
+  let traversed = 0;
+
+  for (let index = 0; index < this.pathSegments.length; index += 1) {
+    const segment = this.pathSegments[index];
+    if (traversed + segment.length >= target) {
+      const ratio = segment.length > 0 ? (target - traversed) / segment.length : 0;
+      return {
+        x: segment.start.x + (segment.end.x - segment.start.x) * ratio,
+        y: segment.start.y + (segment.end.y - segment.start.y) * ratio,
+      };
+    }
+    traversed += segment.length;
+  }
+
+  const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+  return lastSegment ? { ...lastSegment.end } : { x: 0, y: 0 };
+}
+
+/**
+ * Returns the interpolated speed multiplier of the path segment at the given progress (0–1).
+ * Used to modulate enemy movement velocity on sections with custom speed zones.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getPathSpeedMultiplierAtProgress(progress) {
+  if (!this.pathSegments.length) {
+    return 1;
+  }
+
+  const target = Math.min(progress, 1) * this.pathLength;
+  let traversed = 0;
+
+  for (let index = 0; index < this.pathSegments.length; index += 1) {
+    const segment = this.pathSegments[index];
+    if (traversed + segment.length >= target) {
+      const distanceIntoSegment = target - traversed;
+      const t = segment.length > 0 ? distanceIntoSegment / segment.length : 0;
+
+      const startSpeed = Number.isFinite(segment.start.speedMultiplier) ? segment.start.speedMultiplier : 1;
+      const endSpeed = Number.isFinite(segment.end.speedMultiplier) ? segment.end.speedMultiplier : 1;
+
+      return startSpeed + (endSpeed - startSpeed) * t;
+    }
+    traversed += segment.length;
+  }
+
+  const lastSegment = this.pathSegments[this.pathSegments.length - 1];
+  if (lastSegment && lastSegment.end && Number.isFinite(lastSegment.end.speedMultiplier)) {
+    return lastSegment.end.speedMultiplier;
+  }
+  return 1;
+}
+
+// Ratio of the tunnel length used as an entry/exit fade zone.
+const TUNNEL_FADE_ZONE_RATIO = 0.2;
+
+/**
+ * Determines if an enemy is currently inside a tunnel segment and computes its opacity.
+ * Returns { inTunnel: boolean, opacity: number, isFadeZone: boolean }.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getEnemyTunnelState(enemy) {
+  if (!enemy || !this.tunnelSegments.length || !this.pathPoints.length) {
+    return { inTunnel: false, opacity: 1, isFadeZone: false };
+  }
+
+  const progress = Number.isFinite(enemy.progress) ? enemy.progress : 0;
+  const targetDistance = progress * this.pathLength;
+  let traversed = 0;
+
+  for (let i = 0; i < this.pathSegments.length; i += 1) {
+    const segment = this.pathSegments[i];
+    const segmentEnd = traversed + segment.length;
+
+    if (targetDistance <= segmentEnd) {
+      if (segment.inTunnel) {
+        for (const tunnel of this.tunnelSegments) {
+          if (this.pathLength <= 0) {
+            continue;
+          }
+          const segmentProgress = traversed / this.pathLength;
+          const segmentEndProgress = segmentEnd / this.pathLength;
+          const tunnelStartProgress = this.getProgressAtPointIndex(tunnel.startIndex);
+          const tunnelEndProgress = this.getProgressAtPointIndex(tunnel.endIndex);
+
+          if (segmentProgress >= tunnelStartProgress && segmentEndProgress <= tunnelEndProgress) {
+            const tunnelLength = tunnelEndProgress - tunnelStartProgress;
+
+            if (!Number.isFinite(tunnelLength) || tunnelLength <= 0) {
+              return { inTunnel: true, opacity: 0, isFadeZone: false };
+            }
+
+            const progressInTunnel = (progress - tunnelStartProgress) / tunnelLength;
+
+            let opacity = 0;
+            let isFadeZone = false;
+
+            if (progressInTunnel < TUNNEL_FADE_ZONE_RATIO) {
+              opacity = 1 - (progressInTunnel / TUNNEL_FADE_ZONE_RATIO);
+              isFadeZone = true;
+            } else if (progressInTunnel > (1 - TUNNEL_FADE_ZONE_RATIO)) {
+              opacity = (progressInTunnel - (1 - TUNNEL_FADE_ZONE_RATIO)) / TUNNEL_FADE_ZONE_RATIO;
+              isFadeZone = true;
+            }
+
+            return { inTunnel: true, opacity, isFadeZone };
+          }
+        }
+      }
+      break;
+    }
+
+    traversed = segmentEnd;
+  }
+
+  return { inTunnel: false, opacity: 1, isFadeZone: false };
+}
+
+/**
+ * Returns the normalised path progress (0–1) at a specific path point index.
+ * Used by tunnel-zone calculations to map tunnel start/end indices to progress values.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getProgressAtPointIndex(pointIndex) {
+  if (!this.pathPoints.length || pointIndex < 0 || pointIndex >= this.pathPoints.length) {
+    return 0;
+  }
+
+  let distance = 0;
+  for (let i = 0; i < pointIndex && i < this.pathSegments.length; i += 1) {
+    distance += this.pathSegments[i].length;
+  }
+
+  return this.pathLength > 0 ? distance / this.pathLength : 0;
+}
+
+/**
+ * Returns the world-space position of an enemy based on its path progress.
+ * Handles radial spawn, direct path mode, and standard Catmull-Rom path modes.
+ *
+ * Extracted from SimplePlayfield (Build 713).
+ */
+export function getEnemyPosition(enemy) {
+  if (!enemy) {
+    return { x: 0, y: 0 };
+  }
+
+  if (enemy.radialSpawnX !== undefined && enemy.radialSpawnY !== undefined && this.levelConfig?.centerSpawn) {
+    const center = this.levelConfig.path && this.levelConfig.path.length > 0
+      ? { x: this.levelConfig.path[0].x * this.renderWidth, y: this.levelConfig.path[0].y * this.renderHeight }
+      : { x: this.renderWidth * 0.5, y: this.renderHeight * 0.5 };
+
+    const start = {
+      x: enemy.radialSpawnX * this.renderWidth,
+      y: enemy.radialSpawnY * this.renderHeight,
+    };
+
+    const clamped = Math.max(0, Math.min(1, enemy.progress));
+    return {
+      x: start.x + (center.x - start.x) * clamped,
+      y: start.y + (center.y - start.y) * clamped,
+    };
+  }
+
+  if (enemy.pathMode === 'direct' && this.pathSegments.length) {
+    const startSegment = this.pathSegments[0];
+    const endSegment = this.pathSegments[this.pathSegments.length - 1];
+    const start = startSegment ? startSegment.start : { x: 0, y: 0 };
+    const end = endSegment ? endSegment.end : start;
+    const clamped = Math.max(0, Math.min(1, enemy.progress));
+    return {
+      x: start.x + (end.x - start.x) * clamped,
+      y: start.y + (end.y - start.y) * clamped,
+    };
+  }
+
+  return this.getPointAlongPath(enemy.progress);
+}

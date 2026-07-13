@@ -1,0 +1,56 @@
+{
+  "id": "level-test-tunnel",
+  "name": "Tunnel Test",
+  "description": "Test level with tunnel mechanics - enemies become invulnerable while passing through tunnels",
+  "waves": "1:5A1.0e3/1.0|2:8B2.0e4/0.8|3:10C5.0e5/0.7",
+  "path": [
+    {
+      "x": 0.1,
+      "y": 0.5
+    },
+    {
+      "x": 0.25,
+      "y": 0.5
+    },
+    {
+      "x": 0.35,
+      "y": 0.5,
+      "tunnel": true
+    },
+    {
+      "x": 0.45,
+      "y": 0.5,
+      "tunnel": true
+    },
+    {
+      "x": 0.55,
+      "y": 0.5,
+      "tunnel": true
+    },
+    {
+      "x": 0.65,
+      "y": 0.5
+    },
+    {
+      "x": 0.75,
+      "y": 0.5
+    },
+    {
+      "x": 0.9,
+      "y": 0.5
+    }
+  ],
+  "autoAnchors": [
+    {
+      "x": 0.5,
+      "y": 0.3
+    },
+    {
+      "x": 0.5,
+      "y": 0.7
+    }
+  ],
+  "startThero": 500,
+  "lives": 20,
+  "gateDefense": 0
+}

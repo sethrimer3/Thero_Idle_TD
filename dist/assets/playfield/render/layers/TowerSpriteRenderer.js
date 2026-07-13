@@ -1,0 +1,1042 @@
+/**
+ * Tower Sprite Renderer
+ *
+ * Handles all tower body and glyph rendering for the playfield:
+ * - Tower body circles (fill + stroke + shadow)
+ * - Tower glyph symbols (text rendering)
+ * - Glyph promotion/demotion transition animations
+ * - Tower placement preview (hover ghost + range ring)
+ * - Tower connection particle effects (beta/gamma orbit motes)
+ * - Per-tower type extensions (Zeta pendulums, Eta orbits, Delta soldiers, Omicron units)
+ *
+ * All exported functions are designed to be called with `.call(renderer)` where
+ * `renderer` is the CanvasRenderer / SimplePlayfield instance, matching the
+ * established calling convention in CanvasRenderer.js.
+ *
+ * Extracted from CanvasRenderer.js as part of Phase 2.2.2 of the Monolithic
+ * Refactoring Plan (Build 487).
+ */
+
+import { ALPHA_BASE_RADIUS_FACTOR } from '../../../gameUnits.js';
+import { getTowerVisualConfig } from '../../../colorSchemeUtils.js';
+import { getTowerDefinition } from '../../../towersTab.js';
+import { colorToRgbaString } from '../../../../scripts/features/towers/powderTower.js';
+import { normalizeProjectileColor, drawConnectionMoteGlow } from '../../utils/rendering.js';
+import { clampSafe as clamp } from '../../../../scripts/core/mathUtils.js';
+import { drawZetaPendulums as drawZetaPendulumsHelper } from '../../../../scripts/features/towers/zetaTower.js';
+import { drawEtaOrbits as drawEtaOrbitsHelper } from '../../../../scripts/features/towers/etaTower.js';
+import { drawDeltaSoldiers as drawDeltaSoldiersHelper } from '../../../../scripts/features/towers/deltaTower.js';
+import { drawOmicronUnits as drawOmicronUnitsHelper } from '../../../../scripts/features/towers/omicronTower.js';
+import { drawKappaTripwires as drawKappaTripwiresHelper } from '../../../../scripts/features/towers/kappaTower.js';
+import { drawLambdaLasers as drawLambdaLasersHelper } from '../../../../scripts/features/towers/lambdaTower.js';
+import { drawMuMines as drawMuMinesHelper } from '../../../../scripts/features/towers/muTower.js';
+import {
+  drawNuKillParticles as drawNuKillParticlesHelper,
+} from '../../../../scripts/features/towers/nuTower.js';
+import { drawXiBalls as drawXiBallsHelper } from '../../../../scripts/features/towers/xiTower.js';
+import { drawThetaContours as drawThetaContoursHelper } from '../../../../scripts/features/towers/thetaTower.js';
+import {
+  drawPiLockOnLines as drawPiLockOnLinesHelper,
+  drawPiFrozenLines as drawPiFrozenLinesHelper,
+  drawPiRadialLaser as drawPiRadialLaserHelper,
+} from '../../../../scripts/features/towers/piTower.js';
+import { drawTauProjectiles as drawTauProjectilesHelper } from '../../../../scripts/features/towers/tauTower.js';
+import { drawUpsilonFleet as drawUpsilonFleetHelper } from '../../../../scripts/features/towers/upsilonTower.js';
+import { drawPhiTower as drawPhiTowerHelper } from '../../../../scripts/features/towers/phiTower.js';
+import { drawT1Graph as drawT1GraphHelper } from '../../../../scripts/features/towers/t1Tower.js';
+import { drawT2Graph as drawT2GraphHelper } from '../../../../scripts/features/towers/t2Tower.js';
+
+// Pre-calculated constants used across tower rendering functions
+const TWO_PI = Math.PI * 2;
+const PI = Math.PI;
+const HALF = 0.5;
+
+// Reusable empty dash array avoids allocating a new [] on every setLineDash([]); call inside the tower loop.
+const EMPTY_DASH = [];
+
+// Viewport culling margin: buffer zone beyond visible area to prevent pop-in.
+const VIEWPORT_CULL_MARGIN = 100;
+// Tower culling radius covers the body, rings, bloom glow, and range circle.
+const TOWER_CULL_RADIUS = 120;
+
+// Direction vectors for glyph promotion/demotion particle animations.
+const GLYPH_DEFAULT_PROMOTION_VECTOR = { x: 0, y: -1 };
+const GLYPH_DEFAULT_DEMOTION_VECTOR = { x: 0, y: 1 };
+// Base RGB colours for the glyph promotion (cyan) and demotion (amber) flashes.
+const PROMOTION_GLYPH_COLOR = { r: 139, g: 247, b: 255 };
+const DEMOTION_GLYPH_COLOR = { r: 255, g: 196, b: 150 };
+// Duration of the initial ramp-up phase for glyph flash effects (milliseconds).
+const GLYPH_FLASH_RAMP_MS = 120;
+// Blurred tower ring sprites are rendered from largest (index 1) to smallest (index 5).
+const TOWER_RING_SPRITE_PATHS = [
+  './assets/sprites/towers/towerRing/ring_blur (1).png',
+  './assets/sprites/towers/towerRing/ring_blur (2).png',
+  './assets/sprites/towers/towerRing/ring_blur (3).png',
+  './assets/sprites/towers/towerRing/ring_blur (4).png',
+  './assets/sprites/towers/towerRing/ring_blur (5).png',
+];
+// Ring radius multipliers keep each sprite wrapped around the tower body from outermost to innermost.
+const TOWER_RING_RADIUS_MULTIPLIERS = [3.15, 2.75, 2.35, 1.95, 1.6];
+// Alternating rotation directions produce the requested CW/CCW/CW/CCW/CW motion pattern.
+const TOWER_RING_DIRECTIONS = [1, -1, 1, -1, 1];
+// Smaller rings rotate slightly faster to create a layered orbital effect.
+const TOWER_RING_BASE_SPEEDS = [0.24, 0.28, 0.32, 0.36, 0.4];
+// Sequential ring reveal timings (milliseconds) for fast one-by-one fade-ins.
+const TOWER_RING_FADE_DELAY_MS = 65;
+const TOWER_RING_FADE_DURATION_MS = 120;
+
+// Cache tower ring Image objects so rendering can reuse decoded sprites every frame.
+let cachedTowerRingSprites = null;
+
+// Per-tower-type visual extension dispatch table.
+// Replaces 13 sequential if-checks per tower per frame with a single property lookup.
+const TOWER_TYPE_HANDLERS = {
+  theta: (renderer, tower) => drawThetaContoursHelper(renderer, tower),
+  zeta: (renderer, tower) => drawZetaPendulumsHelper(renderer, tower),
+  eta: (renderer, tower) => drawEtaOrbitsHelper(renderer, tower),
+  kappa: (renderer, tower) => drawKappaTripwiresHelper(renderer, tower),
+  lambda: (renderer, tower) => drawLambdaLasersHelper(renderer, tower),
+  mu: (renderer, tower) => drawMuMinesHelper(renderer, tower),
+  nu: (renderer, tower) => drawNuKillParticlesHelper(renderer, tower),
+  xi: (renderer, tower) => drawXiBallsHelper(renderer, tower),
+  pi: (renderer, tower) => {
+    drawPiLockOnLinesHelper(renderer, tower);
+    drawPiFrozenLinesHelper(renderer, tower);
+    drawPiRadialLaserHelper(renderer, tower);
+  },
+  tau: (renderer, tower) => drawTauProjectilesHelper(renderer, tower),
+  upsilon: (renderer, tower) => drawUpsilonFleetHelper(renderer, tower),
+  phi: (renderer, tower) => drawPhiTowerHelper(renderer, tower),
+  t1: (renderer, tower) => drawT1GraphHelper(renderer, tower),
+  t2: (renderer, tower) => drawT2GraphHelper(renderer, tower),
+};
+
+// Cache pre-rendered golden bloom glow circles keyed by rounded body radius.
+// The bloom appearance never changes between frames for a given body radius, so
+// we pay the radial gradient setup cost once and reuse a fast drawImage call
+// every frame instead of calling createRadialGradient() per-tower per-frame.
+const goldenBloomSpriteCache = new Map();
+const GOLDEN_BLOOM_CACHE_MAX = 8; // Body radius varies little in one session; a small cap is sufficient.
+
+/**
+ * Return (or create and cache) an offscreen canvas with the golden bloom
+ * gradient pre-rendered for the given tower body radius.
+ */
+function getOrCreateGoldenBloomSprite(bodyRadius) {
+  const key = Math.round(bodyRadius);
+  if (goldenBloomSpriteCache.has(key)) {
+    return goldenBloomSpriteCache.get(key);
+  }
+  const outerRadius = bodyRadius * 1.9;
+  const innerRadius = bodyRadius * 0.35;
+  const size = Math.ceil(outerRadius * 2) + 4; // 2 px padding each side
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  const gradient = offCtx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+  gradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
+  gradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
+  gradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
+  offCtx.fillStyle = gradient;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, outerRadius, 0, TWO_PI);
+  offCtx.fill();
+  // Evict the oldest entry when the cache reaches its cap.
+  // Map preserves insertion order in JavaScript, so keys().next().value is the oldest key.
+  if (goldenBloomSpriteCache.size >= GOLDEN_BLOOM_CACHE_MAX) {
+    goldenBloomSpriteCache.delete(goldenBloomSpriteCache.keys().next().value);
+  }
+  goldenBloomSpriteCache.set(key, canvas);
+  return canvas;
+}
+
+// ─── Viewport culling helpers (duplicated to avoid circular imports) ──────────
+
+function getViewportBounds() {
+  if (this._frameCache?.viewportBounds) {
+    return this._frameCache.viewportBounds;
+  }
+  if (!this.canvas || !this.ctx) {
+    return null;
+  }
+  const width = this.renderWidth || this.canvas.clientWidth || 0;
+  const height = this.renderHeight || this.canvas.clientHeight || 0;
+  const viewCenter = this.getViewCenter();
+  const scale = this.viewScale || 1;
+  const halfWidth = (width / scale) * HALF + VIEWPORT_CULL_MARGIN;
+  const halfHeight = (height / scale) * HALF + VIEWPORT_CULL_MARGIN;
+  return {
+    minX: viewCenter.x - halfWidth,
+    maxX: viewCenter.x + halfWidth,
+    minY: viewCenter.y - halfHeight,
+    maxY: viewCenter.y + halfHeight,
+  };
+}
+
+function isInViewport(position, bounds, radius = 0) {
+  if (!position) {
+    return false;
+  }
+  if (!bounds) {
+    return true;
+  }
+  const x = position.x || 0;
+  const y = position.y || 0;
+  return (
+    x + radius >= bounds.minX &&
+    x - radius <= bounds.maxX &&
+    y + radius >= bounds.minY &&
+    y - radius <= bounds.maxY
+  );
+}
+
+// ─── Pre-rendered tower body sprite cache ─────────────────────────────────────
+// Each tower body is a filled circle + stroke + shadow glow that only varies by
+// visual config.  Pre-rendering the body with its shadow into an offscreen
+// canvas eliminates the expensive per-tower ctx.shadowBlur calls.
+const towerBodySpriteCache = new Map();
+const TOWER_BODY_CACHE_MAX = 24;
+
+function getOrCreateTowerBodySprite(bodyRadius, innerFill, outerStroke, shadowColor, shadowBlur) {
+  const roundedRadius = Math.round(bodyRadius);
+  const roundedBlur = Math.round(shadowBlur);
+  const key = `${roundedRadius}:${innerFill}:${outerStroke}:${shadowColor}:${roundedBlur}`;
+  if (towerBodySpriteCache.has(key)) {
+    return towerBodySpriteCache.get(key);
+  }
+  const padding = Math.ceil(shadowBlur * 2) + 6;
+  const size = Math.ceil(bodyRadius * 2) + padding * 2;
+  const cx = size * HALF;
+  const cy = size * HALF;
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(size, size)
+      : typeof document !== 'undefined'
+        ? (() => { const c = document.createElement('canvas'); c.width = size; c.height = size; return c; })()
+        : null;
+  if (!canvas) {
+    return null;
+  }
+  const offCtx = canvas.getContext('2d');
+  if (!offCtx) {
+    return null;
+  }
+  offCtx.shadowColor = shadowColor;
+  offCtx.shadowBlur = shadowBlur;
+  offCtx.beginPath();
+  offCtx.arc(cx, cy, bodyRadius, 0, TWO_PI);
+  offCtx.fillStyle = innerFill;
+  offCtx.strokeStyle = outerStroke;
+  offCtx.lineWidth = 2.4;
+  offCtx.fill();
+  offCtx.stroke();
+  if (towerBodySpriteCache.size >= TOWER_BODY_CACHE_MAX) {
+    towerBodySpriteCache.delete(towerBodySpriteCache.keys().next().value);
+  }
+  towerBodySpriteCache.set(key, { canvas, halfSize: size * HALF });
+  return { canvas, halfSize: size * HALF };
+}
+
+function getTowerRingSprites() {
+  if (cachedTowerRingSprites) {
+    return cachedTowerRingSprites;
+  }
+  cachedTowerRingSprites = TOWER_RING_SPRITE_PATHS.map((path) => {
+    const image = new Image();
+    image.src = path;
+    return image;
+  });
+  return cachedTowerRingSprites;
+}
+
+// ─── Utility helpers ──────────────────────────────────────────────────────────
+
+function smoothstep(value) {
+  const clamped = clamp(value, 0, 1);
+  return clamped * clamped * (3 - 2 * clamped);
+}
+
+function getNowTimestamp() {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+// ─── Tower Connection Particles ───────────────────────────────────────────────
+
+export function drawTowerConnectionParticles(ctx, tower, bodyRadius) {
+  if (!ctx || !tower) {
+    return;
+  }
+  const particles = Array.isArray(tower.connectionParticles) ? tower.connectionParticles : [];
+  if (!particles.length) {
+    return;
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  particles.forEach((particle) => {
+    if (!particle || particle.state === 'done') {
+      return;
+    }
+    const baseColor = particle.type === 'beta'
+      ? { r: 255, g: 214, b: 112 }
+      : { r: 255, g: 138, b: 216 };
+    const color = normalizeProjectileColor(baseColor, 1);
+    const size = particle.size || 2.6;
+    let position = null;
+    if (particle.state === 'launch' || particle.state === 'arrive') {
+      position = particle.position || this.resolveConnectionOrbitAnchor(tower, particle);
+    } else {
+      position = this.resolveConnectionOrbitPosition(tower, particle, bodyRadius);
+    }
+    if (!position) {
+      return;
+    }
+    drawConnectionMoteGlow(
+      ctx,
+      position.x,
+      position.y,
+      size,
+      color,
+      particle.state === 'launch' ? 0.9 : 0.85,
+    );
+  });
+  ctx.restore();
+}
+
+// ─── Tower Connection Effects ─────────────────────────────────────────────────
+
+export function drawConnectionEffects(ctx) {
+  if (!ctx || !Array.isArray(this.connectionEffects) || !this.connectionEffects.length) {
+    return;
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  this.connectionEffects.forEach((effect) => {
+    const source = effect.source || this.getTowerById(effect.sourceId);
+    const target = effect.target || this.getTowerById(effect.targetId);
+    if (!source || !target) {
+      return;
+    }
+    const baseColor = source.type === 'beta'
+      ? { r: 255, g: 214, b: 112 }
+      : { r: 255, g: 138, b: 216 };
+    const color = normalizeProjectileColor(baseColor, 1);
+    effect.particles.forEach((particle) => {
+      const progress = Math.max(0, Math.min(1, particle.progress || 0));
+      const x = source.x + (target.x - source.x) * progress;
+      const y = source.y + (target.y - source.y) * progress;
+      drawConnectionMoteGlow(ctx, x, y, 3.2, color, 0.7);
+    });
+  });
+  ctx.restore();
+}
+
+// ─── Tower Press Glow ─────────────────────────────────────────────────────────
+
+export function drawTowerPressGlow(playfield, tower, bodyRadius, intensity, visuals, glyph) {
+  const ctx = playfield?.ctx;
+  if (!ctx || !tower || !Number.isFinite(bodyRadius) || !intensity) {
+    return;
+  }
+  const clamped = Math.max(0, Math.min(1, intensity));
+  if (clamped <= 0) {
+    return;
+  }
+  const ringColor = visuals.outerStroke || 'rgba(139, 247, 255, 0.85)';
+  const ringRadius = bodyRadius + 6 + clamped * 6;
+  // Replace per-press shadowBlur with a lightweight double-stroke glow pass.
+  ctx.save();
+  ctx.globalAlpha = 0.35 + clamped * 0.45;
+  ctx.beginPath();
+  ctx.arc(tower.x, tower.y, ringRadius, 0, TWO_PI);
+  ctx.strokeStyle = ringColor;
+  ctx.lineWidth = (2.6 + clamped * 2.8) + (16 + clamped * 18) * 0.5;
+  ctx.globalAlpha = (0.35 + clamped * 0.45) * 0.3;
+  ctx.stroke();
+  ctx.globalAlpha = 0.35 + clamped * 0.45;
+  ctx.lineWidth = 2.6 + clamped * 2.8;
+  ctx.stroke();
+  ctx.restore();
+
+  const symbolColor = visuals.symbolFill || ringColor;
+  ctx.save();
+  ctx.globalAlpha = 0.4 + clamped * 0.5;
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(4, (18 + clamped * 16) * 0.5);
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  ctx.strokeStyle = symbolColor;
+  ctx.strokeText(glyph || '?', tower.x, tower.y);
+  ctx.fillStyle = symbolColor;
+  ctx.fillText(glyph || '?', tower.x, tower.y);
+  ctx.restore();
+}
+
+// Draw animated sprite rings around each tower with sequential fade-in and alternating rotation.
+export function drawTowerRings(ctx, tower, bodyRadius) {
+  if (!ctx || !tower || !Number.isFinite(bodyRadius)) {
+    return;
+  }
+
+  // Persist per-tower placement timestamp so ring reveal starts the moment a tower is anchored.
+  const placedAtMs = Number.isFinite(tower.placedAtMs) ? tower.placedAtMs : getNowTimestamp();
+  tower.placedAtMs = placedAtMs;
+  // Persist a deterministic phase offset so neighboring towers do not rotate perfectly in sync.
+  if (!Number.isFinite(tower.ringRotationPhase)) {
+    const idLength = typeof tower.id === 'string' ? tower.id.length : 1;
+    tower.ringRotationPhase = (idLength % 12) * (PI / 6);
+  }
+
+  const elapsedMs = Math.max(0, getNowTimestamp() - placedAtMs);
+  const sprites = getTowerRingSprites();
+
+  // One save/translate pair wraps all five rings so each ring only needs
+  // rotate/draw/rotate-undo rather than a full save/restore per sprite.
+  // ctx.restore() at the end undoes the translate and resets globalAlpha.
+  ctx.save();
+  ctx.translate(tower.x, tower.y);
+  sprites.forEach((sprite, index) => {
+    if (!sprite || !sprite.complete || !Number.isFinite(sprite.naturalWidth) || sprite.naturalWidth <= 0) {
+      return;
+    }
+
+    // Fade each ring in sequence from largest to smallest with a compact reveal interval.
+    const ringStartMs = index * TOWER_RING_FADE_DELAY_MS;
+    const fadeProgress = clamp((elapsedMs - ringStartMs) / TOWER_RING_FADE_DURATION_MS, 0, 1);
+    if (fadeProgress <= 0) {
+      return;
+    }
+
+    const targetRadius = bodyRadius * TOWER_RING_RADIUS_MULTIPLIERS[index];
+    const spriteScale = (targetRadius * 2) / sprite.naturalWidth;
+    const drawWidth = sprite.naturalWidth * spriteScale;
+    const drawHeight = sprite.naturalHeight * spriteScale;
+    const direction = TOWER_RING_DIRECTIONS[index] || 1;
+    const speed = TOWER_RING_BASE_SPEEDS[index] || TOWER_RING_BASE_SPEEDS[TOWER_RING_BASE_SPEEDS.length - 1];
+    const rotation = tower.ringRotationPhase + direction * speed * (elapsedMs / 1000);
+
+    ctx.globalAlpha = smoothstep(fadeProgress);
+    ctx.rotate(rotation);
+    ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+    // Undo this ring's rotation so the next ring starts from the tower-centre
+    // orientation rather than accumulating offsets.
+    ctx.rotate(-rotation);
+  });
+  // Restores the translate and global alpha set before the loop.
+  ctx.restore();
+}
+
+// ─── Placement Preview ────────────────────────────────────────────────────────
+
+export function drawPlacementPreview() {
+  if (!this.ctx || !this.hoverPlacement || !this.hoverPlacement.position) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  const {
+    position,
+    range,
+    valid,
+    merge,
+    mergeTarget,
+    symbol,
+    reason,
+    dragging,
+    towerType,
+    definition,
+    tier,
+    connections,
+  } = this.hoverPlacement;
+
+  ctx.save();
+
+  const radius = Number.isFinite(range) && range > 0
+    ? range
+    : Math.min(this.renderWidth, this.renderHeight) * 0.18;
+  const fillColor = valid ? 'rgba(139, 247, 255, 0.12)' : 'rgba(255, 112, 112, 0.16)';
+  const strokeColor = valid ? 'rgba(139, 247, 255, 0.85)' : 'rgba(255, 96, 96, 0.9)';
+
+  ctx.beginPath();
+  ctx.fillStyle = fillColor;
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = valid ? 2 : 3;
+  ctx.arc(position.x, position.y, Math.max(12, radius), 0, TWO_PI);
+  ctx.fill();
+  ctx.stroke();
+
+  // Visualize valid κ tripwire links so players can see pending connections.
+  const connectionPreviews = Array.isArray(connections) ? connections : [];
+  if (connectionPreviews.length) {
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 2.2;
+    connectionPreviews.forEach((connection) => {
+      const baseStroke = connection.kappaPair
+        ? 'rgba(255, 228, 120, 0.85)'
+        : 'rgba(139, 247, 255, 0.85)';
+      ctx.strokeStyle = valid ? baseStroke : 'rgba(255, 112, 112, 0.75)';
+      ctx.beginPath();
+      ctx.moveTo(connection.from.x, connection.from.y);
+      ctx.lineTo(connection.to.x, connection.to.y);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  if (merge && mergeTarget) {
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 236, 128, 0.85)';
+    ctx.beginPath();
+    ctx.arc(mergeTarget.x, mergeTarget.y, Math.max(16, (radius || 24) * 0.6), 0, TWO_PI);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const previewDefinition = definition || getTowerDefinition(towerType);
+  const previewTower = {
+    type: towerType,
+    definition: previewDefinition || undefined,
+    tier: Number.isFinite(tier) ? tier : previewDefinition?.tier,
+    symbol,
+  };
+  const visuals = getTowerVisualConfig(previewTower) || {};
+  const bodyRadius = Math.max(
+    12,
+    Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
+  );
+  const bodyStroke = valid
+    ? visuals.outerStroke || 'rgba(139, 247, 255, 0.85)'
+    : 'rgba(255, 96, 96, 0.85)';
+  const bodyFill = valid
+    ? visuals.innerFill || 'rgba(12, 16, 28, 0.9)'
+    : 'rgba(60, 16, 16, 0.88)';
+  const symbolFill = valid
+    ? visuals.symbolFill || 'rgba(255, 228, 120, 0.85)'
+    : 'rgba(255, 200, 200, 0.92)';
+
+  ctx.save();
+  if (valid && visuals.outerShadow?.color) {
+    this.applyCanvasShadow(
+      ctx,
+      visuals.outerShadow.color,
+      Number.isFinite(visuals.outerShadow.blur) ? visuals.outerShadow.blur : 18,
+    );
+  } else {
+    this.clearCanvasShadow(ctx);
+  }
+  ctx.beginPath();
+  ctx.fillStyle = bodyFill;
+  ctx.strokeStyle = bodyStroke;
+  ctx.lineWidth = valid ? 2.4 : 2.6;
+  ctx.arc(position.x, position.y, bodyRadius, 0, TWO_PI);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  if (valid && visuals.symbolShadow?.color) {
+    this.applyCanvasShadow(
+      ctx,
+      visuals.symbolShadow.color,
+      Number.isFinite(visuals.symbolShadow.blur) ? visuals.symbolShadow.blur : 18,
+    );
+  } else {
+    this.clearCanvasShadow(ctx);
+  }
+  const glyph = symbol || '?';
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = symbolFill;
+  ctx.fillText(glyph, position.x, position.y);
+  ctx.restore();
+
+  if (dragging) {
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(139, 247, 255, 0.4)';
+    ctx.beginPath();
+    const anchorRadius = Math.max(bodyRadius * 1.15, bodyRadius + 4, 16);
+    ctx.arc(position.x, position.y, anchorRadius, 0, TWO_PI);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  if (this.messageEl && reason) {
+    this.messageEl.textContent = reason;
+  }
+}
+
+// ─── Glyph Transition Animation ───────────────────────────────────────────────
+
+function drawTowerGlyphTransition(ctx, tower, bodyRadius, transition, visuals, glyph) {
+  if (!ctx || !tower || !transition) {
+    return;
+  }
+  const now = getNowTimestamp();
+  const baseVector = transition.direction ||
+    (transition.mode === 'demote' ? GLYPH_DEFAULT_DEMOTION_VECTOR : GLYPH_DEFAULT_PROMOTION_VECTOR);
+  const length = Math.hypot(baseVector?.x || 0, baseVector?.y || 0) || 1;
+  const direction = { x: (baseVector?.x || 0) / length, y: (baseVector?.y || 0) / length };
+  const perpendicular = { x: -direction.y, y: direction.x };
+
+  drawTowerGlyphResidue.call(this, ctx, tower, bodyRadius, transition, now, visuals);
+  drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direction, perpendicular);
+  drawTowerGlyphFlash(ctx, tower, bodyRadius, transition, now);
+  drawTowerGlyphText.call(this, ctx, tower, bodyRadius, transition, now, visuals, glyph);
+}
+
+function drawTowerGlyphResidue(ctx, tower, bodyRadius, transition, now, visuals) {
+  if (!transition?.fromSymbol || !Number.isFinite(transition.fromSymbolFade)) {
+    return;
+  }
+  const fadeDuration = Math.max(1, transition.fromSymbolFade);
+  const elapsed = now - (transition.startedAt || 0);
+  if (elapsed >= fadeDuration) {
+    return;
+  }
+  const alpha = Math.max(0, 1 - elapsed / fadeDuration);
+  if (alpha <= 0) {
+    return;
+  }
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.85;
+  this.clearCanvasShadow(ctx);
+  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(transition.fromSymbol, tower.x, tower.y);
+  ctx.restore();
+}
+
+function drawTowerGlyphParticles(ctx, tower, bodyRadius, transition, now, direction, perpendicular) {
+  const particles = Array.isArray(transition?.particles) ? transition.particles : [];
+  if (!particles.length) {
+    return;
+  }
+  // Use a single outer save/restore instead of one per particle.
+  ctx.save();
+  particles.forEach((particle) => {
+    if (!particle) {
+      return;
+    }
+    const elapsed = now - (transition.startedAt || 0) - (particle.delay || 0);
+    if (elapsed <= 0) {
+      return;
+    }
+    const duration = Math.max(1, particle.duration || 0);
+    const progress = clamp(elapsed / duration, 0, 1);
+    if (progress <= 0 || progress > 1) {
+      return;
+    }
+    const baseAlpha = Number.isFinite(particle.alpha) ? particle.alpha : 1;
+    const alpha = Math.max(0, baseAlpha * (1 - progress));
+    if (alpha <= 0.01) {
+      return;
+    }
+    const distance = (particle.maxDistance || bodyRadius) * progress;
+    const wobble = (particle.lateral || 0) * Math.sin(progress * PI);
+    const x = tower.x + (particle.offsetX || 0) + direction.x * distance + perpendicular.x * wobble;
+    const y = tower.y + (particle.offsetY || 0) + direction.y * distance + perpendicular.y * wobble;
+    ctx.globalAlpha = alpha;
+    const color = getGlyphParticleColor(transition.mode, particle.hueShift || 0);
+    ctx.fillStyle = colorToRgbaString(color, 1);
+    const size = Math.max(1.2, particle.size || bodyRadius * 0.08);
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, TWO_PI);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function getGlyphParticleColor(mode, tint = 0) {
+  const base = mode === 'demote' ? DEMOTION_GLYPH_COLOR : PROMOTION_GLYPH_COLOR;
+  const mix = clamp(tint, 0, 1);
+  const lift = 0.65 + mix * 0.35;
+  return {
+    r: Math.min(255, Math.round(base.r * lift + 30 * mix)),
+    g: Math.min(255, Math.round(base.g * lift + (mode === 'demote' ? 20 : 35) * mix)),
+    b: Math.min(255, Math.round(base.b * lift + (mode === 'demote' ? 5 : 45) * mix)),
+  };
+}
+
+function drawTowerGlyphFlash(ctx, tower, bodyRadius, transition, now) {
+  const fadeDuration = Math.max(0, transition?.flashDuration || 0);
+  const hold = Math.max(0, transition?.flashHold || 0);
+  if (!fadeDuration && !hold) {
+    return;
+  }
+  const elapsed = now - (transition.startedAt || 0);
+  const total = GLYPH_FLASH_RAMP_MS + hold + fadeDuration;
+  if (elapsed >= total) {
+    return;
+  }
+  let intensity = 0;
+  if (elapsed <= GLYPH_FLASH_RAMP_MS) {
+    intensity = smoothstep(elapsed / GLYPH_FLASH_RAMP_MS);
+  } else if (elapsed <= GLYPH_FLASH_RAMP_MS + hold) {
+    intensity = 1;
+  } else {
+    const fadeProgress = (elapsed - GLYPH_FLASH_RAMP_MS - hold) / Math.max(1, fadeDuration);
+    intensity = Math.max(0, 1 - fadeProgress);
+  }
+  if (intensity <= 0) {
+    return;
+  }
+  const baseColor = transition?.mode === 'demote' ? DEMOTION_GLYPH_COLOR : PROMOTION_GLYPH_COLOR;
+  const strength = Math.min(1.1, (transition?.strengthRatio || 1) * 0.35 + 0.65);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, intensity * strength * 0.75);
+  const radius = bodyRadius * (1.05 + intensity * 0.8);
+  const gradient = ctx.createRadialGradient(
+    tower.x,
+    tower.y,
+    radius * 0.25,
+    tower.x,
+    tower.y,
+    radius,
+  );
+  gradient.addColorStop(0, colorToRgbaString(baseColor, 0.85));
+  gradient.addColorStop(1, colorToRgbaString(baseColor, 0));
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(tower.x, tower.y, radius, 0, TWO_PI);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawTowerGlyphText(ctx, tower, bodyRadius, transition, now, visuals, glyph) {
+  const delay = Math.max(0, transition?.newSymbolDelay || 0);
+  const duration = Math.max(1, transition?.newSymbolFade || 1);
+  const elapsed = now - (transition.startedAt || 0) - delay;
+  if (elapsed <= 0) {
+    return;
+  }
+  const progress = clamp(elapsed / duration, 0, 1);
+  const eased = smoothstep(progress);
+  if (eased <= 0) {
+    return;
+  }
+  // Replace shadowBlur with a lightweight glow stroke for the new glyph text.
+  const symbolShadow = visuals.symbolShadow;
+  ctx.save();
+  ctx.globalAlpha = eased;
+  ctx.font = `${Math.round(bodyRadius * 1.4)}px "Cormorant Garamond", serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const symbol = transition?.toSymbol || glyph || tower.symbol || tower.definition?.symbol || '?';
+  if (symbolShadow?.color) {
+    const glowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+    ctx.lineWidth = Math.max(4, glowBlur * 0.5);
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeStyle = symbolShadow.color;
+    ctx.strokeText(symbol, tower.x, tower.y);
+  }
+  ctx.fillStyle = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+  ctx.fillText(symbol, tower.x, tower.y);
+  ctx.restore();
+}
+
+// ─── Main Tower Rendering ─────────────────────────────────────────────────────
+
+export function drawTowers() {
+  if (!this.ctx || !this.towers.length) {
+    return;
+  }
+
+  const ctx = this.ctx;
+  ctx.save();
+
+  drawConnectionEffects.call(this, ctx);
+
+  const activeDrag = this.connectionDragState.active ? this.connectionDragState : null;
+  const highlightEntries = activeDrag && Array.isArray(activeDrag.highlightEntries)
+    ? activeDrag.highlightEntries
+    : [];
+  const highlightMap = new Map();
+  highlightEntries.forEach((entry) => {
+    if (!highlightMap.has(entry.towerId)) {
+      highlightMap.set(entry.towerId, entry);
+    }
+  });
+  const hoveredHighlight = activeDrag ? activeDrag.hoverEntry : null;
+
+  // Viewport culling: skip towers that are entirely off-screen.
+  const viewportBounds = this._frameCache?.viewportBounds || getViewportBounds.call(this);
+  // Cache whether shadows are globally suppressed so per-tower branches stay cheap.
+  const shadowsSuppressed = this.isLowGraphicsMode() || this._zoomingActive;
+
+  // Body radius is identical for every tower; compute once outside the loop.
+  const bodyRadius = Math.max(
+    12,
+    Math.min(this.renderWidth, this.renderHeight) * ALPHA_BASE_RADIUS_FACTOR,
+  );
+  // Pre-build font strings that repeat across all towers to avoid per-tower template allocation.
+  const glyphFontSize = Math.round(bodyRadius * 1.4);
+  const glyphFont = `${glyphFontSize}px "Cormorant Garamond", serif`;
+
+  this.towers.forEach((tower) => {
+    if (!tower || !Number.isFinite(tower.x) || !Number.isFinite(tower.y)) {
+      return;
+    }
+
+    // Cull towers outside the visible viewport before any expensive work.
+    if (viewportBounds && !isInViewport(tower, viewportBounds, TOWER_CULL_RADIUS)) {
+      return;
+    }
+
+    const visuals = getTowerVisualConfig(tower) || {};
+    const rangeRadius = Number.isFinite(tower.range)
+      ? tower.range
+      : Math.min(this.renderWidth, this.renderHeight) * 0.22;
+
+    const highlightEntry = highlightMap.get(tower.id) || null;
+    if (highlightEntry) {
+      const isHovered = hoveredHighlight && hoveredHighlight.towerId === tower.id;
+      const strokeColor = highlightEntry.action === 'connect'
+        ? isHovered
+          ? 'rgba(139, 247, 255, 0.85)'
+          : 'rgba(139, 247, 255, 0.45)'
+        : isHovered
+        ? 'rgba(255, 214, 112, 0.85)'
+        : 'rgba(255, 214, 112, 0.45)';
+      ctx.lineWidth = isHovered ? 3.2 : 2;
+      ctx.strokeStyle = strokeColor;
+      ctx.setLineDash([isHovered ? 6 : 4, isHovered ? 6 : 8]);
+      ctx.beginPath();
+      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
+      ctx.stroke();
+      ctx.setLineDash(EMPTY_DASH);
+    }
+
+    if (Number.isFinite(rangeRadius) && rangeRadius > 0) {
+      ctx.beginPath();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = visuals.rangeStroke || 'rgba(139, 247, 255, 0.2)';
+      ctx.setLineDash([8, 6]);
+      ctx.arc(tower.x, tower.y, rangeRadius, 0, TWO_PI);
+      ctx.stroke();
+      ctx.setLineDash(EMPTY_DASH);
+    }
+
+    // Dispatch per-tower-type visual extensions via a lookup table instead of 13 sequential if-checks.
+    const towerTypeHandler = TOWER_TYPE_HANDLERS[tower.type];
+    if (towerTypeHandler) {
+      towerTypeHandler(this, tower);
+    }
+
+    ctx.save();
+    // Blit the pre-rendered golden bloom glow to avoid a per-tower per-frame
+    // createRadialGradient() call; the appearance is static for a given body radius.
+    const bloomSprite = getOrCreateGoldenBloomSprite(bodyRadius);
+    if (bloomSprite) {
+      const bloomHalfSize = bloomSprite.width * HALF;
+      ctx.drawImage(bloomSprite, tower.x - bloomHalfSize, tower.y - bloomHalfSize, bloomSprite.width, bloomSprite.height);
+    } else {
+      // Fallback: draw the gradient inline when offscreen canvas is unavailable.
+      const goldenGlowGradient = ctx.createRadialGradient(
+        tower.x,
+        tower.y,
+        bodyRadius * 0.35,
+        tower.x,
+        tower.y,
+        bodyRadius * 1.9,
+      );
+      goldenGlowGradient.addColorStop(0, 'rgba(255, 212, 120, 0.22)');
+      goldenGlowGradient.addColorStop(0.62, 'rgba(255, 188, 92, 0.11)');
+      goldenGlowGradient.addColorStop(1, 'rgba(255, 188, 92, 0)');
+      ctx.fillStyle = goldenGlowGradient;
+      ctx.beginPath();
+      ctx.arc(tower.x, tower.y, bodyRadius * 1.9, 0, TWO_PI);
+      ctx.fill();
+    }
+
+    // Draw tower rings WITHOUT shadow active — the ring sprites are pre-blurred PNGs
+    // so applying ctx.shadowBlur on top was redundant and expensive.
+    drawTowerRings(ctx, tower, bodyRadius);
+
+    // Draw the tower body circle with shadow as a pre-rendered sprite to eliminate
+    // per-tower ctx.shadowBlur calls.  Falls back to inline drawing when the
+    // offscreen sprite is unavailable or shadows are suppressed.
+    const innerFill = visuals.innerFill || 'rgba(12, 16, 28, 0.9)';
+    const outerStroke = visuals.outerStroke || 'rgba(139, 247, 255, 0.75)';
+    const outerShadow = visuals.outerShadow;
+    const shadowColor = outerShadow?.color || 'rgba(255, 208, 128, 0.34)';
+    const bodyShadowBlur = outerShadow?.color
+      ? (Number.isFinite(outerShadow.blur) ? outerShadow.blur : 18)
+      : Math.max(12, bodyRadius * 1.05);
+    if (!shadowsSuppressed) {
+      const bodySprite = getOrCreateTowerBodySprite(bodyRadius, innerFill, outerStroke, shadowColor, bodyShadowBlur);
+      if (bodySprite) {
+        ctx.drawImage(bodySprite.canvas, tower.x - bodySprite.halfSize, tower.y - bodySprite.halfSize);
+      } else {
+        this.applyCanvasShadow(ctx, shadowColor, bodyShadowBlur);
+        ctx.beginPath();
+        ctx.fillStyle = innerFill;
+        ctx.strokeStyle = outerStroke;
+        ctx.lineWidth = 2.4;
+        ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
+        ctx.fill();
+        ctx.stroke();
+        this.clearCanvasShadow(ctx);
+      }
+    } else {
+      // Shadows suppressed — draw body directly without any shadow overhead.
+      ctx.beginPath();
+      ctx.fillStyle = innerFill;
+      ctx.strokeStyle = outerStroke;
+      ctx.lineWidth = 2.4;
+      ctx.arc(tower.x, tower.y, bodyRadius, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    drawTowerConnectionParticles.call(this, ctx, tower, bodyRadius);
+
+    const symbolColor = visuals.symbolFill || 'rgba(255, 228, 120, 0.92)';
+    const symbolShadow = visuals.symbolShadow;
+
+    const glyph = tower.symbol || tower.definition?.symbol || '?';
+    const glyphTransition = this.towerGlyphTransitions?.get(tower.id) || null;
+    if (glyphTransition) {
+      drawTowerGlyphTransition.call(this, ctx, tower, bodyRadius, glyphTransition, visuals, glyph);
+    } else {
+      // Replace per-tower ctx.shadowBlur with a lightweight double-stroke glow pass.
+      // A wide semi-transparent strokeText approximates the shadow glow without the
+      // expensive Gaussian blur filter used by ctx.shadowBlur.
+      ctx.font = glyphFont;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (!shadowsSuppressed && symbolShadow?.color) {
+        const glowBlur = Number.isFinite(symbolShadow.blur) ? symbolShadow.blur : 18;
+        ctx.lineWidth = Math.max(4, glowBlur * 0.5);
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.strokeStyle = symbolShadow.color;
+        ctx.strokeText(glyph, tower.x, tower.y);
+      }
+      ctx.fillStyle = symbolColor;
+      ctx.fillText(glyph, tower.x, tower.y);
+    }
+
+    const pressGlowIntensity =
+      typeof this.getTowerPressGlowIntensity === 'function'
+        ? this.getTowerPressGlowIntensity(tower.id)
+        : 0;
+    if (pressGlowIntensity > 0.001) {
+      drawTowerPressGlow(this, tower, bodyRadius, pressGlowIntensity, visuals, glyph);
+    }
+
+    if (tower.type === 'beta') {
+      const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
+      if (alphaShots >= 3) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = `${Math.round(bodyRadius * 0.75)}px "Cormorant Garamond", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${alphaShots}α`, tower.x, tower.y + bodyRadius + 6);
+      }
+    } else if (tower.type === 'gamma') {
+      const betaShots = Math.max(0, Math.floor(tower.storedBetaShots || 0));
+      const alphaShots = Math.max(0, Math.floor(tower.storedAlphaShots || 0));
+      if (betaShots >= 3 || alphaShots >= 3) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = `${Math.round(bodyRadius * 0.7)}px "Cormorant Garamond", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        let labelY = tower.y + bodyRadius + 6;
+        if (betaShots >= 3) {
+          ctx.fillText(`${betaShots}β`, tower.x, labelY);
+          labelY += Math.round(bodyRadius * 0.7) + 4;
+        }
+        if (alphaShots >= 3) {
+          ctx.fillText(`${alphaShots}α`, tower.x, labelY);
+        }
+      }
+    }
+
+    if (tower.chain) {
+      // Replace chain ring shadowBlur with a lightweight double-stroke glow pass.
+      ctx.beginPath();
+      ctx.arc(tower.x, tower.y, bodyRadius + 6, 0, TWO_PI);
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.22)';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 228, 120, 0.75)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    if (this.activeTowerMenu?.towerId === tower.id) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(139, 247, 255, 0.9)';
+      ctx.lineWidth = 2.6;
+      ctx.arc(tower.x, tower.y, bodyRadius + 10, 0, TWO_PI);
+      ctx.stroke();
+    }
+
+    // ─── Nullifier disable visual: darken + ∅ symbol ──────────────────
+    if (Number.isFinite(tower.disabledUntil)) {
+      const now = (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now()) / 1000;
+      if (now < tower.disabledUntil) {
+        // Dark overlay circle to visually mute the tower
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, bodyRadius + 4, 0, TWO_PI);
+        ctx.fillStyle = 'rgba(8, 8, 16, 0.72)';
+        ctx.fill();
+        // ∅ symbol above the tower
+        const symbolSize = Math.round(bodyRadius * 0.85);
+        ctx.font = `${symbolSize}px "Cormorant Garamond", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(220, 80, 80, 0.95)';
+        ctx.fillText('∅', tower.x, tower.y - bodyRadius - 4);
+        ctx.restore();
+      }
+    }
+  });
+
+  ctx.restore();
+}
+
+// ─── Per-Tower-Type Extension Delegates ──────────────────────────────────────
+
+export function drawZetaPendulums(tower) {
+  drawZetaPendulumsHelper(this, tower);
+}
+
+export function drawEtaOrbits(tower) {
+  drawEtaOrbitsHelper(this, tower);
+}
+
+export function drawDeltaSoldiers() {
+  drawDeltaSoldiersHelper(this);
+}
+
+export function drawOmicronUnits() {
+  drawOmicronUnitsHelper(this);
+}

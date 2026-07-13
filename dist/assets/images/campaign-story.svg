@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Story campaign icon</title>
+  <desc id="desc">Diamond frame with the Thorn glyph representing Thero.</desc>
+  <defs>
+    <linearGradient id="storyDiamondGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe478" stop-opacity="0.96" />
+      <stop offset="100%" stop-color="#d1a73a" stop-opacity="0.82" />
+    </linearGradient>
+    <linearGradient id="storyCoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe9a6" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#c8a148" stop-opacity="0.95" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+
+  <!-- Outer diamond (rotated square) -->
+  <g transform="translate(32, 32) rotate(45)">
+    <rect x="-16" y="-16" width="32" height="32" fill="none" stroke="url(#storyDiamondGradient)" stroke-width="2.5" opacity="0.85" />
+  </g>
+
+  <!-- Inner diamond (rotated square) -->
+  <g transform="translate(32, 32) rotate(45)">
+    <rect x="-10" y="-10" width="20" height="20" fill="url(#storyCoreGradient)" opacity="0.92" />
+  </g>
+
+  <!-- Thorn rune for Thero -->
+  <g transform="translate(32, 32)">
+    <circle r="11" fill="rgba(0, 0, 0, 0.4)" />
+    <text
+      x="0"
+      y="6"
+      text-anchor="middle"
+      font-family="Cormorant Garamond, 'Times New Roman', serif"
+      font-size="24"
+      font-weight="700"
+      fill="#f6e7c0"
+      stroke="#0d0a08"
+      stroke-width="0.8"
+      paint-order="stroke"
+    >
+      Þ
+    </text>
+  </g>
+</svg>

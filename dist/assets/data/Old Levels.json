@@ -1,0 +1,2940 @@
+{
+  "levels": [
+    {
+      "id": "Conjecture - 1",
+      "displayName": "Lemniscate Hypothesis",
+      "startThero": 45,
+      "theroCap": 360,
+      "theroPerKill": 18,
+      "passiveTheroPerSecond": 8,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "even scouts",
+          "count": 6,
+          "interval": 1.6,
+          "hp": 80,
+          "speed": 0.1,
+          "reward": 12,
+          "color": "rgba(180, 232, 255, 0.88)",
+          "codexId": "etype"
+        },
+        {
+          "label": "lemniscate runners",
+          "count": 4,
+          "interval": 1.9,
+          "hp": 140,
+          "speed": 0.105,
+          "reward": 18,
+          "color": "rgba(255, 180, 240, 0.9)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "prime twins",
+          "count": 3,
+          "interval": 2.3,
+          "hp": 210,
+          "speed": 0.11,
+          "reward": 26,
+          "color": "rgba(255, 204, 160, 0.92)",
+          "codexId": "prime"
+        },
+        {
+          "label": "loop sentries",
+          "count": 3,
+          "interval": 2.8,
+          "hp": 320,
+          "speed": 0.115,
+          "reward": 32,
+          "color": "rgba(255, 138, 186, 0.92)",
+          "codexId": "reversal",
+          "boss": {
+            "label": "giant Aleph",
+            "hp": 1000,
+            "speed": 0.02,
+            "reward": 120,
+            "color": "rgba(200, 236, 255, 0.95)",
+            "symbol": "Α"
+          }
+        }
+      ],
+      "rewardScore": 1.8e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.22,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.9
+        },
+        {
+          "x": 0.18,
+          "y": 0.74
+        },
+        {
+          "x": 0.3,
+          "y": 0.62
+        },
+        {
+          "x": 0.42,
+          "y": 0.58
+        },
+        {
+          "x": 0.54,
+          "y": 0.68
+        },
+        {
+          "x": 0.66,
+          "y": 0.54
+        },
+        {
+          "x": 0.78,
+          "y": 0.38
+        },
+        {
+          "x": 0.9,
+          "y": 0.32
+        },
+        {
+          "x": 0.96,
+          "y": 0.18
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2,
+          "y": 0.72
+        },
+        {
+          "x": 0.36,
+          "y": 0.6
+        },
+        {
+          "x": 0.56,
+          "y": 0.64
+        },
+        {
+          "x": 0.76,
+          "y": 0.44
+        }
+      ]
+    },
+    {
+      "id": "Conjecture - 2",
+      "displayName": "Collatz Cascade",
+      "startThero": 50,
+      "theroCap": 420,
+      "theroPerKill": 22,
+      "passiveTheroPerSecond": 10,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "cascade sparks",
+          "count": 7,
+          "interval": 1.5,
+          "hp": 110,
+          "speed": 0.09,
+          "reward": 14,
+          "color": "rgba(144, 206, 255, 0.9)",
+          "codexId": "etype"
+        },
+        {
+          "label": "odd sentries",
+          "count": 5,
+          "interval": 1.8,
+          "hp": 190,
+          "speed": 0.1,
+          "reward": 22,
+          "color": "rgba(255, 150, 245, 0.92)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "collatz elites",
+          "count": 4,
+          "interval": 2.2,
+          "hp": 260,
+          "speed": 0.11,
+          "reward": 30,
+          "color": "rgba(255, 198, 120, 0.95)",
+          "codexId": "prime"
+        },
+        {
+          "label": "hailstone predators",
+          "count": 2,
+          "interval": 2.8,
+          "hp": 420,
+          "speed": 0.105,
+          "reward": 40,
+          "color": "rgba(255, 102, 154, 0.95)",
+          "codexId": "reversal"
+        }
+      ],
+      "rewardScore": 2.4e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.24,
+      "path": [
+        {
+          "x": 0.06,
+          "y": 0.86
+        },
+        {
+          "x": 0.16,
+          "y": 0.7
+        },
+        {
+          "x": 0.26,
+          "y": 0.58
+        },
+        {
+          "x": 0.36,
+          "y": 0.64
+        },
+        {
+          "x": 0.46,
+          "y": 0.46
+        },
+        {
+          "x": 0.56,
+          "y": 0.28
+        },
+        {
+          "x": 0.68,
+          "y": 0.34
+        },
+        {
+          "x": 0.78,
+          "y": 0.52
+        },
+        {
+          "x": 0.88,
+          "y": 0.38
+        },
+        {
+          "x": 0.94,
+          "y": 0.16
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2,
+          "y": 0.68
+        },
+        {
+          "x": 0.34,
+          "y": 0.54
+        },
+        {
+          "x": 0.54,
+          "y": 0.34
+        },
+        {
+          "x": 0.74,
+          "y": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Conjecture - 3",
+      "displayName": "Riemann Helix",
+      "startThero": 50,
+      "theroCap": 480,
+      "theroPerKill": 24,
+      "passiveTheroPerSecond": 11,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "ζ scouts",
+          "count": 8,
+          "interval": 1.4,
+          "hp": 150,
+          "speed": 0.085,
+          "reward": 18,
+          "color": "rgba(130, 235, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "harmonic drifters",
+          "count": 5,
+          "interval": 1.7,
+          "hp": 240,
+          "speed": 0.095,
+          "reward": 24,
+          "color": "rgba(255, 170, 235, 0.92)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "zero phantoms",
+          "count": 4,
+          "interval": 2.1,
+          "hp": 360,
+          "speed": 0.1,
+          "reward": 34,
+          "color": "rgba(255, 210, 140, 0.95)",
+          "codexId": "prime"
+        },
+        {
+          "label": "helical wardens",
+          "count": 3,
+          "interval": 2.5,
+          "hp": 520,
+          "speed": 0.11,
+          "reward": 46,
+          "color": "rgba(255, 120, 190, 0.95)",
+          "codexId": "reversal"
+        }
+      ],
+      "rewardScore": 3.2000000000000004e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.26,
+      "path": [
+        {
+          "x": 0.1768,
+          "y": 0.8631
+        },
+        {
+          "x": 0.2396,
+          "y": 0.1938
+        },
+        {
+          "x": 0.3627,
+          "y": 0.7981
+        },
+        {
+          "x": 0.4351,
+          "y": 0.248
+        },
+        {
+          "x": 0.4762,
+          "y": 0.5108
+        },
+        {
+          "x": 0.5075,
+          "y": 0.729
+        },
+        {
+          "x": 0.5534,
+          "y": 0.5176
+        },
+        {
+          "x": 0.6017,
+          "y": 0.3238
+        },
+        {
+          "x": 0.6741,
+          "y": 0.6491
+        },
+        {
+          "x": 0.7634,
+          "y": 0.4092
+        },
+        {
+          "x": 0.8286,
+          "y": 0.6111
+        },
+        {
+          "x": 0.9034,
+          "y": 0.4607
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2396,
+          "y": 0.1938
+        },
+        {
+          "x": 0.4762,
+          "y": 0.5108
+        },
+        {
+          "x": 0.6017,
+          "y": 0.3238
+        },
+        {
+          "x": 0.8286,
+          "y": 0.6111
+        }
+      ]
+    },
+    {
+      "id": "Conjecture - 4",
+      "displayName": "Twin Prime Fork",
+      "startThero": 50,
+      "theroCap": 520,
+      "theroPerKill": 28,
+      "passiveTheroPerSecond": 12,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "twin outriders",
+          "count": 8,
+          "interval": 1.3,
+          "hp": 180,
+          "speed": 0.09,
+          "reward": 20,
+          "color": "rgba(140, 240, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "gap stalkers",
+          "count": 6,
+          "interval": 1.6,
+          "hp": 280,
+          "speed": 0.105,
+          "reward": 28,
+          "color": "rgba(255, 155, 240, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "prime twisters",
+          "count": 4,
+          "interval": 2,
+          "hp": 420,
+          "speed": 0.12,
+          "reward": 38,
+          "color": "rgba(255, 210, 130, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "forked vanguards",
+          "count": 3,
+          "interval": 2.6,
+          "hp": 640,
+          "speed": 0.13,
+          "reward": 52,
+          "color": "rgba(255, 110, 170, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "lane shifters",
+          "count": 2,
+          "interval": 3,
+          "hp": 820,
+          "speed": 0.135,
+          "reward": 60,
+          "color": "rgba(180, 255, 170, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 4.400000000000001e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.28,
+      "path": [
+        {
+          "x": 0.4834,
+          "y": 0.0881
+        },
+        {
+          "x": 0.7393,
+          "y": 0.5352
+        },
+        {
+          "x": 0.2565,
+          "y": 0.8293
+        },
+        {
+          "x": 0.86,
+          "y": 0.1843
+        },
+        {
+          "x": 0.3603,
+          "y": 0.4864
+        },
+        {
+          "x": 0.5631,
+          "y": 0.9146
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.7393,
+          "y": 0.5352
+        },
+        {
+          "x": 0.3603,
+          "y": 0.4864
+        },
+        {
+          "x": 0.2565,
+          "y": 0.8293
+        },
+        {
+          "x": 0.5631,
+          "y": 0.9146
+        }
+      ]
+    },
+    {
+      "id": "Conjecture - 5",
+      "displayName": "Birch Flow",
+      "startThero": 50,
+      "theroCap": 600,
+      "theroPerKill": 32,
+      "passiveTheroPerSecond": 14,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "birch scouts",
+          "count": 9,
+          "interval": 1.2,
+          "hp": 220,
+          "speed": 0.09,
+          "reward": 24,
+          "color": "rgba(150, 240, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "elliptic couriers",
+          "count": 7,
+          "interval": 1.5,
+          "hp": 340,
+          "speed": 0.11,
+          "reward": 32,
+          "color": "rgba(255, 160, 235, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "rank guardians",
+          "count": 5,
+          "interval": 1.9,
+          "hp": 520,
+          "speed": 0.12,
+          "reward": 44,
+          "color": "rgba(255, 210, 150, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "river sentries",
+          "count": 4,
+          "interval": 2.3,
+          "hp": 760,
+          "speed": 0.13,
+          "reward": 58,
+          "color": "rgba(255, 130, 190, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "swinnerton lords",
+          "count": 2,
+          "interval": 2.9,
+          "hp": 1100,
+          "speed": 0.135,
+          "reward": 72,
+          "color": "rgba(200, 255, 190, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 6.0000000000000005e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.3,
+      "path": [
+        {
+          "x": 0.7731,
+          "y": 0.1436
+        },
+        {
+          "x": 0.8334,
+          "y": 0.8699
+        },
+        {
+          "x": 0.2348,
+          "y": 0.8401
+        },
+        {
+          "x": 0.3675,
+          "y": 0.122
+        },
+        {
+          "x": 0.6886,
+          "y": 0.5
+        },
+        {
+          "x": 0.5462,
+          "y": 0.8428
+        },
+        {
+          "x": 0.3989,
+          "y": 0.5014
+        },
+        {
+          "x": 0.7731,
+          "y": 0.1436
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.8334,
+          "y": 0.8699
+        },
+        {
+          "x": 0.6886,
+          "y": 0.5
+        },
+        {
+          "x": 0.3989,
+          "y": 0.5014
+        },
+        {
+          "x": 0.3675,
+          "y": 0.122
+        }
+      ]
+    },
+    {
+      "id": "Conjecture - Secret",
+      "displayName": "Apocrypha Loop",
+      "startThero": 50,
+      "theroCap": 1320,
+      "theroPerKill": 58,
+      "passiveTheroPerSecond": 28,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "hidden lemmas",
+          "count": 16,
+          "interval": 0.85,
+          "hp": 520,
+          "speed": 0.118,
+          "reward": 50,
+          "color": "rgba(162, 248, 255, 0.94)",
+          "codexId": "etype"
+        },
+        {
+          "label": "portal scribes",
+          "count": 10,
+          "interval": 1.15,
+          "hp": 880,
+          "speed": 0.135,
+          "reward": 68,
+          "color": "rgba(255, 184, 244, 0.95)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "apocrypha husks",
+          "count": 7,
+          "interval": 1.6,
+          "hp": 1340,
+          "speed": 0.148,
+          "reward": 96,
+          "color": "rgba(255, 226, 188, 0.97)",
+          "codexId": "prime"
+        },
+        {
+          "label": "mirror adepts",
+          "count": 6,
+          "interval": 2,
+          "hp": 1900,
+          "speed": 0.16,
+          "reward": 132,
+          "color": "rgba(255, 150, 210, 0.97)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "paradox heralds",
+          "count": 4,
+          "interval": 2.6,
+          "hp": 2680,
+          "speed": 0.172,
+          "reward": 168,
+          "color": "rgba(220, 255, 214, 0.97)",
+          "codexId": "prime"
+        },
+        {
+          "label": "quantum tunnelers",
+          "count": 3,
+          "interval": 2.8,
+          "hp": 3600,
+          "speed": 0.19,
+          "reward": 220,
+          "color": "rgba(120, 255, 232, 0.98)",
+          "codexId": "tunneler",
+          "pathMode": "direct"
+        }
+      ],
+      "rewardScore": 1.9600000000000005e+45,
+      "rewardFlux": 2,
+      "rewardThero": 0,
+      "rewardEnergy": 1,
+      "arcSpeed": 0.36,
+      "path": [
+        {
+          "x": 0.06,
+          "y": 0.96
+        },
+        {
+          "x": 0.16,
+          "y": 0.84
+        },
+        {
+          "x": 0.26,
+          "y": 0.66
+        },
+        {
+          "x": 0.36,
+          "y": 0.5
+        },
+        {
+          "x": 0.5,
+          "y": 0.42
+        },
+        {
+          "x": 0.64,
+          "y": 0.54
+        },
+        {
+          "x": 0.74,
+          "y": 0.7
+        },
+        {
+          "x": 0.86,
+          "y": 0.58
+        },
+        {
+          "x": 0.94,
+          "y": 0.34
+        },
+        {
+          "x": 0.88,
+          "y": 0.14
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2,
+          "y": 0.78
+        },
+        {
+          "x": 0.38,
+          "y": 0.54
+        },
+        {
+          "x": 0.58,
+          "y": 0.46
+        },
+        {
+          "x": 0.78,
+          "y": 0.64
+        }
+      ]
+    },
+    {
+      "id": "Corollary - 6",
+      "displayName": "Derivative Bloom",
+      "startThero": 50,
+      "theroCap": 720,
+      "theroPerKill": 36,
+      "passiveTheroPerSecond": 16,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "petal sparks",
+          "count": 10,
+          "interval": 1.1,
+          "hp": 260,
+          "speed": 0.095,
+          "reward": 28,
+          "color": "rgba(158, 236, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "slope wardens",
+          "count": 7,
+          "interval": 1.4,
+          "hp": 380,
+          "speed": 0.11,
+          "reward": 38,
+          "color": "rgba(255, 165, 240, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "turning sentries",
+          "count": 6,
+          "interval": 1.9,
+          "hp": 580,
+          "speed": 0.12,
+          "reward": 52,
+          "color": "rgba(255, 214, 160, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "critical blooms",
+          "count": 4,
+          "interval": 2.4,
+          "hp": 860,
+          "speed": 0.135,
+          "reward": 68,
+          "color": "rgba(255, 136, 192, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "saddle avatars",
+          "count": 2,
+          "interval": 3,
+          "hp": 1280,
+          "speed": 0.14,
+          "reward": 86,
+          "color": "rgba(206, 255, 188, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 8.2e+44,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.3,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.94
+        },
+        {
+          "x": 0.18,
+          "y": 0.82
+        },
+        {
+          "x": 0.28,
+          "y": 0.68
+        },
+        {
+          "x": 0.38,
+          "y": 0.54
+        },
+        {
+          "x": 0.5,
+          "y": 0.62
+        },
+        {
+          "x": 0.6,
+          "y": 0.8
+        },
+        {
+          "x": 0.72,
+          "y": 0.66
+        },
+        {
+          "x": 0.82,
+          "y": 0.48
+        },
+        {
+          "x": 0.9,
+          "y": 0.3
+        },
+        {
+          "x": 0.96,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.78
+        },
+        {
+          "x": 0.4,
+          "y": 0.58
+        },
+        {
+          "x": 0.58,
+          "y": 0.74
+        },
+        {
+          "x": 0.76,
+          "y": 0.52
+        }
+      ]
+    },
+    {
+      "id": "Corollary - 7",
+      "displayName": "Integral Cascade",
+      "startThero": 50,
+      "theroCap": 800,
+      "theroPerKill": 40,
+      "passiveTheroPerSecond": 18,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "quantized drips",
+          "count": 11,
+          "interval": 1.05,
+          "hp": 300,
+          "speed": 0.1,
+          "reward": 32,
+          "color": "rgba(162, 240, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "accumulator scouts",
+          "count": 8,
+          "interval": 1.35,
+          "hp": 440,
+          "speed": 0.115,
+          "reward": 42,
+          "color": "rgba(255, 170, 242, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "area wardens",
+          "count": 6,
+          "interval": 1.8,
+          "hp": 660,
+          "speed": 0.125,
+          "reward": 60,
+          "color": "rgba(255, 218, 170, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "leech integrals",
+          "count": 4,
+          "interval": 2.3,
+          "hp": 960,
+          "speed": 0.14,
+          "reward": 78,
+          "color": "rgba(255, 140, 198, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "constant phantoms",
+          "count": 3,
+          "interval": 2.9,
+          "hp": 1380,
+          "speed": 0.145,
+          "reward": 96,
+          "color": "rgba(214, 255, 190, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1.0100000000000001e+45,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.32,
+      "path": [
+        {
+          "x": 0.06,
+          "y": 0.92
+        },
+        {
+          "x": 0.16,
+          "y": 0.78
+        },
+        {
+          "x": 0.26,
+          "y": 0.66
+        },
+        {
+          "x": 0.36,
+          "y": 0.74
+        },
+        {
+          "x": 0.46,
+          "y": 0.58
+        },
+        {
+          "x": 0.56,
+          "y": 0.44
+        },
+        {
+          "x": 0.68,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.68
+        },
+        {
+          "x": 0.88,
+          "y": 0.5
+        },
+        {
+          "x": 0.94,
+          "y": 0.28
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.2,
+          "y": 0.8
+        },
+        {
+          "x": 0.36,
+          "y": 0.64
+        },
+        {
+          "x": 0.54,
+          "y": 0.48
+        },
+        {
+          "x": 0.74,
+          "y": 0.64
+        }
+      ]
+    },
+    {
+      "id": "Corollary - 8",
+      "displayName": "Fibonacci Turnabout",
+      "startThero": 50,
+      "theroCap": 880,
+      "theroPerKill": 44,
+      "passiveTheroPerSecond": 20,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "spiral runners",
+          "count": 12,
+          "interval": 1,
+          "hp": 340,
+          "speed": 0.105,
+          "reward": 36,
+          "color": "rgba(168, 242, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "phi drifters",
+          "count": 9,
+          "interval": 1.3,
+          "hp": 500,
+          "speed": 0.12,
+          "reward": 48,
+          "color": "rgba(255, 176, 244, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "junction sentries",
+          "count": 7,
+          "interval": 1.7,
+          "hp": 760,
+          "speed": 0.13,
+          "reward": 66,
+          "color": "rgba(255, 222, 180, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "golden wardens",
+          "count": 5,
+          "interval": 2.2,
+          "hp": 1100,
+          "speed": 0.145,
+          "reward": 90,
+          "color": "rgba(255, 144, 205, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "turnabout paragons",
+          "count": 3,
+          "interval": 2.8,
+          "hp": 1640,
+          "speed": 0.15,
+          "reward": 110,
+          "color": "rgba(222, 255, 196, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1.2400000000000001e+45,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.34,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.96
+        },
+        {
+          "x": 0.18,
+          "y": 0.84
+        },
+        {
+          "x": 0.3,
+          "y": 0.74
+        },
+        {
+          "x": 0.38,
+          "y": 0.86
+        },
+        {
+          "x": 0.48,
+          "y": 0.7
+        },
+        {
+          "x": 0.6,
+          "y": 0.54
+        },
+        {
+          "x": 0.72,
+          "y": 0.62
+        },
+        {
+          "x": 0.82,
+          "y": 0.8
+        },
+        {
+          "x": 0.9,
+          "y": 0.62
+        },
+        {
+          "x": 0.96,
+          "y": 0.36
+        },
+        {
+          "x": 0.92,
+          "y": 0.16
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.4,
+          "y": 0.72
+        },
+        {
+          "x": 0.58,
+          "y": 0.56
+        },
+        {
+          "x": 0.78,
+          "y": 0.7
+        }
+      ]
+    },
+    {
+      "id": "Corollary - 9",
+      "displayName": "Euler Bridge",
+      "startThero": 50,
+      "theroCap": 980,
+      "theroPerKill": 48,
+      "passiveTheroPerSecond": 22,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "bridge runners",
+          "count": 13,
+          "interval": 0.95,
+          "hp": 380,
+          "speed": 0.11,
+          "reward": 38,
+          "color": "rgba(176, 244, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "parity wardens",
+          "count": 9,
+          "interval": 1.25,
+          "hp": 620,
+          "speed": 0.125,
+          "reward": 54,
+          "color": "rgba(255, 176, 244, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "planar bulwarks",
+          "count": 6,
+          "interval": 1.8,
+          "hp": 940,
+          "speed": 0.136,
+          "reward": 72,
+          "color": "rgba(255, 220, 164, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "bridge reversals",
+          "count": 4,
+          "interval": 2.4,
+          "hp": 1380,
+          "speed": 0.15,
+          "reward": 94,
+          "color": "rgba(255, 138, 202, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "euler sentries",
+          "count": 3,
+          "interval": 2.9,
+          "hp": 1860,
+          "speed": 0.155,
+          "reward": 118,
+          "color": "rgba(214, 255, 202, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1.26e+45,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.33,
+      "path": [
+        {
+          "x": 0.06,
+          "y": 0.94
+        },
+        {
+          "x": 0.14,
+          "y": 0.82
+        },
+        {
+          "x": 0.22,
+          "y": 0.68
+        },
+        {
+          "x": 0.32,
+          "y": 0.72
+        },
+        {
+          "x": 0.42,
+          "y": 0.56
+        },
+        {
+          "x": 0.5,
+          "y": 0.4
+        },
+        {
+          "x": 0.6,
+          "y": 0.48
+        },
+        {
+          "x": 0.7,
+          "y": 0.68
+        },
+        {
+          "x": 0.82,
+          "y": 0.6
+        },
+        {
+          "x": 0.9,
+          "y": 0.44
+        },
+        {
+          "x": 0.96,
+          "y": 0.2
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.18,
+          "y": 0.78
+        },
+        {
+          "x": 0.36,
+          "y": 0.64
+        },
+        {
+          "x": 0.54,
+          "y": 0.46
+        },
+        {
+          "x": 0.74,
+          "y": 0.62
+        }
+      ]
+    },
+    {
+      "id": "Corollary - 10",
+      "displayName": "Modular Bloom",
+      "startThero": 50,
+      "theroCap": 1100,
+      "theroPerKill": 52,
+      "passiveTheroPerSecond": 24,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "residue runners",
+          "count": 14,
+          "interval": 0.9,
+          "hp": 420,
+          "speed": 0.112,
+          "reward": 42,
+          "color": "rgba(182, 246, 255, 0.92)",
+          "codexId": "etype"
+        },
+        {
+          "label": "congruence scouts",
+          "count": 10,
+          "interval": 1.2,
+          "hp": 700,
+          "speed": 0.13,
+          "reward": 60,
+          "color": "rgba(255, 182, 246, 0.93)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "modular wardens",
+          "count": 7,
+          "interval": 1.7,
+          "hp": 1080,
+          "speed": 0.142,
+          "reward": 82,
+          "color": "rgba(255, 224, 170, 0.96)",
+          "codexId": "prime"
+        },
+        {
+          "label": "residue mirrors",
+          "count": 5,
+          "interval": 2.2,
+          "hp": 1540,
+          "speed": 0.158,
+          "reward": 108,
+          "color": "rgba(255, 146, 208, 0.96)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "synchronized avatars",
+          "count": 3,
+          "interval": 2.8,
+          "hp": 2080,
+          "speed": 0.165,
+          "reward": 138,
+          "color": "rgba(222, 255, 210, 0.96)",
+          "codexId": "prime"
+        }
+      ],
+      "rewardScore": 1.52e+45,
+      "rewardFlux": 1,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.35,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.96
+        },
+        {
+          "x": 0.18,
+          "y": 0.84
+        },
+        {
+          "x": 0.28,
+          "y": 0.74
+        },
+        {
+          "x": 0.38,
+          "y": 0.6
+        },
+        {
+          "x": 0.5,
+          "y": 0.66
+        },
+        {
+          "x": 0.6,
+          "y": 0.82
+        },
+        {
+          "x": 0.7,
+          "y": 0.7
+        },
+        {
+          "x": 0.82,
+          "y": 0.56
+        },
+        {
+          "x": 0.9,
+          "y": 0.4
+        },
+        {
+          "x": 0.96,
+          "y": 0.18
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.4,
+          "y": 0.7
+        },
+        {
+          "x": 0.58,
+          "y": 0.52
+        },
+        {
+          "x": 0.74,
+          "y": 0.68
+        }
+      ]
+    },
+    {
+      "id": "Corollary - Secret",
+      "displayName": "Shadow Integral",
+      "startThero": 50,
+      "theroCap": 1460,
+      "theroPerKill": 64,
+      "passiveTheroPerSecond": 32,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "shadow currents",
+          "count": 18,
+          "interval": 0.8,
+          "hp": 600,
+          "speed": 0.125,
+          "reward": 54,
+          "color": "rgba(168, 250, 255, 0.94)",
+          "codexId": "etype"
+        },
+        {
+          "label": "integral siphons",
+          "count": 12,
+          "interval": 1.1,
+          "hp": 960,
+          "speed": 0.138,
+          "reward": 74,
+          "color": "rgba(255, 188, 246, 0.95)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "flux sentinels",
+          "count": 8,
+          "interval": 1.5,
+          "hp": 1480,
+          "speed": 0.15,
+          "reward": 102,
+          "color": "rgba(255, 228, 192, 0.97)",
+          "codexId": "prime"
+        },
+        {
+          "label": "phase inverters",
+          "count": 6,
+          "interval": 1.9,
+          "hp": 2120,
+          "speed": 0.164,
+          "reward": 142,
+          "color": "rgba(255, 154, 214, 0.97)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "axiom amalgams",
+          "count": 4,
+          "interval": 2.4,
+          "hp": 2960,
+          "speed": 0.176,
+          "reward": 184,
+          "color": "rgba(224, 255, 222, 0.97)",
+          "codexId": "prime"
+        },
+        {
+          "label": "archive sovereigns",
+          "count": 2,
+          "interval": 2.8,
+          "hp": 4200,
+          "speed": 0.182,
+          "reward": 240,
+          "color": "rgba(255, 210, 252, 0.98)",
+          "codexId": "reversal"
+        }
+      ],
+      "rewardScore": 2.4800000000000003e+45,
+      "rewardFlux": 2,
+      "rewardThero": 0,
+      "rewardEnergy": 2,
+      "arcSpeed": 0.4,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.94
+        },
+        {
+          "x": 0.18,
+          "y": 0.78
+        },
+        {
+          "x": 0.28,
+          "y": 0.62
+        },
+        {
+          "x": 0.42,
+          "y": 0.5
+        },
+        {
+          "x": 0.58,
+          "y": 0.64
+        },
+        {
+          "x": 0.72,
+          "y": 0.8
+        },
+        {
+          "x": 0.84,
+          "y": 0.62
+        },
+        {
+          "x": 0.94,
+          "y": 0.44
+        },
+        {
+          "x": 0.9,
+          "y": 0.24
+        },
+        {
+          "x": 0.82,
+          "y": 0.1
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.24,
+          "y": 0.76
+        },
+        {
+          "x": 0.46,
+          "y": 0.54
+        },
+        {
+          "x": 0.66,
+          "y": 0.72
+        },
+        {
+          "x": 0.82,
+          "y": 0.48
+        }
+      ]
+    },
+    {
+      "id": "Lemma - 11",
+      "displayName": "Abel Cascade",
+      "startThero": 55,
+      "theroCap": 1600,
+      "theroPerKill": 70,
+      "passiveTheroPerSecond": 34,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "abel cascade placeholders",
+          "count": 6,
+          "interval": 1.5,
+          "hp": 200,
+          "speed": 0.11,
+          "reward": 24,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.26,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Lemma - 12",
+      "displayName": "Noether Weave",
+      "startThero": 55,
+      "theroCap": 1740,
+      "theroPerKill": 75,
+      "passiveTheroPerSecond": 34,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "noether weave placeholders",
+          "count": 7,
+          "interval": 1.5,
+          "hp": 260,
+          "speed": 0.115,
+          "reward": 30,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.268,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Lemma - 13",
+      "displayName": "Erdős Drift",
+      "startThero": 55,
+      "theroCap": 1880,
+      "theroPerKill": 80,
+      "passiveTheroPerSecond": 34,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "erdős drift placeholders",
+          "count": 8,
+          "interval": 1.5,
+          "hp": 320,
+          "speed": 0.12,
+          "reward": 36,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.276,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Lemma - 14",
+      "displayName": "Möbius Rind",
+      "startThero": 55,
+      "theroCap": 2020,
+      "theroPerKill": 85,
+      "passiveTheroPerSecond": 34,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "möbius rind placeholders",
+          "count": 9,
+          "interval": 1.5,
+          "hp": 380,
+          "speed": 0.125,
+          "reward": 42,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.284,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Lemma - 15",
+      "displayName": "Ramanujan Bloom",
+      "startThero": 55,
+      "theroCap": 2160,
+      "theroPerKill": 90,
+      "passiveTheroPerSecond": 34,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "ramanujan bloom placeholders",
+          "count": 10,
+          "interval": 1.5,
+          "hp": 440,
+          "speed": 0.13,
+          "reward": 48,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.292,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Proof - 16",
+      "displayName": "Hilbert Fold",
+      "startThero": 60,
+      "theroCap": 2300,
+      "theroPerKill": 95,
+      "passiveTheroPerSecond": 38,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "hilbert fold placeholders",
+          "count": 11,
+          "interval": 1.5,
+          "hp": 500,
+          "speed": 0.135,
+          "reward": 54,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.3,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Proof - 17",
+      "displayName": "Gödel Labyrinth",
+      "startThero": 60,
+      "theroCap": 2440,
+      "theroPerKill": 100,
+      "passiveTheroPerSecond": 38,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "gödel labyrinth placeholders",
+          "count": 12,
+          "interval": 1.5,
+          "hp": 560,
+          "speed": 0.14,
+          "reward": 60,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.308,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Proof - 18",
+      "displayName": "Turing Spire",
+      "startThero": 60,
+      "theroCap": 2580,
+      "theroPerKill": 105,
+      "passiveTheroPerSecond": 38,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "turing spire placeholders",
+          "count": 13,
+          "interval": 1.5,
+          "hp": 620,
+          "speed": 0.145,
+          "reward": 66,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.316,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Proof - 19",
+      "displayName": "Cantor Verge",
+      "startThero": 60,
+      "theroCap": 2720,
+      "theroPerKill": 110,
+      "passiveTheroPerSecond": 38,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "cantor verge placeholders",
+          "count": 14,
+          "interval": 1.5,
+          "hp": 680,
+          "speed": 0.15,
+          "reward": 72,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.324,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Proof - 20",
+      "displayName": "Jordan Curve Bastion",
+      "startThero": 60,
+      "theroCap": 2860,
+      "theroPerKill": 115,
+      "passiveTheroPerSecond": 38,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "jordan curve bastion placeholders",
+          "count": 15,
+          "interval": 1.5,
+          "hp": 740,
+          "speed": 0.155,
+          "reward": 78,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.332,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Theorem - 21",
+      "displayName": "Gauss Orchard",
+      "startThero": 65,
+      "theroCap": 3000,
+      "theroPerKill": 120,
+      "passiveTheroPerSecond": 42,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "gauss orchard placeholders",
+          "count": 16,
+          "interval": 1.5,
+          "hp": 800,
+          "speed": 0.16,
+          "reward": 84,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.34,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Theorem - 22",
+      "displayName": "Fourier Aurora",
+      "startThero": 65,
+      "theroCap": 3140,
+      "theroPerKill": 125,
+      "passiveTheroPerSecond": 42,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "fourier aurora placeholders",
+          "count": 17,
+          "interval": 1.5,
+          "hp": 860,
+          "speed": 0.165,
+          "reward": 90,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.348,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Theorem - 23",
+      "displayName": "Nash Spiral",
+      "startThero": 65,
+      "theroCap": 3280,
+      "theroPerKill": 130,
+      "passiveTheroPerSecond": 42,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "nash spiral placeholders",
+          "count": 18,
+          "interval": 1.5,
+          "hp": 920,
+          "speed": 0.17,
+          "reward": 96,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.356,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Theorem - 24",
+      "displayName": "Riesz Parallax",
+      "startThero": 65,
+      "theroCap": 3420,
+      "theroPerKill": 135,
+      "passiveTheroPerSecond": 42,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "riesz parallax placeholders",
+          "count": 19,
+          "interval": 1.5,
+          "hp": 980,
+          "speed": 0.175,
+          "reward": 102,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.364,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Theorem - 25",
+      "displayName": "Poincaré Bloom",
+      "startThero": 65,
+      "theroCap": 3560,
+      "theroPerKill": 140,
+      "passiveTheroPerSecond": 42,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "poincaré bloom placeholders",
+          "count": 20,
+          "interval": 1.5,
+          "hp": 1040,
+          "speed": 0.18,
+          "reward": 108,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.372,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Axiom - 26",
+      "displayName": "Zorn Horizon",
+      "startThero": 70,
+      "theroCap": 3700,
+      "theroPerKill": 145,
+      "passiveTheroPerSecond": 46,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "zorn horizon placeholders",
+          "count": 21,
+          "interval": 1.5,
+          "hp": 1100,
+          "speed": 0.185,
+          "reward": 114,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.38,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Axiom - 27",
+      "displayName": "Löwenheim Gate",
+      "startThero": 70,
+      "theroCap": 3840,
+      "theroPerKill": 150,
+      "passiveTheroPerSecond": 46,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "löwenheim gate placeholders",
+          "count": 22,
+          "interval": 1.5,
+          "hp": 1160,
+          "speed": 0.19,
+          "reward": 120,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.388,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Axiom - 28",
+      "displayName": "Grothendieck Loom",
+      "startThero": 70,
+      "theroCap": 3980,
+      "theroPerKill": 155,
+      "passiveTheroPerSecond": 46,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "grothendieck loom placeholders",
+          "count": 23,
+          "interval": 1.5,
+          "hp": 1220,
+          "speed": 0.195,
+          "reward": 126,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.396,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Axiom - 29",
+      "displayName": "Tarski Reflection",
+      "startThero": 70,
+      "theroCap": 4120,
+      "theroPerKill": 160,
+      "passiveTheroPerSecond": 46,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "tarski reflection placeholders",
+          "count": 24,
+          "interval": 1.5,
+          "hp": 1280,
+          "speed": 0.2,
+          "reward": 132,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.404,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Axiom - 30",
+      "displayName": "Peano Genesis",
+      "startThero": 70,
+      "theroCap": 4260,
+      "theroPerKill": 165,
+      "passiveTheroPerSecond": 46,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "peano genesis placeholders",
+          "count": 25,
+          "interval": 1.5,
+          "hp": 1340,
+          "speed": 0.205,
+          "reward": 138,
+          "color": "rgba(220, 220, 220, 0.6)",
+          "codexId": "etype"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.412,
+      "path": [
+        {
+          "x": 0.1,
+          "y": 0.92
+        },
+        {
+          "x": 0.24,
+          "y": 0.78
+        },
+        {
+          "x": 0.48,
+          "y": 0.52
+        },
+        {
+          "x": 0.72,
+          "y": 0.32
+        },
+        {
+          "x": 0.9,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.82
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.26
+        }
+      ]
+    },
+    {
+      "id": "Developer - Test Range",
+      "displayName": "Endless Codex Trials",
+      "startThero": 0,
+      "theroCap": 0,
+      "theroPerKill": 0,
+      "passiveTheroPerSecond": 0,
+      "lives": 100,
+      "waves": [
+        {
+          "label": "etype calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(240, 240, 255, 0.85)",
+          "codexId": "etype"
+        },
+        {
+          "label": "divisor calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(220, 240, 255, 0.85)",
+          "codexId": "divisor"
+        },
+        {
+          "label": "prime calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 220, 235, 0.85)",
+          "codexId": "prime"
+        },
+        {
+          "label": "reversal calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 200, 220, 0.85)",
+          "codexId": "reversal"
+        },
+        {
+          "label": "tunneler calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(210, 230, 255, 0.85)",
+          "codexId": "tunneler"
+        },
+        {
+          "label": "aleph swarm calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 245, 200, 0.85)",
+          "codexId": "aleph-swarm"
+        },
+        {
+          "label": "partial wraith calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(210, 240, 230, 0.85)",
+          "codexId": "partial-wraith"
+        },
+        {
+          "label": "gradient sapper calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(200, 255, 220, 0.85)",
+          "codexId": "gradient-sapper"
+        },
+        {
+          "label": "weierstrass prism calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(220, 210, 255, 0.85)",
+          "codexId": "weierstrass-prism"
+        },
+        {
+          "label": "planck shade calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(200, 225, 255, 0.85)",
+          "codexId": "planck-shade"
+        },
+        {
+          "label": "null husk calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(235, 235, 255, 0.85)",
+          "codexId": "null-husk"
+        },
+        {
+          "label": "imaginary strider calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(205, 215, 255, 0.85)",
+          "codexId": "imaginary-strider"
+        },
+        {
+          "label": "combination cohort calibration",
+          "count": 1,
+          "interval": 5,
+          "hp": 5,
+          "speed": 0.02,
+          "reward": 0,
+          "color": "rgba(255, 235, 215, 0.85)",
+          "codexId": "combination-cohort"
+        }
+      ],
+      "rewardScore": 0,
+      "rewardFlux": 0,
+      "rewardThero": 0,
+      "rewardEnergy": 0,
+      "arcSpeed": 0.12,
+      "developerOnly": true,
+      "forceEndlessMode": true,
+      "infiniteThero": true,
+      "path": [
+        {
+          "x": 0.08,
+          "y": 0.88
+        },
+        {
+          "x": 0.2,
+          "y": 0.72
+        },
+        {
+          "x": 0.36,
+          "y": 0.58
+        },
+        {
+          "x": 0.5,
+          "y": 0.48
+        },
+        {
+          "x": 0.66,
+          "y": 0.36
+        },
+        {
+          "x": 0.82,
+          "y": 0.24
+        },
+        {
+          "x": 0.92,
+          "y": 0.12
+        }
+      ],
+      "autoAnchors": [
+        {
+          "x": 0.22,
+          "y": 0.7
+        },
+        {
+          "x": 0.5,
+          "y": 0.5
+        },
+        {
+          "x": 0.78,
+          "y": 0.28
+        }
+      ]
+    }
+  ]
+}

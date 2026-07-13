@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="epsilonAura" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e2f3ff" stop-opacity="0.94" />
+      <stop offset="100%" stop-color="#7ec4ff" stop-opacity="0.72" />
+    </linearGradient>
+    
+    <!-- Vertical falling needles inside the inner circle, using static neutral color. -->
+    <line id="needle1" x1="0" y1="0" x2="0" y2="6" stroke="#a8c8d8" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.15;0.8;1"
+        dur="1.7s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="26,16; 26,42"
+        keyTimes="0;1"
+        dur="1.7s"
+        repeatCount="indefinite" />
+    </line>
+
+    <line id="needle2" x1="0" y1="0" x2="0" y2="6" stroke="#b8d0e0" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.2;0.75;1"
+        dur="2.1s"
+        begin="0.25s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="30,16; 30,42"
+        keyTimes="0;1"
+        dur="2.1s"
+        begin="0.25s"
+        repeatCount="indefinite" />
+    </line>
+
+    <line id="needle3" x1="0" y1="0" x2="0" y2="6" stroke="#a8c8d8" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.1;0.7;1"
+        dur="1.9s"
+        begin="0.55s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="34,16; 34,42"
+        keyTimes="0;1"
+        dur="1.9s"
+        begin="0.55s"
+        repeatCount="indefinite" />
+    </line>
+
+    <line id="needle4" x1="0" y1="0" x2="0" y2="6" stroke="#b8d0e0" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.2;0.8;1"
+        dur="2.4s"
+        begin="0.85s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="38,16; 38,42"
+        keyTimes="0;1"
+        dur="2.4s"
+        begin="0.85s"
+        repeatCount="indefinite" />
+    </line>
+
+    <line id="needle5" x1="0" y1="0" x2="0" y2="6" stroke="#a8c8d8" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.12;0.75;1"
+        dur="1.6s"
+        begin="1.1s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="28,16; 28,42"
+        keyTimes="0;1"
+        dur="1.6s"
+        begin="1.1s"
+        repeatCount="indefinite" />
+    </line>
+
+    <line id="needle6" x1="0" y1="0" x2="0" y2="6" stroke="#b8d0e0" stroke-width="0.4" opacity="0">
+      <animate attributeName="opacity"
+        values="0;0.85;0.85;0"
+        keyTimes="0;0.18;0.78;1"
+        dur="2.2s"
+        begin="1.35s"
+        repeatCount="indefinite" />
+      <animateTransform attributeName="transform" type="translate"
+        values="36,16; 36,42"
+        keyTimes="0;1"
+        dur="2.2s"
+        begin="1.35s"
+        repeatCount="indefinite" />
+    </line>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0a0c13" />
+  <circle cx="32" cy="32" r="22" fill="#141a2d" stroke="#f0f5ff" stroke-width="2" opacity="0.92" />
+  <circle cx="32" cy="32" r="16" fill="url(#epsilonAura)" opacity="0.92" />
+  
+  <!-- Needle projectiles (behind the letter) -->
+  <g id="needles">
+    <use href="#needle1" />
+    <use href="#needle2" />
+    <use href="#needle3" />
+    <use href="#needle4" />
+    <use href="#needle5" />
+    <use href="#needle6" />
+  </g>
+  
+  <text
+    x="32"
+    y="37.5"
+    font-family="'Cormorant Garamond', serif"
+    font-size="26"
+    text-anchor="middle"
+  
+    fill="#ffffff"
+    stroke="#000000"
+    stroke-width="1.5"
+    paint-order="stroke"
+  >ε</text>
+</svg>

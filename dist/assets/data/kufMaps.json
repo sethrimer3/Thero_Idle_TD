@@ -1,0 +1,119 @@
+{
+  "maps": [
+    {
+      "id": "forward-bastion",
+      "name": "Forward Bastion",
+      "difficulty": "Baseline",
+      "recommendedGlyphs": 0,
+      "description": "Reclaim the entrenched siegeworks guarding the base of the Kuf Spire.",
+      "mechanics": [
+        "Minefields and barricades force a measured advance through the central lane.",
+        "Signal beacons extend detection for the upper batteries, keeping pressure on long pushes."
+      ],
+      "layout": [
+        { "type": "wall", "gridX": -3, "gridY": 7, "level": 1 },
+        { "type": "mine", "gridX": -1, "gridY": 7, "level": 1 },
+        { "type": "mine", "gridX": 1, "gridY": 7, "level": 1 },
+        { "type": "wall", "gridX": 3, "gridY": 7, "level": 1 },
+        { "type": "small_turret", "gridX": 0, "gridY": 9, "level": 1 },
+        { "type": "laser_turret", "gridX": -2, "gridY": 10, "level": 1 },
+        { "type": "laser_turret", "gridX": 2, "gridY": 10, "level": 1 },
+        { "type": "melee_barracks", "gridX": -4, "gridY": 14, "level": 1 },
+        { "type": "ranged_barracks", "gridX": 4, "gridY": 14, "level": 1 },
+        { "type": "melee_unit", "gridX": -1, "gridY": 14, "level": 1 },
+        { "type": "ranged_unit", "gridX": 1, "gridY": 14, "level": 1 },
+        { "type": "rocket_turret", "gridX": 0, "gridY": 16, "level": 1 },
+        { "type": "small_turret", "gridX": -3, "gridY": 17, "level": 2 },
+        { "type": "small_turret", "gridX": 3, "gridY": 17, "level": 2 },
+        { "type": "shield_generator", "gridX": -2, "gridY": 19, "level": 1 },
+        { "type": "supply_cache", "gridX": 2, "gridY": 19, "level": 1 },
+        { "type": "big_turret", "gridX": 0, "gridY": 20, "level": 2 },
+        { "type": "signal_beacon", "gridX": 0, "gridY": 22, "level": 1 },
+        { "type": "wall", "gridX": -4, "gridY": 23, "level": 2 },
+        { "type": "wall", "gridX": 4, "gridY": 23, "level": 2 },
+        { "type": "rocket_turret", "gridX": -2, "gridY": 24, "level": 2 },
+        { "type": "rocket_turret", "gridX": 2, "gridY": 24, "level": 2 },
+        { "type": "laser_turret", "gridX": 0, "gridY": 25, "level": 2 },
+        { "type": "melee_unit", "gridX": -1, "gridY": 26, "level": 2 },
+        { "type": "ranged_unit", "gridX": 1, "gridY": 26, "level": 2 },
+        { "type": "shield_generator", "gridX": -3, "gridY": 28, "level": 2 },
+        { "type": "supply_cache", "gridX": 3, "gridY": 28, "level": 2 },
+        { "type": "artillery_turret", "gridX": -1, "gridY": 30, "level": 2 },
+        { "type": "artillery_turret", "gridX": 1, "gridY": 30, "level": 2 },
+        { "type": "signal_beacon", "gridX": 0, "gridY": 32, "level": 2 },
+        { "type": "big_turret", "gridX": 0, "gridY": 34, "level": 3 }
+      ]
+    },
+    {
+      "id": "crystalline-confluence",
+      "name": "Crystalline Confluence",
+      "difficulty": "Intermediate",
+      "recommendedGlyphs": 4,
+      "description": "Navigate overlapping stasis fields while support drones stitch the enemy line back together.",
+      "mechanics": [
+        "Stasis obelisks project slowing auras that stack multiplicatively.",
+        "Support drones roam between damaged targets, rapidly repairing fortifications.",
+        "Plasma turrets ignite marines with lingering burn damage."
+      ],
+      "layout": [
+        { "type": "stasis_obelisk", "gridX": -3, "gridY": 8, "level": 1 },
+        { "type": "plasma_turret", "gridX": 0, "gridY": 9, "level": 1 },
+        { "type": "stasis_obelisk", "gridX": 3, "gridY": 8, "level": 1 },
+        { "type": "support_drone", "gridX": -2, "gridY": 11, "level": 1 },
+        { "type": "support_drone", "gridX": 2, "gridY": 11, "level": 1 },
+        { "type": "mine", "gridX": -1, "gridY": 12, "level": 1 },
+        { "type": "mine", "gridX": 1, "gridY": 12, "level": 1 },
+        { "type": "laser_turret", "gridX": -4, "gridY": 14, "level": 2 },
+        { "type": "laser_turret", "gridX": 4, "gridY": 14, "level": 2 },
+        { "type": "plasma_turret", "gridX": 0, "gridY": 15, "level": 2 },
+        { "type": "shield_generator", "gridX": -2, "gridY": 17, "level": 2 },
+        { "type": "shield_generator", "gridX": 2, "gridY": 17, "level": 2 },
+        { "type": "rocket_turret", "gridX": -3, "gridY": 18, "level": 2 },
+        { "type": "rocket_turret", "gridX": 3, "gridY": 18, "level": 2 },
+        { "type": "support_drone", "gridX": 0, "gridY": 20, "level": 2 },
+        { "type": "stasis_obelisk", "gridX": -4, "gridY": 21, "level": 2 },
+        { "type": "stasis_obelisk", "gridX": 4, "gridY": 21, "level": 2 },
+        { "type": "artillery_turret", "gridX": -1, "gridY": 24, "level": 2 },
+        { "type": "artillery_turret", "gridX": 1, "gridY": 24, "level": 2 },
+        { "type": "big_turret", "gridX": 0, "gridY": 26, "level": 3 },
+        { "type": "signal_beacon", "gridX": 0, "gridY": 28, "level": 2 }
+      ]
+    },
+    {
+      "id": "obsidian-causeway",
+      "name": "Obsidian Causeway",
+      "difficulty": "Advanced",
+      "recommendedGlyphs": 8,
+      "description": "Push along a narrow ridge defended by relays that amplify overlapping barrages.",
+      "mechanics": [
+        "Scatter turrets blanket the approach with fanned volleys that punish clustering.",
+        "Relay pylons boost the fire rate and damage of nearby artillery cadres.",
+        "Mine clusters and support drones combine to punish attrition tactics."
+      ],
+      "layout": [
+        { "type": "mine", "gridX": -2, "gridY": 8, "level": 1 },
+        { "type": "mine", "gridX": 2, "gridY": 8, "level": 1 },
+        { "type": "scatter_turret", "gridX": 0, "gridY": 9, "level": 1 },
+        { "type": "relay_pylon", "gridX": -3, "gridY": 11, "level": 1 },
+        { "type": "relay_pylon", "gridX": 3, "gridY": 11, "level": 1 },
+        { "type": "rocket_turret", "gridX": -1, "gridY": 12, "level": 2 },
+        { "type": "rocket_turret", "gridX": 1, "gridY": 12, "level": 2 },
+        { "type": "support_drone", "gridX": 0, "gridY": 13, "level": 1 },
+        { "type": "scatter_turret", "gridX": -3, "gridY": 16, "level": 2 },
+        { "type": "scatter_turret", "gridX": 3, "gridY": 16, "level": 2 },
+        { "type": "relay_pylon", "gridX": 0, "gridY": 18, "level": 2 },
+        { "type": "artillery_turret", "gridX": -2, "gridY": 20, "level": 3 },
+        { "type": "artillery_turret", "gridX": 2, "gridY": 20, "level": 3 },
+        { "type": "shield_generator", "gridX": -4, "gridY": 21, "level": 2 },
+        { "type": "shield_generator", "gridX": 4, "gridY": 21, "level": 2 },
+        { "type": "big_turret", "gridX": 0, "gridY": 23, "level": 3 },
+        { "type": "support_drone", "gridX": -2, "gridY": 24, "level": 2 },
+        { "type": "support_drone", "gridX": 2, "gridY": 24, "level": 2 },
+        { "type": "scatter_turret", "gridX": -1, "gridY": 27, "level": 3 },
+        { "type": "scatter_turret", "gridX": 1, "gridY": 27, "level": 3 },
+        { "type": "big_turret", "gridX": 0, "gridY": 30, "level": 4 },
+        { "type": "signal_beacon", "gridX": 0, "gridY": 32, "level": 3 }
+      ]
+    }
+  ]
+}
