@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test 9th Grapheme (I) - Cardinal Warden</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f1116;
+      color: #e6e6ea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      border: 2px solid #e6e6ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      background: rgba(230, 230, 234, 0.05);
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: 2px solid #e6e6ea;
+      background: rgba(230, 230, 234, 0.1);
+      color: #e6e6ea;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(230, 230, 234, 0.2);
+    }
+
+    .info {
+      padding: 10px;
+      background: rgba(162, 227, 245, 0.1);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .status {
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 10px;
+      background: rgba(230, 230, 234, 0.1);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>9th Grapheme (I) Test</h1>
+  <p class="subtitle">Testing spread bullet system</p>
+  
+  <div class="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  
+  <div class="controls">
+    <div class="status" id="status">Loading...</div>
+    
+    <div class="info">
+      <p><strong>Test Instructions:</strong></p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>Click on screen to aim weapons</li>
+        <li>Each weapon has grapheme I in different slots</li>
+        <li>Watch for spread bullet patterns (multiple bullets in a cone)</li>
+        <li>Slot 0/7: 3 bullets, Slot 1/6: 5 bullets, Slot 2/5: 7 bullets, Slot 3/4: 9 bullets</li>
+      </ul>
+    </div>
+    
+    <button id="toggleSlot0">Toggle Weapon 1: Grapheme I in Slot 0 (3 bullets)</button>
+    <button id="toggleSlot1">Toggle Weapon 2: Grapheme I in Slot 1 (5 bullets)</button>
+    <button id="toggleSlot3">Toggle Weapon 3: Grapheme I in Slot 3 (9 bullets)</button>
+    <button id="restart">Restart Game</button>
+  </div>
+
+  <script type="module">
+    import { CardinalWardenSimulation } from './scripts/features/towers/cardinalWardenSimulation.js';
+    
+    const canvas = document.getElementById('gameCanvas');
+    const status = document.getElementById('status');
+    const toggleSlot0Btn = document.getElementById('toggleSlot0');
+    const toggleSlot1Btn = document.getElementById('toggleSlot1');
+    const toggleSlot3Btn = document.getElementById('toggleSlot3');
+    const restartBtn = document.getElementById('restart');
+    
+    let game = null;
+    let slot0Active = true;
+    let slot1Active = true;
+    let slot3Active = true;
+    
+    function initGame() {
+      game = new CardinalWardenSimulation(canvas, {
+        autoStart: true,
+        onWeaponChange: () => {
+          updateStatus();
+        }
+      });
+      
+      // Add 9th grapheme (I - index 8) to weapon slots after initialization
+      setTimeout(() => {
+        if (slot0Active) {
+          // Weapon 1: 9th grapheme in slot 0 (2 extra bullets = 3 total)
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 8, label: 'I' }
+          ];
+        }
+        
+        if (slot1Active) {
+          // Weapon 2: 9th grapheme in slot 1 (4 extra bullets = 5 total)
+          game.weaponGraphemeAssignments.slot2 = [
+            null,
+            { index: 8, label: 'I' }
+          ];
+        }
+        
+        if (slot3Active) {
+          // Weapon 3: 9th grapheme in slot 3 (8 extra bullets = 9 total)
+          game.weaponGraphemeAssignments.slot3 = [
+            null, null, null,
+            { index: 8, label: 'I' }
+          ];
+        }
+        
+        updateStatus();
+      }, 100);
+    }
+    
+    function updateStatus() {
+      if (!game) {
+        status.textContent = 'Game not initialized';
+        return;
+      }
+      
+      let statusText = '';
+      statusText += `Weapon 1: ${slot0Active ? 'Grapheme I in Slot 0 (3 bullets)' : 'No Grapheme'}`;
+      statusText += '\n';
+      statusText += `Weapon 2: ${slot1Active ? 'Grapheme I in Slot 1 (5 bullets)' : 'No Grapheme'}`;
+      statusText += '\n';
+      statusText += `Weapon 3: ${slot3Active ? 'Grapheme I in Slot 3 (9 bullets)' : 'No Grapheme'}`;
+      
+      status.textContent = statusText;
+      status.style.whiteSpace = 'pre-line';
+    }
+    
+    toggleSlot0Btn.addEventListener('click', () => {
+      slot0Active = !slot0Active;
+      if (game) {
+        if (slot0Active) {
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 8, label: 'I' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot1 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    toggleSlot1Btn.addEventListener('click', () => {
+      slot1Active = !slot1Active;
+      if (game) {
+        if (slot1Active) {
+          game.weaponGraphemeAssignments.slot2 = [
+            null,
+            { index: 8, label: 'I' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot2 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    toggleSlot3Btn.addEventListener('click', () => {
+      slot3Active = !slot3Active;
+      if (game) {
+        if (slot3Active) {
+          game.weaponGraphemeAssignments.slot3 = [
+            null, null, null,
+            { index: 8, label: 'I' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot3 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    restartBtn.addEventListener('click', () => {
+      if (game) {
+        game.stop();
+      }
+      initGame();
+    });
+    
+    // Start the game
+    initGame();
+    
+    // Update status every second
+    setInterval(updateStatus, 1000);
+  </script>
+</body>
+</html>

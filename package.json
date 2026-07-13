@@ -1,0 +1,32 @@
+{
+  "name": "thero_idle_td",
+  "version": "1.0.0",
+  "description": "",
+  "main": "electron/main.cjs",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "node scripts/build-static.cjs",
+    "desktop": "npm run build && electron .",
+    "electron": "electron .",
+    "lint": "eslint .",
+    "test": "node scripts/smoke-test.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sethrimer3/TheroMathTD.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sethrimer3/TheroMathTD/issues"
+  },
+  "homepage": "https://github.com/sethrimer3/TheroMathTD#readme",
+  "devDependencies": {
+    "electron": "^42.2.0",
+    "eslint": "^10.2.0"
+  }
+}

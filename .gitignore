@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+test-tsadi-wave.html
+test-animation-capture.js
+test-tower-animations.html
+test_buttons.html
+test-vermiculate.html
+lint_output.txt

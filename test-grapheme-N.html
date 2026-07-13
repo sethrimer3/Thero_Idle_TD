@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test 14th Grapheme (N) - Cardinal Warden</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f1116;
+      color: #e6e6ea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 20px;
+      border: 2px solid #e6e6ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 600px;
+      background: rgba(230, 230, 234, 0.05);
+      padding: 20px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: 2px solid #e6e6ea;
+      background: rgba(230, 230, 234, 0.1);
+      color: #e6e6ea;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(230, 230, 234, 0.2);
+    }
+
+    .info {
+      padding: 10px;
+      background: rgba(162, 227, 245, 0.1);
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .status {
+      font-size: 1.1rem;
+      text-align: center;
+      padding: 10px;
+      background: rgba(230, 230, 234, 0.1);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>14th Grapheme (N) Test</h1>
+  <p class="subtitle">Testing swarm ships that fire green lasers at enemies</p>
+  
+  <div class="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  
+  <div class="controls">
+    <div class="status" id="status">Loading...</div>
+    
+    <div class="info">
+      <p><strong>Test Instructions:</strong></p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>Click on screen to aim weapons and set swarm target</li>
+        <li>Weapon 1: Grapheme N (swarm ships)</li>
+        <li>Weapon 2: Normal weapon (for comparison)</li>
+        <li>Weapon 3: Normal weapon (for comparison)</li>
+        <li>Number of ships: (total graphemes) / 10, max 100</li>
+        <li>Swarm ships fire green lasers at closest enemy to aim target</li>
+        <li>Laser fire rate: weapon attack speed / 10</li>
+        <li>Laser damage: weapon damage / 10</li>
+        <li>Watch for tiny triangle ships swarming around your aim point</li>
+      </ul>
+    </div>
+    
+    <button id="toggleSwarm">Toggle Weapon 1: Grapheme N (Swarm)</button>
+    <button id="restart">Restart Game</button>
+  </div>
+
+  <script type="module">
+    import { CardinalWardenSimulation } from './scripts/features/towers/cardinalWardenSimulation.js';
+    
+    const canvas = document.getElementById('gameCanvas');
+    const status = document.getElementById('status');
+    const toggleSwarmBtn = document.getElementById('toggleSwarm');
+    const restartBtn = document.getElementById('restart');
+    
+    let game = null;
+    let swarmActive = true;
+    
+    function initGame() {
+      game = new CardinalWardenSimulation({
+        canvas: canvas,
+        autoStart: true,
+        onWeaponChange: () => {
+          updateStatus();
+        }
+      });
+      
+      // Add 14th grapheme (N - index 13) to weapon slot 1 after initialization
+      // Also add grapheme B (index 1) in slot 7 for faster fire rate to speed up testing
+      setTimeout(() => {
+        if (swarmActive) {
+          // Weapon 1: 14th grapheme (N) in slot 0 + grapheme B in slot 7 for faster laser firing
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 13, label: 'N' },
+            null, null, null, null, null, null,
+            { index: 1, label: 'B' }
+          ];
+        }
+        
+        // Simulate having many graphemes in inventory to spawn more swarm ships
+        // Total of 50 graphemes = 5 swarm ships (50 / 10 = 5)
+        game.graphemeInventoryCounts = {
+          0: 10,  // 10 A's
+          1: 10,  // 10 B's
+          2: 10,  // 10 C's
+          3: 10,  // 10 D's
+          13: 10, // 10 N's
+        };
+        
+        // Weapons 2 and 3: No graphemes (normal behavior for comparison)
+        game.weaponGraphemeAssignments.slot2 = [];
+        game.weaponGraphemeAssignments.slot3 = [];
+        
+        updateStatus();
+      }, 100);
+    }
+    
+    function updateStatus() {
+      if (!game) {
+        status.textContent = 'Game not initialized';
+        return;
+      }
+      
+      let totalGraphemes = 0;
+      for (const count of Object.values(game.graphemeInventoryCounts)) {
+        totalGraphemes += count;
+      }
+      
+      let statusText = '';
+      statusText += `Weapon 1: ${swarmActive ? 'Grapheme N + B (Swarm ships with boosted fire rate)' : 'No Grapheme'}`;
+      statusText += '\n';
+      statusText += `Weapon 2: Normal (no graphemes)`;
+      statusText += '\n';
+      statusText += `Weapon 3: Normal (no graphemes)`;
+      statusText += '\n\n';
+      statusText += `Total Graphemes: ${totalGraphemes}`;
+      statusText += '\n';
+      statusText += `Active Swarm Ships: ${game.swarmShips ? game.swarmShips.length : 0}`;
+      statusText += '\n';
+      statusText += `Active Swarm Lasers: ${game.swarmLasers ? game.swarmLasers.length : 0}`;
+      statusText += '\n';
+      statusText += `(Expected ships: ${Math.min(Math.floor(totalGraphemes / 10), 100)})`;
+      
+      status.textContent = statusText;
+      status.style.whiteSpace = 'pre-line';
+    }
+    
+    toggleSwarmBtn.addEventListener('click', () => {
+      swarmActive = !swarmActive;
+      if (game) {
+        if (swarmActive) {
+          game.weaponGraphemeAssignments.slot1 = [
+            { index: 13, label: 'N' },
+            null, null, null, null, null, null,
+            { index: 1, label: 'B' }
+          ];
+        } else {
+          game.weaponGraphemeAssignments.slot1 = [];
+        }
+      }
+      updateStatus();
+    });
+    
+    restartBtn.addEventListener('click', () => {
+      if (game) {
+        game.stop();
+      }
+      initGame();
+    });
+    
+    // Start the game
+    initGame();
+    
+    // Update status every 100ms for real-time ship count
+    setInterval(updateStatus, 100);
+  </script>
+</body>
+</html>

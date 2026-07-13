@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ── Arbitrary page / game content beneath the transparent canvas ── */
+body {
+  margin: 0;
+  background: #0a0a12;
+  font-family: Georgia, serif;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.content {
+  text-align: center;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.content h1 { font-size: 2rem; color: #444; }
+.content p  { max-width: 24em; color: #333; }
+
+/* ── Transparent overlay canvas ── */
+#substrate-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;   /* Click-through so UI beneath remains usable. */
+}
+</style>
+</head>
+<body>
+
+<!-- Example page content the effect floats over -->
+<div class="content">
+  <h1>SubstrateEffect – Test Harness</h1>
+  <p>Transparent crystalline growth slowly fills the viewport.
+     The canvas has no background fill – this text is visible through it.</p>
+</div>
+
+<!-- Transparent overlay canvas -->
+<canvas id="substrate-canvas"></canvas>
+
+<script type="module">
+/**
+ * Minimal usage example: mount the SubstrateEffect on a transparent
+ * full-viewport canvas layered over arbitrary page / game content.
+ */
+import { createSubstrateEffect } from '/assets/playfield/render/SubstrateEffect.js';
+
+const canvas = document.getElementById('substrate-canvas');
+const ctx    = canvas.getContext('2d');
+const effect = createSubstrateEffect();
+
+/** Resize the canvas to fill the viewport at device-pixel density. */
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  const w   = window.innerWidth;
+  const h   = window.innerHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+/** Animation loop. */
+function frame(now) {
+  const w = canvas.width  / (window.devicePixelRatio || 1);
+  const h = canvas.height / (window.devicePixelRatio || 1);
+
+  ctx.clearRect(0, 0, w, h);
+  effect.update(now, w, h);
+  effect.draw(ctx);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,2244 @@
+# Monolithic File Refactoring Plan
+
+**Build 443 - Comprehensive Strategy for Breaking Down Large Files**
+
+## Executive Summary
+
+This document provides a detailed, actionable plan for refactoring the largest monolithic files in Thero Idle TD without degrading functionality or performance. The plan prioritizes surgical, incremental changes that maintain API boundaries, preserve existing behavior, and enable parallel development across multiple systems.
+
+**Key Principles:**
+- **Preserve functionality:** Every refactor must maintain identical game behavior
+- **Maintain performance:** No degradation in frame rates, load times, or memory usage
+- **Incremental approach:** Small, testable changes with validation at each step
+- **Clear boundaries:** Each extracted module owns a single, well-defined responsibility
+- **Documentation-first:** Update architectural docs before and after each extraction
+
+## Current State Analysis
+
+### File Size Metrics (Lines of Code)
+
+| File | Lines | Category | Priority |
+|------|-------|----------|----------|
+| `assets/main.js` | 6,771 | Orchestration | **CRITICAL** |
+| `assets/playfield.js` | 5,422 | Core Gameplay | **CRITICAL** |
+| `scripts/features/towers/cardinalWardenSimulation.js` | 8,015 | Tower Logic | **HIGH** |
+| `assets/playfield/render/CanvasRenderer.js` | 3,987 | Rendering | **HIGH** |
+| `scripts/features/towers/tsadiTower.js` | 3,391 | Tower Logic | **MEDIUM** |
+| `assets/kufSimulation.js` | 3,047 | Spire System | **MEDIUM** |
+| `assets/fluidTerrariumTrees.js` | 2,945 | Powder System | **MEDIUM** |
+| `scripts/features/towers/lamedTower.js` | 2,924 | Tower Logic | **MEDIUM** |
+| `assets/betSpireRender.js` | 2,677 | Rendering | **MEDIUM** |
+| `assets/towerEquations/advancedTowers.js` | 2,435 | UI/Display | **LOW** |
+
+> **Note (Build 628):** `main.js` reduced from 7,905 to 6,771 lines via `levelGridController.js` (Build 626) and `settingsMenuController.js` (Build 627) extractions. `playfield.js` reduced from 11,862 to 5,422 lines through Phase 1 extractions including `WaveQueueSystem.js` (Build 628).
+>
+> **Note (Build 642):** `main.js` reduced from 5,823 to 5,444 lines (−379) via three new controller extractions: `playfieldLayoutController.js`, `spireCameraController.js`, and `idleResourceBankController.js`.
+>
+> **Note (Build 693):** `main.js` reduced from 5,402 to 4,780 lines (−622) via two new controller extractions: `spireResourcePersistence.js` (persistence/serialization logic, ~234 lines) and `levelCombatController.js` (level start/victory/defeat lifecycle, ~460 lines). `playfield.js` reduced from 5,754 to 5,593 lines (−161) via `EnemyFocusSystem.js` extraction (enemy focus, tooltip, hover, and visual metrics logic).
+>
+> **Note (Build 710):** `main.js` reduced from 4,714 to 4,569 lines (−145) via `developerSpamController.js` extraction (Lamed/Tsadi rapid-fire spawn loops). `playfield.js` reduced from 5,558 to 4,984 lines (−574) via four new system extractions: `ConnectionDragSystem.js` (connection and delta command drag interactions, ~192 lines), `TrackRiverSystem.js` (decorative track river particle animation, ~94 lines), `GammaStarBurstSystem.js` (pentagram star trace effects, ~101 lines), and `CombatDamageSystem.js` (damage calculation, mitigation, shield mechanics, debuff tracking, and special enemy mechanics, ~280 lines).
+>
+> **Note (Build 712):** `playfield.js` reduced from 4,984 to 4,694 lines (−290) via two new system extractions: floater layout methods (`computeFloaterCount`, `randomFloaterRadiusFactor`, `createFloater`, `getAmbientEffectBounds`, `ensureFloatersLayout`) merged into `FloaterSystem.js` (~175 lines); tower glyph transition management (`queueTowerGlyphTransition`, `buildTowerGlyphParticles`, `normalizeSwipeVector`, `updateTowerGlyphTransitions`) extracted into new `TowerGlyphTransitionSystem.js` (~116 lines). All methods remain accessible via prototype delegation.
+>
+> **Note (Build 713):** `playfield.js` reduced from 4,694 to 4,430 lines (−264) via two new system extractions: path navigation methods (`getPointAlongPath`, `getPathSpeedMultiplierAtProgress`, `getEnemyTunnelState`, `getProgressAtPointIndex`, `getEnemyPosition`) added to `PathGeometrySystem.js` (~192 lines); viewport and coordinate transformation methods (`getCanvasPosition`, `getPixelsForMeters`, `getNormalizedFromCanvasPosition`, `clampNormalized`, `getCanvasRelativeFromClient`, `getViewCenter`, `setViewCenterFromWorld`, `clampViewCenterNormalized`, `applyViewConstraints`, `screenToWorld`, `worldToScreen`) extracted into new `ViewportCoordinateSystem.js` (~236 lines). All methods remain accessible via prototype delegation.
+
+> **Note (Build 714):** `playfield.js` reduced from 4,430 to 4,184 lines (−246) via two new system extractions: supply chain mechanics (`updateConnectionSupplier`, `findSigmaFriendlyTarget`, `handleSupplyImpact`, `createParticleDamageProjectile`, `resolveNextBetaTriangleOrientation`, `applyBetaStickSlow`) extracted into new `SupplyChainSystem.js` (~202 lines); special enemy ability mechanics (`spawnRelayEnemy`, `createTunnelZone`, `disableTower`, `spawnRelaySpawnEffect`) extracted into new `SpecialEnemyMechanicsSystem.js` (~110 lines). The `BETA_SLOW_DURATION_SECONDS` constant moved to `SupplyChainSystem.js` where it is exclusively used. All methods remain accessible via prototype delegation.
+
+> **Note (Build 715):** `playfield.js` reduced from 4,184 to 4,122 lines (−62) via extraction of enemy metadata helpers into `EnemyMetadataSystem.js` (~97 lines): `calculateMoteFactor`, `estimateEnemyBreachDamage`, `resolveEnemyExponentColor`, `resolvePolygonSides`, and `resolveNextPolygonSides`. All methods remain accessible through the same `SimplePlayfield` API via `.call(this)` delegation.
+
+### Performance Baseline Requirements
+
+Before any refactoring begins, establish these baseline metrics:
+
+1. **Rendering Performance:**
+   - Target: 60 FPS on mobile devices during active gameplay
+   - Measure: Average frame time in active wave with 10+ towers and 20+ enemies
+   - Tool: Browser Performance tab with throttled CPU (4x slowdown)
+
+2. **Load Time:**
+   - Target: < 3 seconds from page load to interactive menu on 3G connection
+   - Measure: Time to first paint and time to interactive
+   - Tool: Chrome DevTools Network tab with Fast 3G throttling
+
+3. **Memory Usage:**
+   - Target: < 150MB heap size during typical 30-minute session
+   - Measure: Peak memory usage across tab switches and level transitions
+   - Tool: Chrome DevTools Memory profiler
+
+4. **Bundle Size (future concern):**
+   - Target: Keep total JS < 2MB uncompressed (currently no bundler)
+   - Measure: Sum of all loaded script file sizes
+   - Tool: Network tab waterfall
+
+## Refactoring Strategy
+
+### Phase 1: Critical Infrastructure (Priority: CRITICAL)
+
+#### 1.1 `assets/playfield.js` - Core Gameplay Orchestrator (11,862 lines)
+
+**Problem:** The `SimplePlayfield` class combines rendering, combat logic, input handling, tower orchestration, developer tools, and UI state management in a single file. Changes to any subsystem risk breaking unrelated features.
+
+**Current Responsibilities:**
+- Canvas rendering coordination (tower sprites, projectiles, effects)
+- Combat state management (enemies, waves, victory/defeat)
+- Input handling (touch/mouse, tower placement, gesture recognition)
+- Tower lifecycle (spawn, upgrade, targeting, ability execution)
+- Developer tools (crystal manager, debug overlays)
+- UI notifications (gem drops, codex encounters, floating feedback)
+- Level flow control (start, pause, restart, exit)
+
+**Refactoring Plan:**
+
+**Step 1.1.1: Extract Combat State Manager**
+- **Target:** ~800 lines
+- **New File:** `assets/playfield/managers/CombatStateManager.js`
+- **Responsibilities:**
+  - Wave progression (`currentWave`, `waveSchedule`, `nextSpawnTime`)
+  - Enemy lifecycle (`enemies` array, spawn/death handling)
+  - Victory/defeat conditions
+  - Resource income calculations
+- **Interface:**
+  ```javascript
+  export function createCombatStateManager(config) {
+    return {
+      startWave(waveIndex) { },
+      updateEnemies(deltaTime) { },
+      spawnEnemy(enemyType, path) { },
+      removeEnemy(enemyIndex) { },
+      checkVictoryCondition() { },
+      checkDefeatCondition() { },
+      getEnemyCount() { },
+      resetCombat() { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create new file with factory function
+  2. Move enemy management methods (`spawnEnemy`, `handleEnemyDeath`, etc.)
+  3. Update `SimplePlayfield` to delegate to combat manager
+  4. Test: Load level, complete waves, verify enemy spawning/death
+  5. Verify: No change in performance or behavior
+- **Performance Considerations:**
+  - Combat manager should return data structures, not trigger renders
+  - Minimize object allocations in `updateEnemies` hot path
+  - Reuse enemy spawn configurations where possible
+
+**Step 1.1.2: Extract Tower Orchestration Controller**
+- **Target:** ~900 lines
+- **New File:** `assets/playfield/controllers/TowerOrchestrationController.js`
+- **Responsibilities:**
+  - Tower spawn/placement (`spawnTower`, `handleSlotSelect`)
+  - Tower upgrade coordination
+  - Targeting logic delegation to individual tower modules
+  - Ability triggering and cooldown management
+- **Interface:**
+  ```javascript
+  export function createTowerOrchestrationController(playfield, combatState) {
+    return {
+      placeTower(slotIndex, towerType) { },
+      upgradeTower(slotIndex, upgradeId) { },
+      updateTowers(deltaTime) { },
+      handleTowerClick(slotIndex) { },
+      getTowerAt(slotIndex) { },
+      canPlaceTower(slotIndex, towerType) { },
+      getTowerMenuState() { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create controller factory with explicit dependencies
+  2. Move tower placement logic (`handleSlotSelect`, slot validation)
+  3. Move tower update orchestration (delegate to tower modules for behavior)
+  4. Update `SimplePlayfield` to use controller methods
+  5. Test: Place towers, upgrade towers, verify targeting
+  6. Verify: Frame time remains < 16.67ms during tower updates
+- **Performance Considerations:**
+  - Tower targeting should remain in individual tower modules
+  - Avoid creating new tower configuration objects on each update
+  - Reuse projectile pools where already implemented
+
+**Step 1.1.3: Extract Rendering Coordinator**
+- **Target:** ~600 lines
+- **New File:** `assets/playfield/render/RenderCoordinator.js`
+- **Responsibilities:**
+  - Frame scheduling (`requestAnimationFrame` management)
+  - Render order orchestration (background → towers → projectiles → effects → UI)
+  - Canvas state management (save/restore, transform stack)
+  - Performance monitoring (frame time tracking)
+- **Interface:**
+  ```javascript
+  export function createRenderCoordinator(canvas, canvasRenderer) {
+    return {
+      startRenderLoop() { },
+      stopRenderLoop() { },
+      renderFrame(state) { },
+      updateFrameTiming(deltaTime) { },
+      getAverageFPS() { },
+      requestSingleFrame() { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create coordinator that wraps `CanvasRenderer` instance
+  2. Move `requestAnimationFrame` scheduling out of `SimplePlayfield`
+  3. Extract frame timing logic (`lastFrameTime`, `deltaTime` calculation)
+  4. Update `SimplePlayfield.update()` to use coordinator
+  5. Test: Verify smooth rendering at 60 FPS
+  6. Verify: No change in render loop performance
+- **Performance Considerations:**
+  - Maintain existing `requestAnimationFrame` usage pattern
+  - Do not add overhead between frame request and render start
+  - Keep frame timing calculations inline (avoid function calls)
+
+**Step 1.1.4: Extract Developer Tools Service**
+- **Target:** ~400 lines
+- **New File:** `assets/playfield/services/DeveloperToolsService.js`
+- **Responsibilities:**
+  - Developer crystal management (currently `DeveloperCrystalManager` mixin)
+  - Debug overlay rendering
+  - Frame time display
+  - Developer controls integration
+- **Interface:**
+  ```javascript
+  export function createDeveloperToolsService(playfield) {
+    return {
+      initialize() { },
+      updateCrystalPositions(deltaTime) { },
+      renderDebugOverlays(ctx) { },
+      toggleDebugMode() { },
+      logPerformanceMetrics() { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Remove `Object.assign(SimplePlayfield.prototype, DeveloperCrystalManager)`
+  2. Create service factory that accepts playfield reference
+  3. Move all developer-only methods to service
+  4. Gate service creation behind developer mode flag
+  5. Test: Enable developer mode, verify crystal manager works
+  6. Verify: No impact on production build size (future concern)
+- **Performance Considerations:**
+  - Service should be lazy-loaded (not created unless needed)
+  - Debug rendering should not impact main render loop performance
+  - Consider feature flag to exclude from production builds
+
+**Step 1.1.5: Extract Input Controller Enhancements**
+- **Target:** ~300 lines (additional logic beyond current `InputController`)
+- **New File:** Extend `assets/playfield/input/InputController.js`
+- **Responsibilities:**
+  - Tower hold activation (currently in `playfield.js`)
+  - Double-tap gesture detection for tower menu
+  - Drag-scroll coordination with tower selection
+  - Cost scribble triggering on invalid placements
+- **Migration Strategy:**
+  1. Move gesture detection constants to `InputController`
+  2. Extract hold/double-tap logic from `SimplePlayfield` event handlers
+  3. Update `InputController` to emit higher-level events (e.g., `tower:hold-activated`)
+  4. Update `SimplePlayfield` to listen to input controller events
+  5. Test: Touch/mouse input for tower placement, verify gestures
+  6. Verify: Input latency remains < 100ms (touch to visual feedback)
+- **Performance Considerations:**
+  - Gesture detection runs on every touch event (keep lightweight)
+  - Avoid memory allocations in touch move handlers
+  - Reuse event objects where possible
+
+**Step 1.1.6: Integration and Validation**
+- **Activities:**
+  1. Update `configurePlayfieldSystem()` factory to compose extracted controllers
+  2. Verify `SimplePlayfield` class is now < 3,000 lines (75% reduction)
+  3. Run full gameplay test: 10 levels, all tower types, all upgrades
+  4. Performance validation:
+     - Measure frame time during heavy combat (target: < 16.67ms p95)
+     - Measure memory usage over 30-minute session (target: < 150MB)
+     - Verify load time unchanged (target: < 3s to interactive)
+  5. Update `docs/main_refactor_contexts.md` with new controller boundaries
+  6. Update `AGENTS.md` to reference new architectural patterns
+
+#### 1.2 `assets/main.js` - Application Orchestrator (7,366 lines)
+
+**Problem:** Main.js acts as the global orchestrator for state initialization, tab routing, overlay management, autosave coordination, and lifecycle hooks. While many subsystems have been extracted (per `main_refactor_contexts.md`), the file still handles too many concerns.
+
+**Current Responsibilities:**
+- Resource state initialization (`resourceState`, `powderState`, `spireResourceState`)
+- Tab navigation and routing
+- Overlay lifecycle management
+- Autosave coordination
+- Level preview and entry flow
+- Developer controls integration
+- Audio system coordination
+- Configuration loading and normalization
+
+**Refactoring Plan:**
+
+**Step 1.2.1: Extract Navigation Router**
+- **Target:** ~500 lines
+- **New File:** `assets/navigation/NavigationRouter.js`
+- **Responsibilities:**
+  - Tab switching logic (`setActiveTab`, `getActiveTabId`, `tabForSpire`)
+  - Overlay show/hide coordination
+  - Focus management and ARIA attribute updates
+  - Navigation state persistence (active tab, open overlays)
+- **Interface:**
+  ```javascript
+  export function createNavigationRouter(tabConfig) {
+    return {
+      setActiveTab(tabId) { },
+      getActiveTab() { },
+      openOverlay(overlayId, options) { },
+      closeOverlay(overlayId) { },
+      closeAllOverlays() { },
+      getOverlayState(overlayId) { },
+      getTabForSpire(spireName) { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create router with tab configuration
+  2. Move tab switching functions from `main.js`
+  3. Move overlay management functions
+  4. Update tab click handlers to use router
+  5. Test: Navigate all tabs, open/close all overlays
+  6. Verify: Focus management works correctly, ARIA attributes set
+- **Performance Considerations:**
+  - Tab switches should feel instant (< 50ms)
+  - Overlay animations should not block main thread
+  - Minimize DOM queries by caching element references
+
+**Step 1.2.2: Extract Lifecycle Coordinator**
+- **Target:** ~400 lines
+- **New File:** `assets/orchestration/LifecycleCoordinator.js`
+- **Responsibilities:**
+  - Application initialization sequence
+  - Level start/end coordination
+  - Idle time calculation and reward distribution
+  - Autosave scheduling
+  - Application pause/resume handling
+- **Interface:**
+  ```javascript
+  export function createLifecycleCoordinator(config) {
+    return {
+      initializeApplication() { },
+      startLevel(levelConfig) { },
+      endLevel(result) { },
+      handleIdleTime(offlineMs) { },
+      scheduleAutosave() { },
+      pauseApplication() { },
+      resumeApplication() { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create coordinator factory with configuration object
+  2. Move initialization sequence (resource state, config loading)
+  3. Move level lifecycle functions
+  4. Move autosave and idle time logic
+  5. Update `main.js` to delegate to lifecycle coordinator
+  6. Test: Fresh load, level start, idle rewards, autosave
+  7. Verify: Initialization time unchanged
+- **Performance Considerations:**
+  - Initialization should remain lazy (load on demand)
+  - Autosave should not block UI (use `requestIdleCallback`)
+  - Idle rewards should calculate incrementally (avoid long computations)
+
+**Step 1.2.3: Extract Event Bus and Observer Pattern**
+- **Target:** ~200 lines
+- **New File:** `assets/orchestration/GameEvents.js`
+- **Responsibilities:**
+  - Centralized event emitter for cross-module communication
+  - Event channels (`game:`, `ui:`, `tower:`, `powder:`)
+  - Subscription management with automatic cleanup
+  - Event logging for debugging
+- **Interface:**
+  ```javascript
+  export function createEventBus() {
+    return {
+      emit(eventName, payload) { },
+      on(eventName, handler) { }, // Returns unsubscribe function
+      once(eventName, handler) { },
+      off(eventName, handler) { },
+      clear(eventName) { },
+      getEventLog() { } // For debugging
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create event bus implementation
+  2. Identify callback-based communication in `main.js`
+  3. Replace callbacks with event emissions
+  4. Update modules to subscribe to events instead of receiving callbacks
+  5. Test: Verify all inter-module communication works
+  6. Verify: No performance degradation from event dispatch
+- **Performance Considerations:**
+  - Event dispatch should be O(n) in number of listeners
+  - Avoid memory leaks by providing cleanup functions
+  - Consider batching events that fire frequently (e.g., resource updates)
+
+**Step 1.2.4: Consolidate State Module Pattern**
+- **Target:** Document and standardize existing state modules
+- **Existing Files:** (Already extracted per `main_refactor_contexts.md`)
+  - `assets/state/resourceState.js`
+  - `assets/state/spireResourceState.js`
+  - `assets/powder/powderState.js`
+  - `assets/alephUpgradeState.js`
+- **Activities:**
+  1. Audit all state modules for consistent API patterns
+  2. Ensure all state modules export factory functions (not singletons)
+  3. Document state module contract in `JAVASCRIPT_MODULE_SYSTEM.md`
+  4. Add state serialization/deserialization helpers
+  5. Create state snapshot function for save/load
+- **Migration Strategy:**
+  1. Review existing state modules
+  2. Refactor any singleton patterns to factories
+  3. Add serialization methods if missing
+  4. Create unified state hydration function
+  5. Test: Save/load game state, verify all state modules restore correctly
+  6. Verify: Load time unchanged, save file size reasonable
+- **Performance Considerations:**
+  - State access should be fast (avoid getters that compute)
+  - Serialization should be incremental (only changed state)
+  - State snapshots should reuse objects where possible
+
+**Step 1.2.5: Integration and Validation**
+- **Activities:**
+  1. Update `main.js` to compose routers and coordinators
+  2. Verify `main.js` is now < 4,000 lines (~45% reduction)
+  3. Run full application test: fresh load, level playthrough, save/load
+  4. Performance validation:
+     - Measure initialization time (target: < 3s to interactive)
+     - Measure tab switch time (target: < 50ms)
+     - Measure autosave time (target: < 100ms, non-blocking)
+  5. Update `docs/main_refactor_contexts.md` with new modules
+  6. Update `AGENTS.md` with event bus and lifecycle patterns
+
+### Phase 2: High-Complexity Features (Priority: HIGH)
+
+#### 2.1 `scripts/features/towers/cardinalWardenSimulation.js` (8,015 lines)
+
+**Problem:** Cardinal Warden is a complex tower with multiple simulation modes (wave propagation, spread patterns, elemental effects, massive bullets). All logic lives in one massive file, making it hard to maintain, test, or extend.
+
+**Current Responsibilities:**
+- Grapheme mode configuration and selection
+- Wave propagation physics simulation
+- Spread pattern projectile generation
+- Elemental effect application
+- Massive bullet special ability
+- UI rendering (grapheme symbols, animation states)
+- State management (active modes, cooldowns, damage tracking)
+
+**Refactoring Plan:**
+
+**Step 2.1.1: Extract Grapheme Configuration**
+- **Target:** ~200 lines
+- **Status:** Partially done (Build 181 created `cardinalWardenConfig.js`)
+- **Extend:** `scripts/features/towers/cardinalWardenConfig.js`
+- **Additional Extraction:**
+  - Move remaining mode switching logic
+  - Extract UI copy and symbol mappings
+  - Move cooldown and ability constants
+- **Validation:**
+  1. Verify grapheme switching works in-game
+  2. Check all symbols display correctly
+  3. Confirm cooldowns unchanged
+
+**Step 2.1.2: Extract Wave Propagation Simulation**
+- **Target:** ~1,500 lines
+- **New File:** `scripts/features/towers/cardinalWarden/WavePropagationSimulation.js`
+- **Responsibilities:**
+  - Wave physics (velocity, acceleration, damping)
+  - Wave-enemy collision detection
+  - Damage calculation per wave hit
+  - Wave lifecycle (spawn, update, despawn)
+- **Interface:**
+  ```javascript
+  export function createWavePropagationSimulation(config) {
+    return {
+      createWave(origin, direction, params) { },
+      updateWaves(deltaTime, enemies) { },
+      getActiveWaves() { },
+      clearWaves() { },
+      calculateDamage(wave, enemy) { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create simulation module with factory pattern
+  2. Move wave physics constants and update logic
+  3. Move collision detection for wave-enemy interactions
+  4. Update `cardinalWardenSimulation.js` to delegate wave logic
+  5. Test: Grapheme H (wave mode), verify damage and visuals
+  6. Verify: No performance change during wave updates
+- **Performance Considerations:**
+  - Wave collision detection is O(waves × enemies) - keep efficient
+  - Reuse wave objects where possible (object pooling)
+  - Minimize Math.sqrt calls in distance calculations
+
+**Step 2.1.3: Extract Spread Pattern System**
+- **Status:** Not extractable as a standalone module - spread pattern (grapheme I) is a modifier applied in the bullet-spawning loop (`spreadBulletCount` controls how many bullets are spawned in a fan; the projectiles themselves are standard `Bullet` objects shared with all other modes). Address in Step 2.1.6 as part of core simulation refactoring.
+
+**Step 2.1.4: Extract Elemental Effects System**
+- **Status:** Not extractable as a standalone module - elemental effects (grapheme J) are properties (`burning`, `burnParticles`, `frozenDuration`) stored directly on individual `EnemyShip` instances and updated inside those classes' own `update()` methods. Extracting them would require decoupling the enemy update cycle. Address in Step 2.1.6 or as part of enemy class refactoring.
+
+**Step 2.1.5: Extract Massive Bullet System**
+- **Status:** Not extractable as a standalone module - massive bullet (grapheme K) is a modifier applied in the bullet-spawning loop (`massiveBulletMode` flag scales damage/size/speed). Address in Step 2.1.6 as part of core simulation refactoring.
+
+**Step 2.1.5b: Extract Swarm System**
+- **Status:** Complete (Build 475-476)
+- **New File:** `scripts/features/towers/cardinalWarden/SwarmSystem.js` (304 lines)
+- **Extracted:** `SwarmShip` class, `SwarmLaser` class, `checkSwarmLaserCollisions()`, `renderSwarmShips()`, `renderSwarmLasers()`
+- **Reduction:** cardinalWardenSimulation.js reduced from 7,583 to 7,348 lines (−235 lines)
+
+**Step 2.1.6: Reduce Core Simulation File**
+- **Target:** Reduce to ~1,500 lines (80% reduction)
+- **Remaining Responsibilities:**
+  - Mode selection and coordination
+  - UI state management (symbol selection, cooldowns)
+  - Factory function for creating tower instance
+  - Integration point for extracted subsystems
+- **Activities:**
+  1. Review remaining code after extractions
+  2. Move any remaining pure functions to utilities
+  3. Ensure core file only coordinates subsystems
+  4. Update imports and dependencies
+  5. Test: All grapheme modes, verify complete functionality
+  6. Verify: No performance regressions across all modes
+- **Final Validation:**
+  1. Test each grapheme mode individually
+  2. Test mode switching during gameplay
+  3. Measure CPU usage during intense combat
+  4. Verify memory usage stable across mode switches
+  5. Update `scripts/features/towers/agent.md` with new structure
+
+#### 2.2 `assets/playfield/render/CanvasRenderer.js` (3,987 lines)
+
+**Problem:** CanvasRenderer handles all rendering: backgrounds, towers, projectiles, enemies, effects, UI overlays. Drawing logic for different systems is intermingled, making it hard to optimize individual rendering paths.
+
+**Current Responsibilities:**
+- Background rendering (grid, color gradients)
+- Tower sprite rendering (all tower types)
+- Projectile rendering (all projectile types)
+- Enemy rendering (all enemy types)
+- Visual effects (particles, explosions, shields)
+- UI overlay rendering (damage numbers, cost scribbles)
+- Canvas state management (transforms, clipping)
+
+**Refactoring Plan:**
+
+**Step 2.2.1: Extract Background Renderer**
+- **Target:** ~300 lines
+- **New File:** `assets/playfield/render/layers/BackgroundRenderer.js`
+- **Responsibilities:**
+  - Grid pattern rendering
+  - Color gradient backgrounds
+  - Consciousness realm effects
+  - Static background elements
+- **Interface:**
+  ```javascript
+  export function createBackgroundRenderer(canvas) {
+    return {
+      renderBackground(ctx, playfieldState, colorScheme) { },
+      renderGrid(ctx, dimensions, style) { },
+      renderGradient(ctx, colors) { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create background renderer module
+  2. Move grid rendering functions
+  3. Move background gradient logic
+  4. Update `CanvasRenderer` to delegate background rendering
+  5. Test: Verify backgrounds render identically
+  6. Verify: Background render time unchanged
+- **Performance Considerations:**
+  - Background renders once per frame (not expensive)
+  - Cache gradient patterns if possible
+  - Consider rendering to offscreen canvas if background is static
+
+### Phase 2.2.1: Canvas Background Renderer (Build 486)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/BackgroundRenderer.js` (381 lines)
+
+**Responsibilities Extracted:**
+- `drawCrystallineMosaic()` — renders the crystalline mosaic edge decorations (first background layer)
+- `drawFloaters()` — renders the floater lattice (faint circles + connection lines) and background swimmers
+- `drawSketches()` — renders level sketch overlays with 20% opacity (randomised per level)
+- `drawSketchLayerCache()` — paints the offscreen sketch cache onto the main canvas; returns `true` if cache was used
+- `drawSketchesOnContext()` — rasterizes sketch placements onto any canvas context (used by cache builder)
+- `generateLevelSketches()` — deterministic seeded placement generator for level sketch sprites
+- `getSketchLayerCacheKey()` / `buildSketchLayerCache()` — offscreen caching helpers
+
+**Consolidation:**
+- 9 functions extracted (including 5 helpers and 4 public draw functions)
+- `sketchSprites` module-level sprite array moved to BackgroundRenderer.js
+- `areEdgeCrystalsEnabled`, `areBackgroundParticlesEnabled` imports removed from CanvasRenderer.js
+- `getCrystallineMosaicManager` import removed from CanvasRenderer.js
+- Total code reduction: ~290 lines in CanvasRenderer.js (3,987 → 3,697 lines)
+- `getViewportBounds` fallback in `drawCrystallineMosaic` simplified to `this._frameCache?.viewportBounds`
+  (safe since `drawCrystallineMosaic` is only ever called within `draw()` where `_frameCache` is initialised)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations
+- All functions use the established `.call(this)` convention: called with `functionName.call(renderer)` where `renderer` is the CanvasRenderer / SimplePlayfield instance
+- Public functions (`drawCrystallineMosaic`, `drawSketches`, `drawFloaters`) imported into CanvasRenderer.js and re-exported to preserve `CanvasRenderer.drawXxx` namespace used by playfield.js
+- `drawSketchLayerCache` imported into CanvasRenderer.js for internal use in `draw()` but not re-exported
+- Private helpers (`generateLevelSketches`, `getSketchLayerCacheKey`, `buildSketchLayerCache`, `drawSketchesOnContext`) are module-level functions not exported
+
+**Dependencies:**
+- `areEdgeCrystalsEnabled`, `areBackgroundParticlesEnabled` from `../../../preferences.js`
+- `getCrystallineMosaicManager` from `../CrystallineMosaic.js`
+- `this._frameCache` (pre-computed per-frame data set in CanvasRenderer `draw()`)
+- `this.ctx`, `this.canvas`, `this.levelConfig`, `this.pathPoints`, `this.floaters`, `this.floaterConnections`, `this.backgroundSwimmers`, `this.pixelRatio`, `this.renderWidth`, `this.renderHeight`, `this.focusedCellId`
+
+**Performance Considerations:**
+- Background functions run once per frame as first layers in the render stack
+- Sketch layer uses offscreen canvas caching: only re-rasterizes when level/dimensions change
+- Crystalline mosaic culls to viewport bounds for performance
+- Floater lattice uses `lighter` compositing only for swimmer sub-layer (minimal overdraw)
+
+**Key Learnings:**
+- Functions using `this` (renderer context) transfer cleanly to a new file without signature changes
+- `getViewportBounds` fallback is safe to drop when function is always called within `draw()` frame scope
+- Re-exporting imported names from CanvasRenderer.js preserves all existing `CanvasRenderer.*` call sites in playfield.js at zero cost
+- Separating background from the 3,987-line CanvasRenderer is the first step toward per-layer render modules (Steps 2.2.2–2.2.5)
+- 290-line reduction demonstrates value of grouping by render layer rather than by feature
+
+---
+
+
+- **Target:** ~800 lines
+- **New File:** `assets/playfield/render/layers/TowerSpriteRenderer.js`
+- **Responsibilities:**
+  - Tower sprite positioning and rotation
+  - Tower glyph symbol rendering
+  - Tower upgrade visual indicators
+  - Tower sprite animation (idle, firing)
+- **Interface:**
+  ```javascript
+  export function createTowerSpriteRenderer() {
+    return {
+      renderTower(ctx, tower, slot, sprites) { },
+      renderTowerGlyph(ctx, position, glyph, state) { },
+      renderUpgradeIndicator(ctx, position, upgrade) { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create tower sprite renderer
+  2. Move tower drawing functions
+  3. Move glyph rendering logic
+  4. Update `CanvasRenderer` to use tower renderer
+  5. Test: Place all tower types, verify sprites render correctly
+  6. Verify: Tower render time unchanged (critical for performance)
+- **Performance Considerations:**
+  - Tower rendering happens every frame for every tower
+  - Minimize canvas state changes (save/restore)
+  - Batch towers by sprite type if possible
+  - Cache rotated sprites if performance critical
+
+### Phase 2.2.2: Tower Sprite Renderer (Build 487)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/TowerSpriteRenderer.js` (738 lines)
+
+**Responsibilities Extracted:**
+- `drawTowerConnectionParticles()` — renders orbit motes and launch/arrive arcs for beta/gamma tower connections
+- `drawConnectionEffects()` — renders in-transit connection particles moving between linked towers
+- `drawTowerPressGlow()` — draws accent ring + glyph echo when a tower is actively pressed
+- `drawPlacementPreview()` — renders the ghost tower body, range ring, κ tripwire link previews, and merge indicator during drag placement
+- `drawTowerGlyphTransition()` — orchestrates the promotion/demotion animation sequence (residue → particles → flash → text)
+- `drawTowerGlyphResidue()` — fades out the old glyph symbol during a transition
+- `drawTowerGlyphParticles()` — animates direction-aware particles that fan out during a glyph change
+- `getGlyphParticleColor()` — computes tinted promotion/demotion particle colour
+- `drawTowerGlyphFlash()` — radial gradient burst centred on the tower body during a glyph change
+- `drawTowerGlyphText()` — fades in the new glyph symbol with smoothstep easing
+- `drawTowers()` — main per-frame tower rendering: range rings, per-type extensions, body circles, glyph text, chain ring, selection ring
+- `drawZetaPendulums()` / `drawEtaOrbits()` / `drawDeltaSoldiers()` / `drawOmicronUnits()` — thin delegates to their respective tower module helpers
+
+**Consolidation:**
+- 15 functions extracted (4 public delegates + 11 tower body / glyph functions)
+- 5 glyph-transition constants moved to TowerSpriteRenderer.js: `GLYPH_DEFAULT_PROMOTION_VECTOR`, `GLYPH_DEFAULT_DEMOTION_VECTOR`, `PROMOTION_GLYPH_COLOR`, `DEMOTION_GLYPH_COLOR`, `GLYPH_FLASH_RAMP_MS`
+- 12 tower-helper imports removed from CanvasRenderer.js (`kappaTower`, `lambdaTower`, `muTower`, `nuTower` kill-particles, `xiTower`, `zetaTower`, `etaTower`, `deltaTower`, `thetaTower`, `omicronTower`, `piTower` ×3, `tauTower`, `upsilonTower`, `phiTower`)
+- `ALPHA_BASE_RADIUS_FACTOR`, `getTowerVisualConfig`, `getTowerDefinition`, `drawConnectionMoteGlow` imports removed from CanvasRenderer.js
+- Total code reduction: ~658 lines in CanvasRenderer.js (3,697 → 3,039 lines)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations; internal helpers are unexported module-level functions
+- All functions use the `.call(this)` convention: exported functions are called as `this.drawXxx()` from playfield.js via the `CanvasRenderer.*` namespace
+- `drawTowerPressGlow` retains its explicit `playfield` first-parameter signature (unchanged from original)
+- Internal calls within `drawTowers` that previously used `this.drawConnectionEffects(ctx)` and `this.drawTowerConnectionParticles(...)` now call the module-level functions directly: `drawConnectionEffects.call(this, ctx)`, `drawTowerConnectionParticles.call(this, ctx, tower, bodyRadius)`
+- `this.drawZetaPendulums(tower)` / `this.drawEtaOrbits(tower)` in `drawTowers` replaced with direct helper calls `drawZetaPendulumsHelper(this, tower)` / `drawEtaOrbitsHelper(this, tower)` to avoid prototype indirection
+- Public functions imported into CanvasRenderer.js and re-exported to preserve the `CanvasRenderer.drawXxx` namespace used by playfield.js
+
+**Dependencies:**
+- `ALPHA_BASE_RADIUS_FACTOR` from `../../../gameUnits.js`
+- `getTowerVisualConfig` from `../../../colorSchemeUtils.js`
+- `getTowerDefinition` from `../../../towersTab.js`
+- `colorToRgbaString` from `../../../../scripts/features/towers/powderTower.js`
+- `normalizeProjectileColor`, `drawConnectionMoteGlow` from `../../utils/rendering.js`
+- Per-type helpers imported directly: `zetaTower`, `etaTower`, `deltaTower`, `omicronTower`, `kappaTower`, `lambdaTower`, `muTower`, `nuTower`, `xiTower`, `thetaTower`, `piTower`, `tauTower`, `upsilonTower`, `phiTower`
+- `this.applyCanvasShadow`, `this.clearCanvasShadow` — shadow helpers remain on renderer instance
+- `this.resolveConnectionOrbitAnchor`, `this.resolveConnectionOrbitPosition` — playfield orbit helpers
+- `this.towerGlyphTransitions`, `this.connectionDragState`, `this.activeTowerMenu` — renderer state properties
+
+**Performance Considerations:**
+- `drawTowers` iterates all towers every frame; no algorithmic change, extraction is zero-cost
+- Internal function calls bypass prototype lookup: `drawConnectionEffects.call(this, ctx)` is marginally faster than `this.drawConnectionEffects(ctx)`
+- Glyph transition helpers run only when `towerGlyphTransitions` map has entries (typically rare)
+
+**Key Learnings:**
+- Grouping all tower body/glyph/placement/connection rendering into one file gives a clean "tower appearance" layer
+- `drawTowerPressGlow`'s explicit `playfield` parameter transferred without any change in calling convention
+- Moving internal calls from prototype-chained `this.fn()` to direct `fn.call(this)` is safe and slightly more explicit about ownership
+- Removing 12 tower-type helper imports from CanvasRenderer.js significantly declutters the import block
+- 658-line reduction is the largest single extraction in Phase 2.2
+
+---
+
+### Phase 2.2.3: Canvas Projectile Renderer (Build 488)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/layers/ProjectileRenderer.js` (605 lines)
+
+**Responsibilities Extracted:**
+- `drawProjectiles()` — main projectile loop: supply seeds, omega waves, eta lasers, iota pulses, epsilon needles, gamma star beams, standard beam projectiles; delegates burst effects to tower modules via `this.drawBetaBursts()` etc.
+- `drawAlphaBursts()` — thin delegate to `alphaTower.drawAlphaBursts(this)`
+- `drawBetaBursts()` — thin delegate to `betaTower.drawBetaBursts(this)`
+- `drawGammaBursts()` — thin delegate to `gammaTower.drawGammaBursts(this)`
+- `drawGammaStarBursts()` — renders animated pentagram star traces on enemies hit by gamma star projectiles
+- `drawNuBursts()` — thin delegate to `nuTower.drawNuBursts(this)`
+- `drawOmegaParticles()` — thin delegate to `omegaTower.drawOmegaParticles(this)`
+- `resolveEpsilonNeedleSprite()` — palette-tints the epsilon needle sprite and caches results per gradient stop
+- `getEnemyLookupMap()` — lazily builds a per-frame enemy ID→enemy Map for O(1) target resolution
+
+**Consolidation:**
+- 7 exported drawing functions + 2 private helpers moved to ProjectileRenderer.js
+- `PROJECTILE_CULL_RADIUS_DEFAULT/IOTA_PULSE/OMEGA_WAVE/ETA_LASER` constants moved from CanvasRenderer.js
+- Epsilon needle sprite loading code (`epsilonNeedleSprite`, `epsilonNeedleSpriteCache`, `EPSILON_NEEDLE_GRADIENT_STOPS`) moved from CanvasRenderer.js
+- 5 tower burst helper imports removed from CanvasRenderer.js (`alphaTower`, `betaTower`, `gammaTower`, `nuTower`, `omegaTower`)
+- `getEnemyLookupMap` private function removed from CanvasRenderer.js (only consumed by `drawProjectiles`)
+- Total code reduction: ~477 lines in CanvasRenderer.js (3,039 → 2,562 lines)
+
+**Integration Pattern:**
+- ES6 module with named `export function` declarations; private helpers (`clamp`, `getViewportBounds`, `isInViewport`, `resolveEpsilonNeedleSprite`, `getEnemyLookupMap`) are unexported module-level functions
+- `getViewportBounds` and `isInViewport` are duplicated locally (they are also retained in CanvasRenderer.js for the enemy/mote/damage-number culling that remains there); this avoids a circular import
+- All exported functions use the `.call(renderer)` convention and are re-exported by CanvasRenderer.js to preserve the `CanvasRenderer.drawXxx` namespace used by playfield.js
+- `drawProjectiles` ends by calling `this.drawBetaBursts()` etc. through the renderer prototype, consistent with the original call chain
+
+**Dependencies:**
+- `samplePaletteGradient` from `../../../colorSchemeUtils.js`
+- `colorToRgbaString` from `../../../../scripts/features/towers/powderTower.js`
+- `normalizeProjectileColor` from `../../utils/rendering.js`
+- Per-tower burst helpers: `alphaTower`, `betaTower`, `gammaTower`, `nuTower`, `omegaTower`
+
+**Performance Considerations:**
+- `drawProjectiles` is a hot path; no algorithmic change — extraction is zero-cost
+- `getEnemyLookupMap` lazily builds a per-frame Map; frames without target-based projectiles skip the build
+- `resolveEpsilonNeedleSprite` is keyed on closest gradient stop + palette colour; typical cache size is ≤4 entries
+
+**Key Learnings:**
+- Viewport culling helpers (`getViewportBounds`/`isInViewport`) were retained in both files rather than moved to a shared utility, keeping the import graph acyclic at minimal duplication cost (~40 lines)
+- Burst effects (alpha/beta/gamma/nu/omega) remain delegated to their respective tower modules — ProjectileRenderer only holds thin wrappers, keeping tower logic co-located with tower files
+- 477-line reduction is a solid step toward the Phase 2.2 goal of a ≤1,000-line coordinator
+
+---
+
+**Step 2.2.3: Extract Projectile Renderer**
+- **Target:** ~600 lines
+- **New File:** `assets/playfield/render/layers/ProjectileRenderer.js`
+- **Responsibilities:**
+  - Standard projectile rendering (circles, sprites)
+  - Projectile trails and effects
+  - Special projectile types (stars, triangles, waves)
+  - Projectile animation states
+- **Interface:**
+  ```javascript
+  export function createProjectileRenderer() {
+    return {
+      renderProjectile(ctx, projectile, sprites) { },
+      renderProjectileTrail(ctx, trail) { },
+      renderSpecialProjectile(ctx, projectile, type) { }
+    };
+  }
+  ```
+- **Migration Strategy:**
+  1. Create projectile renderer module
+  2. Move projectile drawing functions
+  3. Move trail rendering logic
+  4. Update `CanvasRenderer` to use projectile renderer
+  5. Test: Fire all tower types, verify projectiles render correctly
+  6. Verify: Projectile render time acceptable (may have 100+ on screen)
+- **Performance Considerations:**
+  - Projectile rendering is the most frequent operation
+  - This is the hottest code path in the renderer
+  - Minimize allocations and function calls
+  - Consider instancing for identical projectiles
+  - Profile carefully after extraction
+
+**Step 2.2.4: Extract Enemy Renderer** ✅ COMPLETED (Build 489)
+- **New File:** `assets/playfield/render/layers/EnemyRenderer.js` (1,011 lines)
+- **Extracted:** `drawEnemies`, `drawEnemyDeathParticles`, `drawSwarmClouds`, plus all private helpers:
+  - Enemy swirl particle system (spawn, advance, backdrop, knockback offset)
+  - Rho sparkle ring effect
+  - Debuff status bar rendering
+  - Enemy fallback body, symbol/exponent overlay, shell sprites
+  - Swirl impact queue / particle cleanup
+
+**Step 2.2.5: Extract UI Overlay Renderer** ✅ COMPLETED (Build 489)
+- **New File:** `assets/playfield/render/layers/UIOverlayRenderer.js` (458 lines)
+- **Extracted:** `drawDamageNumbers`, `drawFloatingFeedback`, `drawWaveTallies`, `drawTowerMenu`, plus private helper `drawAnimatedTowerMenu`
+
+**Step 2.2.6: Refactor Core Renderer to Coordinator** ✅ COMPLETED (Build 490)
+- **New File:** `assets/playfield/render/layers/TrackRenderer.js` (709 lines)
+- **Extracted:** `drawPath`, `drawArcLight`, `drawPathLayerCache`, `drawEnemyGateSymbol`, `drawMindGateSymbol`, `drawNodes`, plus private helpers:
+  - Path layer caching system (getPathLayerCacheKey, buildPathLayerCache, drawPathLayerCache)
+  - Track palette helpers (getTrackPaletteStops, getCachedTrackPaletteStops)
+  - Standard path rendering (drawPathBase)
+  - Tunnel opacity system (getTunnelPathCacheKey, buildTunnelPathCache, drawPathWithTunnels)
+  - River particle track (drawTrackParticleRiver)
+  - Arc light tracer (drawArcLight)
+  - Gate sprites: enemy gate glow/symbol, mind gate consciousness wave
+  - Path node coordinator (drawNodes)
+- **Result:** CanvasRenderer.js reduced from 1,298 to 609 lines (−689 lines); now a pure coordinator
+
+### Phase 3: Tower Logic Consolidation (Priority: MEDIUM)
+
+#### 3.1 Tower Simulation Files (3,000+ lines each)
+
+**Problem:** Several tower files (`tsadiTower.js`, `lamedTower.js`, `powderTower.js`) contain tower-specific logic, data tables, UI copy, and rendering in single files. Common patterns aren't shared across towers.
+
+**Affected Files:**
+- `scripts/features/towers/tsadiTower.js` (3,391 lines)
+- `scripts/features/towers/lamedTower.js` (2,924 lines)
+- `scripts/features/towers/powderTower.js` (2,342 lines)
+
+**Refactoring Strategy:**
+
+**Step 3.1.1: Extract Data Tables (All Towers)**
+- **Pattern:** For each large tower file:
+  1. Create `<TowerName>Data.js` companion file
+  2. Move static configuration (upgrade trees, tier sequences, damage tables)
+  3. Move UI strings (upgrade descriptions, ability names)
+  4. Export as frozen objects or functions that return configurations
+- **Example (Tsadi Tower):**
+  ```javascript
+  // tsadiTowerData.js
+  export const TSADI_TIER_SEQUENCE = Object.freeze([...]);
+  export const TSADI_WAVE_CONSTANTS = Object.freeze({...});
+  export const TSADI_MOLECULE_RECIPES = Object.freeze({...});
+  export const TSADI_UPGRADE_DESCRIPTIONS = Object.freeze({...});
+  ```
+- **Progress:** Build 181 created `tsadiTowerData.js` (82 lines extracted)
+- **Next Steps:**
+  - Create `lamedTowerData.js` (extract ~300 lines)
+  - Create `powderTowerData.js` (extract ~250 lines)
+  - Verify all towers function identically after extraction
+
+**Step 3.1.2: Extract Tower Behavior Patterns**
+- **New File:** `scripts/features/towers/shared/TowerBehaviorPatterns.js`
+- **Responsibilities:**
+  - Common targeting algorithms (nearest, furthest, strongest)
+  - Shared damage calculation patterns
+  - Common projectile spawning logic
+  - Upgrade formula patterns
+- **Migration Strategy:**
+  1. Identify common patterns across 3+ towers
+  2. Extract into shared utility functions
+  3. Update towers to use shared functions
+  4. Verify behavior unchanged per tower
+  5. Test: Place all tower types, verify targeting
+
+**Step 3.1.3: Extract Tower Rendering Helpers**
+- **New File:** `scripts/features/towers/shared/TowerRenderHelpers.js`
+- **Responsibilities:**
+  - Sprite loading and caching
+  - Common glyph rendering utilities
+  - Upgrade indicator patterns
+  - Animation state helpers
+- **Migration Strategy:**
+  1. Identify rendering logic duplicated across towers
+  2. Extract into helper functions
+  3. Update towers to use shared helpers
+  4. Verify visual output unchanged
+  5. Test: Visual inspection of all towers
+
+**Step 3.1.4: Standardize Tower Module Structure**
+- **Pattern:** All tower files should follow consistent structure:
+  ```
+  // 1. Imports
+  // 2. Constants (short, module-specific only)
+  // 3. Helper functions (private to this tower)
+  // 4. Main tower factory function
+  // 5. Targeting logic
+  // 6. Ability logic
+  // 7. Update function
+  // 8. Export
+  ```
+- **Activities:**
+  1. Document standard tower structure in `scripts/features/towers/agent.md`
+  2. Refactor one tower to match pattern (template)
+  3. Gradually align other towers with template
+  4. Create tower creation guide for new towers
+
+### Phase 4: Rendering and UI Systems (Priority: MEDIUM-LOW)
+
+#### 4.1 Spire Rendering Files
+
+**Affected Files:**
+- `assets/betSpireRender.js` (2,677 lines)
+- `assets/kufSimulation.js` (3,047 lines)
+
+**Refactoring Strategy:**
+
+**Step 4.1.1: Extract Bet Spire Particle Systems**
+- **Target:** ~800 lines from `betSpireRender.js`
+- **New File:** `assets/spires/bet/BetSpireParticles.js`
+- **Responsibilities:** Particle effects specific to Bet spire
+- **Validation:** Visual inspection of Bet spire effects
+
+**Step 4.1.2: Extract Kuf Simulation Physics**
+- **Target:** ~1,000 lines from `kufSimulation.js`
+- **New File:** `assets/spires/kuf/KufPhysicsSimulation.js`
+- **Responsibilities:** Physics calculations for Kuf spire
+- **Validation:** Verify Kuf spire behavior unchanged
+
+#### 4.2 Powder System Files
+
+**Affected Files:**
+- `assets/fluidTerrariumTrees.js` (2,945 lines)
+- `assets/fluidTerrariumShrooms.js` (1,092 lines)
+
+**Refactoring Strategy:**
+
+**Step 4.1.1: Extract Tree Growth Simulation**
+- **Target:** ~1,200 lines from `fluidTerrariumTrees.js`
+- **New File:** `assets/powder/simulations/TreeGrowthSimulation.js`
+
+**Step 4.1.2: Extract Mushroom Simulation**
+- **Target:** ~500 lines from `fluidTerrariumShrooms.js`
+- **New File:** `assets/powder/simulations/MushroomSimulation.js`
+
+#### 4.3 Tower Equation Display
+
+**Affected Files:**
+- `assets/towerEquations/advancedTowers.js` (2,435 lines)
+- `assets/towerEquations/greekTowers.js` (1,647 lines)
+
+**Refactoring Strategy:**
+
+**Step 4.3.1: Split by Tower Type**
+- **Pattern:** One file per tower equation
+- **New Files:**
+  - `assets/towerEquations/advanced/AlephEquation.js`
+  - `assets/towerEquations/advanced/BetEquation.js`
+  - (etc. for each tower)
+- **Keep:** Index file that re-exports all equations
+
+### Phase 5: Stylesheet Refactoring (Priority: LOW but HIGH IMPACT)
+
+#### 5.1 `assets/styles.css` (~12,737 lines)
+
+**Problem:** Single monolithic stylesheet makes it difficult to modify individual UI components without risk of cascade side effects. Theme variants are scattered throughout the file.
+
+**Refactoring Plan:**
+
+**Step 5.1.1: Create Layer Structure**
+- **New Files:**
+  - `assets/styles/base.css` - CSS custom properties, resets, typography
+  - `assets/styles/themes.css` - Color scheme variants
+  - `assets/styles/utilities.css` - Utility classes
+  - `assets/styles/components/` - Component-specific styles
+- **Use CSS `@layer` directive:**
+  ```css
+  /* base.css */
+  @layer base {
+    /* Reset styles */
+  }
+  
+  /* Import order establishes cascade */
+  @import url('./themes.css') layer(theme);
+  @import url('./utilities.css') layer(utilities);
+  @import url('./components/overlays.css') layer(components);
+  ```
+
+**Step 5.1.2: Extract Component Styles**
+- **Component Files:**
+  - `overlays.css` - Modal and overlay styles
+  - `hud.css` - Resource display and HUD elements
+  - `playfield.css` - Game canvas and playfield UI
+  - `towers-tab.css` - Tower selection and upgrade UI
+  - `powder-tab.css` - Powder system UI
+  - `codex.css` - Codex overlay styles
+  - `level-paths.css` - Level selection UI
+  - `developer-tools.css` - Developer mode UI
+
+**Step 5.1.3: Validation Strategy**
+- **Before Changes:**
+  1. Take screenshots of every UI state
+  2. Document computed styles for key elements
+  3. Record cascade specificity of critical selectors
+- **After Each Extraction:**
+  1. Visual diff against screenshots
+  2. Verify computed styles unchanged
+  3. Test all theme variants
+  4. Test all cursor modes
+  5. Test all responsive breakpoints
+- **Critical Validations:**
+  - Main menu appearance
+  - Playfield layout (portrait and landscape)
+  - All overlays (position, size, backdrop)
+  - Tower selection UI
+  - Powder basin and tab layout
+  - Codex scrolling and layout
+  - Developer tools appearance
+
+## Testing Strategy
+
+### Automated Validation (Where Possible)
+
+#### Performance Benchmarks
+```javascript
+// Example benchmark structure
+const benchmarks = {
+  'playfield-rendering': {
+    setup: () => loadLevelWithMaxEnemies(),
+    test: () => measureFrameTime(60), // 60 frames
+    target: { p95: 16.67 } // 60 FPS
+  },
+  'tower-targeting': {
+    setup: () => spawnTenTowersWithTwentyEnemies(),
+    test: () => measureTargetingUpdateTime(),
+    target: { average: 2.0 } // 2ms per frame
+  },
+  'autosave': {
+    setup: () => playFor30Minutes(),
+    test: () => measureSaveTime(),
+    target: { average: 100 } // 100ms max
+  }
+};
+```
+
+#### Regression Test Suite
+```javascript
+// Functional regression checks
+const regressionTests = [
+  'tower-placement-all-types',
+  'tower-upgrade-all-paths',
+  'enemy-spawning-all-types',
+  'level-victory-conditions',
+  'level-defeat-conditions',
+  'save-load-full-state',
+  'offline-rewards-calculation',
+  'spire-unlock-progression',
+  'powder-system-interactions',
+  'developer-mode-tools'
+];
+```
+
+### Manual Testing Checklist
+
+For each major refactoring phase, complete this checklist:
+
+#### Gameplay Core
+- [ ] Load a saved game successfully
+- [ ] Start a new game (fresh state)
+- [ ] Place all tower types
+- [ ] Upgrade towers through all paths
+- [ ] Complete a level successfully
+- [ ] Fail a level (let enemies through)
+- [ ] Collect idle rewards after offline time
+- [ ] Verify autosave creates valid save file
+- [ ] Switch between all tabs
+- [ ] Open and close all overlays
+
+#### Visual Verification
+- [ ] All tower sprites render correctly
+- [ ] All projectiles render correctly
+- [ ] All enemies render correctly
+- [ ] Damage numbers appear and fade
+- [ ] Cost scribbles show on invalid placement
+- [ ] Tower upgrade effects visual correct
+- [ ] Particle effects render without artifacts
+- [ ] UI overlays positioned correctly
+- [ ] All theme variants work (Codex color schemes)
+- [ ] Responsive layout works (portrait/landscape)
+
+#### Performance Validation
+- [ ] 60 FPS during light combat (5 towers, 10 enemies)
+- [ ] 60 FPS during heavy combat (10 towers, 30 enemies)
+- [ ] Page load time < 3 seconds (3G network)
+- [ ] Tab switches feel instant (< 50ms)
+- [ ] Tower placement responsive (< 100ms touch to visual)
+- [ ] Memory usage stable over 30 minutes
+- [ ] No memory leaks (check with heap profiler)
+- [ ] Autosave doesn't cause frame drops
+
+#### Edge Cases
+- [ ] Rapid tab switching doesn't break UI
+- [ ] Placing towers quickly doesn't cause errors
+- [ ] Upgrading tower during projectile flight works
+- [ ] Selling tower during ability execution safe
+- [ ] Opening overlay during animation smooth
+- [ ] Resize window during gameplay stable
+- [ ] Rotate device during gameplay (mobile) stable
+- [ ] Developer mode toggle doesn't crash
+
+## Risk Mitigation
+
+### High-Risk Operations
+
+#### Risk: Breaking Combat Logic
+- **Impact:** Game becomes unplayable
+- **Likelihood:** Medium (combat state is complex)
+- **Mitigation:**
+  - Extract combat logic last within playfield refactor
+  - Maintain comprehensive combat state tests
+  - Keep targeting logic in individual tower modules
+  - Validate every enemy type after changes
+
+#### Risk: Performance Regression
+- **Impact:** Game becomes unplayable on mobile
+- **Likelihood:** Medium-High (rendering is performance-critical)
+- **Mitigation:**
+  - Measure performance before and after every change
+  - Profile hot paths after extraction
+  - Keep render loop optimizations (existing constants like TWO_PI, HALF)
+  - Avoid adding abstraction layers in critical paths
+  - Use worker thread pattern if complex calculations needed
+
+#### Risk: Save File Corruption
+- **Impact:** Players lose progress
+- **Likelihood:** Low-Medium (state refactoring affects serialization)
+- **Mitigation:**
+  - Test save/load after every state module change
+  - Maintain backward compatibility with old save format
+  - Add save file validation on load
+  - Keep versioning in save files
+  - Backup saves before migration
+
+#### Risk: Visual Regressions
+- **Impact:** UI appears broken or inaccessible
+- **Likelihood:** High (many UI elements)
+- **Mitigation:**
+  - Screenshot comparison before/after changes
+  - Test all theme variants
+  - Test all responsive breakpoints
+  - Validate ARIA attributes and focus management
+  - Keep stylesheet specificity identical during CSS refactor
+
+### Rollback Strategy
+
+If a refactoring causes critical issues:
+
+1. **Immediate Actions:**
+   - Revert the commit(s) that introduced the issue
+   - Notify team of rollback
+   - Document issue in rollback commit message
+
+2. **Investigation:**
+   - Identify root cause of failure
+   - Document why the refactoring approach failed
+   - Update refactoring plan with lessons learned
+
+3. **Retry:**
+   - Create a more incremental approach
+   - Add additional validation steps
+   - Consider alternative refactoring strategy
+   - Update this document with new approach
+
+## Progress Tracking
+
+### Refactoring Metrics
+
+Track these metrics to measure progress:
+
+| Metric | Current (Build 489) | Phase 1 Target | Phase 2 Target | Phase 3 Target | Final Target |
+|--------|---------|----------------|----------------|----------------|--------------|
+| Largest file size | 6,264 lines | 8,000 lines | 5,000 lines | 3,000 lines | < 2,000 lines |
+| Files > 3,000 lines | 3 files | 3 files | 1 file | 0 files | 0 files |
+| Average file size | ~750 lines | ~600 lines | ~400 lines | ~300 lines | < 250 lines |
+| Module count | ~143 modules | ~140 modules | ~160 modules | ~180 modules | ~200 modules |
+| Test coverage | TBD | TBD | TBD | TBD | > 70% |
+
+**Progress Notes (Build 715):**
+- EnemyMetadataSystem.js created in `assets/playfield/systems/`: 97 lines (Phase 1 continuation - enemy metadata and threat-color helpers extracted from SimplePlayfield)
+  - Moved: `calculateMoteFactor`, `estimateEnemyBreachDamage`, `resolveEnemyExponentColor`, `resolvePolygonSides`, `resolveNextPolygonSides` (5 methods)
+  - playfield.js reduced from 4,184 to 4,122 lines (62-line reduction) with thin `.call(this)` delegates
+
+**Progress Notes (Build 630-632):**
+- betTerrariumController.js created in `assets/`: 806 lines (Phase 1 - Bet Spire Terrarium lifecycle extracted from main.js)
+  - Created: createBetTerrariumController({...}) factory function with late-bound getter dependencies
+  - Moved: enforceFluidStudyDisabledState, waitForTerrariumSprite, ensureTerrariumSurfacesReady, ensureFluidTerrariumCreatures, ensureFluidTerrariumBirds, ensureFluidTerrariumGrass, ensureFluidTerrariumWater, ensureFluidTerrariumCrystal, ensureFluidTerrariumTrees, handleCelestialPlacement, unlockTerrariumCelestialBody, addTerrariumCreature, addTerrariumItem, ensureFluidTerrariumSkyCycle, ensureFluidTerrariumCelestialBodies, ensureFluidTerrariumShrooms, handleShroomPlacement, handleSlimePlacement, handleBirdPlacement, ensureFluidTerrariumItemsDropdown, getBetTerrariumCreatureCount, setBetTerrariumCreatureCount (22 functions)
+  - 10 terrarium class instance variables (fluidTerrariumCreatures, ...Birds, ...Crystal, ...Trees, ...Grass, ...Water, ...SkyCycle, ...CelestialBodies, ...Shrooms, ...ItemsDropdown) + 9 achievements mirror variables moved
+  - 10 FluidTerrarium* class imports removed from main.js (FluidTerrariumCreatures, ...Birds, ...Crystal, ...Trees, ...Grass, ...Water, ...SkyCycle, ...CelestialBodies, ...Shrooms, ...ItemsDropdown)
+  - main.js reduced from 6,771 to 6,074 lines (697-line reduction)
+  - Late-bound dependencies via getter pattern (getSetFluidCameraMode, getUpdatePowderDisplay, getSpendFluidSerendipity, getGetCurrentFluidDropBank) to avoid hoisting order issues
+- alephTierTransitionController.js created in `assets/`: 335 lines (Phase 1 - Aleph tier-transition animation extracted from main.js)
+  - Created: createAlephTierTransitionController({...}) factory function
+  - Moved: resolveAlephTierStubPalette, resolveAlephTierRate, getTierAdvanceCount, clearAlephTierTransitionTimers, setAlephTierTransitionVisualState, setAlephTierTransitionSpawnState, getTierVisualGlyphCount, completeAlephTierTransition, beginAlephTierTransition, collectGoldenAlephTierGlyph, maybeStartAlephTierTransition, bindAlephTierTransitionControls, syncAlephTierVisualProfile (13 functions)
+  - ALEPH_TIER_STUB_COLORS array + ALEPH_TIER_WALL_EXIT_MS/COLLECT_MS/WALL_ENTER_MS timing constants moved
+  - parseCssColor import removed from main.js (now imported directly by controller from powderTower.js)
+  - main.js reduced from 6,074 to 5,820 lines (254-line reduction)
+  - Total main.js reduction across Builds 630-631: 951 lines (6,771 → 5,820)
+
+**Progress Notes (Build 627-628):**
+- settingsMenuController.js created in `assets/`: 74 lines (Phase 1 - shared collapsible menu factory extracted from main.js)
+  - Created: bindCollapsibleMenu({triggerId, menuId}) factory function
+  - Deduplicated: bindVisualSettingsMenu and bindControlSettingsMenu (identical 51-line implementations)
+  - main.js reduced from 6,867 to 6,771 lines (96-line reduction)
+- WaveQueueSystem.js created in `assets/playfield/systems/`: 340 lines (Phase 1 - wave queue building and scaling extracted from SimplePlayfield)
+  - Moved: buildCurrentWaveQueue, buildNextWaveQueue, buildActiveEnemyEntries, createWaveState, scaleWaveConfigForCycle, getCycleMultiplierFor, getCycleSpeedScalarFor (7 methods)
+  - playfield.js reduced from 5,699 to 5,422 lines (277-line reduction); all methods replaced with thin `.call(this)` delegates
+  - WaveQueueSystem.js imports formatCombatNumber from playfield/utils/formatting.js
+
+**Progress Notes (Build 529):**
+- EnemyLifecycleSystem.js created in `assets/playfield/systems/`: 320 lines (Phase 1 - enemy spawn, debuff resolution, defeat/breach, victory/defeat handling extracted from SimplePlayfield)
+  - Moved: spawnEnemies, resolveActiveDebuffTypes, syncEnemyDebuffIndicators, handleEnemyBreach, processEnemyDefeat, handleVictory, handleDefeat (7 methods)
+- TowerInteractionSystem.js created in `assets/playfield/systems/`: 407 lines (Phase 1 - tower placement preview, cost scribbles, hold indicators, equation scribbles, placement validation, wave retry extracted)
+  - Moved: retryCurrentWave, updatePlacementPreview, spawnTowerUpgradeCostScribble, spawnTowerHoldIndicators, spawnTowerEquationScribble, validatePlacement (6 methods)
+  - playfield.js reduced from 6,347 to 5,664 lines (683-line reduction); total reduction from 7,839: 2,175 lines (28%)
+
+**Progress Notes (Build 527-528):**
+- TowerDispatchSystem.js created in `assets/playfield/systems/`: 436 lines (Phase 1 - tower update, targeting, fire routing, and visual emission extracted from SimplePlayfield)
+  - Moved: updateTowers, findTarget, resolveTowerShotDamage, emitTowerAttackVisuals, fireAtTarget (5 methods)
+  - playfield.js reduced from 7,561 to 7,047 lines (514-line reduction)
+- MoteGemSystem.js created in `assets/playfield/systems/`: 137 lines (Phase 1 - mote gem flight animation extracted)
+  - Moved: updateMoteGems (1 method)
+- ProjectileSpawnSystem.js created in `assets/playfield/systems/`: 259 lines (Phase 1 - projectile spawn helpers extracted)
+  - Moved: spawnSupplyProjectile, spawnBetaTriangleProjectile, spawnGammaStarProjectile, spawnOmegaWave, spawnPolygonShard (5 methods)
+- LevelResetSystem.js created in `assets/playfield/systems/`: 489 lines (Phase 1 - level lifecycle methods extracted)
+  - Moved: resetState, loadLevelCrystals, updateTowerPositions, restoreTowersFromCheckpoint, retryFromEndlessCheckpoint (5 methods)
+  - playfield.js reduced from 7,047 to 6,347 lines (700-line reduction)
+- All 4 systems use `Object.assign(SimplePlayfield.prototype, {...})` prototype assignment pattern (not .call(this) delegates)
+
+**Progress Notes (Build 526):**
+- EnemyUpdateSystem.js created in `assets/playfield/systems/`: ~260 lines (enemy state management extracted from SimplePlayfield)
+  - Moved: resolveEnemySlowMultiplier, clearEnemySlowEffects, clearEnemyDamageAmplifiers, applyStunEffect, isEnemyStunned, clearEnemyStunEffects, updateDerivativeShieldStates, updateEnemies (8 methods)
+  - Constants DERIVATIVE_SHIELD_RADIUS_SCALE, DERIVATIVE_SHIELD_MIN_RADIUS, DERIVATIVE_SHIELD_LINGER_MS duplicated into new file (were local consts in playfield.js)
+  - playfield.js reduced from 7,839 to 7,561 lines (278-line reduction)
+
+**Progress Notes (Build 525):**
+- CardinalWardenInputSystem.js created in `scripts/features/towers/cardinalWarden/`: 148 lines (Phase 2.1.6 continuation - input event handlers extracted from CardinalWardenSimulation)
+  - Moved: applyRingColors, initialize, attachInputHandlers, detachInputHandlers, attachVisibilityHandler, detachVisibilityHandler, handleVisibilityChange, handlePointerDown, handlePointerMove, handlePointerUp, clearAimTarget, getAimTarget (12 methods)
+  - Delegate prefix `cwInput`; no config imports needed (all state via `this`)
+- CardinalWardenStateAPI.js created in `scripts/features/towers/cardinalWarden/`: 571 lines (Phase 2.1.6 continuation - settings, color modes, warden health, weapon management, and public state API extracted)
+  - Moved: setNightMode, setEnemyTrailQuality, setBulletTrailLength, setLegacyWardenGraphics, getEnemyTrailMaxLength, getEnemySmokeMaxCount, getEnemyTrailQuality, getBulletTrailMaxLength, refreshEnemyColorsForMode, refreshBossColorsForMode, refreshBulletColorsForMode, resolveBulletColor, resize, getState, setState, setHighScore, setHighestWave, getHighestWave, applyUpgrade, getAvailableWeapons, purchaseWeapon, purchaseWeaponWithoutCost, upgradeWeapon, upgradeWeaponWithoutCost, applyWeaponUpgrades, getWeaponAttackMultiplier, getWeaponSpeedMultiplier, equipWeapon, unequipWeapon, isWeaponEquipped, getEquippedWeapons, getWeaponState, setWeaponState, setWeaponGraphemeAssignments, getWeaponGraphemeAssignments, setGraphemeInventoryCounts, checkGameOver, startDeathAnimation (38 methods)
+  - Delegate prefix `cwState`; includes private `lightenHexColor` copy; imports WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS, LEGACY_WEAPON_DEFINITIONS, VISUAL_CONFIG from cardinalWardenConfig.js
+  - cardinalWardenSimulation.js reduced from 1,825 to 1,491 lines (334-line reduction)
+  - **Phase 2.1.6 target of ~1,500 lines achieved**: cardinalWardenSimulation.js is 1,491 lines (total reduction from 6,339: 76%)
+
+**Progress Notes (Build 523-524):**
+- CardinalWardenSpawnSystem.js created in `scripts/features/towers/cardinalWarden/`: 516 lines (Phase 2.1.6 continuation - enemy/boss spawn, death animation, respawn lifecycle extracted)
+  - Moved: updateDeathAnimation, createExplosionParticles, startRespawnAnimation, updateRespawnAnimation, getEnemySpawnInterval, spawnEnemy, getEnemyTypePool, getBossSpawnInterval, getBossTypePool, spawnBoss, handleWaveBossSpawns, spawnSpecificBoss, updateBosses, spawnShipFromBoss, updateEnemies (15 methods); delegate prefix `cwSpawn`
+- CardinalWardenCombatSystem.js created in `scripts/features/towers/cardinalWarden/`: 666 lines (Phase 2.1.6 continuation - bullet update, collision detection, score/damage, waves/mines)
+  - Moved: tryBounceBulletOffTrails, updateBullets, checkCollisions, checkBeamCollisions, addScore, spawnScorePopup, spawnDamageNumber, updateScorePopups, updateDamageNumbers, updateExpandingWaves, updateMines (11 methods); delegate prefix `cwCombat`
+  - cardinalWardenSimulation.js reduced from 3,366 to 2,372 lines (994-line combined reduction for Builds 523-524)
+- CardinalWardenSpriteSystem.js created in `scripts/features/towers/cardinalWarden/`: 375 lines (Phase 2.1.6 - sprite loading, color mode, tinted grapheme cache); delegate prefix `cwSprite`
+- CardinalWardenCalculations.js created in `scripts/features/towers/cardinalWarden/`: 311 lines (Phase 2.1.6 - grapheme assignment resolution, fire rate math, shield regen, weapon timers); delegate prefix `cwCalc`
+  - cardinalWardenSimulation.js reduced from 2,372 to 1,825 lines (547-line combined reduction for Builds 523-524)
+- SHIN sprite URL arrays and resolveBossSpriteForWave moved to cardinalWardenConfig.js as exports
+
+**Progress Notes (Build 522):**
+- CardinalWardenWeaponSystem.js created in `scripts/features/towers/cardinalWarden/`: 972 lines (Phase 2.1.6 continuation - weapon firing, mine spawning, friendly ship and swarm ship logic extracted from CardinalWardenSimulation)
+  - Moved: fireWeapon, spawnMine, updateFriendlyShips, checkFriendlyShipCollisions, updateSwarmShips, checkSwarmLaserCollisions (6 methods)
+  - cardinalWardenSimulation.js reduced from 4,277 to 3,366 lines (911-line reduction); all methods replaced with thin `.call(this)` delegates using `cwWeapon` prefix
+  - CardinalWardenWeaponSystem.js imports Bullet, FriendlyShip, MathBullet from CardinalWardenEntities.js; 11 config constants from cardinalWardenConfig.js; ExpandingWave/Beam/Mine/SwarmShip/SwarmLaser from subsystem files
+  - Removed from simulation imports: Bullet, FriendlyShip, ExpandingWave, Beam, Mine, SwarmShip, SwarmLaser, checkSwarmLaserCollisionsSystem + 11 config constants
+
+**Progress Notes (Build 521):**
+- CardinalWardenEntities.js created in `scripts/features/towers/cardinalWarden/`: 773 lines (Phase 2.1.6 continuation - standalone entity classes and utilities extracted from CardinalWardenSimulation)
+  - Moved: normalizeAngle, reflectVector (module-level utilities); SeededRandom, OrbitalSquare, RingSquare, CardinalWarden, Bullet, FriendlyShip, MathBullet (7 entity classes)
+  - cardinalWardenSimulation.js reduced from 5,049 to 4,277 lines (772-line reduction); entity classes replaced with import from CardinalWardenEntities.js
+  - CardinalWardenEntities.js imports VISUAL_CONFIG, ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS, HOMING_CONFIG from cardinalWardenConfig.js
+  - Removed from simulation imports: ORBITAL_SQUARE_CONFIG, RING_SQUARE_CONFIGS, INNER_RING_CONFIGS (moved to entities file)
+
+**Progress Notes (Build 520):**
+- CardinalWardenRenderer.js created in `scripts/features/towers/cardinalWarden/`: 1,502 lines (Phase 2.1.6 continuation - all render methods extracted from CardinalWardenSimulation)
+  - Moved: renderScriptChar, renderWardenName, renderScorePopups, renderDamageNumbers, render, renderDeathAnimation, renderRespawnAnimation, renderWarden, renderAimTarget, renderWeaponTargets, renderFriendlyShips, renderEnemies, renderBosses, renderCircleCarrierBoss, renderPyramidBoss, renderHexagonFortressBoss, renderMegaBoss, renderUltraBoss, renderBullets, renderBeams, renderExpandingWaves, renderMines, renderSwarmShips, renderSwarmLasers, initializeLifeLines, updateLifeLine, renderUI (27 methods)
+  - cardinalWardenSimulation.js reduced from 6,339 to 5,049 lines (1,290-line reduction); all methods replaced with thin `.call(this)` delegates using `renderCw` prefix
+  - CardinalWardenRenderer.js imports samplePaletteGradient from colorSchemeUtils.js; ELEMENTAL_CONFIG, VISUAL_CONFIG, LIFE_LINES_CONFIG, UI_CONFIG, WEAPON_SLOT_IDS, WEAPON_SLOT_DEFINITIONS from cardinalWardenConfig.js; render delegates from BeamSystem, WaveSystem, MineSystem, SwarmSystem
+  - lightenHexColor utility duplicated locally in renderer (also retained in simulation for resolveBulletColor); samplePaletteGradient removed from simulation imports; renderBeamsSystem/renderWaveSystem/renderMinesSystem/renderSwarmShipsSystem/renderSwarmLasersSystem aliases removed from simulation
+
+**Progress Notes (Build 516–518):**
+- fluidTerrariumPlacementSystem.js created in `assets/`: 1,094 lines (Phase 4 continuation - all placement overlay, preview/confirmation, container events, bounds management, terrain mask, cave zone, and mask loading methods extracted from FluidTerrariumTrees)
+  - Moved: CONFIRMATION_DIALOG_ESTIMATED_HALF_WIDTH/HEIGHT/PADDING, TERRAIN_SEARCH_MIN_RADIUS/PERCENTAGE, PLACEMENT_DIMENSIONS constants; initializeOverlay, hidePlacementPreview, updatePlacementPreview, showPlacementConfirmation, hidePlacementConfirmation, queuePlacementForConfirmation, handleCancelPlacement, handleConfirmPlacement, commitPendingPlacement, clearPendingPlacement, handleContainerPointerMove, handleContainerPointerLeave, handleContainerClick, getNormalizedPointFromClient, getPlacementValidity, isPlacementLocationValid, getCombinedAnchors, createPlacementAnchor, getPlacementId, createEphemeralTreeState, placeActiveStoreItem, observeContainer, handleResize, refreshBounds, updateRenderBounds, resolveCaveZones, isPointInCaveZone, requiresTerrainSurface, isPointOnWalkableTerrain, buildWalkableMask, syncLevelingMode, setCameraMode, emitState, loadMasks, handleMaskLoad, extractAnchorsFromMask (36 methods)
+  - fluidTerrariumTrees.js reduced from 1,484 to 642 lines (842-line reduction); all methods replaced with thin `.call(this)` delegates using `fttps` prefix
+  - fluidTerrariumPlacementSystem.js imports only STORE_STATUS_DEFAULT from fluidTerrariumStoreSystem.js; all other state accessed via `this`
+- betSpireMergeSystem.js created in `assets/`: 495 lines (Phase 4 continuation - particle merge, tier conversion, inventory tracking, and active merge processing extracted from BetSpireRender)
+  - Moved: updateInventory, canStartNewMerge, selectRandomParticles, getGeneratorCenterForTier, enforceParticleLimit, attemptMerge, attemptTierConversion, attemptLargeTierMerge, processActiveMerges (9 methods)
+  - betSpireRender.js reduced from 1,221 to 793 lines (428-line reduction); all methods replaced with thin `.call(this)` delegates using `betMerge` prefix
+  - betSpireMergeSystem.js imports SMALL_SIZE_INDEX, MEDIUM_SIZE_INDEX, LARGE_SIZE_INDEX, EXTRA_LARGE_SIZE_INDEX, MERGE_THRESHOLD, MERGE_GATHER_THRESHOLD, MERGE_TIMEOUT_MS, PERFORMANCE_THRESHOLD, GENERATOR_CONVERSION_RADIUS, CONVERSION_SPREAD_VELOCITY, PARTICLE_TIERS, SIZE_TIERS, SPAWNER_POSITIONS, TWO_PI, MAX_PARTICLES from betSpireConfig.js; Particle from betSpireParticle.js
+- kufTrainingSystem.js created in `assets/`: 243 lines (Phase 4 continuation - HUD layout, toolbar slot handling, unit training queue, and core ship initialization extracted from KufBattlefieldSimulation)
+  - Moved: getHudLayout, getToolbarSlotIndex, getTrainingSpecForSlot, cycleToolbarSlotUnit, clearToolbarGlow, handleToolbarTap, tryStartTraining, updateTraining, spawnTrainedUnit, getBaseWorldPosition, initializeCoreShip (11 methods)
+  - kufSimulation.js reduced from 1,088 to 937 lines (151-line reduction); all methods replaced with thin `.call(this)` delegates using `kufTraining` prefix
+  - kufTrainingSystem.js imports KUF_HUD_LAYOUT, KUF_TRAINING_CATALOG, KUF_EQUIPPABLE_UNIT_IDS, KUF_CORE_SHIP_COMBAT, WORKER_BASE_COST, WORKER_COST_INCREMENT from kufSimulationConfig.js
+
+**Progress Notes (Build 515):**
+- tsadiBindingSystem.js created in `scripts/features/towers/`: 665 lines (Phase 3 continuation - all binding agent and molecule discovery methods extracted from ParticleFusionSimulation)
+  - Moved: getBindingAgentRadius, getBindingAgentMass, getBindingRodRange, getAvailableBindingAgents, setAvailableBindingAgents, addBindingAgents, setBindingAgentPreview, clearBindingAgentPreview, placeBindingAgent, findBindingAgentNear, disbandBindingAgentAt, normalizeMoleculeDescriptor, seedDiscoveredMolecules, recordDiscoveredMolecule, finalizeMoleculeDiscovery, queuePendingMolecule, processPendingMolecules, collectPendingMoleculesAt, flushPendingMolecules, areAdvancedMoleculesUnlocked, createCombinationDescriptor, recalculateMoleculeBonuses, popBindingAgent, updateBindingAgents, getDiscoveredMolecules, hasValidCombination (26 methods)
+  - tsadiTower.js reduced from 1,847 to 1,366 lines (481-line reduction); all methods replaced with thin `.call(this)` delegates
+  - tsadiBindingSystem.js imports NULL_TIER, LEGACY_MOLECULE_RECIPES, ADVANCED_MOLECULE_UNLOCK_TIER, normalizeTierList, sortTierListWithDuplicates, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations from tsadiTowerData.js
+  - Removed 7 now-exclusive imports from tsadiTower.js: LEGACY_MOLECULE_RECIPES, normalizeTierList, sortTierListWithDuplicates, hasDuplicateTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations; also removed unused hasValidMoleculeVariety import
+- fluidTerrariumStoreSystem.js created in `assets/`: 1,063 lines (Phase 4 continuation - store panel, drag system, and DEFAULT_TERRARIUM_STORE_ITEMS array extracted from FluidTerrariumTrees)
+  - Moved: DEFAULT_TERRARIUM_STORE_ITEMS constant (346-line array), STORE_STATUS_DEFAULT constant; listenForMenuClose, handleMenuCloseEvent, normalizeStoreItems, describeStoreItemType, describeStoreItemHabitat, createStoreTag, buildStorePanel, populateStoreItems, updateStoreBalanceDisplay, refreshStoreAffordances, handleStoreListPointerDown, handleStoreListPointerMove, handleStoreListPointerUp, toggleStorePanel, fadeStorePanelForDrag, restoreStorePanelOpacity, setStoreStatus, updateStoreSelectionVisuals, clearStoreSelection, getActiveStoreItem, getStoreItemById, canAffordStoreItem, purchaseStoreItem, selectStoreItem, createDragGhost, removeDragGhost, updateDragGhostPosition, updateDragGhostValidity, handleStoreItemDragStart, handleDragPointerMove, handleDragPointerUp, endStoreDrag, consumeStoreItem (33 methods)
+  - fluidTerrariumTrees.js reduced from 2,313 to 1,484 lines (829-line reduction); all methods replaced with thin `.call(this)` delegates; STORE_STATUS_DEFAULT re-imported for handleCancelPlacement
+  - No external module imports needed in fluidTerrariumStoreSystem.js (all state accessed via `this`)
+
+**Progress Notes (Build 514):**
+- lamedTowerPhysics.js created in `scripts/features/towers/`: 1,169 lines (Phase 3 continuation - all physics update, spawn, and surface-generation methods extracted from GravitySimulation)
+  - Moved: updateCoreSizeState, generateValueNoiseTexture, sampleNoise, updateSurfaceAnimation, rebuildSunSurfaceTexture, updateSunBounce, scheduleNextShootingStar, spawnShootingStar, absorbStarImmediately, spawnStar, spawnMultipleStars, spawnDustParticles, spawnGeyserBurst, updateDustParticles, updateShootingStars, updateStars, updateAsteroids, updateEffects, updateGeyserParticles (19 methods)
+  - lamedTower.js reduced from 2,421 to 1,402 lines (1,019-line reduction); all methods replaced with thin `.call(this)` delegates
+  - lamedTowerPhysics.js imports MASS_TIERS, TIER_DIAMETER_PERCENTAGES, BLACK_HOLE_MAX_DIAMETER_PERCENT, COLLAPSE_ANIMATION_SECONDS from lamedTowerData.js; clamp from shared/TowerUtils.js
+- tsadiTowerPhysics.js created in `scripts/features/towers/`: 691 lines (Phase 3 continuation - all physics/collision methods extracted from ParticleFusionSimulation)
+  - Moved: updateParticles, applyRepellingForces, handleCollisions, handleFusion, createTierExplosion, handleAlephAbsorption, triggerAlephExplosion, resetSimulation, resolveElasticCollision (9 methods)
+  - tsadiTower.js reduced from 2,456 to 1,847 lines (609-line reduction); all methods replaced with thin `.call(this)` delegates
+- betSpireInputSystem.js created in `assets/`: 208 lines (Phase 4 continuation - input/event methods extracted from BetSpireRender)
+  - Moved: setupEventListeners, removeEventListeners, getCanvasCoordinates, spawnSandParticleAtEdge, handlePointerDown, handlePointerMove, handlePointerUp (7 methods)
+- betSpireDrawSystem.js created in `assets/`: 405 lines (Phase 4 continuation - draw/animate methods extracted from BetSpireRender)
+  - Moved: animate (main render loop), drawBatchedParticles, cacheGeneratorSpritesForTier, drawSpawners (4 methods)
+  - betSpireRender.js reduced from 1,751 to 1,221 lines (530-line reduction combined for both new modules); all methods replaced with thin `.call(this)` delegates
+
+**Progress Notes (Build 513):**
+- lamedTowerRenderer.js created in `scripts/features/towers/`: 483 lines (Phase 3 continuation - render methods extracted from GravitySimulation)
+  - Moved: renderGeyserParticles (with GravitySimulation.clamp replaced by imported clamp), renderLamedSimulation (full render method)
+  - lamedTower.js reduced from 2,883 to 2,421 lines (462-line reduction); both methods replaced with thin `.call(this)` delegates
+  - lamedTowerRenderer.js imports TIER_DIAMETER_PERCENTAGES from lamedTowerData.js, clamp from shared/TowerUtils.js
+- tsadiTowerRenderer.js created in `scripts/features/towers/`: 478 lines (Phase 3 continuation - render methods extracted from ParticleFusionSimulation)
+  - Moved: renderTsadiSimulation (full render() method), renderTsadiBindingAgents, brightenColor
+  - tsadiTower.js reduced from 2,910 to 2,456 lines (454-line reduction); all three methods replaced with thin `.call(this)` delegates
+  - tsadiTowerRenderer.js imports TWO_PI, HALF_PI from shared/TowerUtils.js; getTierClassification, applyAlphaToColor from tsadiTowerData.js
+- kufInputController.js created in `assets/`: 408 lines (Phase 4 continuation - camera and input methods extracted from KufBattlefieldSimulation)
+  - Moved: resize, getEffectiveDevicePixelRatio, attachCameraControls, detachCameraControls, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleClick, handleTouchStart, handleTouchMove, handleTouchEnd, canvasToWorld, findEnemyAtPoint, handleCommandTap, issueTargetCommand, completeSelection, setAttackMoveWaypoint, getFormationWaypoints, getFocusedEnemy (20 methods)
+  - kufSimulation.js reduced from 1,391 to 1,088 lines (303-line reduction); all 20 methods replaced with thin `.call(this)` delegates
+  - kufInputController.js imports MARINE_CONFIG, TURRET_CONFIG, CAMERA_CONFIG from kufSimulationConfig.js
+
+**Progress Notes (Build 511):**
+- fluidTerrariumShroomSimulation.js created in `assets/`: 652 lines (Phase 4: Mushroom Simulation - TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms)
+  - Moved: clamp, randomBetween helpers; PHI_SHROOM_COLORS, PSI_SHROOM_STYLE, SHROOM_CONFIG constants; TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes
+  - fluidTerrariumShrooms.js reduced from 1,092 to 440 lines (652-line reduction); main FluidTerrariumShrooms controller imports the classes from the companion module
+- advancedTowers.js replaced with a 22-line barrel re-export file (Phase 4.3.1: Tower equations split by tower type)
+  - 15 individual tower blueprint files created in `assets/towerEquations/advanced/`: kappaEquation.js (185), lambdaEquation.js (153), muEquation.js (152), nuEquation.js (213), xiEquation.js (193), omicronEquation.js (215), piEquation.js (192), rhoEquation.js (131), sigmaEquation.js (107), tauEquation.js (131), upsilonEquation.js (128), phiEquation.js (123), chiEquation.js (191), psiEquation.js (220), omegaEquation.js (213)
+  - Tower-specific helpers (BET1_GLYPH, PHI constants, CHI constants, clampChiValue, resolvePhiPower, resolveChiCorePower, prestige helpers) co-located with their respective tower files
+  - index.js unchanged — still imports from advancedTowers.js which re-exports everything; no calling-code changes required
+  - assets/towerEquations/agent.md updated to document the new advanced/ subdirectory structure
+
+**Progress Notes (Build 510):**
+- fluidTerrariumTreeSimulation.js created in `assets/`: 692 lines (Phase 4: Tree Growth Simulation - 24 tree lifecycle methods extracted from FluidTerrariumTrees)
+  - Moved: getAdjustedBase, getAnchorKey, normalizeTreeState, computeLevelInfo, updateSimulationTarget, createLevelBadge, updateTreeBadge, handleUpgradeButton, spawnRipple, allocateToTree, stopHold, continueHold, attachTreeInput, attachUpgradeButton, refreshLayout, computeLayout, createCanvas, buildSimulation, isSimulationComplete, freezeTree, start, stop, handleFrame, destroy (24 methods)
+  - Also moved: resolveTerrariumTreeLevel (exported for backward compat from fluidTerrariumTrees.js), BET_TREE_DEPTH_COLORS constant
+  - fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines (631-line reduction); all methods replaced with thin `.call(this)` delegates
+  - fluidTerrariumTreeSimulation.js imports FractalTreeSimulation, FernLSystemSimulation, FlameFractalSimulation, BrownianTreeSimulation, DragonCurveSimulation, KochSnowflakeSimulation, VoronoiSubdivisionSimulation, resolveTerrariumDevicePixelRatio
+  - Removed 8 imports from fluidTerrariumTrees.js: resolveTerrariumDevicePixelRatio + all 7 fractal simulation classes
+
+**Progress Notes (Build 509):**
+- betSpireForgeSystem.js created in `assets/`: 516 lines (Phase 4.1.1 continuation - all forge crunch state management and forge draw methods extracted from BetSpireRender)
+  - Moved: checkForgeCreunch, startForgeCrunch, updateForgeCrunch, getForgeRotationSpeedMultiplier, getSmallEquivalentForSize, completeForgeCrunch, drawForgeCrunch, drawCrunchGemAwards, drawForge, drawForgeInfluenceRing (10 methods)
+  - betSpireRender.js reduced from 2,208 to 1,751 lines (457-line reduction); forge methods replaced with thin `.call(this)` delegates
+  - betSpireForgeSystem.js imports moteGemState, resolveGemDefinition from enemies.js; PI, TWO_PI, PI_OVER_SIX, HALF, FORGE_RADIUS, MAX_FORGE_ATTRACTION_DISTANCE, PARTICLE_FACTOR_EXPONENT_INCREMENT, PARTICLE_TIERS, SMALL_SIZE_INDEX, MEDIUM_SIZE_INDEX, LARGE_SIZE_INDEX, EXTRA_LARGE_SIZE_INDEX, SIZE_SMALL_EQUIVALENTS from betSpireConfig.js
+  - Removed 5 now-exclusive imports from betSpireRender.js: PI, FORGE_RADIUS, MAX_FORGE_ATTRACTION_DISTANCE, PARTICLE_FACTOR_EXPONENT_INCREMENT, SIZE_SMALL_EQUIVALENTS; removed enemies.js import entirely
+
+**Progress Notes (Build 508):**
+- kufCombatSystem.js created in `assets/`: 915 lines (Phase 4.1.2 continuation - all combat update and targeting methods extracted from KufBattlefieldSimulation)
+  - Moved: steerUnitToward, decelerateUnit, updateMarines, updateCoreShip, updateDrones, updateTurrets, triggerMineExplosion, updateExplosions, updateBullets, spawnBullet, fireTurret, getTurretAttackModifier, handleSupportDrone, findDamagedTurret, applyBulletEffects, updateMarineStatus, getFieldSlowMultiplier, findClosestTurret, findClosestMarine, findClosestPlayerTarget, findHit, isOnscreen (22 methods)
+  - kufSimulation.js reduced from 2,186 to 1,391 lines (795-line reduction); combat methods replaced with thin `.call(this)` delegates
+  - kufCombatSystem.js imports MARINE_CONFIG, SNIPER_CONFIG, SPLAYER_CONFIG, LASER_CONFIG, TURRET_CONFIG, STRUCTURE_CONFIG, GAMEPLAY_CONFIG, TWO_PI, KUF_CORE_SHIP_COMBAT, SPLAYER_SPIN_BOOST_MULTIPLIER, SPLAYER_SPIN_BOOST_DURATION from kufSimulationConfig.js
+  - Removed 9 now-unused local const aliases + SPLAYER_SPIN_BOOST_MULTIPLIER/DURATION imports + STRUCTURE_CONFIG import from kufSimulation.js
+
+**Progress Notes (Build 505):**
+- kufRenderer.js created in `assets/`: 904 lines (Phase 4.1.2 - all canvas render methods extracted from KufBattlefieldSimulation)
+  - Moved: drawBackground, drawTrianglePattern, render, shouldSkipOverlays, drawMarines, drawDrones, drawTurrets, drawBullets, drawHealthBars, drawLevelIndicators, drawExplosions, drawSelectedEnemyBox, drawBaseCore, drawTrainingToolbar, drawHud, drawSelectionBox, drawWaypointMarker, drawUnitWaypointLines
+  - Also moved: HALF_PI, KUF_SPRITE_PATHS, KUF_SPRITE_CACHE, getKufSprite (render-only sprite infrastructure)
+  - kufSimulation.js reduced from 3,009 to 2,186 lines (823-line reduction); render methods replaced with thin `.call(this)` delegates
+  - kufRenderer.js imports TWO_PI, KUF_HUD_LAYOUT from kufSimulationConfig.js
+
+**Progress Notes (Build 504):**
+- kufSimulationConfig.js extended from 164 to 235 lines (+71 lines, Phase 4.1.2 - remaining local constants extracted from kufSimulation.js)
+  - Moved: TWO_PI, KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, SPLAYER_BASE_SPIN_SPEED/MULTIPLIER/DURATION, KUF_TRAINING_CATALOG, WORKER_BASE_COST/INCREMENT, KUF_EQUIPPABLE_UNIT_IDS, KUF_TRAINING_SLOTS
+  - kufSimulation.js reduced from 3,047 to 3,009 lines (38-line reduction); all moved constants now imported from kufSimulationConfig.js
+
+**Progress Notes (Build 503):**
+- betSpireParticle.js created in `assets/`: 359 lines (Phase 4.1.2 - Particle class extracted from betSpireRender.js)
+  - Moved: entire `Particle` class (constructor, update, draw, getTier, getSizeName, getSize, getColor, getDrawStyleKey, getDrawStyle, applyMinimumReleaseVelocity) with its own imports from betSpireConfig.js
+  - betSpireRender.js reduced from 2,549 to 2,208 lines (341-line reduction); imports Particle from betSpireParticle.js; 22 betSpireConfig.js imports that were exclusive to Particle removed from betSpireRender.js
+
+**Progress Notes (Build 502):**
+- betSpireConfig.js created in `assets/`: 214 lines (Phase 4.1.1 - all physics constants, data tables, and utility functions extracted from betSpireRender.js)
+  - Moved: PI, TWO_PI, HALF_PI, QUARTER_PI, PI_OVER_SIX, DEG_TO_RAD, HALF; CANVAS_WIDTH, CANVAS_HEIGHT; all particle physics/performance/interaction/merge/spawner/veer constants; getRandomInRange, createTintedSpriteCanvas helpers; SPAWNER_POSITIONS, PARTICLE_TIERS, SIZE_TIERS, size config arrays
+  - betSpireRender.js reduced from 2,677 to 2,549 lines (128-line reduction); re-exports PARTICLE_TIERS for backward compatibility
+
+**Progress Notes (Build 501):**
+- TowerRenderHelpers.js created in `scripts/features/towers/shared/`: 110 lines (Phase 3.1.3 - `createShotSpriteCache` factory for palette-tinted projectile sprite management)
+- alphaTower.js, betaTower.js, gammaTower.js updated to use `createShotSpriteCache` factory; ~191 lines of identical sprite-loading boilerplate removed across the three files
+  - Removed: module-level `xShotSpriteImage`, `xShotSpriteReady`, `xShotSpriteNeedsRefresh` state vars + `ensureXShotSpriteImageLoaded()` + `buildXShotSpriteCache()` per tower
+  - Kept: `refreshXShotSpritePaletteCache()` export (now a thin wrapper calling `xShotSprite.refresh()`)
+  - Net: alphaTower.js -65 lines, betaTower.js -67 lines, gammaTower.js -59 lines; new shared module +110 lines
+
+**Progress Notes (Build 500):**
+- TowerUtils.js expanded with `getEffectiveDevicePixelRatio(maxDevicePixelRatio)` (Build 500 - Phase 3.1.3): standalone DPR helper shared across lamedTower.js and tsadiTower.js (145 lines total)
+- tsadiTower.js and lamedTower.js updated to import and delegate to shared `getEffectiveDevicePixelRatio`; 2 duplicate 3-line implementations removed
+- tsadiTowerData.js expanded: 14 tier utility functions + Quadtree class extracted from tsadiTower.js (~490 lines added to tsadiTowerData.js; tsadiTower.js reduced from 3,388 to ~2,909 lines)
+  - Moved: normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo, Quadtree
+  - Public API (tierToColor, getGreekTierInfo, ADVANCED_MOLECULE_UNLOCK_TIER) re-exported from tsadiTower.js for backward compatibility
+
+**Progress Notes (Build 499):**
+- TowerUtils.js expanded with `TWO_PI`, `HALF_PI`, `easeInCubic`, `easeOutCubic` (Build 499 - Phase 3.1.2/3.1.3 continued): 4 new exports added (124 lines total)
+- tsadiTower.js updated to import TWO_PI, HALF_PI from TowerUtils.js (removed 2 local duplicate const declarations)
+- fractalTreeSimulation.js updated to import TWO_PI, HALF_PI from TowerUtils.js (removed 2 local duplicate const declarations)
+- powderTowerData.js updated to re-export TWO_PI from TowerUtils.js (removed 1 local duplicate const; backward compat preserved for powderTower.js)
+- alphaTower.js updated to import easeInCubic, easeOutCubic from TowerUtils.js (removed 2 local duplicate function definitions; ~5 lines removed)
+
+**Progress Notes (Build 498):**
+- TowerUtils.js expanded with `lerp` function (Build 498 - Phase 3.1.2/3.1.3 continued): deltaTower.js and fractalRenderUtils.js updated to import lerp from TowerUtils.js; 2 more duplicate declarations removed
+
+**Progress Notes (Build 497):**
+- TowerUtils.js created in `scripts/features/towers/shared/`: 80 lines (Phase 3.1.2/3.1.3 start - clamp, distancePointToSegmentSquared, normalizeParticleColor)
+- 7 tower files updated to import from TowerUtils.js (alpha, beta, gamma, delta, lambda, nu, omega): removed ~75 lines of duplicated code across these files
+
+**Progress Notes (Build 496):**
+- powderTowerData.js created: 42 lines (Build 496 - MIN/MAX_STAR_SIZE, STAR_MAX_SPEED, star lifetime/fade constants, TWO_PI, randomInRange, MIN_MOTE_LANE_CELL_PX, POWDER_CELL_SIZE_PX, MOTE_RENDER_SCALE, MOTE_COLLISION_SCALE; Phase 3.1.1 complete)
+- powderTower.js reduced from 2,342 to 2,339 lines (imports from powderTowerData.js; re-exports public constants for backward compatibility)
+
+**Progress Notes (Build 495):**
+- lamedTowerData.js created: 84 lines (Build 495 - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class; Phase 3.1.1 start)
+- lamedTower.js reduced from 2,924 to 2,864 lines (60-line reduction; now imports static data from lamedTowerData.js)
+
+**Progress Notes (Build 490):**
+- CanvasRenderer.js reduced from 1,298 to 609 lines (Phase 2.2.6: TrackRenderer extraction; now a pure coordinator)
+- TrackRenderer.js created: 709 lines (Build 490 - drawPath, drawArcLight, drawPathLayerCache, drawEnemyGateSymbol, drawMindGateSymbol, drawNodes, path/tunnel/river/tracer helpers)
+
+**Progress Notes (Build 489):**
+- CanvasRenderer.js reduced from 2,562 to ~1,298 lines (1,264 line reduction from enemy + UI overlay renderer extractions)
+- EnemyRenderer.js created: 1,011 lines (Build 489 - drawEnemies, drawEnemyDeathParticles, drawSwarmClouds, all enemy swirl/knockback helpers, rho sparkle, debuff bar rendering; extracted from CanvasRenderer.js)
+- UIOverlayRenderer.js created: 458 lines (Build 489 - drawDamageNumbers, drawFloatingFeedback, drawWaveTallies, drawTowerMenu, drawAnimatedTowerMenu; extracted from CanvasRenderer.js)
+- ProjectileRenderer.js created: 605 lines (Build 488 - drawProjectiles, drawAlphaBursts, drawBetaBursts, drawGammaBursts, drawGammaStarBursts, drawNuBursts, drawOmegaParticles, resolveEpsilonNeedleSprite, getEnemyLookupMap; extracted from CanvasRenderer.js)
+- TowerSpriteRenderer.js created: 738 lines (Build 487 - tower body/glyph/placement/connection rendering)
+- BackgroundRenderer.js created: 381 lines (Build 486 - crystalline mosaic, sketch layer, floater lattice)
+- CardinalWardenSimulation.js at 6,264 lines (1,084 line reduction from enemy system extraction; 1,654 lines total reduction in Phase 2)
+- CombatStateManager.js created: 587 lines (Build 444-446)
+- TowerOrchestrationController.js created: 852 lines (Build 448-449)
+- RenderCoordinator.js created: 123 lines (Build 450, cleaned up Build 453)
+- DeveloperToolsService.js created: 560 lines (Build 457)
+- WaveUIFormatter.js created: 375 lines (Build 459)
+- GestureController.js created: 288 lines (Build 460)
+- FloaterSystem.js created: 174 lines (Build 461)
+- LevelLifecycleManager.js created: 462 lines (Build 463)
+- BackgroundSwimmerSystem.js created: 197 lines (Build 464)
+- ProjectileUpdateSystem.js created: 610 lines (Build 465)
+- VisualEffectsSystem.js created: 552 lines (Build 466)
+- CombatStatsManager.js created: 393 lines (Build 467)
+- PathGeometrySystem.js created: 328 lines (Build 468)
+- TowerMenuSystem.js created: 386 lines (Build 469)
+- ConnectionSystem.js created: 747 lines (Build 470)
+- WaveSystem.js created: 206 lines (Build 472 - Cardinal Warden wave propagation)
+- BeamSystem.js created: 239 lines (Build 474 - Cardinal Warden continuous beam, grapheme L)
+- MineSystem.js created: 193 lines (Build 474 - Cardinal Warden drifting mines, grapheme M)
+- SwarmSystem.js created: 304 lines (Build 475-476 - Cardinal Warden swarm ships/lasers, grapheme N)
+- EnemySystem.js created: ~1,096 lines (Build 477 - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss)
+- Total extracted: ~9,568 lines across twenty-three modules
+- Extracted combat state, tower orchestration, render loop, developer tools, wave UI formatting, gesture handling, floater particles, level lifecycle, background swimmers, projectile physics, visual effects (damage numbers, enemy death particles, PSI merge/AoE effects, swirl impacts), combat statistics tracking, path geometry (path curves, tunnel segments, river particles, Catmull-Rom spline interpolation), tower menu system (radial menu options, geometry, click handling, option execution), connection system (alpha/beta swirls, supply seeds, swarm clouds, connection effects), wave system (expanding damage waves, collision detection), beam system (continuous beam weapons, line collision, render), mine system (drifting mines, explosion waves, render), swarm system (swarm ships, swarm lasers, collision, render), enemy system (all enemy/boss classes with movement AI, elemental status effects, trail/smoke rendering), background renderer (crystalline mosaic, sketch layer, floater lattice), tower sprite renderer (tower body/glyph/placement), and projectile renderer (all projectile types + burst effects)
+- Maintained backward compatibility through delegation pattern and property getters
+- Connection system uses factory pattern with Object.assign delegation for 19 methods
+- **Note on Phase 2 Spread/Elemental/Massive items:** Spread Pattern (grapheme I), Elemental Effects (grapheme J), and Massive Bullet (grapheme K) are modifier configurations embedded in the bullet-firing loop, not standalone simulation objects with independent update/render cycles. These do not cleanly map to extractable modules and are better addressed as part of Step 2.1.6 (core simulation reduction) rather than standalone extractions.
+- **Progress to Phase 1 target:** 127.3% (Phase 1 target exceeded by 2,161 lines!)
+
+### Milestone Tracking
+
+Update this section as refactoring progresses:
+
+#### Phase 1: Critical Infrastructure
+- [x] Playfield Combat State Manager extracted (Build 444-446)
+- [x] Playfield Tower Orchestration Controller extracted (Build 448-449)
+- [x] Playfield Rendering Coordinator extracted (Build 450)
+- [x] Playfield Developer Tools Service extracted (Build 457)
+- [x] Playfield Wave UI Formatter extracted (Build 459)
+- [x] Playfield Gesture Controller extracted (Build 460)
+- [x] Playfield Floater System extracted (Build 461)
+- [x] Playfield Level Lifecycle Manager extracted (Build 463)
+- [x] Playfield Background Swimmer System extracted (Build 464)
+- [x] Playfield Projectile Update System extracted (Build 465)
+- [x] Playfield Visual Effects System extracted (Build 466)
+- [x] Playfield Combat Stats Manager extracted (Build 467)
+- [x] Playfield Path Geometry System extracted (Build 468)
+- [x] Playfield Tower Menu System extracted (Build 469)
+- [x] Playfield Connection System extracted (Build 470)
+- [ ] Playfield Input Controller enhanced
+- [x] Playfield Wave Queue System extracted (Build 628) — `WaveQueueSystem.js` (340 lines): buildCurrentWaveQueue, buildNextWaveQueue, buildActiveEnemyEntries, createWaveState, scaleWaveConfigForCycle, getCycleMultiplierFor, getCycleSpeedScalarFor; playfield.js reduced from 5,699 to 5,422 lines
+- [x] Main.js Navigation Router extracted — completed prior to Build 626 via `uiTabManager.js`, `uiHelpers.js`, `levelOverlayController.js`
+- [x] Main.js Level Grid Controller extracted (Build 626) — `levelGridController.js` (1,043 lines): buildLevelCards, updateLevelCards, updateLevelSetLocks, updateActiveLevelBanner, campaign/set expand/collapse, lock state management, SVG path previews; main.js reduced from 7,905 to 6,864 lines
+- [x] Main.js Settings Menu Controller extracted (Build 627) — `settingsMenuController.js` (74 lines): shared `bindCollapsibleMenu` factory deduplicating identical visual/control settings menu implementations; main.js reduced from 6,867 to 6,771 lines
+- [x] Main.js Bet Terrarium Controller extracted (Build 630) — `betTerrariumController.js` (806 lines): 22 terrarium creation/placement/lifecycle functions; 10 FluidTerrarium* class imports removed; main.js reduced from 6,771 to 6,074 lines (697-line reduction)
+- [x] Main.js Aleph Tier Transition Controller extracted (Build 631) — `alephTierTransitionController.js` (335 lines): 13 tier-transition animation/palette/visual functions + timing constants + ALEPH_TIER_STUB_COLORS palette; parseCssColor import removed; main.js reduced from 6,074 to 5,820 lines (254-line reduction)
+- [ ] Main.js Lifecycle Coordinator extracted
+- [ ] Main.js Event Bus implemented
+- [ ] State module pattern documented
+
+#### Phase 2: High-Complexity Features
+- [x] Cardinal Warden Wave System extracted (Build 472)
+- [x] Cardinal Warden Beam System extracted (Build 474)
+- [x] Cardinal Warden Mine System extracted (Build 474)
+- [x] Cardinal Warden Swarm System extracted (Build 475-476)
+- [x] Cardinal Warden Enemy System extracted (Build 477) - EnemyShip, RicochetSkimmer, CircleCarrierBoss, PyramidBoss, HexagonFortressBoss, MegaBoss, UltraBoss
+- [ ] Cardinal Warden Spread Pattern (grapheme I) - embedded modifier; address in Step 2.1.6
+- [ ] Cardinal Warden Elemental Effects (grapheme J) - embedded in enemy classes; address in Step 2.1.6
+- [ ] Cardinal Warden Massive Bullet (grapheme K) - embedded modifier; address in Step 2.1.6
+- [x] Canvas Background Renderer extracted (Build 486) - crystalline mosaic, sketch layer, floater lattice
+- [x] Canvas Tower Sprite Renderer extracted (Build 487) - tower body/glyph/placement/connection rendering
+- [x] Canvas Projectile Renderer extracted (Build 488) - all projectile types + burst effects (Alpha, Beta, Gamma, Nu, Omega)
+- [x] Canvas Enemy Renderer extracted (Build 489) - enemy body/swirl/shell/debuff/sparkle, death particles, swarm clouds
+- [x] Canvas UI Overlay Renderer extracted (Build 489) - damage numbers, wave tallies, floating feedback, tower menu
+- [x] Canvas Track Renderer extracted (Build 490) - path/tunnel/river track, arc tracer, gate symbols, path nodes
+
+#### Phase 3: Tower Logic Consolidation
+- [x] lamedTowerData.js extracted (Build 495) - MASS_TIERS, TIER_DIAMETER_PERCENTAGES, render constants, SeededRandom class
+- [x] powderTowerData.js extracted (Build 496) - star background constants, cell-size/mote constants, randomInRange helper
+- [x] Tower shared utility module created (Build 497) - `shared/TowerUtils.js`: clamp, distancePointToSegmentSquared, normalizeParticleColor; de-duplicated across 7 tower files (Phase 3.1.2/3.1.3)
+- [x] tsadiTowerData.js expanded (Build 500) - tier utilities (normalizeTierList, sortTierListWithDuplicates, hasValidMoleculeVariety, hasDuplicateTier, toDisplayTier, createCombinationIdFromTiers, stripCombinationPrefix, generateTierCombinations, getTierClassification, toRomanNumeral, tierToColor, colorToCssString, applyAlphaToColor, getGreekTierInfo) and Quadtree class extracted; tsadiTower.js reduced by ~479 lines
+- [x] TowerUtils.js expanded (Build 500) - `getEffectiveDevicePixelRatio` shared between lamedTower.js and tsadiTower.js
+- [x] Tower rendering helpers shared library created (Build 501) - `shared/TowerRenderHelpers.js`: `createShotSpriteCache` factory de-duplicates ~191 lines of sprite-loading boilerplate from alphaTower.js, betaTower.js, gammaTower.js
+- [x] Lamed tower renderer extracted (Build 513) - `lamedTowerRenderer.js` (483 lines): `renderGeyserParticles` + `render` methods extracted; lamedTower.js reduced from 2,883 to 2,421 lines
+- [x] Tsadi tower renderer extracted (Build 513) - `tsadiTowerRenderer.js` (478 lines): `render`, `renderBindingAgents`, `brightenColor` extracted; tsadiTower.js reduced from 2,910 to 2,456 lines
+- [x] Lamed tower physics extracted (Build 514) - `lamedTowerPhysics.js` (1,169 lines): 19 update/spawn/surface methods extracted; lamedTower.js reduced from 2,421 to 1,402 lines
+- [x] Tsadi tower physics extracted (Build 514) - `tsadiTowerPhysics.js` (691 lines): 9 physics/collision methods extracted; tsadiTower.js reduced from 2,456 to 1,847 lines
+- [x] Tsadi binding system extracted (Build 515) - `tsadiBindingSystem.js` (665 lines): 26 binding agent/molecule methods extracted; tsadiTower.js reduced from 1,847 to 1,366 lines
+- [ ] Tower behavior patterns shared library expanded
+- [ ] Tower module structure standardized
+
+#### Phase 4: Rendering and UI Systems
+- [x] Bet Spire config extracted (Build 502) - `betSpireConfig.js`: all physics constants, data tables, utilities moved out of betSpireRender.js; betSpireRender.js reduced from 2,677 to 2,549 lines
+- [x] Bet Spire particle class extracted (Build 503) - `betSpireParticle.js`: Particle class (constructor, physics update, draw, helpers) moved out of betSpireRender.js; betSpireRender.js reduced from 2,549 to 2,208 lines
+- [x] Kuf simulation config extended (Build 504) - remaining local constants (KUF_HUD_LAYOUT, KUF_CORE_SHIP_COMBAT, TWO_PI, SPLAYER spin, KUF_TRAINING_CATALOG, KUF_TRAINING_SLOTS, etc.) moved to kufSimulationConfig.js
+- [x] Kuf simulation renderer extracted (Build 505) - `kufRenderer.js` (904 lines): all 18 canvas draw methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 3,047 to 2,186 lines (861-line total reduction)
+- [x] Tree growth simulation extracted (Build 510) - `fluidTerrariumTreeSimulation.js` (692 lines): 24 tree lifecycle methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,945 to 2,314 lines
+- [x] Mushroom simulation extracted (Build 511) - `fluidTerrariumShroomSimulation.js` (652 lines): TerrainCollider, Spore, BaseShroom, PhiShroom, PsiShroom classes + constants extracted from FluidTerrariumShrooms; fluidTerrariumShrooms.js reduced from 1,092 to 440 lines
+- [x] Tower equations split by tower type (Build 511) - 15 individual `*.js` files created in `assets/towerEquations/advanced/`; `advancedTowers.js` (2,435 lines) replaced with 22-line barrel re-export
+- [x] Kuf input controller extracted (Build 513) - `kufInputController.js` (408 lines): 20 camera/input methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,391 to 1,088 lines
+- [x] Bet Spire input system extracted (Build 514) - `betSpireInputSystem.js` (208 lines): 7 input/event methods extracted from BetSpireRender
+- [x] Bet Spire draw system extracted (Build 514) - `betSpireDrawSystem.js` (405 lines): animate + 3 draw helpers extracted; betSpireRender.js reduced from 1,751 to 1,221 lines
+- [x] Tsadi binding system extracted (Build 515) - `tsadiBindingSystem.js` (665 lines): 26 binding agent/molecule discovery methods extracted from ParticleFusionSimulation; tsadiTower.js reduced from 1,847 to 1,366 lines
+- [x] Fluid Terrarium store system extracted (Build 515) - `fluidTerrariumStoreSystem.js` (1,063 lines): DEFAULT_TERRARIUM_STORE_ITEMS array + STORE_STATUS_DEFAULT constant + 33 store panel/drag methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 2,313 to 1,484 lines
+- [x] Fluid Terrarium placement system extracted (Build 516) - `fluidTerrariumPlacementSystem.js` (1,094 lines): 36 placement overlay/preview/confirmation/bounds/mask methods extracted from FluidTerrariumTrees; fluidTerrariumTrees.js reduced from 1,484 to 642 lines
+- [x] Bet Spire merge system extracted (Build 517) - `betSpireMergeSystem.js` (495 lines): 9 merge/conversion/inventory methods extracted from BetSpireRender; betSpireRender.js reduced from 1,221 to 793 lines
+- [x] Kuf training system extracted (Build 518) - `kufTrainingSystem.js` (243 lines): 11 HUD/toolbar/training/core-ship methods extracted from KufBattlefieldSimulation; kufSimulation.js reduced from 1,088 to 937 lines
+
+#### Phase 5: Stylesheet Refactoring
+- [ ] CSS layer structure created
+- [ ] Base styles extracted
+- [ ] Theme styles extracted
+- [ ] Utility styles extracted
+- [ ] Component styles extracted (all components)
+- [ ] Visual regression testing complete
+
+## Documentation Requirements
+
+### Before Starting Each Phase
+
+1. **Update `docs/REFACTORING_GUIDE.md`:**
+   - Add current file size metrics
+   - Document planned extractions
+   - Note any architectural changes
+
+2. **Update Relevant `agent.md` Files:**
+   - Document new module boundaries
+   - Update import path examples
+   - Add integration patterns
+
+3. **Review Architectural Docs:**
+   - Check consistency with `JAVASCRIPT_MODULE_SYSTEM.md`
+   - Verify alignment with `AGENTS.md` vision
+   - Update `PLATFORM_SUPPORT.md` if needed
+
+### After Completing Each Phase
+
+1. **Update Progress Tracking:**
+   - Mark completed milestones
+   - Update file size metrics
+   - Record any deviations from plan
+
+2. **Document Lessons Learned:**
+   - What worked well?
+   - What was more difficult than expected?
+   - What would you do differently?
+
+3. **Update Integration Guides:**
+   - Document new APIs and interfaces
+   - Update example usage patterns
+   - Add common pitfalls section
+
+## Continuous Integration Considerations
+
+### Future CI Pipeline (When Implemented)
+
+When the project adds automated testing:
+
+1. **Pre-Refactor Baseline:**
+   - Record performance benchmarks
+   - Run full test suite (if exists)
+   - Generate code coverage report
+
+2. **During Refactor:**
+   - Run tests on every commit
+   - Block merge if performance degrades > 10%
+   - Require manual approval for visual changes
+
+3. **Post-Refactor Validation:**
+   - Compare performance to baseline
+   - Verify test coverage unchanged or improved
+   - Run extended integration test suite
+
+## Completed Extractions
+
+### Phase 1.1.1: Combat State Manager (Build 444-446)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/managers/CombatStateManager.js` (~600 lines)
+
+**Responsibilities Extracted:**
+- Wave progression state (waveIndex, waveTimer, currentWaveNumber, etc.)
+- Enemy lifecycle management (spawning, updating, death handling)
+- Victory/defeat condition checking
+- Resource tracking (energy, lives)
+- Endless mode support (cycle multipliers, speed scaling)
+
+**Integration Pattern:**
+- Factory function with dependency injection
+- Property delegation via getters/setters for backward compatibility
+- Callback-based notifications for cross-system events
+
+**Key Learnings:**
+- No-op setters prevent "property has only a getter" errors
+- Manager should own state, playfield delegates access
+- Performance remains unchanged when delegation is lightweight
+
+### Phase 1.1.4: Developer Tools Service (Build 457)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/services/DeveloperToolsService.js` (~560 lines)
+
+**Responsibilities Extracted:**
+- Developer crystal management (spawning, damage, fractures, shards)
+- Developer tower placement and removal
+- Crystal focus tracking for tower targeting
+- All developer-only testing functionality
+
+**Consolidation:**
+- Unified `DeveloperCrystalManager.js` (381 lines) + `DeveloperTowerManager.js` (125 lines)
+- Removed Object.assign mixin pattern
+- Encapsulated state within service (crystals, shards, counters, focusedCrystalId)
+
+**Integration Pattern:**
+- Factory function: `createDeveloperToolsService(playfield)`
+- Internal state encapsulation with accessor getters
+- Property delegation (110 methods/getters) maintains backward compatibility
+- Service initialized in `enterLevel()` after tower orchestration controller
+
+**Performance Considerations:**
+- Service creation gated behind level initialization (lazy instantiation)
+- Crystal update loop remains identical (no performance impact)
+- Delegation methods are inline (minimal overhead)
+
+**Key Learnings:**
+- Delegation pattern increases line count but improves maintainability
+- Consolidating related managers reduces conceptual overhead
+- Service pattern isolates developer-only code for potential tree-shaking
+- Property getters provide clean backward compatibility
+
+---
+
+### Phase 1.1.5: Wave UI Formatter (Build 459)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/ui/WaveUIFormatter.js` (375 lines)
+
+**Responsibilities Extracted:**
+- Wave entry formatting for UI display (`buildWaveEntries`)
+- Wave group normalization and resolution
+- Enemy health exponent calculations for scientific notation
+- Enemy speed and HP formatting
+- Enemy symbol resolution (polygon shapes, codex symbols)
+- Metadata formatting for wave dialogs
+
+**Consolidation:**
+- 7 methods extracted from playfield.js
+- Total code reduction: 254 lines in playfield.js
+- Methods: `buildWaveEntries`, `resolveWaveGroups`, `calculateHealthExponent`, `formatEnemyExponentLabel`, `formatEnemySpeed`, `resolveEnemySymbol`, `resolvePolygonSymbol`
+
+**Integration Pattern:**
+- Factory function: `createWaveUIFormatter(config)`
+- State accessors passed via config: `currentWaveNumber`, `waveIndex`, `theroSymbol`
+- Delegation methods in playfield.js maintain backward compatibility
+- Clean separation: UI formatting logic isolated from game logic
+
+**Dependencies:**
+- External: `getEnemyCodexEntry` (codex.js), `formatCombatNumber` (formatting utils)
+- Internal: State accessors for wave/thero info
+- Zero coupling to combat or tower systems
+
+**Performance Considerations:**
+- Formatting operations are lightweight (no game loop impact)
+- Factory instantiation once per level entry
+- Methods pure/stateless where possible
+- No memory leaks or performance regressions
+
+**Key Learnings:**
+- Low-coupling methods are ideal extraction candidates
+- UI formatting logic cleanly separates from game logic
+- Factory pattern with state accessors provides clean dependency injection
+- Delegation wrappers maintain API compatibility with minimal overhead
+- 254-line reduction demonstrates value of targeted extractions
+
+### Phase 1.1.6: Gesture Controller (Build 460)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/input/GestureController.js` (288 lines)
+
+**Responsibilities Extracted:**
+- Tower hold gesture detection and tracking (`updateTowerHoldGesture`, `cancelTowerHoldGesture`)
+- Double-tap gesture recognition (`registerTowerTap`, `toggleTowerMenuFromTap`)
+- Tower press glow animations (`handleTowerPointerPress`, `handleTowerPointerRelease`)
+- Monotonic timestamp utility (`getCurrentTimestamp`)
+- Tower tap state management (`resetTowerTapState`)
+- Gesture timing constants (hold activation, cancel distance, double-tap thresholds)
+
+**Consolidation:**
+- 8 methods extracted from playfield.js
+- Total code reduction: 251 lines in playfield.js (net after Object.assign additions)
+- Constants extracted: `TOWER_HOLD_ACTIVATION_MS`, `TOWER_HOLD_CANCEL_DISTANCE_PX`, `TOWER_MENU_DOUBLE_TAP_INTERVAL_MS`, `TOWER_MENU_DOUBLE_TAP_DISTANCE_PX`
+
+**Integration Pattern:**
+- Object.assign delegation to SimplePlayfield.prototype
+- Methods maintain `this` context via call-site binding
+- All gesture methods exported as standalone functions
+- Constants exported for external reference (e.g., hold activation timeout)
+
+**Dependencies:**
+- Internal: playfield methods (`getTowerById`, `commitTowerHoldUpgrade`, `commitTowerHoldDemotion`, `closeTowerSelectionWheel`, `openTowerMenu`, `closeTowerMenu`)
+- Internal: playfield state (`towerHoldState`, `towerTapState`, `towerPressHighlights`, `activeTowerMenu`)
+- Zero external dependencies beyond playfield context
+
+**Performance Considerations:**
+- Methods called in pointer event handlers (high frequency during interaction)
+- Zero memory allocations in hot paths
+- Timestamp calculations use performance.now() when available
+- Gesture state reuses objects rather than creating new ones
+
+**Key Learnings:**
+- Gesture detection logic is self-contained and easily extractable
+- Object.assign pattern works well for `this`-context dependent methods
+- Exporting constants improves discoverability and reduces magic numbers
+- 251-line reduction brings playfield.js to 10,949 lines (73.1% to Phase 1 target)
+- Gesture module provides foundation for future input enhancements
+
+
+**Integration Approach:**
+- Factory function pattern with dependency injection
+- Property getters/setters for transparent delegation
+- Backward-compatible no-op setters for legacy assignments
+- Clean API: `startCombat()`, `spawnEnemies()`, `updateEnemies()`, `handleEnemyDeath()`, etc.
+
+**Impact:**
+- Playfield.js complexity reduced
+- Combat state logic testable in isolation
+- Clear separation between state management and presentation
+- Zero functionality changes or regressions
+
+**Lessons Learned:**
+1. Property getters need corresponding setters even if no-ops for backward compatibility
+2. Factory pattern with DI cleanly separates concerns without breaking existing code
+3. Manager pattern works well for stateful subsystems
+4. Thorough property access analysis critical to avoid runtime errors
+
+---
+
+### Phase 1.1.2: Tower Orchestration Controller (Build 448-449)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/controllers/TowerOrchestrationController.js` (852 lines)
+
+**Responsibilities Extracted:**
+- Tower placement and slot selection handling
+- Tower upgrade/downgrade/tier change logic
+- Tower removal and energy refund calculations
+- Connection management between towers (e.g., zeta links, gamma chains)
+- Tower menu state coordination
+
+**Integration Approach:**
+- Factory function pattern with dependency injection
+- Property getters/setters for transparent delegation (towers, slots, etc.)
+- Complex cost calculation logic preserved (demotion refund/charge)
+- Clean API: `placeTower()`, `upgradeTower()`, `demoteTowerTier()`, `removeTower()`, etc.
+
+**Impact:**
+- Tower lifecycle logic isolated from main playfield orchestration
+- Complex upgrade economics maintainable in dedicated module
+- Clear separation between tower state and combat state
+- Zero functionality changes or regressions
+
+**Lessons Learned:**
+1. Two-phase cost calculations (refund + charge) need careful validation
+2. Property delegation pattern scales well to multiple extractors
+3. Connection management between towers requires explicit state sharing
+4. Backward compatibility maintained through getter/setter wrappers
+
+---
+
+### Phase 1.1.3: Render Coordinator (Build 450)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/render/RenderCoordinator.js` (132 lines)
+
+**Responsibilities Extracted:**
+- Animation frame scheduling (`requestAnimationFrame` management)
+- Frame timing calculations (delta time, safeDelta capping)
+- Frame rate limiting based on user preferences
+- Performance monitoring integration (frame markers)
+- FPS counter updates
+
+**Integration Approach:**
+- Factory function with callback configuration
+- Configured with `update()`, `draw()`, and `shouldAnimate()` functions
+- Simple delegation: `ensureLoop()` → `startRenderLoop()`, `stopLoop()` → `stopRenderLoop()`
+- API: `startRenderLoop()`, `stopRenderLoop()`, `isRunning()`
+
+**Impact:**
+- Render loop logic testable in isolation
+- Frame timing calculations centralized
+- Clear separation between game logic and render scheduling
+- Zero performance overhead (maintains existing patterns)
+
+**Lessons Learned:**
+1. Render loop extraction is straightforward with callback pattern
+2. Performance monitoring integration must be preserved exactly
+3. Delta capping (0.12s) critical for stability during tab backgrounding
+4. Simple wrapper methods maintain backward compatibility with zero cost
+
+---
+
+## Conclusion
+
+This refactoring plan provides a comprehensive, incremental approach to breaking down monolithic files in Thero Idle TD. By following the phased strategy, validating at each step, and maintaining strict performance requirements, we can improve code maintainability without degrading the player experience.
+
+**Key Success Factors:**
+1. **Incremental changes** - Small, testable modifications
+2. **Comprehensive validation** - Test after every change
+3. **Performance vigilance** - Measure and maintain performance
+4. **Clear boundaries** - Each module has single responsibility
+5. **Documentation-first** - Update docs before and after changes
+
+**Next Steps:**
+1. Review and approve this plan
+2. Establish performance baseline measurements
+3. Begin Phase 1: Critical Infrastructure refactoring
+4. Update progress tracking regularly
+5. Adjust plan based on lessons learned
+
+---
+
+**Document Version:** 1.5  
+**Created:** Build 443  
+**Last Updated:** Build 461  
+**Status:** Phase 1 In Progress (7/9 playfield milestones complete, 74.7% to target)
+
+### Phase 1.1.14: Tower Menu System (Build 469)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/ui/TowerMenuSystem.js` (386 lines)
+
+**Responsibilities Extracted:**
+- Tower menu state management (active tower tracking, open/close animations)
+- Menu option building (upgrade, sell, info, priority, behavior modes)
+- Menu geometry calculation (radial layout in world space)
+- Click handling and option selection
+- Command execution (upgrade, sell, priority changes, Delta behavior modes)
+- Enemy target selection for Delta sentinel mode
+
+**Consolidation:**
+- 8 methods extracted from playfield.js (getActiveMenuTower, openTowerMenu, closeTowerMenu, buildTowerMenuOptions, getTowerMenuGeometry, handleTowerMenuClick, executeTowerMenuOption, handleTowerMenuEnemySelection)
+- Total code reduction: 284 lines in playfield.js (net after delegation wrappers)
+
+**Integration Pattern:**
+- Factory function: `createTowerMenuSystem(playfield)`
+- Methods maintain context via playfield instance injection
+- Delegation wrappers maintain backward compatibility
+- Clean separation: menu logic isolated from combat/tower systems
+
+**Dependencies:**
+- External: `getNextTowerId`, `getTowerDefinition`, `openTowerUpgradeOverlay` (towersTab.js), `formatCombatNumber` (formatting utils), constants (HALF_PI, TWO_PI)
+- Internal: playfield methods (`getCurrentTowerCost`, `upgradeTowerTier`, `sellTower`, `configureDeltaBehavior`, `ensureDeltaState`, `resolveEnemySymbol`)
+- Zero coupling to render or combat systems
+
+**Performance Considerations:**
+- Menu operations are event-driven (no game loop impact)
+- Factory instantiation once in constructor
+- Methods delegate to tower orchestration for state changes
+- No memory leaks or performance regressions
+
+**Key Learnings:**
+- UI system extraction benefits from factory pattern with instance injection
+- Menu geometry calculations cleanly separate from menu logic
+- Delegation pattern maintains API compatibility with zero overhead
+- 284-line reduction brings playfield.js to 8,472 lines (117.2% to Phase 1 target - exceeded by 1,472 lines)
+- Tower menu system provides foundation for future radial menu enhancements
+
+---
+
+**Document Version:** 1.6  
+**Created:** Build 443  
+**Last Updated:** Build 470  
+**Status:** Phase 1 In Progress (15/19 playfield milestones complete, 127.3% to target - Phase 1 goal EXCEEDED)
+
+### Phase 1.1.15: Connection System (Build 470)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfield/systems/ConnectionSystem.js` (747 lines)
+
+**Responsibilities Extracted:**
+- Connection particle lifecycle management (orbit, arrive, launch, swarm states)
+- Tower swirl synchronization (alpha/beta mote counts matching stored shots)
+- Supply seed creation and animation (trailing motes on supply projectiles)
+- Supply seed transfer to orbit (converting projectile seeds to tower orbits)
+- Swarm cloud persistence (lingering damage/stun clouds after stored shot impacts)
+- Connection effect rendering coordination (visual links between connected towers)
+- Particle position resolution (orbit anchors with pulse animation offsets)
+- Launch queue management (queueing and triggering stored shot discharges)
+- Swarm particle hit processing (creating damage clouds from particle impacts)
+
+**Consolidation:**
+- 19 methods extracted from playfield.js
+- Total code reduction: 633 lines in playfield.js (net after delegation wrappers)
+- Methods: `updateConnectionParticles`, `syncTowerConnectionParticles`, `createConnectionParticle`, `resolveTowerBodyRadius`, `updateConnectionOrbitParticle`, `updateConnectionArriveParticle`, `updateConnectionLaunchParticle`, `updateConnectionSwarmParticle`, `processSwarmParticleHits`, `resolveConnectionOrbitAnchor`, `resolveConnectionOrbitPosition`, `queueTowerSwirlLaunch`, `triggerQueuedSwirlLaunches`, `launchTowerConnectionParticles`, `createSupplySeeds`, `updateSupplySeeds`, `transferSupplySeedsToOrbit`, `updateSwarmClouds`, `createConnectionEffect`
+- Constants extracted: `ALPHA_STORED_SHOT_STUN_DURATION`, `BETA_STORED_SHOT_STUN_DURATION`, `SWARM_CLOUD_BASE_DURATION`, `SWARM_CLOUD_DURATION_PER_SHOT`, `SWARM_CLOUD_RADIUS_METERS`, `SWARM_PARTICLE_FADE_DURATION`, `SWARM_PARTICLE_SPREAD_SPEED`, `SWARM_CLOUD_DAMAGE_MULTIPLIER`
+
+**Integration Pattern:**
+- Factory function: `createConnectionSystem(playfield)`
+- Object.assign delegation pattern with 19 exported methods
+- Methods maintain context via playfield instance reference
+- Delegation methods return sensible defaults when system unavailable
+- System instantiated in constructor after tower menu system
+
+**Dependencies:**
+- External: `TWO_PI`, `easeOutCubic`, `easeInCubic` (mathConstants), `metersToPixels`, `ALPHA_BASE_RADIUS_FACTOR` (gameUnits)
+- Internal: playfield methods (`getTowerById`, `getEnemyPosition`, `getEnemyVisualMetrics`, `getEnemyHitRadius`, `applyDamageToEnemy`, `applyStunEffect`)
+- Internal: playfield state (`towers`, `enemies`, `towerConnectionMap`, `connectionEffects`, `swarmClouds`, `renderWidth`, `renderHeight`, `canvas`)
+- Zero coupling to rendering (delegates to CanvasRenderer for draw calls)
+
+**Performance Considerations:**
+- Connection updates run every frame during active gameplay
+- Particle state transitions are lightweight (no allocations in hot paths)
+- Swarm cloud collision checks use efficient distance calculations
+- System initialization is lazy (only created when playfield constructed)
+- Delegation overhead minimal (inline safety checks)
+
+**Key Learnings:**
+- Connection particle system is self-contained with clear state machine (orbit → arrive → launch → swarm → done)
+- Factory pattern with instance injection provides clean access to playfield state
+- Object.assign delegation pattern scales well to many methods (19 in this case)
+- Constants encapsulation improves maintainability and reduces magic numbers
+- 633-line reduction brings playfield.js to 7,839 lines (127.3% to Phase 1 target - exceeded by 2,161 lines!)
+- Connection system provides foundation for future lattice enhancements (e.g., gamma chains, zeta links)
+- Swarm cloud mechanics isolated from particle animation for easier balancing
+
+---
+
+**Document Version:** 1.6  
+**Created:** Build 443  
+**Last Updated:** Build 470  
+**Status:** Phase 1 Complete (15/15 playfield extractions, 127.3% to target - EXCEEDED by 2,161 lines)
+
+### Phase 2.1.1: Cardinal Warden Wave System (Build 473)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `scripts/features/towers/cardinalWarden/WaveSystem.js` (205 lines)
+
+**Responsibilities Extracted:**
+- ExpandingWave class for wave physics and rendering
+- Wave expansion animation (radius growth, alpha fade-out)
+- Wave-enemy collision detection with ring thickness calculations
+- Wave-boss collision detection with ring thickness calculations
+- Damage application to enemies and bosses touched by waves
+- Wave lifecycle management (spawn, update, remove finished waves)
+- Factory function for creating waves from bullet impacts
+- Callback-based integration (onDamage, onKill)
+
+**Consolidation:**
+- 1 class extracted (ExpandingWave: 40 lines)
+- 3 helper functions extracted (createWaveFromBulletImpact, updateExpandingWaves, renderExpandingWaves)
+- Total code reduction: 96 lines in cardinalWardenSimulation.js (8,015 → 7,919 lines)
+- Wave creation simplified using factory function pattern
+
+**Integration Pattern:**
+- ES6 module with class and function exports
+- ExpandingWave class maintains original implementation
+- updateExpandingWaves encapsulates collision detection and damage application
+- renderExpandingWaves provides clean rendering delegation
+- Callbacks for damage/kill events maintain loose coupling
+- Wave array mutated directly (splice for removal, sorted indices for target removal)
+
+**Dependencies:**
+- External: WAVE_CONFIG from cardinalWardenConfig.js (expansion duration, ring thickness, damage multiplier)
+- Internal: Enemy/boss takeDamage() methods, size properties
+- Zero dependencies on rendering or UI systems beyond canvas context
+
+**Performance Considerations:**
+- Wave update runs O(waves × (enemies + bosses)) per frame
+- Ring collision uses distance calculations (Math.sqrt per check)
+- Finished waves removed immediately to minimize iteration overhead
+- Hit tracking uses Set for O(1) lookup (prevents duplicate damage)
+- Wave factory function returns null for bullets without wave effects
+
+**Key Learnings:**
+- Wave system is highly modular with clear boundaries (9/10 modularity score)
+- Class extraction preserves exact behavior (no refactoring of core logic)
+- Factory pattern simplifies wave creation at bullet impact points
+- Callback pattern allows clean integration without tight coupling
+- 96-line reduction demonstrates value of targeted, focused extractions
+- Wave System establishes pattern for subsequent Cardinal Warden extractions (Beam, Mine, etc.)
+- Original estimate was 100-120 lines; actual extraction was 205 lines (more complete isolation)
+
+---
+
+### Phase 2.1.2: Cardinal Warden Beam System (Build 474)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `scripts/features/towers/cardinalWarden/BeamSystem.js` (239 lines)
+
+**Responsibilities Extracted:**
+- `Beam` class for continuous line-of-sight weapons (origin, angle, damage, width, maxLength, weaponId)
+- Per-target damage tick-rate limiting (`enemyLastDamageTime` / `bossLastDamageTime` Maps)
+- Endpoint calculation (`getEndPoint`)
+- Beam rendering with glow effect (`render`)
+- `pointToLineDistance` utility — closest-point-on-segment distance for collision detection
+- `checkBeamCollisions(beams, enemies, bosses, onDamage, onKill)` — returns `{ killedEnemyIndices, killedBossIndices }` (sorted descending, splice-safe)
+- `renderBeams(ctx, beams)` — thin render delegation
+
+**Consolidation:**
+- 1 class extracted (Beam), 3 standalone functions extracted
+- Total code reduction: ~180 lines in cardinalWardenSimulation.js
+- `checkBeamCollisions` delegation wrapper in simulation calls extracted system and splices results
+
+**Integration Pattern:**
+- ES6 module, named class and function exports
+- Callback-based integration (`onDamage`, `onKill`) mirrors WaveSystem.js pattern
+- Descending-sorted kill indices for safe in-place splice in caller
+- `Date.now()` used inside `checkBeamCollisions` for damage tick timing
+
+**Dependencies:**
+- External: `BEAM_CONFIG`, `VISUAL_CONFIG` from `cardinalWardenConfig.js`
+- Internal: Enemy/boss `takeDamage()` methods, `size`, `scoreValue` properties
+- No canvas context dependency in collision logic
+
+**Performance Considerations:**
+- Collision is O(beams × (enemies + bosses)) per frame
+- `Map`-based tick-rate limiting avoids repeated damage on same target each frame
+- `Math.hypot` used in `pointToLineDistance` for clarity; acceptable in practice (few active beams)
+
+**Key Learnings:**
+- Beam tick-rate limiting via `Date.now()` is self-contained and does not need caller coordination
+- `pointToLineDistance` is a reusable geometric utility exported for potential future callers
+- Pattern established by WaveSystem (callback + descending indices) transferred cleanly
+- Beam System extraction reduces cognitive load of collision section in simulation file
+
+---
+
+### Phase 2.1.3: Cardinal Warden Mine System (Build 474)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `scripts/features/towers/cardinalWarden/MineSystem.js` (193 lines)
+
+**Responsibilities Extracted:**
+- `Mine` class with drift physics, pulsing render, expiry and offscreen checks
+- Mine update loop: position drift, age tracking, pulse phase animation
+- Mine-enemy collision detection triggering explosion wave creation
+- Mine-boss collision detection triggering explosion wave creation
+- Mine lifecycle management (remove on explode, expire, or exit canvas bounds)
+- `updateMines(mines, enemies, bosses, w, h, dt) → ExpandingWave[]` — returns newly spawned explosion waves
+- `renderMines(ctx, mines)` — delegates to `Mine.render()`
+
+**Consolidation:**
+- 1 class extracted (Mine), 2 standalone functions extracted
+- Total code reduction: ~156 lines in cardinalWardenSimulation.js
+- Caller pushes returned `ExpandingWave[]` into `this.expandingWaves`; no circular dependency
+
+**Integration Pattern:**
+- Imports `ExpandingWave` from `WaveSystem.js` — mine explosion reuses existing wave logic
+- Return-value integration (new waves array) avoids callback coupling for wave creation
+- Mine indices sorted descending before splice to preserve array stability
+
+**Dependencies:**
+- External: `MINE_CONFIG`, `VISUAL_CONFIG` from `cardinalWardenConfig.js`
+- External: `ExpandingWave` from `./WaveSystem.js`
+- Internal: Enemy/boss `x`, `y`, `size` properties
+- No damage callbacks needed (explosion delegated to wave system)
+
+**Performance Considerations:**
+- Mine update runs O(mines × (enemies + bosses)) per frame
+- `minesToRemove.includes(i)` linear scan acceptable (few mines active at once)
+- Offscreen check uses cheap AABB comparison before sqrt
+- Pulsing visual uses `Math.sin` once per mine per render frame (lightweight)
+
+**Key Learnings:**
+- Reusing `ExpandingWave` from WaveSystem eliminates duplicate explosion logic
+- Return-value pattern (new waves array) simpler than callback for object creation
+- Mine expiry/offscreen cleanup co-located with collision logic for clarity
+- MineSystem is fully self-contained; no playfield state needed beyond canvas dimensions
+
+---
+
+### Phase 1.2.1: Playfield Layout Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/playfieldLayoutController.js` (200 lines)
+
+**Responsibilities Extracted:**
+- `getFullscreenElement()` — cross-browser fullscreen element resolution
+- `updatePlayfieldFullscreenButton(isFullscreen)` — toggle button text and ARIA labels
+- `applyPlayfieldFullscreenStyles(isFullscreen)` — CSS class toggling, orientation recalculation
+- `requestPlayfieldFullscreen()` — browser Fullscreen API request
+- `exitPlayfieldFullscreen()` — browser Fullscreen API exit
+- `syncPlayfieldFullscreenState()` — reconcile internal state with browser API
+- `togglePlayfieldFullscreen()` — combined enter/exit with CSS fallback
+- `syncPlayfieldSettingsVisibility()` — settings panel hidden/shown toggle
+- `updateLayoutVisibility()` — swap between level grid and battlefield UI
+- `bindElements()` — DOM caching and event listener setup
+
+**Consolidation:**
+- 10 functions extracted from main.js
+- 5 mutable state variables moved into controller scope (`playfieldWrapper`, `stageControls`, `levelSelectionSection`, `playfieldFullscreenActive`, `playfieldFullscreenButton`)
+- Total code reduction: ~120 lines net in main.js (after delegation wrappers)
+- DOM binding logic consolidated into single `bindElements()` entry point
+
+**Integration Pattern:**
+- Factory function: `createPlayfieldLayoutController(deps)`
+- Dependency injection: `getPlayfield`, `getActiveLevelId`, `getActiveLevelIsInteractive`, `getPlayfieldMenuController`
+- Thin const delegates in main.js forward to controller methods
+- Imports `setElementVisibility` from `./uiHelpers.js` directly
+
+**Dependencies:**
+- External: `setElementVisibility` from `uiHelpers.js`
+- Internal (injected): `playfield`, `activeLevelId`, `activeLevelIsInteractive`, `playfieldMenuController`
+- DOM: `playfield-wrapper`, `stage-controls`, `level-selection`, `playfield-fullscreen-button`, `playfield-settings-wrapper`
+- Browser APIs: `requestFullscreen`, `exitFullscreen`, `fullscreenchange`
+
+**Performance Considerations:**
+- All operations are event-driven (no game loop impact)
+- DOM queries cached in `bindElements()`, not per-frame
+- CSS class toggle is a single DOM write
+
+**Key Learnings:**
+- Fullscreen and layout visibility form a cohesive UI concern separable from game orchestration
+- Browser fullscreen API handling (vendor prefixes, state sync) benefits from encapsulation
+- `bindElements()` pattern cleanly separates DOM discovery from controller logic
+- Mutable DOM references (`playfieldWrapper` etc.) naturally belong in the controller that uses them
+
+---
+
+### Phase 1.2.2: Spire Camera Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/spireCameraController.js` (160 lines)
+
+**Responsibilities Extracted:**
+- `resetPowderCameraTransform()` — Aleph spire camera reset to default zoom/center
+- `setPowderCameraMode(enabled, options)` — toggle Aleph camera controls with optional transform reset
+- `resetFluidCameraTransform()` — Bet spire camera reset to default zoom/center
+- `syncFluidCameraModeUi()` — sync camera toggle UI state with powderState
+- `setFluidCameraMode(enabled, options)` — toggle Bet camera with terrarium tree notification
+- `bindFluidCameraModeToggle()` — wire click event for fluid camera toggle
+- `refreshPowderWallDecorations()` — convenience wrapper for wall metrics refresh
+
+**Consolidation:**
+- 7 functions extracted from main.js
+- Total code reduction: ~130 lines net in main.js (after delegation wrappers)
+- `setPowderCameraModeHandler` callback registration remains in main.js (1 line)
+
+**Integration Pattern:**
+- Factory function: `createSpireCameraController(deps)`
+- Dependency injection: `powderState`, simulation getters, UI element getters, callback functions
+- Late-bound getters for simulation instances (`getPowderSimulation`, `getFluidSimulation`, etc.)
+- Thin const delegates in main.js forward to controller methods
+
+**Dependencies:**
+- Internal (injected): `powderState`, `powderSimulation`, `fluidSimulationInstance`, `sandSimulation`
+- Internal (injected): `fluidElements`, `fluidTerrariumTrees` (via getter)
+- Callbacks: `handlePowderViewTransformChange`, `handlePowderWallMetricsChange`, `schedulePowderBasinSave`
+- No external module dependencies
+
+**Performance Considerations:**
+- Camera operations are event-driven (toggle clicks, mode switches)
+- Zoom/pan math is lightweight (`Math.abs`, division)
+- UI sync touches at most 4 DOM elements per call
+
+**Key Learnings:**
+- Aleph and Bet camera controls share symmetrical patterns (reset/set/sync) that benefit from co-location
+- Getter pattern for simulation instances avoids Temporal Dead Zone issues
+- `fluidTerrariumTrees` was a dead reference in main.js scope (optional chaining prevented errors); getter returns null cleanly. The reference existed because `setFluidCameraMode` originally shared scope with the betTerrarium code before its extraction to `betTerrariumController.js`. The terrarium controller now owns the trees instance internally.
+
+---
+
+### Phase 1.2.3: Idle Resource Bank Controller (Build 642)
+
+**Status:** ✅ Complete
+
+**Extracted File:** `assets/idleResourceBankController.js` (200 lines)
+
+**Responsibilities Extracted:**
+- `getCurrentIdleMoteBank()` — live Aleph idle mote bank with simulation hydration
+- `getCurrentMoteDispenseRate()` — combined drain rate + ambient fall cadence
+- `getCurrentFluidDropBank()` — Bet fluid bank stub (returns 0)
+- `spendFluidSerendipity(amount)` — Scintillae deduction stub (returns 0)
+- `getCurrentFluidDispenseRate()` — Bet fluid simulation drain rate
+- `addIdleMoteBank(amount, options)` — add to idle bank with spire targeting and persistence
+- `getLamedSparkBank()` / `setLamedSparkBank(amount)` — Lamed spire spark bank
+- `getTsadiParticleBank()` / `setTsadiParticleBank(amount)` — Tsadi spire particle bank
+- `flushPendingMoteDrops()` — drain pending drop queues into active simulation
+
+**Consolidation:**
+- 11 functions extracted from main.js
+- Total code reduction: ~170 lines net in main.js (after delegation wrappers)
+- All idle resource bookkeeping consolidated into single module
+
+**Integration Pattern:**
+- Factory function: `createIdleResourceBankController(deps)`
+- Dependency injection: `powderState`, simulation getters, callback functions
+- Late-bound getters for all three simulation instances
+- Thin const delegates in main.js forward to controller methods
+- Public API surface unchanged (all function names preserved)
+
+**Dependencies:**
+- Internal (injected): `powderState`
+- Internal (injected): `sandSimulation`, `powderSimulation`, `fluidSimulationInstance` (via getters)
+- Callbacks: `schedulePowderBasinSave`, `updateStatusDisplays`
+- No external module dependencies
+
+**Performance Considerations:**
+- Bank queries are lightweight (property reads + Math.max)
+- `flushPendingMoteDrops` iterates pending arrays once per flush (O(n) where n = pending drops)
+- `addIdleMoteBank` triggers save + display update (same as original)
+- No game loop overhead (called on-demand, not per-frame)
+
+**Key Learnings:**
+- Idle resource banks across all spires share a common pattern (get/set/save/sync) that benefits from co-location
+- Stub functions (`getCurrentFluidDropBank`, `spendFluidSerendipity`) documented in-place for future implementation
+- `flushPendingMoteDrops` is the most complex function but fully self-contained with clear simulation routing
+- 11-function extraction demonstrates value of grouping by domain (idle resources) rather than spire (Aleph/Bet/Lamed/Tsadi)
+
+---
+
+**Document Version:** 2.1  
+**Created:** Build 443  
+**Last Updated:** Build 642  
+**Status:** Phase 1.2 continued (main.js: 5,823→5,444 lines, 3 new controller modules Build 642); Phase 2.1.6 ✅ COMPLETE (cardinalWardenSimulation.js: 8,015→1,491 lines, 81% reduction)

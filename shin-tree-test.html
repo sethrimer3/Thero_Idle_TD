@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shin Fractal Tree - Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f1116;
+      color: #e6e6ea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      text-align: center;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      border: 2px solid #e6e6ea;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .controls {
+      width: 100%;
+      max-width: 800px;
+      background: rgba(230, 230, 234, 0.05);
+      padding: 20px;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .value-display {
+      font-weight: bold;
+      color: #a2e3f5;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    select {
+      padding: 5px;
+      background: #1a1d24;
+      color: #e6e6ea;
+      border: 1px solid #e6e6ea;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .button-group {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #e6e6ea;
+      color: #0f1116;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #a2e3f5;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Shin Fractal Tree Simulation</h1>
+  <p class="subtitle">Incremental growth with elegant ink aesthetic</p>
+
+  <div class="canvas-container">
+    <canvas id="treeCanvas" width="800" height="600"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>
+        <span>Branch Factor</span>
+        <span class="value-display" id="branchFactorValue">2</span>
+      </label>
+      <input type="range" id="branchFactor" min="2" max="3" step="1" value="2">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Angle Spread (°)</span>
+        <span class="value-display" id="baseSpreadValue">25</span>
+      </label>
+      <input type="range" id="baseSpread" min="5" max="45" step="1" value="25">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Length Decay</span>
+        <span class="value-display" id="lengthDecayValue">0.70</span>
+      </label>
+      <input type="range" id="lengthDecay" min="55" max="85" step="1" value="70">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Max Depth</span>
+        <span class="value-display" id="maxDepthValue">9</span>
+      </label>
+      <input type="range" id="maxDepth" min="6" max="13" step="1" value="9">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Angle Jitter (°)</span>
+        <span class="value-display" id="angleJitterValue">3</span>
+      </label>
+      <input type="range" id="angleJitter" min="0" max="6" step="1" value="3">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Gravity Bend</span>
+        <span class="value-display" id="gravityBendValue">0.08</span>
+      </label>
+      <input type="range" id="gravityBend" min="0" max="25" step="1" value="8">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Growth Rate</span>
+        <span class="value-display" id="growthRateValue">3</span>
+      </label>
+      <input type="range" id="growthRate" min="1" max="20" step="1" value="3">
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Render Style</span>
+      </label>
+      <select id="renderStyle">
+        <option value="straight">Straight</option>
+        <option value="bezier" selected>Bézier</option>
+      </select>
+    </div>
+
+    <div class="control-group checkbox-group">
+      <input type="checkbox" id="showLeaves">
+      <label for="showLeaves">Show Leaves</label>
+    </div>
+
+    <div class="button-group">
+      <button id="resetBtn">Reset Tree</button>
+      <button id="newSeedBtn">New Seed</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { FractalTreeSimulation } from './scripts/features/towers/fractalTreeSimulation.js';
+
+    const canvas = document.getElementById('treeCanvas');
+    let simulation = null;
+    let animationId = null;
+
+    // Initialize simulation
+    function initSimulation() {
+      const config = {
+        canvas: canvas,
+        branchFactor: parseInt(document.getElementById('branchFactor').value),
+        baseSpreadDeg: parseInt(document.getElementById('baseSpread').value),
+        lengthDecay: parseInt(document.getElementById('lengthDecay').value) / 100,
+        maxDepth: parseInt(document.getElementById('maxDepth').value),
+        angleJitterDeg: parseInt(document.getElementById('angleJitter').value),
+        gravityBend: parseInt(document.getElementById('gravityBend').value) / 100,
+        growthRate: parseInt(document.getElementById('growthRate').value),
+        renderStyle: document.getElementById('renderStyle').value,
+        showLeaves: document.getElementById('showLeaves').checked,
+      };
+
+      simulation = new FractalTreeSimulation(config);
+    }
+
+    // Animation loop
+    function animate() {
+      if (simulation) {
+        simulation.update();
+        simulation.render();
+      }
+      animationId = requestAnimationFrame(animate);
+    }
+
+    // Update value displays
+    function updateValueDisplays() {
+      document.getElementById('branchFactorValue').textContent = 
+        document.getElementById('branchFactor').value;
+      document.getElementById('baseSpreadValue').textContent = 
+        document.getElementById('baseSpread').value;
+      document.getElementById('lengthDecayValue').textContent = 
+        (parseInt(document.getElementById('lengthDecay').value) / 100).toFixed(2);
+      document.getElementById('maxDepthValue').textContent = 
+        document.getElementById('maxDepth').value;
+      document.getElementById('angleJitterValue').textContent = 
+        document.getElementById('angleJitter').value;
+      document.getElementById('gravityBendValue').textContent = 
+        (parseInt(document.getElementById('gravityBend').value) / 100).toFixed(2);
+      document.getElementById('growthRateValue').textContent = 
+        document.getElementById('growthRate').value;
+    }
+
+    // Reinitialize simulation with new config
+    function resetWithNewConfig() {
+      initSimulation();
+      updateValueDisplays();
+    }
+
+    // Event listeners for controls
+    document.getElementById('branchFactor').addEventListener('input', resetWithNewConfig);
+    document.getElementById('baseSpread').addEventListener('input', resetWithNewConfig);
+    document.getElementById('lengthDecay').addEventListener('input', resetWithNewConfig);
+    document.getElementById('maxDepth').addEventListener('input', resetWithNewConfig);
+    document.getElementById('angleJitter').addEventListener('input', resetWithNewConfig);
+    document.getElementById('gravityBend').addEventListener('input', resetWithNewConfig);
+    document.getElementById('growthRate').addEventListener('input', resetWithNewConfig);
+    document.getElementById('renderStyle').addEventListener('change', resetWithNewConfig);
+    document.getElementById('showLeaves').addEventListener('change', resetWithNewConfig);
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (simulation) {
+        simulation.reset();
+      }
+    });
+
+    document.getElementById('newSeedBtn').addEventListener('click', () => {
+      if (simulation) {
+        simulation.updateConfig({ seed: Date.now() });
+      }
+    });
+
+    // Initialize and start
+    initSimulation();
+    updateValueDisplays();
+    animate();
+  </script>
+</body>
+</html>
