@@ -5389,6 +5389,88 @@ body.playfield-fullscreen .playfield canvas {
   gap: 14px;
 }
 
+/* Give the community invite top billing across the full settings grid. */
+.discord-community-card {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: clamp(22px, 4vw, 34px);
+  border-color: rgba(171, 180, 255, 0.72);
+  background:
+    radial-gradient(circle at 8% 20%, rgba(255, 255, 255, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(62, 70, 160, 0.96), rgba(88, 101, 242, 0.94));
+  box-shadow: 0 16px 40px rgba(40, 46, 120, 0.34), inset 0 1px rgba(255, 255, 255, 0.14);
+}
+
+/* Stack the invitation copy with a compact scholarly overline. */
+.discord-community-copy {
+  display: grid;
+  gap: 7px;
+  max-width: 620px;
+}
+
+.discord-community-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.discord-community-card h3 {
+  font-size: clamp(1.55rem, 4vw, 2.15rem);
+}
+
+.discord-community-card p {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+/* Make the invite unmistakably actionable while retaining the game's monochrome type treatment. */
+.discord-community-button {
+  flex: 0 0 auto;
+  min-width: min(100%, 230px);
+  min-height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-inline: 24px;
+  color: #30356d;
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(22, 25, 68, 0.32);
+  text-decoration: none;
+}
+
+.discord-community-button:hover {
+  color: #222754;
+  background: #f2f3ff;
+  border-color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.discord-community-button__mark {
+  font-size: 1.35rem;
+}
+
+.discord-community-button__arrow {
+  font-size: 1.1rem;
+}
+
+/* Preserve the prominence without squeezing the call to action on narrow screens. */
+@media (max-width: 680px) {
+  .discord-community-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .discord-community-button {
+    width: 100%;
+  }
+}
+
 .visual-settings-card {
   display: flex;
   flex-direction: column;
